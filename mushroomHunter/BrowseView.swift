@@ -1,0 +1,220 @@
+import SwiftUI
+import Combine
+import FirebaseFirestore
+
+// MARK: - ViewModel
+
+@MainActor
+final class BrowseViewModel: ObservableObject {
+    @Published var listings: [RoomListing] = []
+    @Published var isLoading: Bool = false
+    @Published var errorMessage: String? = nil
+
+    @Published var query: String = ""
+    @Published var selectedMushroomType: String = "All"
+    @Published var showOnlyAvailable: Bool = true
+
+    // Keep consistent with your backend values (attribute strings)
+    let mushroomTypes: [String] = ["All", "Normal", "Fire", "Water", "Crystal", "Electric", "Poisonous"]
+
+    private let repo = FirebaseBrowseRepository()
+
+    func fetchListings() async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            let docs = try await withTimeout(seconds: 10) {
+                try await self.repo.fetchOpenListings(limit: 50)
+            }
+            self.listings = docs
+        } catch {
+            print("❌ fetchListings error:", error)
+            self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    @Published var joinErrorMessage: String? = nil
+
+    func join(_ listing: RoomListing) async {
+        // Optimistically mark loading to disable UI if needed
+        isLoading = true
+        defer { isLoading = false }
+            do {
+                try await withTimeout(seconds: 10) {
+                    try await self.repo.join(listing: listing)
+                }
+                // Optionally refresh listings after joining to update counts
+                await fetchListings()
+            } catch {
+            print("❌ join error:", error)
+            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            self.joinErrorMessage = message
+            self.errorMessage = message
+        }
+    }
+
+    var filteredListings: [RoomListing] {
+        listings.filter { listing in
+            if showOnlyAvailable && listing.joinedPlayers >= listing.maxPlayers { return false }
+            if selectedMushroomType != "All" && listing.mushroomType != selectedMushroomType { return false }
+
+            let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            if q.isEmpty { return true }
+            let qq = q.lowercased()
+            return listing.title.lowercased().contains(qq)
+                || listing.mushroomType.lowercased().contains(qq)
+                || (listing.hostName ?? "").lowercased().contains(qq)
+        }
+    }
+}
+
+// MARK: - View
+
+struct BrowseView: View {
+    @StateObject private var vm = BrowseViewModel()
+
+    var body: some View {
+        NavigationStack {
+            content
+                .navigationTitle("Browse")
+                .toolbar { toolbarContent }
+                .task {
+                    // Load once when view appears
+                    if vm.listings.isEmpty {
+                        await vm.fetchListings()
+                    }
+                }
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if vm.isLoading && vm.listings.isEmpty {
+            ProgressView("Loading rooms…")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemGroupedBackground))
+        } else {
+            List {
+                if let err = vm.errorMessage {
+                    Section {
+                        Text(err)
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                Section {
+                    ForEach(vm.filteredListings) { listing in
+                        RoomRow(
+                            listing: listing,
+                            onJoin: {
+                                Task { await vm.join(listing) }
+                            }
+                        )
+                    }
+
+                    if vm.filteredListings.isEmpty {
+                        ContentUnavailableView(
+                            "No rooms found",
+                            systemImage: "magnifyingglass",
+                            description: Text("Try clearing filters or searching a different keyword.")
+                        )
+                        .listRowBackground(Color.clear)
+                    }
+                } header: {
+                    Text("Available Rooms")
+                }
+            }
+            .listStyle(.insetGrouped)
+            .background(Color(.systemGroupedBackground))
+            .refreshable {
+                await vm.fetchListings()
+            }
+            .searchable(text: $vm.query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search room / type / host")
+        }
+    }
+
+    // MARK: - Toolbar / Filters
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                Picker("Mushroom Type", selection: $vm.selectedMushroomType) {
+                    ForEach(vm.mushroomTypes, id: \.self) { t in
+                        Text(t).tag(t)
+                    }
+                }
+
+                Toggle("Only show available", isOn: $vm.showOnlyAvailable)
+            } label: {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+            }
+        }
+    }
+}
+
+// MARK: - Row UI
+private struct RoomRow: View {
+    let listing: RoomListing
+    let onJoin: () -> Void
+
+    var isFull: Bool { listing.joinedPlayers >= listing.maxPlayers }
+
+    // Compute "expires in" minutes if expiresAt exists
+    private var expiresInMinutes: Int? {
+        guard let expiresAt = listing.expiresAt else { return nil }
+        let delta = Int(expiresAt.timeIntervalSinceNow / 60.0)
+        return max(delta, 0)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(listing.title)
+                        .font(.headline)
+                        .lineLimit(1)
+
+                    HStack(spacing: 8) {
+                        Label(listing.mushroomType, systemImage: "leaf")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        if let host = listing.hostName, !host.isEmpty {
+                            Text("Host: \(host)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    HStack(spacing: 8) {
+                        Text("Players: \(listing.joinedPlayers)/\(listing.maxPlayers)")
+                            .font(.subheadline)
+                            .foregroundStyle(isFull ? .red : .secondary)
+
+                        if let mins = expiresInMinutes {
+                            Text("Expires: \(mins)m")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                Button {
+                    onJoin()
+                } label: {
+                    Text(isFull ? "Full" : "Join")
+                        .frame(minWidth: 52)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isFull)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
