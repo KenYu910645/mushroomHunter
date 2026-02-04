@@ -1,10 +1,3 @@
-////
-////  SessionStore.swift
-////  mushroomHunter
-////
-////  Created by Ken on 2/2/2026.
-////
-
 import Foundation
 import FirebaseAuth
 import FirebaseCore
@@ -16,6 +9,8 @@ import Combine
 final class SessionStore: ObservableObject {
     @Published var isLoggedIn: Bool = false
     @Published var displayName: String = "Ken"
+    @Published var friendCode: String = ""          // ✅ NEW
+    @Published var stars: Int = 0   // ⭐ Community reputation
     @Published var authUid: String? = nil
 
     @Published var isLoading: Bool = false
@@ -23,13 +18,28 @@ final class SessionStore: ObservableObject {
 
     private var authHandle: AuthStateDidChangeListenerHandle?
 
+    // Local persistence keys (prototype-friendly)
+    private let kDisplayName = "mh.displayName"
+    private let kFriendCode  = "mh.friendCode"
+    private let kStars = "mh.stars"
+
     init() {
+        // Load local profile for convenience (prototype)
+        displayName = UserDefaults.standard.string(forKey: kDisplayName) ?? "Ken"
+        friendCode  = UserDefaults.standard.string(forKey: kFriendCode) ?? ""
+        stars = UserDefaults.standard.integer(forKey: kStars)
+
         authHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             guard let self else { return }
+
             self.authUid = user?.uid
             self.isLoggedIn = (user != nil)
+
+            // If Firebase provides a displayName, prefer it.
+            // (You can flip this behavior later if you want local override.)
             if let user, let name = user.displayName, !name.isEmpty {
                 self.displayName = name
+                UserDefaults.standard.set(name, forKey: self.kDisplayName)
             }
         }
     }
@@ -39,6 +49,33 @@ final class SessionStore: ObservableObject {
             Auth.auth().removeStateDidChangeListener(handle)
         }
     }
+
+    // MARK: - Profile updates (used by ProfileView)
+
+    func updateDisplayName(_ newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        displayName = trimmed
+        UserDefaults.standard.set(trimmed, forKey: kDisplayName)
+
+        // Optional: later push to Firebase user profile / Firestore users/{uid}
+        // For Google users, you *can* update Firebase displayName:
+        // Auth.auth().currentUser?.createProfileChangeRequest().displayName = trimmed ...
+    }
+
+    func updateFriendCode(_ code: String) {
+        friendCode = code
+        UserDefaults.standard.set(code, forKey: kFriendCode)
+
+        // Optional: later push to Firestore users/{uid}
+    }
+
+    func updateStars(_ newValue: Int) {
+        stars = max(0, newValue)
+        UserDefaults.standard.set(stars, forKey: kStars)
+    }
+    
+    // MARK: - Auth
 
     func signOut() {
         isLoading = true
@@ -67,7 +104,6 @@ final class SessionStore: ObservableObject {
         GIDSignIn.sharedInstance.configuration = config
 
         do {
-            // Start Google Sign-In
             let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: viewController)
 
             guard let idToken = result.user.idToken?.tokenString else {
@@ -76,64 +112,24 @@ final class SessionStore: ObservableObject {
             }
 
             let accessToken = result.user.accessToken.tokenString
-
-            // Exchange for Firebase credential
             let credential = GoogleAuthProvider.credential(withIDToken: idToken, accessToken: accessToken)
 
             let authResult = try await Auth.auth().signIn(with: credential)
 
             self.authUid = authResult.user.uid
             self.isLoggedIn = true
+
+            // Prefer Firebase display name if available
             if let name = authResult.user.displayName, !name.isEmpty {
                 self.displayName = name
+                UserDefaults.standard.set(name, forKey: self.kDisplayName)
+            } else {
+                // Keep locally saved name (already loaded in init)
+                UserDefaults.standard.set(self.displayName, forKey: self.kDisplayName)
             }
+
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 }
-
-
-//
-//import Foundation
-//import Combine
-//import FirebaseAuth
-//
-//@MainActor
-//final class SessionStore: ObservableObject {
-//    @Published var isLoggedIn: Bool = false
-//    @Published var displayName: String = "Ken"
-//    @Published var authUid: String? = nil
-//
-//    @Published var isLoading: Bool = false
-//    @Published var errorMessage: String? = nil
-//
-//    private var authHandle: AuthStateDidChangeListenerHandle?
-//
-//    init() {
-//        authHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
-//            guard let self else { return }
-//            self.authUid = user?.uid
-//            self.isLoggedIn = (user != nil)
-//        }
-//    }
-//
-//    deinit {
-//        if let handle = authHandle {
-//            Auth.auth().removeStateDidChangeListener(handle)
-//        }
-//    }
-//
-//    func signOut() {
-//        isLoading = true
-//        defer { isLoading = false }
-//
-//        do {
-//            try Auth.auth().signOut()
-//            isLoggedIn = false
-//            authUid = nil
-//        } catch {
-//            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-//        }
-//    }
-//}
