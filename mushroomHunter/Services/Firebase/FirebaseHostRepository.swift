@@ -16,6 +16,7 @@ struct FirestoreRoomCreateRequest {
     let targetSize: String
     let location: String
     let note: String
+    let hostFriendCode: String
 }
 
 final class FirebaseHostRepository {
@@ -34,6 +35,7 @@ final class FirebaseHostRepository {
             "hostUid": uid,
             "hostName": hostName,
             "hostStars": hostStars,
+            "hostFriendCode": req.hostFriendCode,
             "targetColor": req.targetColor,
             "targetAttribute": req.targetAttribute,
             "targetSize": req.targetSize,
@@ -66,6 +68,7 @@ final class FirebaseHostRepository {
             "targetSize": req.targetSize,
             "location": req.location,
             "note": req.note,
+            "hostFriendCode": req.hostFriendCode,
             "updatedAt": now
         ]
 

@@ -109,6 +109,7 @@ struct RoomDetail: Identifiable, Equatable {
     let hostUid: String
     var hostName: String
     var hostStars: Int
+    var hostFriendCode: String
     var targetMushroom: MushroomTarget
 
     /// When the room last completed a successful raid.
@@ -177,6 +178,19 @@ extension RoomDetail {
         if uid == hostUid { return .host }
         if attendees.contains(where: { $0.id == uid }) { return .attendee }
         return .viewer
+    }
+
+    var hostFriendCodeFormatted: String {
+        let digits = hostFriendCode.filter { $0.isNumber }
+        guard !digits.isEmpty else { return "—" }
+        var parts: [String] = []
+        var i = digits.startIndex
+        while i < digits.endIndex {
+            let end = digits.index(i, offsetBy: 4, limitedBy: digits.endIndex) ?? digits.endIndex
+            parts.append(String(digits[i..<end]))
+            i = end
+        }
+        return parts.joined(separator: " ")
     }
 }
 

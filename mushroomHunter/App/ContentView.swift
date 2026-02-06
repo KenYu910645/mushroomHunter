@@ -26,7 +26,7 @@ struct MainTabView: View {
         TabView {
             BrowseView(session: session)
                 .tabItem {
-                    Label("Browse", systemImage: "magnifyingglass")
+                    Label("Mushroom", systemImage: "magnifyingglass")
                 }
 
             ProfileView()

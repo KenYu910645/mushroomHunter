@@ -12,9 +12,14 @@ struct RoomListing: Identifiable, Hashable {
     let id: String
     var title: String
     var mushroomType: String
+    var targetColor: String
+    var targetAttribute: String
+    var targetSize: String
     var joinedPlayers: Int
     let maxPlayers: Int  // store from backend (default 10)
     var hostName: String?
+    var hostStars: Int
+    var location: String
     var expiresAt: Date? // optional for future
 }
 
@@ -55,14 +60,22 @@ final class FirebaseBrowseRepository {
 
             let joined = data["joinedCount"] as? Int ?? 0
             let maxPlayers = data["maxPlayers"] as? Int ?? 10
+            let targetColor = (data["targetColor"] as? String) ?? ""
+            let targetAttribute = (data["targetAttribute"] as? String) ?? ""
+            let targetSize = (data["targetSize"] as? String) ?? ""
 
             return RoomListing(
                 id: doc.documentID, // ✅ This must be used for RoomDetails route
                 title: title,
                 mushroomType: mushroomType.capitalized,
+                targetColor: targetColor,
+                targetAttribute: targetAttribute,
+                targetSize: targetSize,
                 joinedPlayers: joined,
                 maxPlayers: maxPlayers,
                 hostName: data["hostName"] as? String,
+                hostStars: data["hostStars"] as? Int ?? 0,
+                location: data["location"] as? String ?? "",
                 expiresAt: (data["expiresAt"] as? Timestamp)?.dateValue()
             )
         }

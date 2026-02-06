@@ -25,6 +25,7 @@ final class FirebaseRoomDetailsRepository {
         let hostUid = data["hostUid"] as? String ?? ""
         let hostName = data["hostName"] as? String ?? "Unknown"
         let hostStars = data["hostStars"] as? Int ?? 0
+        let hostFriendCode = data["hostFriendCode"] as? String ?? ""
 
         // Mushroom target
         let colorRaw = (data["targetColor"] as? String) ?? "red"
@@ -54,6 +55,7 @@ final class FirebaseRoomDetailsRepository {
             hostUid: hostUid,
             hostName: hostName,
             hostStars: hostStars,
+            hostFriendCode: hostFriendCode,
             targetMushroom: target,
             lastSuccessfulRaidAt: lastRaidAt,
             attendees: [],

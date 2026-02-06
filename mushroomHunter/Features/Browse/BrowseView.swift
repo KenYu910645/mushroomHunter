@@ -117,7 +117,7 @@ struct BrowseView: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("Browse")
+                .navigationTitle("Mushroom List")
                 .toolbar { toolbarContent }
                 .task {
                     if vm.listings.isEmpty {
@@ -188,8 +188,6 @@ struct BrowseView: View {
                         )
                         .listRowBackground(Color.clear)
                     }
-                } header: {
-                    Text("Available Rooms")
                 }
             }
             .listStyle(.insetGrouped)
@@ -234,6 +232,13 @@ struct BrowseView: View {
         
         var isFull: Bool { listing.joinedPlayers >= listing.maxPlayers }
         
+        private var targetSummary: String {
+            let color = formatTargetValue(listing.targetColor, allLabel: "color")
+            let attribute = formatTargetValue(listing.targetAttribute, allLabel: "attribute")
+            let size = formatTargetValue(listing.targetSize, allLabel: "size")
+            return "\(color)/\(attribute)/\(size)"
+        }
+
         // Compute "expires in" minutes if expiresAt exists
         private var expiresInMinutes: Int? {
             guard let expiresAt = listing.expiresAt else { return nil }
@@ -245,24 +250,41 @@ struct BrowseView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(listing.title)
-                            .font(.headline)
-                            .lineLimit(1)
-                        
-                        HStack(spacing: 8) {
-                            Label(listing.mushroomType, systemImage: "leaf")
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(listing.title)
+                                .font(.headline)
+                                .lineLimit(1)
+
+                            Spacer()
+
+                            if !listing.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "mappin.and.ellipse")
+                                    Text(listing.location)
+                                }
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
-                            
-                            if let host = listing.hostName, !host.isEmpty {
-                                Text("Host: \(host)")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
                             }
                         }
                         
                         HStack(spacing: 8) {
-                            Text("Players: \(listing.joinedPlayers)/\(listing.maxPlayers)")
+                            Text(targetSummary)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if let host = listing.hostName, !host.isEmpty {
+                            HStack(spacing: 6) {
+                                Text("Host: \(host)")
+                                Image(systemName: "star.fill")
+                                Text("\(listing.hostStars)")
+                            }
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        }
+                        
+                        HStack(spacing: 8) {
+                            Text("Attendee: \(listing.joinedPlayers)/\(listing.maxPlayers)")
                                 .font(.subheadline)
                                 .foregroundStyle(isFull ? .red : .secondary)
                             
@@ -277,6 +299,14 @@ struct BrowseView: View {
                     Spacer()
                 }
             }
+        }
+
+        private func formatTargetValue(_ value: String, allLabel: String) -> String {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { return "all \(allLabel)" }
+            let lower = trimmed.lowercased()
+            if lower == "all" || lower == "any" { return "all \(allLabel)" }
+            return trimmed.capitalized
         }
     }
 

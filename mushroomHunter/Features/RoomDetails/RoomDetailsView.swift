@@ -77,6 +77,7 @@ struct RoomDetailsView: View {
                 if let room = vm.room {
                     headerSection(room)
                     roomInfoSection(room)
+                    hostInfoSection(room)
                     attendeesSection(room)
                 }
             }
@@ -86,19 +87,25 @@ struct RoomDetailsView: View {
     private func headerSection(_ room: RoomDetail) -> some View {
         Section {
             VStack(alignment: .leading, spacing: 10) {
-                Text(room.title)
-                    .font(.title2.bold())
-                    .lineLimit(2)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(room.title)
+                        .font(.title2.bold())
+                        .lineLimit(2)
+
+                    Spacer()
+
+                    if !room.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        HStack(spacing: 4) {
+                            Image(systemName: "mappin.and.ellipse")
+                            Text(room.location)
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    }
+                }
 
                 HStack(spacing: 10) {
-                    Label(
-                        room.status == .open ? "Open" : "Closed",
-                        systemImage: room.status == .open ? "lock.open" : "lock"
-                    )
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                    Text("Players: \(room.attendees.count)/\(room.maxPlayers)")
+                    Text("Attendee: \(room.attendees.count)/\(room.maxPlayers)")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -109,6 +116,25 @@ struct RoomDetailsView: View {
 
     private func roomInfoSection(_ room: RoomDetail) -> some View {
         Section("Room Info") {
+            HStack {
+                Text("Target Mushroom")
+                Spacer()
+                Text(mushroomSummary(room.targetMushroom))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+            }
+
+            HStack {
+                Text("Last Successful Raid")
+                Spacer()
+                Text(room.lastSuccessfulRaidAt.relativeShortString())
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func hostInfoSection(_ room: RoomDetail) -> some View {
+        Section("Host Info") {
             HStack {
                 Text("Host")
                 Spacer()
@@ -125,17 +151,9 @@ struct RoomDetailsView: View {
             }
 
             HStack {
-                Text("Target Mushroom")
+                Text("Friend Code")
                 Spacer()
-                Text(mushroomSummary(room.targetMushroom))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.trailing)
-            }
-
-            HStack {
-                Text("Last Successful Raid")
-                Spacer()
-                Text(room.lastSuccessfulRaidAt.relativeShortString())
+                Text(room.hostFriendCodeFormatted)
                     .foregroundStyle(.secondary)
             }
         }

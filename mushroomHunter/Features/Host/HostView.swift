@@ -109,7 +109,8 @@ final class HostViewModel: ObservableObject {
                 targetAttribute: attribute.rawValue,
                 targetSize: size.rawValue,
                 location: location,
-                note: otherMessage
+                note: otherMessage,
+                hostFriendCode: session.friendCode
             )
 
             switch mode {
