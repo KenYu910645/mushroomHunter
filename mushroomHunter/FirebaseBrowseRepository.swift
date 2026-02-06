@@ -31,46 +31,39 @@ enum BrowseRepoError: LocalizedError {
 
 final class FirebaseBrowseRepository {
     private let db = Firestore.firestore()
-
-    /// Fetch open listings from /listings
-    /// - Parameters:
-    ///   - limit: max docs returned
     func fetchOpenListings(limit: Int = 50) async throws -> [RoomListing] {
-        // Query: status == "open", order by createdAt desc
-        // NOTE: this requires your docs to have "status" + "createdAt".
-        let q = db.collection("listings")
+        // ✅ Must match your createRoom(): collection is "rooms"
+        let q = db.collection("rooms")
             .whereField("status", isEqualTo: "open")
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
 
         let snap = try await q.getDocuments()
 
-        return try snap.documents.map { doc in
+        return snap.documents.map { doc in
             let data = doc.data()
 
-            guard let title = data["title"] as? String ?? data["roomTitle"] as? String else {
-                // In case you used "hostName" as title earlier, you can adjust here.
-                // For your current HostView, you likely don't have "title" yet.
-                // We'll fallback to hostName.
-                let host = data["hostName"] as? String ?? "Host"
-                return RoomListing(
-                    id: doc.documentID,
-                    title: host,
-                    mushroomType: (data["attribute"] as? String) ?? "Normal",
-                    joinedPlayers: (data["joinedCount"] as? Int) ?? 0,
-                    maxPlayers: (data["maxPlayers"] as? Int) ?? 10,
-                    hostName: (data["hostName"] as? String),
-                    expiresAt: (data["expiresAt"] as? Timestamp)?.dateValue()
-                )
-            }
+            let title = (data["title"] as? String)
+                ?? (data["roomTitle"] as? String)
+                ?? ((data["hostName"] as? String).map { "\($0)'s Room" })
+                ?? "Untitled Room"
+
+            // ✅ Your Firestore fields are: targetColor / targetAttribute / targetSize
+            // For Browse filtering, we usually show "attribute" as the "mushroomType"
+            let mushroomType = (data["targetAttribute"] as? String)
+                ?? (data["attribute"] as? String)
+                ?? "normal"
+
+            let joined = data["joinedCount"] as? Int ?? 0
+            let maxPlayers = data["maxPlayers"] as? Int ?? 10
 
             return RoomListing(
-                id: doc.documentID,
+                id: doc.documentID, // ✅ This must be used for RoomDetails route
                 title: title,
-                mushroomType: (data["attribute"] as? String) ?? "Normal",
-                joinedPlayers: (data["joinedCount"] as? Int) ?? 0,
-                maxPlayers: (data["maxPlayers"] as? Int) ?? 10,
-                hostName: (data["hostName"] as? String),
+                mushroomType: mushroomType.capitalized,
+                joinedPlayers: joined,
+                maxPlayers: maxPlayers,
+                hostName: data["hostName"] as? String,
                 expiresAt: (data["expiresAt"] as? Timestamp)?.dateValue()
             )
         }

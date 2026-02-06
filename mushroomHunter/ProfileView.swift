@@ -19,6 +19,16 @@ struct ProfileView: View {
     @State private var draftFriendCode: String = ""
     @State private var friendCodeError: String? = nil
 
+    // host room
+    @State private var isHostLoading: Bool = false
+    @State private var hostErrorMessage: String? = nil
+    @State private var hostedRooms: [HostedRoomSummary] = []
+
+    private let hostRepo = FirebaseProfileHostRepository()
+
+    // Host rooms (MVP: mock; later: load from Firestore)
+    //@State private var hostedRooms: [HostedRoomStub] = []
+
     var body: some View {
         NavigationStack {
             Form {
@@ -41,11 +51,7 @@ struct ProfileView: View {
                             }
 
                             Button {
-                                if isEditingName {
-                                    // do nothing; save/cancel buttons handle it
-                                } else {
-                                    isEditingName = true
-                                }
+                                if !isEditingName { isEditingName = true }
                             } label: {
                                 Image(systemName: "pencil")
                             }
@@ -69,7 +75,7 @@ struct ProfileView: View {
                                 Button("Save") {
                                     let trimmed = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
                                     guard !trimmed.isEmpty else { return }
-                                    session.displayName = trimmed
+                                    session.updateDisplayName(trimmed)
                                     isEditingName = false
                                 }
                                 .buttonStyle(.borderedProminent)
@@ -91,7 +97,6 @@ struct ProfileView: View {
                                     .keyboardType(.numberPad)
                                     .textContentType(.oneTimeCode)
                                     .onChange(of: draftFriendCode) { _, newValue in
-                                        // Keep only digits, limit to 12
                                         let digitsOnly = newValue.filter { $0.isNumber }
                                         if digitsOnly != newValue {
                                             draftFriendCode = digitsOnly
@@ -99,8 +104,6 @@ struct ProfileView: View {
                                         if draftFriendCode.count > 12 {
                                             draftFriendCode = String(draftFriendCode.prefix(12))
                                         }
-
-                                        // Live validation
                                         friendCodeError = validateFriendCode(draftFriendCode)
                                     }
                             } else {
@@ -112,7 +115,6 @@ struct ProfileView: View {
                             Button {
                                 if !isEditingFriendCode {
                                     isEditingFriendCode = true
-                                    // ensure draft is digits-only
                                     draftFriendCode = session.friendCode.filter { $0.isNumber }
                                     friendCodeError = validateFriendCode(draftFriendCode)
                                 }
@@ -145,7 +147,7 @@ struct ProfileView: View {
 
                                 Button("Save") {
                                     if validateFriendCode(draftFriendCode) == nil {
-                                        session.updateFriendCode(draftFriendCode) // store digits only
+                                        session.updateFriendCode(draftFriendCode)
                                         isEditingFriendCode = false
                                         friendCodeError = nil
                                     } else {
@@ -175,10 +177,73 @@ struct ProfileView: View {
                             .font(.headline)
                             .monospacedDigit()
                     }
+
+                    HStack {
+                        Label("Honey", systemImage: "drop.fill")
+                            .foregroundStyle(.orange)
+
+                        Spacer()
+
+                        Text("\(session.honey)")
+                            .font(.headline)
+                            .monospacedDigit()
+                    }
+
                 } header: {
                     Text("Community")
                 } footer: {
-                    Text("Stars reflect your contribution and reliability in the community.")
+                    Text("Stars reflect trust. Honey is your in-app balance (read-only for now).")
+                }
+
+                // MARK: - Host
+                Section {
+                    if let err = hostErrorMessage {
+                        Text(err)
+                            .foregroundStyle(.red)
+                    }
+
+                    if isHostLoading && hostedRooms.isEmpty {
+                        HStack {
+                            ProgressView()
+                            Text("Loading hosted rooms…")
+                                .foregroundStyle(.secondary)
+                        }
+                    } else if hostedRooms.isEmpty {
+                        ContentUnavailableView(
+                            "No hosted rooms",
+                            systemImage: "house",
+                            description: Text("Rooms you host will appear here.")
+                        )
+                        .listRowBackground(Color.clear)
+                    } else {
+                        ForEach(hostedRooms) { r in
+                            NavigationLink {
+                                RoomDetailsView(
+                                    vm: RoomDetailsViewModel(roomId: r.id, session: session)
+                                )
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text(r.title)
+                                            .font(.headline)
+                                            .lineLimit(1)
+                                        Spacer()
+                                        Text(r.status.lowercased() == "open" ? "Open" : "Closed")
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                    }
+
+                                    Text("Players: \(r.joinedCount)/\(r.maxPlayers)")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Host")
+                } footer: {
+                    Text("This list is loaded from Firestore: /rooms where hostUid == your uid.")
                 }
 
                 // MARK: Sign out
@@ -193,13 +258,17 @@ struct ProfileView: View {
                 }
             }
             .navigationTitle("Profile")
+            .task { await loadHostedRooms() }
+            .refreshable { await loadHostedRooms() }
         }
         .onAppear {
             draftName = session.displayName
-            draftFriendCode = session.friendCode ?? ""
+            draftFriendCode = session.friendCode
             friendCodeError = nil
         }
     }
+
+    // MARK: - Validation / Formatting
 
     private func validateFriendCode(_ code: String) -> String? {
         if code.isEmpty { return "Friend code is required." }
@@ -207,18 +276,52 @@ struct ProfileView: View {
         if code.allSatisfy({ $0.isNumber }) == false { return "Friend code must contain digits only." }
         return nil
     }
+
+    private func loadHostedRooms() async {
+        guard session.isLoggedIn else { return }
+
+        isHostLoading = true
+        hostErrorMessage = nil
+        defer { isHostLoading = false }
+
+        do {
+            let rooms = try await hostRepo.fetchMyHostedRooms(limit: 50)
+            hostedRooms = rooms
+        } catch is CancellationError {
+            return
+        } catch {
+            print("❌ loadHostedRooms error:", error)
+            hostErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func formatFriendCode(_ raw: String) -> String {
+        let digits = raw.filter { $0.isNumber }
+        var parts: [String] = []
+        var i = digits.startIndex
+        while i < digits.endIndex {
+            let end = digits.index(i, offsetBy: 4, limitedBy: digits.endIndex) ?? digits.endIndex
+            parts.append(String(digits[i..<end]))
+            i = end
+        }
+        return parts.joined(separator: " ")
+    }
 }
 
+// MARK: - Host room stub (MVP)
 
-private func formatFriendCode(_ raw: String) -> String {
-    let digits = raw.filter { $0.isNumber }
-    // Group into chunks of 4: 1234 5678 2345
-    var parts: [String] = []
-    var i = digits.startIndex
-    while i < digits.endIndex {
-        let end = digits.index(i, offsetBy: 4, limitedBy: digits.endIndex) ?? digits.endIndex
-        parts.append(String(digits[i..<end]))
-        i = end
+private struct HostedRoomStub: Identifiable {
+    let id: String
+    let roomId: String
+    let title: String
+}
+
+private extension ProfileView {
+    static func mockHostedRooms(for name: String) -> [HostedRoomStub] {
+        // Just 2 sample rooms. Replace with Firestore later.
+        [
+            .init(id: "h1", roomId: "room_ken_001", title: "\(name)’s Fire Hunt"),
+            .init(id: "h2", roomId: "room_ken_002", title: "\(name)’s Water Squad")
+        ]
     }
-    return parts.joined(separator: " ")
 }

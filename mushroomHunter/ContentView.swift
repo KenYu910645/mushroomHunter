@@ -27,11 +27,6 @@ struct MainTabView: View {
                     Label("Browse", systemImage: "magnifyingglass")
                 }
 
-            HostView()
-                .tabItem {
-                    Label("Host", systemImage: "plus.circle")
-                }
-
             ProfileView()
                 .tabItem {
                     Label("Profile", systemImage: "person.circle")

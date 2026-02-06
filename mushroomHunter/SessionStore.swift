@@ -11,6 +11,7 @@ final class SessionStore: ObservableObject {
     @Published var displayName: String = "Ken"
     @Published var friendCode: String = ""          // ✅ NEW
     @Published var stars: Int = 0   // ⭐ Community reputation
+    @Published var honey: Int = 0
     @Published var authUid: String? = nil
 
     @Published var isLoading: Bool = false

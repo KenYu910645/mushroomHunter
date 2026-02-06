@@ -1,54 +1,26 @@
 import SwiftUI
 import Combine
 
-// MARK: - Enums
-
-enum MushroomColor: String, CaseIterable, Identifiable {
-    case red = "Red"
-    case yellow = "Yellow"
-    case blue = "Blue"
-    case purple = "Purple"
-    case white = "White"
-    case gray = "Gray"
-    case pink = "Pink"
-
-    var id: String { rawValue }
-}
-
-enum MushroomAttribute: String, CaseIterable, Identifiable {
-    case normal = "Normal"
-    case fire = "Fire"
-    case water = "Water"
-    case crystal = "Crystal"
-    case electric = "Electric"
-    case poisonous = "Poisonous"
-
-    var id: String { rawValue }
-}
-
-enum MushroomSize: String, CaseIterable, Identifiable {
-    case small = "Small"
-    case normal = "Normal"
-    case magnificent = "Magnificent"
-
-    var id: String { rawValue }
-}
-
 // MARK: - ViewModel
+import Foundation
 
 @MainActor
 final class HostViewModel: ObservableObject {
+    // Dependencies
+    private unowned let session: SessionStore
+    private let repo: FirebaseHostRepository
+
     // Inputs
     @Published var hostName: String = ""
-    @Published var color: MushroomColor = .red
-    @Published var attribute: MushroomAttribute = .normal
-    @Published var size: MushroomSize = .normal
+    @Published var color: MushroomColor = .Red
+    @Published var attribute: MushroomAttribute = .Normal
+    @Published var size: MushroomSize = .Normal
     @Published var location: String = ""
     @Published var otherMessage: String = ""
 
     // UI State
     @Published var showSuccessAlert: Bool = false
-    @Published var successListingId: String? = nil
+    @Published var successRoomId: String? = nil
     @Published var errorMessage: String? = nil
     @Published var isSubmitting: Bool = false
 
@@ -56,10 +28,14 @@ final class HostViewModel: ObservableObject {
     static let hostNameMaxChars = 30
     static let otherMaxWords = 500
 
-    private let repo = FirebaseListingsRepository()
+    init(session: SessionStore, repo: FirebaseHostRepository = FirebaseHostRepository()) {
+        self.session = session
+        self.repo = repo
+    }
 
     var hostNameRemaining: Int { Self.hostNameMaxChars - hostName.count }
     var otherWordCount: Int { Self.wordCount(otherMessage) }
+
     var canSubmit: Bool {
         let nameOK = !hostName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let locOK = !location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -81,85 +57,47 @@ final class HostViewModel: ObservableObject {
 
         isSubmitting = true
         errorMessage = nil
-        successListingId = nil
+        successRoomId = nil
+        showSuccessAlert = false
 
         print("🚀 submit(): start creating host room")
 
-        defer {
-            // Always stop spinner, no matter what
-            isSubmitting = false
-        }
+        defer { isSubmitting = false }
 
         do {
-            let req = ListingCreateRequest(
-                hostName: hostName,
-                mushroomColor: color.rawValue,
-                attribute: attribute.rawValue,
-                size: size.rawValue,
-                location: location,
-                note: otherMessage
+            let roomId = try await repo.createRoom(
+                req: .init(
+                    title: hostName,
+                    targetColor: color.rawValue,
+                    targetAttribute: attribute.rawValue,
+                    targetSize: size.rawValue,
+                    location: location,
+                    note: otherMessage
+                ),
+                hostName: session.displayName,
+                hostStars: session.stars
             )
 
-            // ⏱️ Timeout after 10 seconds
-            let listingId = try await withTimeout(seconds: 10) {
-                print("📡 submit(): calling repo.createListing...")
-                return try await self.repo.createListing(req)
-            }
-
-            print("✅ submit(): created listing id =", listingId)
-
-            successListingId = listingId
+            print("✅ submit(): created room id =", roomId)
+            successRoomId = roomId
             showSuccessAlert = true
 
         } catch {
-            // Full debug log
             print("❌ submit(): error =", error)
-
-            // User-facing error
-            if let le = error as? LocalizedError,
-               let msg = le.errorDescription {
-                errorMessage = msg
-            } else {
-                errorMessage = error.localizedDescription
-            }
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
-    
-//    func submit() async {
-//        guard canSubmit else { return }
-//        isSubmitting = true
-//        errorMessage = nil
-//        successListingId = nil
-//
-//        do {
-//            let req = ListingCreateRequest(
-//                hostName: hostName,
-//                mushroomColor: color.rawValue,
-//                attribute: attribute.rawValue,
-//                size: size.rawValue,
-//                location: location,
-//                note: otherMessage
-//            )
-//
-//            let listingId = try await repo.createListing(req)
-//            successListingId = listingId
-//            showSuccessAlert = true
-//        } catch {
-//            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-//        }
-//
-//        isSubmitting = false
-//    }
 
     func reset() {
         hostName = ""
-        color = .red
-        attribute = .normal
-        size = .normal
+        color = .Red
+        attribute = .Normal
+        size = .Normal
         location = ""
         otherMessage = ""
         errorMessage = nil
-        successListingId = nil
+        successRoomId = nil
+        showSuccessAlert = false
     }
 
     // MARK: Word utils
@@ -177,48 +115,54 @@ final class HostViewModel: ObservableObject {
 // MARK: - View
 
 struct HostView: View {
-    @StateObject private var vm = HostViewModel()
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var session: SessionStore
+    @StateObject private var vm: HostViewModel
+
+    init(vm: HostViewModel) {
+        _vm = StateObject(wrappedValue: vm)
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 // Host name
                 Section {
-                    TextField("Host name (max 30 chars)", text: $vm.hostName)
+                    TextField("Ex: Let's fight mushroom", text: $vm.hostName)
                         .onChange(of: vm.hostName) { _, _ in vm.enforceLimits() }
                         .textInputAutocapitalization(.words)
                         .submitLabel(.done)
 
-                    HStack {
-                        Text("Remaining")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text("\(max(vm.hostNameRemaining, 0))")
-                            .foregroundColor(vm.hostNameRemaining >= 0 ? .secondary : .red)
-                            .monospacedDigit()
-                    }
+//                    HStack {
+//                        Text("Remaining")
+//                            .foregroundStyle(.secondary)
+//                        Spacer()
+//                        Text("\(max(vm.hostNameRemaining, 0))")
+//                            .foregroundColor(vm.hostNameRemaining >= 0 ? .secondary : .red)
+//                            .monospacedDigit()
+//                    }
                 } header: {
-                    Text("Host Name")
+                    Text("Room Name")
                 } footer: {
                     Text("Supports multiple languages. Keep it short and recognizable.")
                 }
 
                 // Mushroom properties
-                Section("Mushroom") {
+                Section("Target Mushroom") {
                     Picker("Color", selection: $vm.color) {
-                        ForEach(MushroomColor.allCases) { c in
+                        ForEach(MushroomColor.allCases, id: \.self) { c in
                             Text(c.rawValue).tag(c)
                         }
                     }
 
                     Picker("Attribute", selection: $vm.attribute) {
-                        ForEach(MushroomAttribute.allCases) { a in
+                        ForEach(MushroomAttribute.allCases, id: \.self) { a in
                             Text(a.rawValue).tag(a)
                         }
                     }
 
                     Picker("Size", selection: $vm.size) {
-                        ForEach(MushroomSize.allCases) { s in
+                        ForEach(MushroomSize.allCases, id: \.self) { s in
                             Text(s.rawValue).tag(s)
                         }
                     }
@@ -252,7 +196,7 @@ struct HostView: View {
                             .monospacedDigit()
                     }
                 } header: {
-                    Text("Other")
+                    Text("Room Description")
                 } footer: {
                     Text("Max 500 words. Use it for extra notes like time window, expectations, or friend code.")
                 }
@@ -283,7 +227,18 @@ struct HostView: View {
                     .disabled(!vm.canSubmit)
                 }
             }
-            .navigationTitle("Host")
+            .navigationTitle("Create Room")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.headline)
+                    }
+                    .accessibilityLabel("Close")
+                }
+            }
             .alert("Host room created!", isPresented: $vm.showSuccessAlert) {
                 Button("OK") { }
                 Button("Reset Form") { vm.reset() }

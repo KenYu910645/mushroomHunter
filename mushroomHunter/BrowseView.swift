@@ -29,6 +29,9 @@ final class BrowseViewModel: ObservableObject {
                 try await self.repo.fetchOpenListings(limit: 50)
             }
             self.listings = docs
+        } catch is CancellationError {
+            // ✅ Normal: user pulled to refresh / view reloaded / task replaced
+            return
         } catch {
             print("❌ fetchListings error:", error)
             self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -74,21 +77,25 @@ final class BrowseViewModel: ObservableObject {
 
 struct BrowseView: View {
     @StateObject private var vm = BrowseViewModel()
-
+    @EnvironmentObject private var session: SessionStore
+    @State private var showHostSheet: Bool = false
+    
     var body: some View {
         NavigationStack {
             content
                 .navigationTitle("Browse")
                 .toolbar { toolbarContent }
                 .task {
-                    // Load once when view appears
                     if vm.listings.isEmpty {
                         await vm.fetchListings()
                     }
                 }
         }
+        .sheet(isPresented: $showHostSheet) {
+            HostView(vm: HostViewModel(session: session))
+        }
     }
-
+    
     @ViewBuilder
     private var content: some View {
         if vm.isLoading && vm.listings.isEmpty {
@@ -103,17 +110,23 @@ struct BrowseView: View {
                             .foregroundStyle(.red)
                     }
                 }
-
+                
                 Section {
                     ForEach(vm.filteredListings) { listing in
-                        RoomRow(
-                            listing: listing,
-                            onJoin: {
-                                Task { await vm.join(listing) }
-                            }
-                        )
+                        NavigationLink {
+                            RoomDetailsView(
+                                vm: RoomDetailsViewModel(roomId: listing.id, session: session)
+                            )
+                        } label: {
+                            RoomRow(
+                                listing: listing,
+                                onJoin: {
+                                    Task { await vm.join(listing) }
+                                }
+                            )
+                        }
                     }
-
+                    
                     if vm.filteredListings.isEmpty {
                         ContentUnavailableView(
                             "No rooms found",
@@ -134,87 +147,85 @@ struct BrowseView: View {
             .searchable(text: $vm.query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search room / type / host")
         }
     }
-
+    
     // MARK: - Toolbar / Filters
-
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Picker("Mushroom Type", selection: $vm.selectedMushroomType) {
-                    ForEach(vm.mushroomTypes, id: \.self) { t in
-                        Text(t).tag(t)
-                    }
-                }
-
-                Toggle("Only show available", isOn: $vm.showOnlyAvailable)
-            } label: {
-                Image(systemName: "line.3.horizontal.decrease.circle")
-            }
-        }
-    }
-}
-
-// MARK: - Row UI
-private struct RoomRow: View {
-    let listing: RoomListing
-    let onJoin: () -> Void
-
-    var isFull: Bool { listing.joinedPlayers >= listing.maxPlayers }
-
-    // Compute "expires in" minutes if expiresAt exists
-    private var expiresInMinutes: Int? {
-        guard let expiresAt = listing.expiresAt else { return nil }
-        let delta = Int(expiresAt.timeIntervalSinceNow / 60.0)
-        return max(delta, 0)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(listing.title)
-                        .font(.headline)
-                        .lineLimit(1)
-
-                    HStack(spacing: 8) {
-                        Label(listing.mushroomType, systemImage: "leaf")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-
-                        if let host = listing.hostName, !host.isEmpty {
-                            Text("Host: \(host)")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    HStack(spacing: 8) {
-                        Text("Players: \(listing.joinedPlayers)/\(listing.maxPlayers)")
-                            .font(.subheadline)
-                            .foregroundStyle(isFull ? .red : .secondary)
-
-                        if let mins = expiresInMinutes {
-                            Text("Expires: \(mins)m")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-
-                Spacer()
-
+            HStack(spacing: 12) {
                 Button {
-                    onJoin()
+                    showHostSheet = true
                 } label: {
-                    Text(isFull ? "Full" : "Join")
-                        .frame(minWidth: 52)
+                    Image(systemName: "plus.circle.fill")
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(isFull)
+                .accessibilityLabel("Create host room")
+                
+                Menu {
+                    Picker("Mushroom Type", selection: $vm.selectedMushroomType) {
+                        ForEach(vm.mushroomTypes, id: \.self) { t in
+                            Text(t).tag(t)
+                        }
+                    }
+                    
+                    Toggle("Only show available", isOn: $vm.showOnlyAvailable)
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                }
             }
         }
-        .padding(.vertical, 4)
+    }
+    
+    // MARK: - Row UI
+    private struct RoomRow: View {
+        let listing: RoomListing
+        let onJoin: () -> Void
+        
+        var isFull: Bool { listing.joinedPlayers >= listing.maxPlayers }
+        
+        // Compute "expires in" minutes if expiresAt exists
+        private var expiresInMinutes: Int? {
+            guard let expiresAt = listing.expiresAt else { return nil }
+            let delta = Int(expiresAt.timeIntervalSinceNow / 60.0)
+            return max(delta, 0)
+        }
+        
+        var body: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(listing.title)
+                            .font(.headline)
+                            .lineLimit(1)
+                        
+                        HStack(spacing: 8) {
+                            Label(listing.mushroomType, systemImage: "leaf")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            
+                            if let host = listing.hostName, !host.isEmpty {
+                                Text("Host: \(host)")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        
+                        HStack(spacing: 8) {
+                            Text("Players: \(listing.joinedPlayers)/\(listing.maxPlayers)")
+                                .font(.subheadline)
+                                .foregroundStyle(isFull ? .red : .secondary)
+                            
+                            if let mins = expiresInMinutes {
+                                Text("Expires: \(mins)m")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    
+                    Spacer()
+                }
+            }
+            .padding(.vertical, 4)
+        }
     }
 }
-
