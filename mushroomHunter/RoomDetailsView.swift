@@ -8,14 +8,19 @@
 import SwiftUI
 
 struct RoomDetailsView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let onRoomClosed: (() -> Void)?
+
     @StateObject private var vm: RoomDetailsViewModel
 
     // Bid input for viewer/attendee
     @State private var bidText: String = ""
 
     /// ✅ New initializer: pass VM from caller (BrowseView already does this)
-    init(vm: RoomDetailsViewModel) {
+    init(vm: RoomDetailsViewModel, onRoomClosed: (() -> Void)? = nil) {
         _vm = StateObject(wrappedValue: vm)
+        self.onRoomClosed = onRoomClosed
     }
 
     var body: some View {
@@ -222,32 +227,22 @@ struct RoomDetailsView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
-                        .disabled(true)
+                        .disabled(true) // keep disabled for now
 
                         Button {
-                            // TODO: implement close room later
+                            Task {
+                                await vm.closeRoom()
+                                if vm.errorMessage == nil {
+                                    onRoomClosed?()      // notify parent (optional)
+                                    dismiss()            // ✅ close the detail view immediately
+                                }
+                            }
                         } label: {
                             Text("Close")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
-                        .disabled(true)
-                    }
-
-                    // Viewer actions
-                    if vm.capabilities.canJoin {
-                        Button {
-                            Task {
-                                let bid = parseBid(bidText)
-                                await vm.join(initialBid: bid)
-                                syncBidTextFromCurrentState()
-                            }
-                        } label: {
-                            Text(roomIsFull(room) ? "Full" : "Join")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(roomIsFull(room) || room.status != .open)
+                        .disabled(room.status != .open || vm.isLoading)
                     }
 
                     // Attendee actions

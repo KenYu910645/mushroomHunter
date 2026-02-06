@@ -219,7 +219,10 @@ struct ProfileView: View {
                         ForEach(hostedRooms) { r in
                             NavigationLink {
                                 RoomDetailsView(
-                                    vm: RoomDetailsViewModel(roomId: r.id, session: session)
+                                    vm: RoomDetailsViewModel(roomId: r.id, session: session),
+                                    onRoomClosed: {
+                                        Task { await loadHostedRooms() }   // ✅ refresh list immediately
+                                    }
                                 )
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {

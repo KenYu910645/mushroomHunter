@@ -28,6 +28,7 @@ final class FirebaseProfileHostRepository {
 
         let q = db.collection("rooms")
             .whereField("hostUid", isEqualTo: uid)
+            .whereField("status", isEqualTo: "open")
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
 

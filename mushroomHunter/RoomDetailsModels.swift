@@ -34,6 +34,30 @@ struct RoomCapabilities: Equatable {
     let canKickAttendees: Bool
     let canUpdateBid: Bool
 
+    /// All disabled (use when room is nil / loading / unknown state)
+    static let none = RoomCapabilities(
+        canJoin: false,
+        canLeave: false,
+        canEditRoom: false,
+        canKickAttendees: false,
+        canUpdateBid: false
+    )
+
+    /// Optional convenience initializer (defaults to false)
+    init(
+        canJoin: Bool = false,
+        canLeave: Bool = false,
+        canEditRoom: Bool = false,
+        canKickAttendees: Bool = false,
+        canUpdateBid: Bool = false
+    ) {
+        self.canJoin = canJoin
+        self.canLeave = canLeave
+        self.canEditRoom = canEditRoom
+        self.canKickAttendees = canKickAttendees
+        self.canUpdateBid = canUpdateBid
+    }
+
     static func derive(role: RoomRole, room: RoomDetail) -> RoomCapabilities {
         let isOpen = (room.status == .open)
         let isFull = (room.attendees.count >= room.maxPlayers)
@@ -47,14 +71,16 @@ struct RoomCapabilities: Equatable {
                 canKickAttendees: true,
                 canUpdateBid: false
             )
+
         case .attendee:
             return .init(
                 canJoin: false,
                 canLeave: true,
                 canEditRoom: false,
                 canKickAttendees: false,
-                canUpdateBid: isOpen // allow editing bid only if room open
+                canUpdateBid: isOpen
             )
+
         case .viewer:
             return .init(
                 canJoin: isOpen && !isFull,
@@ -78,6 +104,7 @@ struct RoomDetail: Identifiable, Equatable {
     var title: String
 
     // Middle info
+    let hostUid: String
     var hostName: String
     var hostStars: Int
     var targetMushroom: MushroomTarget
