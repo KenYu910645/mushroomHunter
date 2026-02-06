@@ -46,21 +46,34 @@ final class BrowseViewModel: ObservableObject {
 
     @Published var joinErrorMessage: String? = nil
 
-    func join(_ listing: RoomListing) async {
+    func join(_ listing: RoomListing, bid: Honey) async {
+        let trimmedBid = max(0, bid)
+        guard trimmedBid > 0 else {
+            let msg = "Please enter a honey bid before joining."
+            self.joinErrorMessage = msg
+            self.errorMessage = msg
+            return
+        }
+        guard session.canAffordHoney(trimmedBid) else {
+            let msg = "Not enough honey. You have \(session.honey) 🍯."
+            self.joinErrorMessage = msg
+            self.errorMessage = msg
+            return
+        }
         // Optimistically mark loading to disable UI if needed
         isLoading = true
         defer { isLoading = false }
         do {
-            let bid: Honey = 0
             try await withTimeout(seconds: 10) {
                 try await self.actions.joinRoom(
                     roomId: listing.id,
-                    initialBidHoney: bid,
+                    initialBidHoney: trimmedBid,
                     userName: self.session.displayName,
                     friendCode: self.session.friendCode,
                     stars: self.session.stars
                 )
             }
+            _ = session.spendHoney(trimmedBid)
             // Optionally refresh listings after joining to update counts
             await fetchListings()
         } catch {
@@ -92,6 +105,9 @@ struct BrowseView: View {
     private let session: SessionStore
     @StateObject private var vm: BrowseViewModel
     @State private var showHostSheet: Bool = false
+    @State private var pendingJoinListing: RoomListing? = nil
+    @State private var bidText: String = ""
+    @State private var showJoinAlert: Bool = false
 
     init(session: SessionStore) {
         self.session = session
@@ -113,6 +129,23 @@ struct BrowseView: View {
             HostView(vm: HostViewModel(session: session))
                 .environmentObject(session)
         }
+        .alert("Join Room", isPresented: $showJoinAlert, presenting: pendingJoinListing) { listing in
+            TextField("Bid (honey)", text: $bidText)
+                .keyboardType(.numberPad)
+                .onChange(of: bidText) { _, newValue in
+                    let filtered = newValue.filter { $0.isNumber }
+                    if filtered != newValue { bidText = filtered }
+                }
+
+            Button("Join") {
+                let bid = parseBid(bidText)
+                Task { await vm.join(listing, bid: bid) }
+            }
+
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Enter honey bid. You have \(session.honey) 🍯.")
+        }
     }
     
     @ViewBuilder
@@ -132,18 +165,19 @@ struct BrowseView: View {
                 
                 Section {
                     ForEach(vm.filteredListings) { listing in
-                        NavigationLink {
-                            RoomDetailsView(
-                                vm: RoomDetailsViewModel(roomId: listing.id, session: session)
-                            )
-                        } label: {
-                            RoomRow(
-                                listing: listing,
-                                onJoin: {
-                                    Task { await vm.join(listing) }
-                                }
-                            )
+                        HStack(alignment: .top, spacing: 12) {
+                            NavigationLink {
+                                RoomDetailsView(
+                                    vm: RoomDetailsViewModel(roomId: listing.id, session: session)
+                                )
+                            } label: {
+                                RoomRowContent(listing: listing)
+                            }
+                            .buttonStyle(.plain)
+
+                            Spacer(minLength: 0)
                         }
+                        .padding(.vertical, 4)
                     }
                     
                     if vm.filteredListings.isEmpty {
@@ -195,9 +229,8 @@ struct BrowseView: View {
     }
     
     // MARK: - Row UI
-    private struct RoomRow: View {
+    private struct RoomRowContent: View {
         let listing: RoomListing
-        let onJoin: () -> Void
         
         var isFull: Bool { listing.joinedPlayers >= listing.maxPlayers }
         
@@ -244,7 +277,11 @@ struct BrowseView: View {
                     Spacer()
                 }
             }
-            .padding(.vertical, 4)
         }
+    }
+
+    private func parseBid(_ text: String) -> Honey {
+        let digits = text.filter { $0.isNumber }
+        return Int(digits) ?? 0
     }
 }

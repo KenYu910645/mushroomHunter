@@ -23,12 +23,19 @@ final class SessionStore: ObservableObject {
     private let kDisplayName = "mh.displayName"
     private let kFriendCode  = "mh.friendCode"
     private let kStars = "mh.stars"
+    private let kHoney = "mh.honey"
 
     init() {
         // Load local profile for convenience (prototype)
         displayName = UserDefaults.standard.string(forKey: kDisplayName) ?? "Ken"
         friendCode  = UserDefaults.standard.string(forKey: kFriendCode) ?? ""
         stars = UserDefaults.standard.integer(forKey: kStars)
+        if UserDefaults.standard.object(forKey: kHoney) == nil {
+            honey = 100
+            UserDefaults.standard.set(honey, forKey: kHoney)
+        } else {
+            honey = UserDefaults.standard.integer(forKey: kHoney)
+        }
 
         authHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             guard let self else { return }
@@ -74,6 +81,25 @@ final class SessionStore: ObservableObject {
     func updateStars(_ newValue: Int) {
         stars = max(0, newValue)
         UserDefaults.standard.set(stars, forKey: kStars)
+    }
+
+    func canAffordHoney(_ amount: Int) -> Bool {
+        guard amount >= 0 else { return false }
+        return honey >= amount
+    }
+
+    @discardableResult
+    func spendHoney(_ amount: Int) -> Bool {
+        guard amount >= 0, honey >= amount else { return false }
+        honey -= amount
+        UserDefaults.standard.set(honey, forKey: kHoney)
+        return true
+    }
+
+    func addHoney(_ amount: Int) {
+        guard amount > 0 else { return }
+        honey += amount
+        UserDefaults.standard.set(honey, forKey: kHoney)
     }
     
     // MARK: - Auth

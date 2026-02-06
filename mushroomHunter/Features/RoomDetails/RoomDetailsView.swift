@@ -245,6 +245,22 @@ struct RoomDetailsView: View {
                         .disabled(room.status != .open || vm.isLoading)
                     }
 
+                    // Viewer actions
+                    if vm.role == .viewer, vm.capabilities.canJoin {
+                        Button {
+                            Task {
+                                let bid = parseBid(bidText)
+                                await vm.join(initialBid: bid)
+                                syncBidTextFromCurrentState()
+                            }
+                        } label: {
+                            Text("Join")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(room.status != .open || roomIsFull(room) || vm.isLoading)
+                    }
+
                     // Attendee actions
                     if vm.role == .attendee {
                         Button {

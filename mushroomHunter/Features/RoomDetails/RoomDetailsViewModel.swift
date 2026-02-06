@@ -87,14 +87,24 @@ final class RoomDetailsViewModel: ObservableObject {
         defer { isLoading = false }
         
         do {
+            let trimmedBid = max(0, initialBid)
+            guard trimmedBid > 0 else {
+                errorMessage = "Please enter a honey bid before joining."
+                return
+            }
+            guard session.canAffordHoney(trimmedBid) else {
+                errorMessage = "Not enough honey. You have \(session.honey) 🍯."
+                return
+            }
             let friendCode = session.friendCode // digits only, from your SessionStore
             try await actions.joinRoom(
                 roomId: room.id,
-                initialBidHoney: initialBid,
+                initialBidHoney: trimmedBid,
                 userName: session.displayName,
                 friendCode: friendCode,
                 stars: session.stars
             )
+            _ = session.spendHoney(trimmedBid)
             await load() // refresh room + attendees
         } catch is CancellationError {
             return
@@ -110,7 +120,11 @@ final class RoomDetailsViewModel: ObservableObject {
         defer { isLoading = false }
         
         do {
+            let currentBid = currentUserBidHoney() ?? 0
             try await actions.leaveRoom(roomId: room.id)
+            if currentBid > 0 {
+                session.addHoney(currentBid)
+            }
             await load()
         } catch is CancellationError {
             return
@@ -127,7 +141,22 @@ final class RoomDetailsViewModel: ObservableObject {
         defer { isLoading = false }
         
         do {
-            try await actions.updateBid(roomId: room.id, bidHoney: bid)
+            let newBid = max(0, bid)
+            let previousBid = currentUserBidHoney() ?? 0
+            let delta = newBid - previousBid
+
+            if delta > 0 && !session.canAffordHoney(delta) {
+                errorMessage = "Not enough honey. You need \(delta) more 🍯."
+                return
+            }
+
+            try await actions.updateBid(roomId: room.id, bidHoney: newBid)
+
+            if delta > 0 {
+                _ = session.spendHoney(delta)
+            } else if delta < 0 {
+                session.addHoney(-delta)
+            }
             await load()
         } catch is CancellationError {
             return
