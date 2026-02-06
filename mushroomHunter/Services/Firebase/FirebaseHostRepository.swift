@@ -50,4 +50,25 @@ final class FirebaseHostRepository {
         try await ref.setData(data)
         return ref.documentID
     }
+
+    func updateRoom(roomId: String, req: FirestoreRoomCreateRequest) async throws {
+        guard Auth.auth().currentUser?.uid != nil else {
+            throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
+        }
+
+        let ref = db.collection("rooms").document(roomId)
+        let now = Timestamp(date: Date())
+
+        let data: [String: Any] = [
+            "title": req.title,
+            "targetColor": req.targetColor,
+            "targetAttribute": req.targetAttribute,
+            "targetSize": req.targetSize,
+            "location": req.location,
+            "note": req.note,
+            "updatedAt": now
+        ]
+
+        try await ref.updateData(data)
+    }
 }

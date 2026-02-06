@@ -9,6 +9,7 @@ import SwiftUI
 
 struct RoomDetailsView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var session: SessionStore
 
     let onRoomClosed: (() -> Void)?
 
@@ -16,6 +17,7 @@ struct RoomDetailsView: View {
 
     // Bid input for viewer/attendee
     @State private var bidText: String = ""
+    @State private var editingRoom: RoomDetail? = nil
 
     /// ✅ New initializer: pass VM from caller (BrowseView already does this)
     init(vm: RoomDetailsViewModel, onRoomClosed: (() -> Void)? = nil) {
@@ -36,6 +38,12 @@ struct RoomDetailsView: View {
                         syncBidTextFromCurrentState()
                     }
                 }
+        }
+        .sheet(item: $editingRoom, onDismiss: {
+            Task { await vm.load() }
+        }) { room in
+            HostView(vm: HostViewModel(session: session, room: room))
+                .environmentObject(session)
         }
         // If your SessionStore changes login state, VM will refresh role
         // You can trigger this from outside later if needed.
@@ -221,13 +229,13 @@ struct RoomDetailsView: View {
                     // Host actions (placeholder for now)
                     if vm.role == .host {
                         Button {
-                            // TODO: implement edit sheet later
+                            editingRoom = room
                         } label: {
                             Text("Edit Room")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
-                        .disabled(true) // keep disabled for now
+                        .disabled(vm.isLoading)
 
                         Button {
                             Task {

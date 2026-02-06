@@ -20,6 +20,8 @@ final class FirebaseRoomDetailsRepository {
 
         // Required
         let title = data["title"] as? String ?? "Untitled"
+        let location = data["location"] as? String ?? ""
+        let note = data["note"] as? String ?? ""
         let hostUid = data["hostUid"] as? String ?? ""
         let hostName = data["hostName"] as? String ?? "Unknown"
         let hostStars = data["hostStars"] as? Int ?? 0
@@ -47,6 +49,8 @@ final class FirebaseRoomDetailsRepository {
         return RoomDetail(
             id: snap.documentID,
             title: title,
+            location: location,
+            note: note,
             hostUid: hostUid,
             hostName: hostName,
             hostStars: hostStars,

@@ -6,9 +6,16 @@ import Foundation
 
 @MainActor
 final class HostViewModel: ObservableObject {
+    enum Mode: Equatable {
+        case create
+        case edit(roomId: String)
+    }
+
     // Dependencies
     private unowned let session: SessionStore
     private let repo: FirebaseHostRepository
+
+    let mode: Mode
 
     // Inputs
     @Published var hostName: String = ""
@@ -31,10 +38,41 @@ final class HostViewModel: ObservableObject {
     init(session: SessionStore, repo: FirebaseHostRepository = FirebaseHostRepository()) {
         self.session = session
         self.repo = repo
+        self.mode = .create
+    }
+
+    init(session: SessionStore, room: RoomDetail, repo: FirebaseHostRepository = FirebaseHostRepository()) {
+        self.session = session
+        self.repo = repo
+        self.mode = .edit(roomId: room.id)
+        seed(from: room)
     }
 
     var hostNameRemaining: Int { Self.hostNameMaxChars - hostName.count }
     var otherWordCount: Int { Self.wordCount(otherMessage) }
+
+    var isEditMode: Bool {
+        if case .edit = mode { return true }
+        return false
+    }
+
+    var navigationTitle: String {
+        isEditMode ? "Edit Room" : "Create Room"
+    }
+
+    var primaryActionTitle: String {
+        isEditMode ? "Save Room Settings" : "Create Host Room"
+    }
+
+    var successAlertTitle: String {
+        isEditMode ? "Room updated!" : "Host room created!"
+    }
+
+    var successAlertMessage: String {
+        isEditMode
+            ? "Your room settings were saved."
+            : "This is a prototype. Backend write will be added later."
+    }
 
     var canSubmit: Bool {
         let nameOK = !hostName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -65,21 +103,32 @@ final class HostViewModel: ObservableObject {
         defer { isSubmitting = false }
 
         do {
-            let roomId = try await repo.createRoom(
-                req: .init(
-                    title: hostName,
-                    targetColor: color.rawValue,
-                    targetAttribute: attribute.rawValue,
-                    targetSize: size.rawValue,
-                    location: location,
-                    note: otherMessage
-                ),
-                hostName: session.displayName,
-                hostStars: session.stars
+            let req = FirestoreRoomCreateRequest(
+                title: hostName,
+                targetColor: color.rawValue,
+                targetAttribute: attribute.rawValue,
+                targetSize: size.rawValue,
+                location: location,
+                note: otherMessage
             )
 
-            print("✅ submit(): created room id =", roomId)
-            successRoomId = roomId
+            switch mode {
+            case .create:
+                let roomId = try await repo.createRoom(
+                    req: req,
+                    hostName: session.displayName,
+                    hostStars: session.stars
+                )
+
+                print("✅ submit(): created room id =", roomId)
+                successRoomId = roomId
+
+            case .edit(let roomId):
+                try await repo.updateRoom(roomId: roomId, req: req)
+                print("✅ submit(): updated room id =", roomId)
+                successRoomId = roomId
+            }
+
             showSuccessAlert = true
 
         } catch {
@@ -98,6 +147,15 @@ final class HostViewModel: ObservableObject {
         errorMessage = nil
         successRoomId = nil
         showSuccessAlert = false
+    }
+
+    private func seed(from room: RoomDetail) {
+        hostName = room.title
+        color = room.targetMushroom.color
+        attribute = room.targetMushroom.attribute
+        size = room.targetMushroom.size
+        location = room.location
+        otherMessage = room.note
     }
 
     // MARK: Word utils
@@ -219,7 +277,7 @@ struct HostView: View {
                             if vm.isSubmitting {
                                 ProgressView()
                             } else {
-                                Text("Create Host Room").font(.headline)
+                                Text(vm.primaryActionTitle).font(.headline)
                             }
                             Spacer()
                         }
@@ -227,7 +285,7 @@ struct HostView: View {
                     .disabled(!vm.canSubmit)
                 }
             }
-            .navigationTitle("Create Room")
+            .navigationTitle(vm.navigationTitle)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -239,13 +297,16 @@ struct HostView: View {
                     .accessibilityLabel("Close")
                 }
             }
-            .alert("Host room created!", isPresented: $vm.showSuccessAlert) {
-                Button("OK") { }
-                Button("Reset Form") { vm.reset() }
+            .alert(vm.successAlertTitle, isPresented: $vm.showSuccessAlert) {
+                if vm.isEditMode {
+                    Button("OK") { dismiss() }
+                } else {
+                    Button("OK") { }
+                    Button("Reset Form") { vm.reset() }
+                }
             } message: {
-                Text("This is a prototype. Backend write will be added later.")
+                Text(vm.successAlertMessage)
             }
         }
     }
 }
-

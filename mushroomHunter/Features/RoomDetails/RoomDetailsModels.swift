@@ -102,6 +102,8 @@ struct RoomDetail: Identifiable, Equatable {
 
     // Header
     var title: String
+    var location: String
+    var note: String
 
     // Middle info
     let hostUid: String
