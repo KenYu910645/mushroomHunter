@@ -296,29 +296,11 @@ struct RoomDetailsView: View {
     }
 
     private func syncBidTextFromCurrentState() {
-        guard let room = vm.room else { return }
-        // We rely on VM’s session state; simplest is:
-        // - attendee: show their bid
-        // - viewer: default "0"
-        // Because RoomDetailsViewModel currently uses session.authUid internally,
-        // we mirror that expectation here by checking attendee id against current user id if available.
-        //
-        // But RoomDetailsView does not have session anymore; for now:
-        // if role == attendee, find "me" by name (best-effort mock) or just keep current bidText.
-        //
-        // ✅ Best solution: add `currentUid` exposure from VM (later).
-        // For now: if attendee, set bidText to the highest match by joinedAt latest (best-effort).
-        if vm.role == .attendee {
-            // best-effort: pick the attendee with the same name if unique
-            if let me = room.attendees.first(where: { $0.name == room.hostName }) {
-                bidText = "\(me.bidHoney)"
-            } else if let any = room.attendees.first {
-                bidText = "\(any.bidHoney)"
-            } else {
-                bidText = "0"
-            }
-        } else {
-            if bidText.isEmpty { bidText = "0" }
+        guard vm.room != nil else { return }
+        if vm.role == .attendee, let bid = vm.currentUserBidHoney() {
+            bidText = "\(bid)"
+        } else if bidText.isEmpty {
+            bidText = "0"
         }
     }
 }

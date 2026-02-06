@@ -20,9 +20,11 @@ struct ContentView: View {
 // MARK: - Tabs
 
 struct MainTabView: View {
+    @EnvironmentObject private var session: SessionStore
+
     var body: some View {
         TabView {
-            BrowseView()
+            BrowseView(session: session)
                 .tabItem {
                     Label("Browse", systemImage: "magnifyingglass")
                 }

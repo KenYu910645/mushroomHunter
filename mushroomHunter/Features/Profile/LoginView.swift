@@ -6,10 +6,6 @@
 //
 
 import SwiftUI
-import AuthenticationServices
-import FirebaseAuth
-
-import SwiftUI
 import UIKit
 
 struct LoginView: View {
@@ -93,69 +89,4 @@ struct LoginView: View {
         return top
     }
 
-    // MARK: - Apple Sign-In -> Firebase Auth
-
-//    private func handleAppleSignIn(result: Result<ASAuthorization, Error>) async {
-//        defer { session.isLoading = false }
-//
-//        switch result {
-//        case .failure(let error):
-//            session.errorMessage = error.localizedDescription
-//            return
-//
-//        case .success(let auth):
-//            guard
-//                let appleCredential = auth.credential as? ASAuthorizationAppleIDCredential
-//            else {
-//                session.errorMessage = "Invalid Apple credential."
-//                return
-//            }
-//
-//            guard let nonce = currentNonce else {
-//                session.errorMessage = "Missing login state. Please try again."
-//                return
-//            }
-//
-//            guard let appleIDToken = appleCredential.identityToken else {
-//                session.errorMessage = "Unable to fetch identity token."
-//                return
-//            }
-//
-//            guard let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
-//                session.errorMessage = "Unable to serialize token string."
-//                return
-//            }
-//
-//            let credential = OAuthProvider.credential(
-//                providerID: .apple,
-//                idToken: idTokenString,
-//                rawNonce: nonce
-//            )
-//
-//            do {
-//                let authResult = try await Auth.auth().signIn(with: credential)
-//                session.authUid = authResult.user.uid
-//                session.isLoggedIn = true
-//
-//                // Optional: update displayName if Apple provided it
-//                // Apple only provides fullName the first time user authorizes.
-//                if let fullName = appleCredential.fullName {
-//                    let name = [
-//                        fullName.givenName,
-//                        fullName.familyName
-//                    ]
-//                    .compactMap { $0 }
-//                    .joined(separator: " ")
-//                    .trimmingCharacters(in: .whitespacesAndNewlines)
-//
-//                    if !name.isEmpty {
-//                        session.displayName = name
-//                    }
-//                }
-//            } catch {
-//                session.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-//            }
-//        }
-//    }
 }
-

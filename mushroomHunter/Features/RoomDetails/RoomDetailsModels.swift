@@ -172,14 +172,10 @@ extension RoomDetail {
     /// Convenience: compute role from current uid.
     func role(forUid uid: String?) -> RoomRole {
         guard let uid else { return .viewer }
-        if uid == hostIdGuess { return .host }
+        if uid == hostUid { return .host }
         if attendees.contains(where: { $0.id == uid }) { return .attendee }
         return .viewer
     }
-
-    /// Placeholder until you store hostUid explicitly in RoomDetail.
-    /// In Step 2 we’ll add hostUid for correctness.
-    private var hostIdGuess: String { "HOST_UID_PLACEHOLDER" }
 }
 
 extension RoomAttendee {

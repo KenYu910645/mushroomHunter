@@ -18,6 +18,12 @@ final class BrowseViewModel: ObservableObject {
     let mushroomTypes: [String] = ["All", "Normal", "Fire", "Water", "Crystal", "Electric", "Poisonous"]
 
     private let repo = FirebaseBrowseRepository()
+    private let actions = FirebaseRoomActionsRepository()
+    private unowned let session: SessionStore
+
+    init(session: SessionStore) {
+        self.session = session
+    }
 
     func fetchListings() async {
         isLoading = true
@@ -44,13 +50,20 @@ final class BrowseViewModel: ObservableObject {
         // Optimistically mark loading to disable UI if needed
         isLoading = true
         defer { isLoading = false }
-            do {
-                try await withTimeout(seconds: 10) {
-                    try await self.repo.join(listing: listing)
-                }
-                // Optionally refresh listings after joining to update counts
-                await fetchListings()
-            } catch {
+        do {
+            let bid: Honey = 0
+            try await withTimeout(seconds: 10) {
+                try await self.actions.joinRoom(
+                    roomId: listing.id,
+                    initialBidHoney: bid,
+                    userName: self.session.displayName,
+                    friendCode: self.session.friendCode,
+                    stars: self.session.stars
+                )
+            }
+            // Optionally refresh listings after joining to update counts
+            await fetchListings()
+        } catch {
             print("❌ join error:", error)
             let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             self.joinErrorMessage = message
@@ -76,9 +89,14 @@ final class BrowseViewModel: ObservableObject {
 // MARK: - View
 
 struct BrowseView: View {
-    @StateObject private var vm = BrowseViewModel()
-    @EnvironmentObject private var session: SessionStore
+    private let session: SessionStore
+    @StateObject private var vm: BrowseViewModel
     @State private var showHostSheet: Bool = false
+
+    init(session: SessionStore) {
+        self.session = session
+        _vm = StateObject(wrappedValue: BrowseViewModel(session: session))
+    }
     
     var body: some View {
         NavigationStack {
@@ -93,6 +111,7 @@ struct BrowseView: View {
         }
         .sheet(isPresented: $showHostSheet) {
             HostView(vm: HostViewModel(session: session))
+                .environmentObject(session)
         }
     }
     

@@ -197,6 +197,15 @@ final class RoomDetailsViewModel: ObservableObject {
         
         self.room = room
     }
+
+    var currentUserId: String? {
+        session.authUid
+    }
+
+    func currentUserBidHoney() -> Honey? {
+        guard let room, let uid = session.authUid else { return nil }
+        return room.attendees.first(where: { $0.id == uid })?.bidHoney
+    }
     
     // MARK: Private helpers
     private func recomputeRoleAndCapabilities() {
@@ -219,19 +228,4 @@ final class RoomDetailsViewModel: ObservableObject {
         capabilities = .derive(role: role, room: room)
     }
     
-    // MARK: Mock / placeholder
-    private static func emptyRoom(roomId: String) -> RoomDetail {
-        RoomDetail(
-            id: roomId,
-            title: "Room",
-            hostUid: "", // ✅ placeholder (unknown yet)
-            hostName: "Host",
-            hostStars: 0,
-            targetMushroom: .init(color: .Red, attribute: .Normal, size: .Normal),
-            lastSuccessfulRaidAt: nil,
-            attendees: [],
-            maxPlayers: 10,
-            status: .open
-        )
-    }
 }
