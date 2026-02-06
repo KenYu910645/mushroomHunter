@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct RoomDetailsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -18,6 +19,11 @@ struct RoomDetailsView: View {
     // Bid input for viewer/attendee
     @State private var bidText: String = ""
     @State private var editingRoom: RoomDetail? = nil
+    @State private var showJoinSheet: Bool = false
+    @State private var joinBidAmount: Int = 0
+    @State private var showBidSheet: Bool = false
+    @State private var updateBidAmount: Int = 0
+    @State private var showCopyToast: Bool = false
 
     /// ✅ New initializer: pass VM from caller (BrowseView already does this)
     init(vm: RoomDetailsViewModel, onRoomClosed: (() -> Void)? = nil) {
@@ -42,8 +48,143 @@ struct RoomDetailsView: View {
         .sheet(item: $editingRoom, onDismiss: {
             Task { await vm.load() }
         }) { room in
-            HostView(vm: HostViewModel(session: session, room: room))
+            HostView(
+                vm: HostViewModel(session: session, room: room),
+                onCloseRoom: {
+                    Task {
+                        await vm.closeRoom()
+                        if vm.errorMessage == nil {
+                            onRoomClosed?()
+                            dismiss()
+                        }
+                    }
+                }
+            )
                 .environmentObject(session)
+        }
+        .overlay(alignment: .top) {
+            if showCopyToast {
+                Text("Copied to clipboard")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.black.opacity(0.8), in: Capsule())
+                    .padding(.top, 10)
+                    .transition(.opacity)
+            }
+        }
+        .sheet(isPresented: $showJoinSheet) {
+            NavigationStack {
+                Form {
+                    Section {
+                        HStack {
+                            Text("\(joinBidAmount)")
+                                .font(.title2)
+                                .monospacedDigit()
+                            Spacer()
+                            Text("Max \(session.honey)")
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Slider(
+                            value: Binding(
+                                get: { Double(joinBidAmount) },
+                                set: { joinBidAmount = Int($0) }
+                            ),
+                            in: 0...Double(max(session.honey, 0)),
+                            step: 1
+                        )
+                    } header: {
+                        Text("Bid (🍯)")
+                    } footer: {
+                        Text("Adjust your honey bid before joining.")
+                    }
+                }
+                .navigationTitle("Join Room")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Cancel") {
+                            showJoinSheet = false
+                        }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("OK") {
+                            showJoinSheet = false
+                            Task {
+                                await vm.join(initialBid: joinBidAmount)
+                                syncBidTextFromCurrentState()
+                            }
+                        }
+                        .disabled(joinBidAmount <= 0 || joinBidAmount > session.honey)
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showBidSheet) {
+            NavigationStack {
+                Form {
+                    Section {
+                        HStack {
+                            Text("\(updateBidAmount)")
+                                .font(.title2)
+                                .monospacedDigit()
+                            Spacer()
+                            Text("Max \(session.honey)")
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Slider(
+                            value: Binding(
+                                get: { Double(updateBidAmount) },
+                                set: { updateBidAmount = Int($0) }
+                            ),
+                            in: 0...Double(max(session.honey, 0)),
+                            step: 1
+                        )
+                    } header: {
+                        Text("Update Bid (🍯)")
+                    } footer: {
+                        Text("Adjust your honey bid for this room.")
+                    }
+
+                    Section {
+                        Button(role: .destructive) {
+                            showBidSheet = false
+                            Task {
+                                await vm.leave()
+                                syncBidTextFromCurrentState()
+                            }
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Text("Leave Room")
+                                Spacer()
+                            }
+                        }
+                    }
+                }
+                .navigationTitle("Edit Bid")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Cancel") {
+                            showBidSheet = false
+                        }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("OK") {
+                            showBidSheet = false
+                            Task {
+                                await vm.updateBid(to: updateBidAmount)
+                                syncBidTextFromCurrentState()
+                            }
+                        }
+                        .disabled(updateBidAmount < 0 || updateBidAmount > session.honey)
+                    }
+                }
+            }
         }
         // If your SessionStore changes login state, VM will refresh role
         // You can trigger this from outside later if needed.
@@ -109,6 +250,12 @@ struct RoomDetailsView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+
+                if !room.note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(room.note)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
             .padding(.vertical, 4)
         }
@@ -153,8 +300,18 @@ struct RoomDetailsView: View {
             HStack {
                 Text("Friend Code")
                 Spacer()
-                Text(room.hostFriendCodeFormatted)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text(room.hostFriendCodeFormatted)
+                        .foregroundStyle(.secondary)
+
+                    Button {
+                        copyFriendCode(room.hostFriendCode)
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Copy host friend code")
+                }
             }
         }
     }
@@ -177,6 +334,9 @@ struct RoomDetailsView: View {
                             Task {
                                 await vm.kick(attendeeId: attendee.id)
                             }
+                        },
+                        onCopyFriendCode: { code in
+                            copyFriendCode(code)
                         }
                     )
                 }
@@ -212,6 +372,44 @@ struct RoomDetailsView: View {
                 ProgressView()
             }
         }
+        ToolbarItem(placement: .topBarTrailing) {
+            if vm.role == .host, let room = vm.room {
+                Button {
+                    editingRoom = room
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.headline)
+                }
+                .accessibilityLabel("Edit Room")
+                .disabled(vm.isLoading)
+            }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            if vm.role == .viewer, vm.capabilities.canJoin {
+                Button {
+                    joinBidAmount = min(max(joinBidAmount, 0), session.honey)
+                    showJoinSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.headline)
+                }
+                .accessibilityLabel("Join Room")
+                .disabled(vm.isLoading)
+            }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            if vm.role == .attendee {
+                Button {
+                    updateBidAmount = vm.currentUserBidHoney() ?? 0
+                    showBidSheet = true
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.headline)
+                }
+                .accessibilityLabel("Edit Bid")
+                .disabled(vm.isLoading)
+            }
+        }
     }
 
     // MARK: - Bottom action dock
@@ -222,96 +420,17 @@ struct RoomDetailsView: View {
             VStack(spacing: 10) {
                 Divider()
 
-                // Bid input for viewer/attendee only
-                if vm.capabilities.canJoin || vm.capabilities.canUpdateBid {
-                    HStack {
-                        Text("Bid (🍯)")
-                            .font(.subheadline)
-
-                        Spacer()
-
-                        TextField("0", text: $bidText)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 120)
-                            .textFieldStyle(.roundedBorder)
-                            .onChange(of: bidText) { _, newValue in
-                                let filtered = newValue.filter { $0.isNumber }
-                                if filtered != newValue { bidText = filtered }
-                            }
-                    }
-                    .padding(.horizontal)
-                }
-
                 HStack(spacing: 10) {
                     // Host actions (placeholder for now)
                     if vm.role == .host {
-                        Button {
-                            editingRoom = room
-                        } label: {
-                            Text("Edit Room")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(vm.isLoading)
-
-                        Button {
-                            Task {
-                                await vm.closeRoom()
-                                if vm.errorMessage == nil {
-                                    onRoomClosed?()      // notify parent (optional)
-                                    dismiss()            // ✅ close the detail view immediately
-                                }
-                            }
-                        } label: {
-                            Text("Close")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(room.status != .open || vm.isLoading)
                     }
 
                     // Viewer actions
                     if vm.role == .viewer, vm.capabilities.canJoin {
-                        Button {
-                            Task {
-                                let bid = parseBid(bidText)
-                                await vm.join(initialBid: bid)
-                                syncBidTextFromCurrentState()
-                            }
-                        } label: {
-                            Text("Join")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(room.status != .open || roomIsFull(room) || vm.isLoading)
                     }
 
                     // Attendee actions
                     if vm.role == .attendee {
-                        Button {
-                            Task {
-                                let bid = parseBid(bidText)
-                                await vm.updateBid(to: bid)
-                                syncBidTextFromCurrentState()
-                            }
-                        } label: {
-                            Text("Update Bid")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(room.status != .open)
-
-                        Button(role: .destructive) {
-                            Task {
-                                await vm.leave()
-                                syncBidTextFromCurrentState()
-                            }
-                        } label: {
-                            Text("Leave")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
                     }
                 }
                 .padding(.horizontal)
@@ -331,6 +450,17 @@ struct RoomDetailsView: View {
 
     private func parseBid(_ text: String) -> Honey {
         Int(text) ?? 0
+    }
+
+    private func copyFriendCode(_ code: String) {
+        let digits = code.filter { $0.isNumber }
+        guard !digits.isEmpty else { return }
+        UIPasteboard.general.string = digits
+        showCopyToast = true
+        Task {
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            showCopyToast = false
+        }
     }
 
     private func mushroomSummary(_ t: MushroomTarget) -> String {
@@ -353,6 +483,7 @@ private struct AttendeeRow: View {
     let attendee: RoomAttendee
     let isHostViewing: Bool
     let onKick: () -> Void
+    let onCopyFriendCode: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -394,6 +525,17 @@ private struct AttendeeRow: View {
                 Label("\(attendee.stars)", systemImage: "star.fill")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                Spacer()
+                Button {
+                    onCopyFriendCode(attendee.friendCode)
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Copy attendee friend code")
             }
         }
         .padding(.vertical, 4)

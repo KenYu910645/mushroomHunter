@@ -177,9 +177,11 @@ struct HostView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var session: SessionStore
     @StateObject private var vm: HostViewModel
+    private let onCloseRoom: (() -> Void)?
 
-    init(vm: HostViewModel) {
+    init(vm: HostViewModel, onCloseRoom: (() -> Void)? = nil) {
         _vm = StateObject(wrappedValue: vm)
+        self.onCloseRoom = onCloseRoom
     }
 
     var body: some View {
@@ -284,6 +286,24 @@ struct HostView: View {
                         }
                     }
                     .disabled(!vm.canSubmit)
+                }
+
+                if vm.isEditMode {
+                    Section {
+                        Button(role: .destructive) {
+                            dismiss()
+                            onCloseRoom?()
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Text("Close Room Options")
+                                    .font(.headline)
+                                Spacer()
+                            }
+                        }
+                    } footer: {
+                        Text("This will close the room and remove it from the open list.")
+                    }
                 }
             }
             .navigationTitle(vm.navigationTitle)
