@@ -24,6 +24,8 @@ struct RoomDetailsView: View {
     @State private var showBidSheet: Bool = false
     @State private var updateBidAmount: Int = 0
     @State private var showCopyToast: Bool = false
+    @State private var showFinishSheet: Bool = false
+    @State private var finishSelection: Set<String> = []
 
     /// ✅ New initializer: pass VM from caller (BrowseView already does this)
     init(vm: RoomDetailsViewModel, onRoomClosed: (() -> Void)? = nil) {
@@ -182,6 +184,63 @@ struct RoomDetailsView: View {
                             }
                         }
                         .disabled(updateBidAmount < 0 || updateBidAmount > session.honey)
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showFinishSheet) {
+            NavigationStack {
+                Form {
+                    if let room = vm.room {
+                        Section("Attendees") {
+                            if room.attendees.isEmpty {
+                                ContentUnavailableView(
+                                    "No attendees",
+                                    systemImage: "person.3",
+                                    description: Text("There are no attendees to select.")
+                                )
+                                .listRowBackground(Color.clear)
+                            } else {
+                                ForEach(room.attendees) { attendee in
+                                    Toggle(isOn: Binding(
+                                        get: { finishSelection.contains(attendee.id) },
+                                        set: { isOn in
+                                            if isOn {
+                                                finishSelection.insert(attendee.id)
+                                            } else {
+                                                finishSelection.remove(attendee.id)
+                                            }
+                                        }
+                                    )) {
+                                        HStack {
+                                            Text(attendee.name)
+                                            Spacer()
+                                            Text("🍯 \(attendee.bidHoney)")
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .navigationTitle("Finish Raid")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Cancel") {
+                            showFinishSheet = false
+                        }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Confirm") {
+                            let selected = Array(finishSelection)
+                            showFinishSheet = false
+                            Task {
+                                await vm.finishRaid(attendeeIds: selected)
+                            }
+                        }
+                        .disabled(finishSelection.isEmpty)
                     }
                 }
             }
@@ -431,6 +490,19 @@ struct RoomDetailsView: View {
 
                     // Attendee actions
                     if vm.role == .attendee {
+                    }
+
+                    // Host actions
+                    if vm.role == .host {
+                        Button {
+                            finishSelection = []
+                            showFinishSheet = true
+                        } label: {
+                            Text("Finish Mushroom Raid")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(vm.isLoading)
                     }
                 }
                 .padding(.horizontal)

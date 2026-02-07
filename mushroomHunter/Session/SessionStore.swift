@@ -1,6 +1,7 @@
 import Foundation
 import FirebaseAuth
 import FirebaseCore
+import FirebaseFirestore
 import GoogleSignIn
 import UIKit
 import Combine
@@ -100,6 +101,40 @@ final class SessionStore: ObservableObject {
         guard amount > 0 else { return }
         honey += amount
         UserDefaults.standard.set(honey, forKey: kHoney)
+    }
+
+    // MARK: - Backend sync
+
+    func refreshProfileFromBackend() async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        do {
+            let snap = try await Firestore.firestore().collection("users").document(uid).getDocument()
+            guard let data = snap.data() else { return }
+
+            if let name = data["displayName"] as? String, !name.isEmpty {
+                displayName = name
+                UserDefaults.standard.set(name, forKey: kDisplayName)
+            }
+
+            if let code = data["friendCode"] as? String {
+                friendCode = code
+                UserDefaults.standard.set(code, forKey: kFriendCode)
+            }
+
+            if let starsValue = data["stars"] as? Int {
+                stars = max(0, starsValue)
+                UserDefaults.standard.set(stars, forKey: kStars)
+            }
+
+            if let honeyValue = data["honey"] as? Int {
+                honey = max(0, honeyValue)
+                UserDefaults.standard.set(honey, forKey: kHoney)
+            }
+        } catch {
+            // Keep local values if backend fetch fails.
+            print("❌ refreshProfileFromBackend error:", error)
+        }
     }
     
     // MARK: - Auth

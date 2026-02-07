@@ -24,6 +24,7 @@ final class HostViewModel: ObservableObject {
     @Published var size: MushroomSize = .Normal
     @Published var location: String = ""
     @Published var otherMessage: String = ""
+    @Published var minBid: Int = 10
 
     // UI State
     @Published var showSuccessAlert: Bool = false
@@ -110,7 +111,8 @@ final class HostViewModel: ObservableObject {
                 targetSize: size.rawValue,
                 location: location,
                 note: otherMessage,
-                hostFriendCode: session.friendCode
+                hostFriendCode: session.friendCode,
+                minBid: minBid
             )
 
             switch mode {
@@ -145,6 +147,7 @@ final class HostViewModel: ObservableObject {
         size = .Normal
         location = ""
         otherMessage = ""
+        minBid = 10
         errorMessage = nil
         successRoomId = nil
         showSuccessAlert = false
@@ -157,6 +160,7 @@ final class HostViewModel: ObservableObject {
         size = room.targetMushroom.size
         location = room.location
         otherMessage = room.note
+        minBid = room.minBid
     }
 
     // MARK: Word utils
@@ -260,6 +264,22 @@ struct HostView: View {
                     Text("Room Description")
                 } footer: {
                     Text("Max 500 words. Use it for extra notes like time window, expectations, or friend code.")
+                }
+
+                Section {
+                    Stepper(value: $vm.minBid, in: 1...10_000, step: 1) {
+                        HStack {
+                            Text("Min Bid")
+                            Spacer()
+                            Text("\(vm.minBid)")
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Minimum Bid")
+                } footer: {
+                    Text("Minimum honey required to join this room. Default is 10.")
                 }
 
                 // Error

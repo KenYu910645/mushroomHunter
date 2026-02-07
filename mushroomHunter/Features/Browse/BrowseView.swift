@@ -65,12 +65,14 @@ final class BrowseViewModel: ObservableObject {
         defer { isLoading = false }
         do {
             try await withTimeout(seconds: 10) {
+                let balanceAfter = max(0, self.session.honey - trimmedBid)
                 try await self.actions.joinRoom(
                     roomId: listing.id,
                     initialBidHoney: trimmedBid,
                     userName: self.session.displayName,
                     friendCode: self.session.friendCode,
-                    stars: self.session.stars
+                    stars: self.session.stars,
+                    attendeeHoney: balanceAfter
                 )
             }
             _ = session.spendHoney(trimmedBid)

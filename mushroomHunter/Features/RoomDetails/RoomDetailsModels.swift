@@ -111,6 +111,7 @@ struct RoomDetail: Identifiable, Equatable {
     var hostStars: Int
     var hostFriendCode: String
     var targetMushroom: MushroomTarget
+    var minBid: Int
 
     /// When the room last completed a successful raid.
     /// We’ll display as “24h ago” style in the UI.

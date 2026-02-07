@@ -17,6 +17,7 @@ enum RoomActionError: LocalizedError {
     case alreadyJoined
     case notInRoom
     case notHost
+    case notEnoughHoney
 
     var errorDescription: String? {
         switch self {
@@ -27,6 +28,7 @@ enum RoomActionError: LocalizedError {
         case .alreadyJoined: return "You already joined this room."
         case .notInRoom: return "You are not in this room."
         case .notHost: return "Only the host can do this."
+        case .notEnoughHoney: return "Not enough honey."
         }
     }
 }
@@ -40,12 +42,14 @@ final class FirebaseRoomActionsRepository {
         initialBidHoney: Int,
         userName: String,
         friendCode: String,
-        stars: Int
+        stars: Int,
+        attendeeHoney: Int
     ) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
         let roomRef = db.collection("rooms").document(roomId)
         let attendeeRef = roomRef.collection("attendees").document(uid)
+        let userRef = db.collection("users").document(uid)
         let now = Timestamp(date: Date())
 
         try await db.runTransaction { tx, errPtr -> Any? in
@@ -82,13 +86,39 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
+            let userSnap: DocumentSnapshot
+            do { userSnap = try tx.getDocument(userRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+
+            let currentHoney: Int
+            if let userData = userSnap.data() {
+                currentHoney = userData["honey"] as? Int ?? 0
+            } else {
+                currentHoney = max(0, attendeeHoney)
+                tx.setData([
+                    "displayName": userName,
+                    "friendCode": friendCode,
+                    "stars": stars,
+                    "honey": currentHoney,
+                    "activeRoomId": roomId,
+                    "createdAt": now,
+                    "updatedAt": now
+                ], forDocument: userRef)
+            }
+
+            let bid = max(0, initialBidHoney)
+            if currentHoney < bid {
+                errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
+                return nil
+            }
+
             // 3) Write attendee
             tx.setData([
                 "uid": uid,
                 "name": userName,
                 "friendCode": friendCode,
                 "stars": stars,
-                "bidHoney": max(0, initialBidHoney),
+                "bidHoney": bid,
                 "joinedAt": now,
                 "updatedAt": now
             ], forDocument: attendeeRef)
@@ -99,30 +129,88 @@ final class FirebaseRoomActionsRepository {
                 "updatedAt": now
             ], forDocument: roomRef)
 
+            // 5) Deduct honey from user
+            tx.updateData([
+                "honey": currentHoney - bid,
+                "activeRoomId": roomId,
+                "updatedAt": now
+            ], forDocument: userRef)
+
             return nil
         }
     }
 
     // MARK: - Update bid (attendee only)
-    func updateBid(roomId: String, bidHoney: Int) async throws {
-        guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
-
-        let attendeeRef = db.collection("rooms").document(roomId).collection("attendees").document(uid)
-        let snap = try await attendeeRef.getDocument()
-        guard snap.exists else { throw RoomActionError.notInRoom }
-
-        try await attendeeRef.updateData([
-            "bidHoney": max(0, bidHoney),
-            "updatedAt": Timestamp(date: Date())
-        ])
-    }
-
-    // MARK: - Leave (transaction)
-    func leaveRoom(roomId: String) async throws {
+    func updateBid(roomId: String, bidHoney: Int, attendeeHoney: Int) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
         let roomRef = db.collection("rooms").document(roomId)
         let attendeeRef = roomRef.collection("attendees").document(uid)
+        let userRef = db.collection("users").document(uid)
+        let now = Timestamp(date: Date())
+
+        try await db.runTransaction { tx, errPtr -> Any? in
+            let attendeeSnap: DocumentSnapshot
+            do { attendeeSnap = try tx.getDocument(attendeeRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+
+            guard let attendee = attendeeSnap.data() else {
+                errPtr?.pointee = RoomActionError.notInRoom as NSError
+                return nil
+            }
+
+            let oldBid = attendee["bidHoney"] as? Int ?? 0
+            let newBid = max(0, bidHoney)
+            let delta = newBid - oldBid
+
+            let userSnap: DocumentSnapshot
+            do { userSnap = try tx.getDocument(userRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+
+            let currentHoney: Int
+            if let userData = userSnap.data() {
+                currentHoney = userData["honey"] as? Int ?? 0
+            } else {
+                currentHoney = max(0, attendeeHoney)
+                tx.setData([
+                    "displayName": "",
+                    "friendCode": "",
+                    "stars": 0,
+                    "honey": currentHoney,
+                    "activeRoomId": roomId,
+                    "createdAt": now,
+                    "updatedAt": now
+                ], forDocument: userRef)
+            }
+
+            if delta > 0 && currentHoney < delta {
+                errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
+                return nil
+            }
+
+            tx.updateData([
+                "bidHoney": newBid,
+                "updatedAt": now
+            ], forDocument: attendeeRef)
+
+            let newHoney = currentHoney - delta
+            tx.updateData([
+                "honey": newHoney,
+                "activeRoomId": roomId,
+                "updatedAt": now
+            ], forDocument: userRef)
+
+            return nil
+        }
+    }
+
+    // MARK: - Leave (transaction)
+    func leaveRoom(roomId: String, attendeeHoney: Int) async throws {
+        guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
+
+        let roomRef = db.collection("rooms").document(roomId)
+        let attendeeRef = roomRef.collection("attendees").document(uid)
+        let userRef = db.collection("users").document(uid)
         let now = Timestamp(date: Date())
 
         try await db.runTransaction { tx, errPtr -> Any? in
@@ -146,6 +234,28 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
+            let bid = attendeeSnap.data()?["bidHoney"] as? Int ?? 0
+
+            let userSnap: DocumentSnapshot
+            do { userSnap = try tx.getDocument(userRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+
+            let currentHoney: Int
+            if let userData = userSnap.data() {
+                currentHoney = userData["honey"] as? Int ?? 0
+            } else {
+                currentHoney = max(0, attendeeHoney)
+                tx.setData([
+                    "displayName": "",
+                    "friendCode": "",
+                    "stars": 0,
+                    "honey": currentHoney,
+                    "activeRoomId": roomId,
+                    "createdAt": now,
+                    "updatedAt": now
+                ], forDocument: userRef)
+            }
+
             // Delete attendee doc
             tx.deleteDocument(attendeeRef)
 
@@ -154,6 +264,13 @@ final class FirebaseRoomActionsRepository {
                 "joinedCount": FieldValue.increment(Int64(-1)),
                 "updatedAt": now
             ], forDocument: roomRef)
+
+            // Refund bid
+            tx.updateData([
+                "honey": currentHoney + max(0, bid),
+                "activeRoomId": FieldValue.delete(),
+                "updatedAt": now
+            ], forDocument: userRef)
 
             return nil
         }
@@ -220,5 +337,113 @@ final class FirebaseRoomActionsRepository {
             "status": "closed",
             "updatedAt": Timestamp(date: Date())
         ])
+    }
+
+    // MARK: - Finish raid (host only)
+    func finishRaid(roomId: String, attendeeUids: [String], hostCurrentHoney: Int) async throws -> Int {
+        guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
+        guard !attendeeUids.isEmpty else { return 0 }
+
+        let roomRef = db.collection("rooms").document(roomId)
+        let hostRef = db.collection("users").document(uid)
+        let now = Timestamp(date: Date())
+
+        let totalHoney = try await db.runTransaction { [self] tx, errPtr -> Any? in
+            let roomSnap: DocumentSnapshot
+            do { roomSnap = try tx.getDocument(roomRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+
+            guard let room = roomSnap.data() else {
+                errPtr?.pointee = RoomActionError.roomNotFound as NSError
+                return nil
+            }
+
+            let hostUid = room["hostUid"] as? String ?? ""
+            guard hostUid == uid else {
+                errPtr?.pointee = RoomActionError.notHost as NSError
+                return nil
+            }
+
+            var total = 0
+            var removedCount = 0
+            let minBid = max(1, room["minBid"] as? Int ?? 10)
+
+            let hostSnap: DocumentSnapshot
+            do { hostSnap = try tx.getDocument(hostRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+
+            let hostHoney: Int
+            if let hostData = hostSnap.data() {
+                hostHoney = hostData["honey"] as? Int ?? 0
+            } else {
+                hostHoney = max(0, hostCurrentHoney)
+                tx.setData([
+                    "displayName": "",
+                    "friendCode": "",
+                    "stars": 0,
+                    "honey": hostHoney,
+                    "createdAt": now,
+                    "updatedAt": now
+                ], forDocument: hostRef)
+            }
+
+            for attendeeUid in attendeeUids {
+                let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
+                let userRef = self.db.collection("users").document(attendeeUid)
+                let attendeeSnap: DocumentSnapshot
+                do { attendeeSnap = try tx.getDocument(attendeeRef) }
+                catch { errPtr?.pointee = error as NSError; return nil }
+
+                guard attendeeSnap.exists, let data = attendeeSnap.data() else {
+                    continue
+                }
+
+                let bid = data["bidHoney"] as? Int ?? 0
+                let userSnap: DocumentSnapshot
+                do { userSnap = try tx.getDocument(userRef) }
+                catch { errPtr?.pointee = error as NSError; return nil }
+
+                let honey = userSnap.data()?["honey"] as? Int ?? 0
+
+                if honey < minBid {
+                    tx.deleteDocument(attendeeRef)
+                    removedCount += 1
+                    continue
+                }
+
+                let newBid = max(minBid, min(bid, honey))
+                total += newBid
+
+                tx.updateData([
+                    "bidHoney": newBid,
+                    "updatedAt": now
+                ], forDocument: attendeeRef)
+
+                tx.updateData([
+                    "honey": honey - newBid,
+                    "updatedAt": now
+                ], forDocument: userRef)
+            }
+
+            var roomUpdates: [String: Any] = [
+                "lastSuccessfulRaidAt": now,
+                "updatedAt": now
+            ]
+            if removedCount > 0 {
+                roomUpdates["joinedCount"] = FieldValue.increment(Int64(-removedCount))
+            }
+            tx.updateData(roomUpdates, forDocument: roomRef)
+
+            if total > 0 {
+                tx.updateData([
+                    "honey": hostHoney + total,
+                    "updatedAt": now
+                ], forDocument: hostRef)
+            }
+
+            return total
+        }
+
+        return totalHoney as? Int ?? 0
     }
 }

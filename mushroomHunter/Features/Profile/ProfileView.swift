@@ -261,13 +261,20 @@ struct ProfileView: View {
                 }
             }
             .navigationTitle("Profile")
-            .task { await loadHostedRooms() }
-            .refreshable { await loadHostedRooms() }
+            .task {
+                await session.refreshProfileFromBackend()
+                await loadHostedRooms()
+            }
+            .refreshable {
+                await session.refreshProfileFromBackend()
+                await loadHostedRooms()
+            }
         }
         .onAppear {
             draftName = session.displayName
             draftFriendCode = session.friendCode
             friendCodeError = nil
+            Task { await session.refreshProfileFromBackend() }
         }
     }
 

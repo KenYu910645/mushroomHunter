@@ -97,12 +97,14 @@ final class RoomDetailsViewModel: ObservableObject {
                 return
             }
             let friendCode = session.friendCode // digits only, from your SessionStore
+            let balanceAfter = max(0, session.honey - trimmedBid)
             try await actions.joinRoom(
                 roomId: room.id,
                 initialBidHoney: trimmedBid,
                 userName: session.displayName,
                 friendCode: friendCode,
-                stars: session.stars
+                stars: session.stars,
+                attendeeHoney: balanceAfter
             )
             _ = session.spendHoney(trimmedBid)
             await load() // refresh room + attendees
@@ -121,7 +123,7 @@ final class RoomDetailsViewModel: ObservableObject {
         
         do {
             let currentBid = currentUserBidHoney() ?? 0
-            try await actions.leaveRoom(roomId: room.id)
+            try await actions.leaveRoom(roomId: room.id, attendeeHoney: session.honey)
             if currentBid > 0 {
                 session.addHoney(currentBid)
             }
@@ -150,7 +152,16 @@ final class RoomDetailsViewModel: ObservableObject {
                 return
             }
 
-            try await actions.updateBid(roomId: room.id, bidHoney: newBid)
+            let newBalance: Int
+            if delta > 0 {
+                newBalance = session.honey - delta
+            } else if delta < 0 {
+                newBalance = session.honey + (-delta)
+            } else {
+                newBalance = session.honey
+            }
+
+            try await actions.updateBid(roomId: room.id, bidHoney: newBid, attendeeHoney: newBalance)
 
             if delta > 0 {
                 _ = session.spendHoney(delta)
@@ -190,6 +201,29 @@ final class RoomDetailsViewModel: ObservableObject {
         
         do {
             try await actions.closeRoom(roomId: room.id)
+            await load()
+        } catch is CancellationError {
+            return
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func finishRaid(attendeeIds: [String]) async {
+        guard let room else { return }
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            let total = try await actions.finishRaid(
+                roomId: room.id,
+                attendeeUids: attendeeIds,
+                hostCurrentHoney: session.honey
+            )
+            if total > 0 {
+                session.addHoney(total)
+            }
             await load()
         } catch is CancellationError {
             return
