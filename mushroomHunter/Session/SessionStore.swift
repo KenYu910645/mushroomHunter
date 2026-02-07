@@ -195,7 +195,7 @@ final class SessionStore: ObservableObject {
         defer { isLoading = false }
 
         guard let clientID = FirebaseApp.app()?.options.clientID else {
-            errorMessage = "Missing Firebase clientID."
+            errorMessage = NSLocalizedString("session_error_missing_client_id", comment: "")
             return
         }
 
@@ -206,7 +206,7 @@ final class SessionStore: ObservableObject {
             let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: viewController)
 
             guard let idToken = result.user.idToken?.tokenString else {
-                errorMessage = "Missing Google ID token."
+                errorMessage = NSLocalizedString("session_error_missing_id_token", comment: "")
                 return
             }
 

@@ -49,13 +49,13 @@ final class BrowseViewModel: ObservableObject {
     func join(_ listing: RoomListing, bid: Honey) async {
         let trimmedBid = max(0, bid)
         guard trimmedBid > 0 else {
-            let msg = "Please enter a honey bid before joining."
+            let msg = NSLocalizedString("browse_error_enter_bid", comment: "")
             self.joinErrorMessage = msg
             self.errorMessage = msg
             return
         }
         guard session.canAffordHoney(trimmedBid) else {
-            let msg = "Not enough honey. You have \(session.honey) 🍯."
+            let msg = String(format: NSLocalizedString("browse_error_not_enough_honey", comment: ""), session.honey)
             self.joinErrorMessage = msg
             self.errorMessage = msg
             return
@@ -120,7 +120,7 @@ struct BrowseView: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("Mushroom List")
+                .navigationTitle(LocalizedStringKey("browse_title"))
                 .task {
                     if vm.listings.isEmpty {
                         await vm.fetchListings()
@@ -131,36 +131,36 @@ struct BrowseView: View {
             HostView(vm: HostViewModel(session: session))
                 .environmentObject(session)
         }
-        .alert("Join Room", isPresented: $showJoinAlert, presenting: pendingJoinListing) { listing in
-            TextField("Bid (honey)", text: $bidText)
+        .alert(LocalizedStringKey("browse_join_room_title"), isPresented: $showJoinAlert, presenting: pendingJoinListing) { listing in
+            TextField(LocalizedStringKey("browse_join_bid_placeholder"), text: $bidText)
                 .keyboardType(.numberPad)
                 .onChange(of: bidText) { _, newValue in
                     let filtered = newValue.filter { $0.isNumber }
                     if filtered != newValue { bidText = filtered }
                 }
 
-            Button("Join") {
+            Button(LocalizedStringKey("common_join")) {
                 let bid = parseBid(bidText)
                 Task { await vm.join(listing, bid: bid) }
             }
 
-            Button("Cancel", role: .cancel) {}
+            Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
         } message: { _ in
-            Text("Enter honey bid. You have \(session.honey) 🍯.")
+            Text(String(format: NSLocalizedString("browse_join_message", comment: ""), session.honey))
         }
-        .alert("Search Rooms", isPresented: $showSearchAlert) {
-            TextField("Search room / type / host", text: $vm.query)
-            Button("Clear") { vm.query = "" }
-            Button("Done") {}
+        .alert(LocalizedStringKey("browse_search_title"), isPresented: $showSearchAlert) {
+            TextField(LocalizedStringKey("browse_search_placeholder"), text: $vm.query)
+            Button(LocalizedStringKey("common_clear")) { vm.query = "" }
+            Button(LocalizedStringKey("common_done")) {}
         } message: {
-            Text("Type to filter rooms.")
+            Text(LocalizedStringKey("browse_search_message"))
         }
     }
     
     @ViewBuilder
     private var content: some View {
         if vm.isLoading && vm.listings.isEmpty {
-            ProgressView("Loading rooms…")
+            ProgressView(LocalizedStringKey("browse_loading"))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(.systemGroupedBackground))
         } else {
@@ -182,23 +182,23 @@ struct BrowseView: View {
                             } label: {
                                 Image(systemName: "magnifyingglass")
                             }
-                            .accessibilityLabel("Search rooms")
+                            .accessibilityLabel(LocalizedStringKey("browse_search_accessibility"))
 
                             Button {
                                 showHostSheet = true
                             } label: {
                                 Image(systemName: "plus.circle.fill")
                             }
-                            .accessibilityLabel("Create host room")
+                            .accessibilityLabel(LocalizedStringKey("browse_create_accessibility"))
 
                             Menu {
-                                Picker("Mushroom Type", selection: $vm.selectedMushroomType) {
+                                Picker(LocalizedStringKey("browse_mushroom_type"), selection: $vm.selectedMushroomType) {
                                     ForEach(vm.mushroomTypes, id: \.self) { t in
-                                        Text(t).tag(t)
+                                        Text(localizedMushroomType(t)).tag(t)
                                     }
                                 }
 
-                                Toggle("Only show available", isOn: $vm.showOnlyAvailable)
+                                Toggle(LocalizedStringKey("browse_only_available"), isOn: $vm.showOnlyAvailable)
                             } label: {
                                 Image(systemName: "line.3.horizontal.decrease.circle")
                             }
@@ -230,9 +230,9 @@ struct BrowseView: View {
                     
                     if vm.filteredListings.isEmpty {
                         ContentUnavailableView(
-                            "No rooms found",
+                            LocalizedStringKey("browse_empty_title"),
                             systemImage: "magnifyingglass",
-                            description: Text("Try clearing filters or searching a different keyword.")
+                            description: Text(LocalizedStringKey("browse_empty_description"))
                         )
                         .listRowBackground(Color.clear)
                     }
@@ -253,9 +253,9 @@ struct BrowseView: View {
         var isFull: Bool { listing.joinedPlayers >= listing.maxPlayers }
         
         private var targetSummary: String {
-            let color = formatTargetValue(listing.targetColor, allLabel: "color")
-            let attribute = formatTargetValue(listing.targetAttribute, allLabel: "attribute")
-            let size = formatTargetValue(listing.targetSize, allLabel: "size")
+            let color = formatTargetValue(listing.targetColor, allLabelKey: "target_color")
+            let attribute = formatTargetValue(listing.targetAttribute, allLabelKey: "target_attribute")
+            let size = formatTargetValue(listing.targetSize, allLabelKey: "target_size")
             return "\(color)/\(attribute)/\(size)"
         }
 
@@ -295,7 +295,7 @@ struct BrowseView: View {
 
                         if let host = listing.hostName, !host.isEmpty {
                             HStack(spacing: 6) {
-                                Text("Host: \(host)")
+                                Text(String(format: NSLocalizedString("browse_host_format", comment: ""), host))
                                 Image(systemName: "star.fill")
                                 Text("\(listing.hostStars)")
                             }
@@ -304,12 +304,12 @@ struct BrowseView: View {
                         }
                         
                         HStack(spacing: 8) {
-                            Text("Attendee: \(listing.joinedPlayers)/\(listing.maxPlayers)")
+                            Text(String(format: NSLocalizedString("browse_attendee_format", comment: ""), listing.joinedPlayers, listing.maxPlayers))
                                 .font(.subheadline)
                                 .foregroundStyle(isFull ? .red : .secondary)
                             
                             if let mins = expiresInMinutes {
-                                Text("Expires: \(mins)m")
+                                Text(String(format: NSLocalizedString("browse_expires_format", comment: ""), mins))
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
@@ -321,11 +321,12 @@ struct BrowseView: View {
             }
         }
 
-        private func formatTargetValue(_ value: String, allLabel: String) -> String {
+        private func formatTargetValue(_ value: String, allLabelKey: String) -> String {
             let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty { return "all \(allLabel)" }
+            let allLabel = NSLocalizedString(allLabelKey, comment: "")
+            if trimmed.isEmpty { return String(format: NSLocalizedString("target_all_format", comment: ""), allLabel) }
             let lower = trimmed.lowercased()
-            if lower == "all" || lower == "any" { return "all \(allLabel)" }
+            if lower == "all" || lower == "any" { return String(format: NSLocalizedString("target_all_format", comment: ""), allLabel) }
             return trimmed.capitalized
         }
     }
@@ -333,5 +334,18 @@ struct BrowseView: View {
     private func parseBid(_ text: String) -> Honey {
         let digits = text.filter { $0.isNumber }
         return Int(digits) ?? 0
+    }
+
+    private func localizedMushroomType(_ type: String) -> LocalizedStringKey {
+        switch type {
+        case "All": return "mushroom_type_all"
+        case "Normal": return "mushroom_type_normal"
+        case "Fire": return "mushroom_type_fire"
+        case "Water": return "mushroom_type_water"
+        case "Crystal": return "mushroom_type_crystal"
+        case "Electric": return "mushroom_type_electric"
+        case "Poisonous": return "mushroom_type_poisonous"
+        default: return LocalizedStringKey(type)
+        }
     }
 }

@@ -38,7 +38,7 @@ struct RoomDetailsView: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("Room")
+                .navigationTitle(LocalizedStringKey("room_title"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbarContent }
                 .safeAreaInset(edge: .bottom) { actionDock }
@@ -70,7 +70,7 @@ struct RoomDetailsView: View {
         }
         .overlay(alignment: .top) {
             if showCopyToast {
-                Text("Copied to clipboard")
+                Text(LocalizedStringKey("common_copied"))
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12)
@@ -81,38 +81,38 @@ struct RoomDetailsView: View {
             }
         }
         .alert(
-            "Raid Confirmation",
+            LocalizedStringKey("room_raid_confirm_title"),
             isPresented: $showRaidConfirmAlert,
             presenting: vm.pendingRaidClaim
         ) { claim in
-            Button("Yes") {
+            Button(LocalizedStringKey("common_yes")) {
                 Task {
                     await vm.respondToRaidClaim(accept: true)
                     showNextRoundAlert = true
                 }
             }
-            Button("No", role: .cancel) {
+            Button(LocalizedStringKey("common_no"), role: .cancel) {
                 Task {
                     await vm.respondToRaidClaim(accept: false)
                     showNextRoundAlert = true
                 }
             }
         } message: { claim in
-            Text("\(claim.hostName) claim to invite you to mushroom raid. Did you join the mushroom raid?")
+            Text(String(format: NSLocalizedString("room_raid_confirm_message", comment: ""), claim.hostName))
         }
-        .alert("Next Round", isPresented: $showNextRoundAlert) {
-            Button("Update Bid") {
+        .alert(LocalizedStringKey("room_next_round_title"), isPresented: $showNextRoundAlert) {
+            Button(LocalizedStringKey("room_update_bid")) {
                 showBidSheet = true
             }
-            Button("Leave Room", role: .destructive) {
+            Button(LocalizedStringKey("room_leave_room"), role: .destructive) {
                 Task {
                     await vm.leave()
                     syncBidTextFromCurrentState()
                 }
             }
-            Button("Later", role: .cancel) {}
+            Button(LocalizedStringKey("common_later"), role: .cancel) {}
         } message: {
-            Text("Update your bid to join the next round, or leave the room now.")
+            Text(LocalizedStringKey("room_next_round_message"))
         }
         .sheet(isPresented: $showJoinSheet) {
             NavigationStack {
@@ -123,7 +123,7 @@ struct RoomDetailsView: View {
                                 .font(.title2)
                                 .monospacedDigit()
                             Spacer()
-                            Text("Max \(session.honey)")
+                            Text(String(format: NSLocalizedString("room_max_honey_format", comment: ""), session.honey))
                                 .foregroundStyle(.secondary)
                         }
 
@@ -136,21 +136,21 @@ struct RoomDetailsView: View {
                             step: 1
                         )
                     } header: {
-                        Text("Bid (🍯)")
+                        Text(LocalizedStringKey("room_bid_header"))
                     } footer: {
-                        Text("Adjust your honey bid before joining.")
+                        Text(LocalizedStringKey("room_bid_footer"))
                     }
                 }
-                .navigationTitle("Join Room")
+                .navigationTitle(LocalizedStringKey("room_join_title"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button("Cancel") {
+                        Button(LocalizedStringKey("common_cancel")) {
                             showJoinSheet = false
                         }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("OK") {
+                        Button(LocalizedStringKey("common_ok")) {
                             showJoinSheet = false
                             Task {
                                 await vm.join(initialBid: joinBidAmount)
@@ -171,7 +171,7 @@ struct RoomDetailsView: View {
                                 .font(.title2)
                                 .monospacedDigit()
                             Spacer()
-                            Text("Max \(session.honey)")
+                            Text(String(format: NSLocalizedString("room_max_honey_format", comment: ""), session.honey))
                                 .foregroundStyle(.secondary)
                         }
 
@@ -184,9 +184,9 @@ struct RoomDetailsView: View {
                             step: 1
                         )
                     } header: {
-                        Text("Update Bid (🍯)")
+                        Text(LocalizedStringKey("room_update_bid_header"))
                     } footer: {
-                        Text("Adjust your honey bid for this room.")
+                        Text(LocalizedStringKey("room_update_bid_footer"))
                     }
 
                     Section {
@@ -199,22 +199,22 @@ struct RoomDetailsView: View {
                         } label: {
                             HStack {
                                 Spacer()
-                                Text("Leave Room")
+                                Text(LocalizedStringKey("room_leave_room"))
                                 Spacer()
                             }
                         }
                     }
                 }
-                .navigationTitle("Edit Bid")
+                .navigationTitle(LocalizedStringKey("room_edit_bid_title"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button("Cancel") {
+                        Button(LocalizedStringKey("common_cancel")) {
                             showBidSheet = false
                         }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("OK") {
+                        Button(LocalizedStringKey("common_ok")) {
                             showBidSheet = false
                             Task {
                                 await vm.updateBid(to: updateBidAmount)
@@ -230,15 +230,15 @@ struct RoomDetailsView: View {
             NavigationStack {
                 Form {
                     if let room = vm.room {
-                        Text("Please select players who come to join the mushroom raid in Pikmin.\nYou will get the honey after the attendee confirms")
+                        Text(LocalizedStringKey("room_finish_hint"))
                             .font(.footnote)
                             .foregroundStyle(.secondary)
-                        Section("Attendees") {
+                        Section(LocalizedStringKey("room_attendees_header")) {
                             if room.attendees.isEmpty {
                                 ContentUnavailableView(
-                                    "No attendees",
+                                    LocalizedStringKey("room_no_attendees_title"),
                                     systemImage: "person.3",
-                                    description: Text("There are no attendees to select.")
+                                    description: Text(LocalizedStringKey("room_no_attendees_description"))
                                 )
                                 .listRowBackground(Color.clear)
                             } else {
@@ -256,7 +256,7 @@ struct RoomDetailsView: View {
                                         HStack {
                                             Text(attendee.name)
                                             Spacer()
-                                            Text("🍯 \(attendee.bidHoney)")
+                                            Text(String(format: NSLocalizedString("room_bid_honey_format", comment: ""), attendee.bidHoney))
                                                 .foregroundStyle(.secondary)
                                         }
                                     }
@@ -265,17 +265,17 @@ struct RoomDetailsView: View {
                         }
                     }
                 }
-                .navigationTitle("Claim Rewords")
+                .navigationTitle(LocalizedStringKey("room_claim_rewards_title"))
                 .navigationBarTitleDisplayMode(.inline)
                 // TODO: add the following text in front of the Attendees session: Text("Please select players who come to join the mushroom raid in Pikmin.\n You will get the honey after the attendee confirms")
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button("Cancel") {
+                        Button(LocalizedStringKey("common_cancel")) {
                             showFinishSheet = false
                         }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Confirm") {
+                        Button(LocalizedStringKey("common_confirm")) {
                             let selected = Array(finishSelection)
                             showFinishSheet = false
                             Task {
@@ -296,12 +296,12 @@ struct RoomDetailsView: View {
     @ViewBuilder
     private var content: some View {
         if vm.isLoading && vm.room == nil {
-            ProgressView("Loading…")
+            ProgressView(LocalizedStringKey("common_loading"))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(.systemGroupedBackground))
         } else if let err = vm.errorMessage, vm.room == nil {
             ContentUnavailableView(
-                "Unable to load room",
+                LocalizedStringKey("room_load_error_title"),
                 systemImage: "exclamationmark.triangle",
                 description: Text(err)
             )
@@ -352,7 +352,7 @@ struct RoomDetailsView: View {
                 }
 
                 HStack(spacing: 10) {
-                    Text("Attendee: \(room.attendees.count)/\(room.maxPlayers)")
+                    Text(String(format: NSLocalizedString("room_attendee_count_format", comment: ""), room.attendees.count, room.maxPlayers))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -368,9 +368,9 @@ struct RoomDetailsView: View {
     }
 
     private func roomInfoSection(_ room: RoomDetail) -> some View {
-        Section("Room Info") {
+        Section(LocalizedStringKey("room_info_section")) {
             HStack {
-                Text("Target Mushroom")
+                Text(LocalizedStringKey("room_target_mushroom"))
                 Spacer()
                 Text(mushroomSummary(room.targetMushroom))
                     .foregroundStyle(.secondary)
@@ -378,7 +378,7 @@ struct RoomDetailsView: View {
             }
 
             HStack {
-                Text("Last Successful Raid")
+                Text(LocalizedStringKey("room_last_successful_raid"))
                 Spacer()
                 Text(room.lastSuccessfulRaidAt.relativeShortString())
                     .foregroundStyle(.secondary)
@@ -387,16 +387,16 @@ struct RoomDetailsView: View {
     }
 
     private func hostInfoSection(_ room: RoomDetail) -> some View {
-        Section("Host Info") {
+        Section(LocalizedStringKey("room_host_info_section")) {
             HStack {
-                Text("Host")
+                Text(LocalizedStringKey("room_host_label"))
                 Spacer()
                 Text(room.hostName)
                     .foregroundStyle(.secondary)
             }
 
             HStack {
-                Text("Host Stars")
+                Text(LocalizedStringKey("room_host_stars_label"))
                 Spacer()
                 Label("\(room.hostStars)", systemImage: "star.fill")
                     .labelStyle(.titleAndIcon)
@@ -404,7 +404,7 @@ struct RoomDetailsView: View {
             }
 
             HStack {
-                Text("Friend Code")
+                Text(LocalizedStringKey("room_friend_code_label"))
                 Spacer()
                 HStack(spacing: 6) {
                     Text(room.hostFriendCodeFormatted)
@@ -416,7 +416,7 @@ struct RoomDetailsView: View {
                         Image(systemName: "doc.on.doc")
                     }
                     .buttonStyle(.borderless)
-                    .accessibilityLabel("Copy host friend code")
+                    .accessibilityLabel(LocalizedStringKey("room_copy_host_code_accessibility"))
                 }
             }
         }
@@ -426,9 +426,9 @@ struct RoomDetailsView: View {
         Section {
             if room.attendees.isEmpty {
                 ContentUnavailableView(
-                    "No attendees yet",
+                    LocalizedStringKey("room_attendees_empty_title"),
                     systemImage: "person.3",
-                    description: Text("Be the first to join this room.")
+                    description: Text(LocalizedStringKey("room_attendees_empty_description"))
                 )
                 .listRowBackground(Color.clear)
             } else {
@@ -449,17 +449,18 @@ struct RoomDetailsView: View {
             }
         } header: {
             HStack {
-                Text("Attendees")
+                Text(LocalizedStringKey("room_attendees_header"))
                 Spacer()
 
                 Menu {
-                    Picker("Sort", selection: $vm.attendeeSort) {
+                    Picker(LocalizedStringKey("common_sort"), selection: $vm.attendeeSort) {
                         ForEach(RoomDetailsViewModel.AttendeeSort.allCases) { s in
-                            Text(s.rawValue).tag(s)
+                            Text(LocalizedStringKey(s.localizedKey))
+                                .tag(s)
                         }
                     }
                 } label: {
-                    Label("Sort", systemImage: "arrow.up.arrow.down")
+                    Label(LocalizedStringKey("common_sort"), systemImage: "arrow.up.arrow.down")
                         .font(.subheadline)
                 }
             }
@@ -486,7 +487,7 @@ struct RoomDetailsView: View {
                     Image(systemName: "ellipsis")
                         .font(.headline)
                 }
-                .accessibilityLabel("Edit Room")
+                .accessibilityLabel(LocalizedStringKey("room_edit_room_accessibility"))
                 .disabled(vm.isLoading)
             }
         }
@@ -499,7 +500,7 @@ struct RoomDetailsView: View {
                     Image(systemName: "plus")
                         .font(.headline)
                 }
-                .accessibilityLabel("Join Room")
+                .accessibilityLabel(LocalizedStringKey("room_join_room_accessibility"))
                 .disabled(vm.isLoading)
             }
         }
@@ -512,7 +513,7 @@ struct RoomDetailsView: View {
                     Image(systemName: "pencil")
                         .font(.headline)
                 }
-                .accessibilityLabel("Edit Bid")
+                .accessibilityLabel(LocalizedStringKey("room_edit_bid_accessibility"))
                 .disabled(vm.isLoading)
             }
         }
@@ -545,7 +546,7 @@ struct RoomDetailsView: View {
                             finishSelection = []
                             showFinishSheet = true
                         } label: {
-                            Text("Claim Rewards")
+                            Text(LocalizedStringKey("room_claim_rewards_title"))
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
@@ -583,7 +584,10 @@ struct RoomDetailsView: View {
     }
 
     private func mushroomSummary(_ t: MushroomTarget) -> String {
-        "\(t.color.rawValue.capitalized) / \(t.attribute.rawValue.capitalized) / \(t.size.rawValue.capitalized)"
+        let color = localizedColor(t.color)
+        let attribute = localizedAttribute(t.attribute)
+        let size = localizedSize(t.size)
+        return "\(color) / \(attribute) / \(size)"
     }
 
     private func syncBidTextFromCurrentState() {
@@ -592,6 +596,37 @@ struct RoomDetailsView: View {
             bidText = "\(bid)"
         } else if bidText.isEmpty {
             bidText = "0"
+        }
+    }
+
+    private func localizedColor(_ color: MushroomColor) -> String {
+        switch color {
+        case .Red: return NSLocalizedString("mushroom_color_red", comment: "")
+        case .Yellow: return NSLocalizedString("mushroom_color_yellow", comment: "")
+        case .Blue: return NSLocalizedString("mushroom_color_blue", comment: "")
+        case .Purple: return NSLocalizedString("mushroom_color_purple", comment: "")
+        case .White: return NSLocalizedString("mushroom_color_white", comment: "")
+        case .Gray: return NSLocalizedString("mushroom_color_gray", comment: "")
+        case .Pink: return NSLocalizedString("mushroom_color_pink", comment: "")
+        }
+    }
+
+    private func localizedAttribute(_ attribute: MushroomAttribute) -> String {
+        switch attribute {
+        case .Normal: return NSLocalizedString("mushroom_attr_normal", comment: "")
+        case .Fire: return NSLocalizedString("mushroom_attr_fire", comment: "")
+        case .Water: return NSLocalizedString("mushroom_attr_water", comment: "")
+        case .Crystal: return NSLocalizedString("mushroom_attr_crystal", comment: "")
+        case .Electric: return NSLocalizedString("mushroom_attr_electric", comment: "")
+        case .Poisonous: return NSLocalizedString("mushroom_attr_poisonous", comment: "")
+        }
+    }
+
+    private func localizedSize(_ size: MushroomSize) -> String {
+        switch size {
+        case .Small: return NSLocalizedString("mushroom_size_small", comment: "")
+        case .Normal: return NSLocalizedString("mushroom_size_normal", comment: "")
+        case .Magnificent: return NSLocalizedString("mushroom_size_magnificent", comment: "")
         }
     }
 }
@@ -614,7 +649,7 @@ private struct AttendeeRow: View {
                 Spacer()
 
                 HStack(spacing: 6) {
-                    Text("🍯 \(attendee.bidHoney)")
+                    Text(String(format: NSLocalizedString("room_bid_honey_format", comment: ""), attendee.bidHoney))
                         .font(.subheadline.weight(.semibold))
                         .monospacedDigit()
 
@@ -623,7 +658,7 @@ private struct AttendeeRow: View {
                             Button(role: .destructive) {
                                 onKick()
                             } label: {
-                                Label("Kick", systemImage: "person.fill.xmark")
+                                Label(LocalizedStringKey("room_kick"), systemImage: "person.fill.xmark")
                             }
                         } label: {
                             Image(systemName: "ellipsis.circle")
@@ -635,7 +670,7 @@ private struct AttendeeRow: View {
             }
 
             HStack(spacing: 10) {
-                Text("Code: \(attendee.friendCodeFormatted)")
+                Text(String(format: NSLocalizedString("room_code_format", comment: ""), attendee.friendCodeFormatted))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
@@ -654,7 +689,7 @@ private struct AttendeeRow: View {
                     Image(systemName: "doc.on.doc")
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Copy attendee friend code")
+                .accessibilityLabel(LocalizedStringKey("room_copy_attendee_code_accessibility"))
             }
         }
         .padding(.vertical, 4)

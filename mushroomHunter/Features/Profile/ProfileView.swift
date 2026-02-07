@@ -26,6 +26,7 @@ struct ProfileView: View {
     @State private var isJoinedLoading: Bool = false
     @State private var joinedErrorMessage: String? = nil
     @State private var joinedRooms: [JoinedRoomSummary] = []
+    @State private var showSettingsSheet: Bool = false
 
     private let hostRepo = FirebaseProfileHostRepository()
 
@@ -41,10 +42,10 @@ struct ProfileView: View {
                     // Name row
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text("Name")
+                            Text(LocalizedStringKey("profile_name"))
                             Spacer()
                             if isEditingName {
-                                TextField("Pikmin in-game name", text: $draftName)
+                                TextField(LocalizedStringKey("profile_name_placeholder"), text: $draftName)
                                     .multilineTextAlignment(.trailing)
                                     .textInputAutocapitalization(.words)
                                     .disableAutocorrection(true)
@@ -59,23 +60,23 @@ struct ProfileView: View {
                                 Image(systemName: "pencil")
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("Edit name")
+                            .accessibilityLabel(LocalizedStringKey("profile_edit_name_accessibility"))
                         }
 
                         if isEditingName {
-                            Text("Recommend to use Pikmin Bloom in-game name")
+                            Text(LocalizedStringKey("profile_name_hint"))
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
 
                             HStack {
-                                Button("Cancel") {
+                                Button(LocalizedStringKey("common_cancel")) {
                                     draftName = session.displayName
                                     isEditingName = false
                                 }
 
                                 Spacer()
 
-                                Button("Save") {
+                                Button(LocalizedStringKey("common_save")) {
                                     let trimmed = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
                                     guard !trimmed.isEmpty else { return }
                                     session.updateDisplayName(trimmed)
@@ -91,11 +92,11 @@ struct ProfileView: View {
                     // Friend code row
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text("Friend Code")
+                            Text(LocalizedStringKey("profile_friend_code"))
                             Spacer()
 
                             if isEditingFriendCode {
-                                TextField("12 digits", text: $draftFriendCode)
+                                TextField(LocalizedStringKey("profile_friend_code_placeholder"), text: $draftFriendCode)
                                     .multilineTextAlignment(.trailing)
                                     .keyboardType(.numberPad)
                                     .textContentType(.oneTimeCode)
@@ -125,11 +126,11 @@ struct ProfileView: View {
                                 Image(systemName: "pencil")
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("Edit friend code")
+                            .accessibilityLabel(LocalizedStringKey("profile_edit_friend_code_accessibility"))
                         }
 
                         if isEditingFriendCode {
-                            Text("Copy and paste friend code in Pikmin Bloom")
+                            Text(LocalizedStringKey("profile_friend_code_hint"))
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
 
@@ -140,7 +141,7 @@ struct ProfileView: View {
                             }
 
                             HStack {
-                                Button("Cancel") {
+                                Button(LocalizedStringKey("common_cancel")) {
                                     draftFriendCode = session.friendCode.filter { $0.isNumber }
                                     friendCodeError = nil
                                     isEditingFriendCode = false
@@ -148,7 +149,7 @@ struct ProfileView: View {
 
                                 Spacer()
 
-                                Button("Save") {
+                                Button(LocalizedStringKey("common_save")) {
                                     if validateFriendCode(draftFriendCode) == nil {
                                         session.updateFriendCode(draftFriendCode)
                                         isEditingFriendCode = false
@@ -165,13 +166,13 @@ struct ProfileView: View {
                     .padding(.vertical, 4)
 
                 } header: {
-                    Text("ID")
+                    Text(LocalizedStringKey("profile_id_section"))
                 }
 
                 // MARK: - Community
                 Section {
                     HStack {
-                        Label("Stars", systemImage: "star.fill")
+                        Label(LocalizedStringKey("profile_stars"), systemImage: "star.fill")
                             .foregroundStyle(.yellow)
 
                         Spacer()
@@ -182,7 +183,7 @@ struct ProfileView: View {
                     }
 
                     HStack {
-                        Label("Honey", systemImage: "drop.fill")
+                        Label(LocalizedStringKey("profile_honey"), systemImage: "drop.fill")
                             .foregroundStyle(.orange)
 
                         Spacer()
@@ -193,9 +194,9 @@ struct ProfileView: View {
                     }
 
                 } header: {
-                    Text("Community")
+                    Text(LocalizedStringKey("profile_community_section"))
                 } footer: {
-                    Text("Stars reflect trust. Honey is your in-app balance (read-only for now).")
+                    Text(LocalizedStringKey("profile_community_footer"))
                 }
 
                 // MARK: - Joined Rooms
@@ -208,14 +209,14 @@ struct ProfileView: View {
                     if isJoinedLoading && joinedRooms.isEmpty {
                         HStack {
                             ProgressView()
-                            Text("Loading joined rooms…")
+                            Text(LocalizedStringKey("profile_loading_joined"))
                                 .foregroundStyle(.secondary)
                         }
                     } else if joinedRooms.isEmpty {
                         ContentUnavailableView(
-                            "No joined raids",
+                            LocalizedStringKey("profile_joined_empty_title"),
                             systemImage: "person.2",
-                            description: Text("Rooms you joined will appear here.")
+                            description: Text(LocalizedStringKey("profile_joined_empty_description"))
                         )
                         .listRowBackground(Color.clear)
                     } else {
@@ -231,16 +232,16 @@ struct ProfileView: View {
                                             .font(.headline)
                                             .lineLimit(1)
                                         Spacer()
-                                        Text(r.status.lowercased() == "open" ? "Open" : "Closed")
+                                        Text(localizedRoomStatus(r.status))
                                             .font(.footnote)
                                             .foregroundStyle(.secondary)
                                     }
 
                                     HStack(spacing: 8) {
-                                        Text("Players: \(r.joinedCount)/\(r.maxPlayers)")
+                                        Text(String(format: NSLocalizedString("profile_players_format", comment: ""), r.joinedCount, r.maxPlayers))
                                             .font(.footnote)
                                             .foregroundStyle(.secondary)
-                                        Text("Bid: \(r.bidHoney)")
+                                        Text(String(format: NSLocalizedString("profile_bid_format", comment: ""), r.bidHoney))
                                             .font(.footnote)
                                             .foregroundStyle(.secondary)
                                     }
@@ -249,9 +250,9 @@ struct ProfileView: View {
                         }
                     }
                 } header: {
-                    Text("Joined Mushroom Raid")
+                    Text(LocalizedStringKey("profile_joined_section"))
                 } footer: {
-                    Text("This list is loaded from Firestore: /rooms/*/attendees where uid == your uid.")
+                    Text(LocalizedStringKey("profile_joined_footer"))
                 }
 
                 // MARK: - Host
@@ -264,14 +265,14 @@ struct ProfileView: View {
                     if isHostLoading && hostedRooms.isEmpty {
                         HStack {
                             ProgressView()
-                            Text("Loading hosted rooms…")
+                            Text(LocalizedStringKey("profile_loading_hosted"))
                                 .foregroundStyle(.secondary)
                         }
                     } else if hostedRooms.isEmpty {
                         ContentUnavailableView(
-                            "No hosted rooms",
+                            LocalizedStringKey("profile_hosted_empty_title"),
                             systemImage: "house",
-                            description: Text("Rooms you host will appear here.")
+                            description: Text(LocalizedStringKey("profile_hosted_empty_description"))
                         )
                         .listRowBackground(Color.clear)
                     } else {
@@ -290,12 +291,12 @@ struct ProfileView: View {
                                             .font(.headline)
                                             .lineLimit(1)
                                         Spacer()
-                                        Text(r.status.lowercased() == "open" ? "Open" : "Closed")
+                                        Text(localizedRoomStatus(r.status))
                                             .font(.footnote)
                                             .foregroundStyle(.secondary)
                                     }
 
-                                    Text("Players: \(r.joinedCount)/\(r.maxPlayers)")
+                                    Text(String(format: NSLocalizedString("profile_players_format", comment: ""), r.joinedCount, r.maxPlayers))
                                         .font(.footnote)
                                         .foregroundStyle(.secondary)
                                 }
@@ -303,9 +304,9 @@ struct ProfileView: View {
                         }
                     }
                 } header: {
-                    Text("Host Mushroom Raid")
+                    Text(LocalizedStringKey("profile_hosted_section"))
                 } footer: {
-                    Text("This list is loaded from Firestore: /rooms where hostUid == your uid.")
+                    Text(LocalizedStringKey("profile_hosted_footer"))
                 }
 
                 // MARK: Sign out
@@ -313,13 +314,23 @@ struct ProfileView: View {
                     Button(role: .destructive) {
                         session.signOut()
                     } label: {
-                        Text("Sign Out")
+                        Text(LocalizedStringKey("profile_sign_out"))
                     }
                 } footer: {
-                    Text("Profile data is local prototype for now. Later: store name + friend code in Firestore /users/{uid}.")
+                    Text(LocalizedStringKey("profile_footer_note"))
                 }
             }
-            .navigationTitle("Profile")
+            .navigationTitle(LocalizedStringKey("profile_title"))
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showSettingsSheet = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel(LocalizedStringKey("settings_title"))
+                }
+            }
             .task {
                 await session.refreshProfileFromBackend()
                 await loadJoinedRooms()
@@ -329,6 +340,25 @@ struct ProfileView: View {
                 await session.refreshProfileFromBackend()
                 await loadJoinedRooms()
                 await loadHostedRooms()
+            }
+        }
+        .sheet(isPresented: $showSettingsSheet) {
+            NavigationStack {
+                List {
+                    Text(LocalizedStringKey("settings_language_managed"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .navigationTitle(LocalizedStringKey("settings_title"))
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button {
+                            showSettingsSheet = false
+                        } label: {
+                            Image(systemName: "xmark")
+                        }
+                    }
+                }
             }
         }
         .onAppear {
@@ -342,9 +372,9 @@ struct ProfileView: View {
     // MARK: - Validation / Formatting
 
     private func validateFriendCode(_ code: String) -> String? {
-        if code.isEmpty { return "Friend code is required." }
-        if code.count != 12 { return "Friend code must be exactly 12 digits." }
-        if code.allSatisfy({ $0.isNumber }) == false { return "Friend code must contain digits only." }
+        if code.isEmpty { return NSLocalizedString("profile_friend_code_error_required", comment: "") }
+        if code.count != 12 { return NSLocalizedString("profile_friend_code_error_length", comment: "") }
+        if code.allSatisfy({ $0.isNumber }) == false { return NSLocalizedString("profile_friend_code_error_digits", comment: "") }
         return nil
     }
 
@@ -394,6 +424,11 @@ struct ProfileView: View {
             i = end
         }
         return parts.joined(separator: " ")
+    }
+
+    private func localizedRoomStatus(_ status: String) -> LocalizedStringKey {
+        let lower = status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return lower == "open" ? "common_open" : "common_closed"
     }
 }
 

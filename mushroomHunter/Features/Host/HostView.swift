@@ -58,21 +58,27 @@ final class HostViewModel: ObservableObject {
     }
 
     var navigationTitle: String {
-        isEditMode ? "Edit Room" : "Create Room"
+        isEditMode
+            ? NSLocalizedString("host_edit_title", comment: "")
+            : NSLocalizedString("host_create_title", comment: "")
     }
 
     var primaryActionTitle: String {
-        isEditMode ? "Save Room Settings" : "Create Host Room"
+        isEditMode
+            ? NSLocalizedString("host_save_button", comment: "")
+            : NSLocalizedString("host_create_button", comment: "")
     }
 
     var successAlertTitle: String {
-        isEditMode ? "Room updated!" : "Host room created!"
+        isEditMode
+            ? NSLocalizedString("host_success_updated_title", comment: "")
+            : NSLocalizedString("host_success_created_title", comment: "")
     }
 
     var successAlertMessage: String {
         isEditMode
-            ? "Your room settings were saved."
-            : "This is a prototype. Backend write will be added later."
+            ? NSLocalizedString("host_success_updated_message", comment: "")
+            : NSLocalizedString("host_success_created_message", comment: "")
     }
 
     var canSubmit: Bool {
@@ -193,7 +199,7 @@ struct HostView: View {
             Form {
                 // Host name
                 Section {
-                    TextField("Ex: Let's fight mushroom", text: $vm.hostName)
+                    TextField(LocalizedStringKey("host_room_name_placeholder"), text: $vm.hostName)
                         .onChange(of: vm.hostName) { _, _ in vm.enforceLimits() }
                         .textInputAutocapitalization(.words)
                         .submitLabel(.done)
@@ -207,43 +213,43 @@ struct HostView: View {
 //                            .monospacedDigit()
 //                    }
                 } header: {
-                    Text("Room Name")
+                    Text(LocalizedStringKey("host_room_name_header"))
                 } footer: {
-                    Text("Supports multiple languages. Keep it short and recognizable.")
+                    Text(LocalizedStringKey("host_room_name_footer"))
                 }
 
                 // Mushroom properties
-                Section("Target Mushroom") {
-                    Picker("Color", selection: $vm.color) {
+                Section(LocalizedStringKey("host_target_section")) {
+                    Picker(LocalizedStringKey("host_color_label"), selection: $vm.color) {
                         ForEach(MushroomColor.allCases, id: \.self) { c in
-                            Text(c.rawValue).tag(c)
+                            Text(localizedColor(c)).tag(c)
                         }
                     }
 
-                    Picker("Attribute", selection: $vm.attribute) {
+                    Picker(LocalizedStringKey("host_attribute_label"), selection: $vm.attribute) {
                         ForEach(MushroomAttribute.allCases, id: \.self) { a in
-                            Text(a.rawValue).tag(a)
+                            Text(localizedAttribute(a)).tag(a)
                         }
                     }
 
-                    Picker("Size", selection: $vm.size) {
+                    Picker(LocalizedStringKey("host_size_label"), selection: $vm.size) {
                         ForEach(MushroomSize.allCases, id: \.self) { s in
-                            Text(s.rawValue).tag(s)
+                            Text(localizedSize(s)).tag(s)
                         }
                     }
                 }
 
                 // Location
                 Section {
-                    TextField("Country / City / Suburb / Area", text: $vm.location)
+                    TextField(LocalizedStringKey("host_location_placeholder"), text: $vm.location)
                         .onChange(of: vm.location) { _, _ in
                             // Optional: you can add a char limit here too if you want.
                         }
                         .textInputAutocapitalization(.words)
                 } header: {
-                    Text("Location")
+                    Text(LocalizedStringKey("host_location_header"))
                 } footer: {
-                    Text("Type a rough location. Avoid full addresses for privacy.")
+                    Text(LocalizedStringKey("host_location_footer"))
                 }
 
                 // Other message (500 words max)
@@ -253,7 +259,7 @@ struct HostView: View {
                         .onChange(of: vm.otherMessage) { _, _ in vm.enforceLimits() }
 
                     HStack {
-                        Text("Words")
+                        Text(LocalizedStringKey("host_words_label"))
                             .foregroundStyle(.secondary)
                         Spacer()
                         Text("\(vm.otherWordCount)/\(HostViewModel.otherMaxWords)")
@@ -261,15 +267,15 @@ struct HostView: View {
                             .monospacedDigit()
                     }
                 } header: {
-                    Text("Room Description")
+                    Text(LocalizedStringKey("host_description_header"))
                 } footer: {
-                    Text("Max 500 words. Use it for extra notes like time window, expectations, or friend code.")
+                    Text(LocalizedStringKey("host_description_footer"))
                 }
 
                 Section {
                     Stepper(value: $vm.minBid, in: 1...10_000, step: 1) {
                         HStack {
-                            Text("Min Bid")
+                            Text(LocalizedStringKey("host_min_bid_label"))
                             Spacer()
                             Text("\(vm.minBid)")
                                 .monospacedDigit()
@@ -277,9 +283,9 @@ struct HostView: View {
                         }
                     }
                 } header: {
-                    Text("Minimum Bid")
+                    Text(LocalizedStringKey("host_min_bid_header"))
                 } footer: {
-                    Text("Minimum honey required to join this room. Default is 10.")
+                    Text(LocalizedStringKey("host_min_bid_footer"))
                 }
 
                 // Error
@@ -316,13 +322,13 @@ struct HostView: View {
                         } label: {
                             HStack {
                                 Spacer()
-                                Text("Close Room Options")
+                                Text(LocalizedStringKey("host_close_room_button"))
                                     .font(.headline)
                                 Spacer()
                             }
                         }
                     } footer: {
-                        Text("This will close the room and remove it from the open list.")
+                        Text(LocalizedStringKey("host_close_room_footer"))
                     }
                 }
             }
@@ -335,19 +341,50 @@ struct HostView: View {
                         Image(systemName: "xmark")
                             .font(.headline)
                     }
-                    .accessibilityLabel("Close")
+                    .accessibilityLabel(LocalizedStringKey("common_close"))
                 }
             }
             .alert(vm.successAlertTitle, isPresented: $vm.showSuccessAlert) {
                 if vm.isEditMode {
-                    Button("OK") { dismiss() }
+                    Button(LocalizedStringKey("common_ok")) { dismiss() }
                 } else {
-                    Button("OK") { }
-                    Button("Reset Form") { vm.reset() }
+                    Button(LocalizedStringKey("common_ok")) { }
+                    Button(LocalizedStringKey("host_reset_form")) { vm.reset() }
                 }
             } message: {
                 Text(vm.successAlertMessage)
             }
+        }
+    }
+
+    private func localizedColor(_ color: MushroomColor) -> LocalizedStringKey {
+        switch color {
+        case .Red: return "mushroom_color_red"
+        case .Yellow: return "mushroom_color_yellow"
+        case .Blue: return "mushroom_color_blue"
+        case .Purple: return "mushroom_color_purple"
+        case .White: return "mushroom_color_white"
+        case .Gray: return "mushroom_color_gray"
+        case .Pink: return "mushroom_color_pink"
+        }
+    }
+
+    private func localizedAttribute(_ attribute: MushroomAttribute) -> LocalizedStringKey {
+        switch attribute {
+        case .Normal: return "mushroom_attr_normal"
+        case .Fire: return "mushroom_attr_fire"
+        case .Water: return "mushroom_attr_water"
+        case .Crystal: return "mushroom_attr_crystal"
+        case .Electric: return "mushroom_attr_electric"
+        case .Poisonous: return "mushroom_attr_poisonous"
+        }
+    }
+
+    private func localizedSize(_ size: MushroomSize) -> LocalizedStringKey {
+        switch size {
+        case .Small: return "mushroom_size_small"
+        case .Normal: return "mushroom_size_normal"
+        case .Magnificent: return "mushroom_size_magnificent"
         }
     }
 }

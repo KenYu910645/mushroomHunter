@@ -27,6 +27,14 @@ final class RoomDetailsViewModel: ObservableObject {
         case joinedOldToNew = "Joined (Old → New)"
         
         var id: String { rawValue }
+
+        var localizedKey: String {
+            switch self {
+            case .bidHighToLow: return "room_sort_bid"
+            case .starsHighToLow: return "room_sort_stars"
+            case .joinedOldToNew: return "room_sort_joined"
+            }
+        }
     }
     
     @Published var attendeeSort: AttendeeSort = .bidHighToLow
@@ -116,11 +124,11 @@ final class RoomDetailsViewModel: ObservableObject {
         do {
             let trimmedBid = max(0, initialBid)
             guard trimmedBid > 0 else {
-                errorMessage = "Please enter a honey bid before joining."
+                errorMessage = NSLocalizedString("room_error_enter_bid", comment: "")
                 return
             }
             guard session.canAffordHoney(trimmedBid) else {
-                errorMessage = "Not enough honey. You have \(session.honey) 🍯."
+                errorMessage = String(format: NSLocalizedString("room_error_not_enough_honey", comment: ""), session.honey)
                 return
             }
             let friendCode = session.friendCode // digits only, from your SessionStore
@@ -175,7 +183,7 @@ final class RoomDetailsViewModel: ObservableObject {
             let delta = newBid - previousBid
 
             if delta > 0 && !session.canAffordHoney(delta) {
-                errorMessage = "Not enough honey. You need \(delta) more 🍯."
+                errorMessage = String(format: NSLocalizedString("room_error_need_more_honey", comment: ""), delta)
                 return
             }
 

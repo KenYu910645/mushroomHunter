@@ -14,8 +14,8 @@
 		BEA4A7B72F30947A009038BE /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BEA4A7B62F30947A009038BE /* FirebaseAuth */; };
 		BEA4A7B92F30947A009038BE /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = BEA4A7B82F30947A009038BE /* FirebaseCrashlytics */; };
 		BEA4A7BB2F30947A009038BE /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = BEA4A7BA2F30947A009038BE /* FirebaseFirestore */; };
-		BEF0F0F32F50000200123456 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = BEF0F0F42F50000200123456 /* FirebaseStorage */; };
 		BEF0F0F12F50000100123456 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = BEF0F0F22F50000100123456 /* FirebaseMessaging */; };
+		BEF0F0F32F50000200123456 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = BEF0F0F42F50000200123456 /* FirebaseStorage */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -121,6 +121,7 @@
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hant",
 			);
 			mainGroup = BEA4A78C2F3070D8009038BE;
 			minimizedProjectReferenceProxies = 1;
@@ -430,15 +431,15 @@
 			package = BEA4A7B12F30947A009038BE /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
 		};
-		BEF0F0F42F50000200123456 /* FirebaseStorage */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = BEA4A7B12F30947A009038BE /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseStorage;
-		};
 		BEF0F0F22F50000100123456 /* FirebaseMessaging */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = BEA4A7B12F30947A009038BE /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseMessaging;
+		};
+		BEF0F0F42F50000200123456 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BEA4A7B12F30947A009038BE /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

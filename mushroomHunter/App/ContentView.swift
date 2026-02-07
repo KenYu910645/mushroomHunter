@@ -26,17 +26,17 @@ struct MainTabView: View {
         TabView {
             BrowseView(session: session)
                 .tabItem {
-                    Label("Mushroom", systemImage: "magnifyingglass")
+                    Label("tab_mushroom", systemImage: "magnifyingglass")
                 }
 
             PostcardTabView()
                 .tabItem {
-                    Label("PostCard", systemImage: "mail")
+                    Label("tab_postcard", systemImage: "mail")
                 }
 
             ProfileView()
                 .tabItem {
-                    Label("Profile", systemImage: "person.circle")
+                    Label("tab_profile", systemImage: "person.circle")
                 }
         }
     }

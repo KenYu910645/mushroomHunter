@@ -10,12 +10,12 @@ struct PostcardTabView: View {
             VStack(spacing: 12) {
                 PostcardBrowseView(onRegister: { showRegisterSheet = true })
             }
-            .navigationTitle("PostCard")
+            .navigationTitle(LocalizedStringKey("postcard_title"))
         }
         .sheet(isPresented: $showRegisterSheet) {
             NavigationStack {
                 PostcardRegisterView()
-                    .navigationTitle("Register")
+                    .navigationTitle(LocalizedStringKey("postcard_register_title"))
                     .toolbar {
                         ToolbarItem(placement: .navigationBarLeading) {
                             Button {
@@ -64,9 +64,9 @@ struct PostcardBrowseView: View {
 
                 if vm.filteredListings.isEmpty && !vm.isLoading {
                     ContentUnavailableView(
-                        "No postcards found",
+                        LocalizedStringKey("postcard_empty_title"),
                         systemImage: "magnifyingglass",
-                        description: Text("Try a different search or clear filters.")
+                        description: Text(LocalizedStringKey("postcard_empty_description"))
                     )
                     .padding(.top, 24)
                 }
@@ -78,12 +78,12 @@ struct PostcardBrowseView: View {
                 ProgressView("Loading postcards…")
             }
         }
-        .alert("Search Postcards", isPresented: $showSearchAlert) {
-            TextField("Search title / seller / location", text: $vm.query)
-            Button("Clear") { vm.query = "" }
-            Button("Done") {}
+        .alert(LocalizedStringKey("postcard_search_title"), isPresented: $showSearchAlert) {
+            TextField(LocalizedStringKey("postcard_search_placeholder"), text: $vm.query)
+            Button(LocalizedStringKey("common_clear")) { vm.query = "" }
+            Button(LocalizedStringKey("common_done")) {}
         } message: {
-            Text("Type to filter postcards.")
+            Text(LocalizedStringKey("postcard_search_message"))
         }
         .onChange(of: vm.query) { _, _ in
             vm.scheduleSearch()
@@ -120,43 +120,50 @@ struct PostcardBrowseView: View {
                 } label: {
                     Image(systemName: "magnifyingglass")
                 }
-                .accessibilityLabel("Search postcards")
+                .accessibilityLabel(LocalizedStringKey("postcard_search_accessibility"))
 
                 Button {
                     onRegister()
                 } label: {
                     Image(systemName: "plus.circle.fill")
                 }
-                .accessibilityLabel("Register postcard")
+                .accessibilityLabel(LocalizedStringKey("postcard_register_accessibility"))
 
                 Menu {
-                    Section("Country") {
-                        Picker("Country", selection: $vm.selectedCountry) {
-                            Text("All").tag("All")
+                    Section {
+                        Picker(LocalizedStringKey("postcard_country"), selection: $vm.selectedCountry) {
+                            Text(LocalizedStringKey("common_all")).tag("All")
                             ForEach(vm.availableCountries, id: \.self) { country in
                                 Text(country).tag(country)
                             }
                         }
+                    } header: {
+                        Text(LocalizedStringKey("postcard_country"))
                     }
-                    Section("Province") {
-                        Picker("Province", selection: $vm.selectedProvince) {
-                            Text("All").tag("All")
+                    Section {
+                        Picker(LocalizedStringKey("postcard_province"), selection: $vm.selectedProvince) {
+                            Text(LocalizedStringKey("common_all")).tag("All")
                             ForEach(vm.availableProvinces, id: \.self) { province in
                                 Text(province).tag(province)
                             }
                         }
+                    } header: {
+                        Text(LocalizedStringKey("postcard_province"))
                     }
-                    Section("Sort") {
-                        Picker("Sort", selection: $vm.sortOrder) {
+                    Section {
+                        Picker(LocalizedStringKey("postcard_sort"), selection: $vm.sortOrder) {
                             ForEach(PostcardSortOrder.allCases) { option in
-                                Text(option.rawValue).tag(option)
+                                Text(LocalizedStringKey(option.localizedKey))
+                                    .tag(option)
                             }
                         }
+                    } header: {
+                        Text(LocalizedStringKey("postcard_sort"))
                     }
                 } label: {
                     Image(systemName: "line.3.horizontal.decrease.circle")
                 }
-                .accessibilityLabel("Filters")
+                .accessibilityLabel(LocalizedStringKey("common_filters"))
             }
         }
         .padding(.horizontal)
@@ -213,10 +220,10 @@ private struct PostcardCardView: View {
             .foregroundStyle(.secondary)
 
             HStack {
-                Text("\(listing.priceHoney) 🍯")
+                Text(String(format: NSLocalizedString("postcard_price_honey_format", comment: ""), listing.priceHoney))
                     .font(.subheadline)
                 Spacer()
-                Text("x\(listing.stock)")
+                Text(String(format: NSLocalizedString("postcard_stock_format", comment: ""), listing.stock))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -280,20 +287,20 @@ struct PostcardDetailView: View {
                     Text(listing.location.fullLabel)
                         .foregroundStyle(.secondary)
 
-                    Text("Seller: \(listing.sellerName)")
+                    Text(String(format: NSLocalizedString("postcard_seller_format", comment: ""), listing.sellerName))
                         .foregroundStyle(.secondary)
 
                     HStack {
-                        Text("Price")
+                        Text(LocalizedStringKey("postcard_price_label"))
                         Spacer()
-                        Text("\(listing.priceHoney) 🍯")
+                        Text(String(format: NSLocalizedString("postcard_price_honey_format", comment: ""), listing.priceHoney))
                             .fontWeight(.semibold)
                     }
 
                     HStack {
-                        Text("Stock")
+                        Text(LocalizedStringKey("postcard_stock_label"))
                         Spacer()
-                        Text("\(listing.stock)")
+                        Text(String(format: NSLocalizedString("postcard_stock_plain_format", comment: ""), listing.stock))
                             .fontWeight(.semibold)
                     }
                 }
@@ -301,19 +308,19 @@ struct PostcardDetailView: View {
                 Button {
                     showBuyConfirm = true
                 } label: {
-                    Text("Buy")
+                    Text(LocalizedStringKey("postcard_buy_button"))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
             }
             .padding()
         }
-        .navigationTitle("Postcard")
-        .alert("Confirm Purchase", isPresented: $showBuyConfirm) {
-            Button("Confirm") {}
-            Button("Cancel", role: .cancel) {}
+        .navigationTitle(LocalizedStringKey("postcard_title"))
+        .alert(LocalizedStringKey("postcard_confirm_title"), isPresented: $showBuyConfirm) {
+            Button(LocalizedStringKey("common_confirm")) {}
+            Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
         } message: {
-            Text("Honey will be held until you confirm received.")
+            Text(LocalizedStringKey("postcard_confirm_message"))
         }
     }
 }
@@ -332,7 +339,7 @@ struct PostcardRegisterView: View {
 
     var body: some View {
         Form {
-            Section("Snapshot") {
+            Section(LocalizedStringKey("postcard_snapshot_section")) {
                 VStack(alignment: .leading, spacing: 12) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 12)
@@ -342,7 +349,7 @@ struct PostcardRegisterView: View {
                             Image(systemName: "photo")
                                 .font(.title2)
                                 .foregroundStyle(.secondary)
-                            Text("Snapshot optional (upload disabled)")
+                            Text(LocalizedStringKey("postcard_snapshot_hint"))
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -350,22 +357,22 @@ struct PostcardRegisterView: View {
                 }
             }
 
-            Section("Postcard Info") {
-                TextField("Title", text: $title)
+            Section(LocalizedStringKey("postcard_info_section")) {
+                TextField(LocalizedStringKey("postcard_title_field"), text: $title)
                     .textInputAutocapitalization(.words)
 
-                TextField("Price (honey)", text: $priceText)
+                TextField(LocalizedStringKey("postcard_price_field"), text: $priceText)
                     .keyboardType(.numberPad)
                     .onChange(of: priceText) { _, newValue in
                         let filtered = newValue.filter { $0.isNumber }
                         if filtered != newValue { priceText = filtered }
                     }
 
-                TextField("Country", text: $country)
-                TextField("Province", text: $province)
-                TextField("Detail (optional)", text: $detail)
+                TextField(LocalizedStringKey("postcard_country_field"), text: $country)
+                TextField(LocalizedStringKey("postcard_province_field"), text: $province)
+                TextField(LocalizedStringKey("postcard_detail_field"), text: $detail)
 
-                TextField("Stock", text: $stockText)
+                TextField(LocalizedStringKey("postcard_stock_field"), text: $stockText)
                     .keyboardType(.numberPad)
                     .onChange(of: stockText) { _, newValue in
                         let filtered = newValue.filter { $0.isNumber }
@@ -374,7 +381,7 @@ struct PostcardRegisterView: View {
             }
 
             Section {
-                Button("Submit Postcard") {
+                Button(LocalizedStringKey("postcard_submit_button")) {
                     showSubmitAlert = true
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -382,10 +389,10 @@ struct PostcardRegisterView: View {
                 .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .alert("Submitted", isPresented: $showSubmitAlert) {
-            Button("OK") {}
+        .alert(LocalizedStringKey("postcard_submitted_title"), isPresented: $showSubmitAlert) {
+            Button(LocalizedStringKey("common_ok")) {}
         } message: {
-            Text("Postcard submission will be wired to Firebase next.")
+            Text(LocalizedStringKey("postcard_submitted_message"))
         }
     }
 }

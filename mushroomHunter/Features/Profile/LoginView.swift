@@ -20,7 +20,7 @@ struct LoginView: View {
                     .font(.system(size: 64))
                     .symbolRenderingMode(.hierarchical)
 
-                Text("Mushroom Hunter")
+                Text(LocalizedStringKey("login_title"))
                     .font(.largeTitle.bold())
 
                 Spacer()
@@ -35,9 +35,9 @@ struct LoginView: View {
 
                 // Apple button can stay visible but disabled / not implemented
                 Button {
-                    session.errorMessage = "Apple Sign-In requires Apple Developer Program membership ($99/year)."
+                    session.errorMessage = NSLocalizedString("login_apple_error", comment: "")
                 } label: {
-                    Text("Continue with Apple (not available)")
+                    Text(LocalizedStringKey("login_continue_apple"))
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
                 }
@@ -47,14 +47,14 @@ struct LoginView: View {
                 // ✅ Google Sign-In implemented
                 Button {
                     guard let vc = topViewController() else {
-                        session.errorMessage = "Unable to find a view controller to present Google Sign-In."
+                        session.errorMessage = NSLocalizedString("login_google_error", comment: "")
                         return
                     }
                     Task { await session.signInWithGoogle(presenting: vc) }
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "g.circle")
-                        Text("Continue with Google")
+                        Text(LocalizedStringKey("login_continue_google"))
                             .font(.headline)
                     }
                     .frame(maxWidth: .infinity)
