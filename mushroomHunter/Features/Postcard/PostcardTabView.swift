@@ -299,6 +299,7 @@ struct PostcardDetailView: View {
 // MARK: - Register
 
 struct PostcardRegisterView: View {
+    @EnvironmentObject private var session: SessionStore
     @State private var title: String = ""
     @State private var priceText: String = ""
     @State private var country: String = ""
@@ -310,14 +311,20 @@ struct PostcardRegisterView: View {
     var body: some View {
         Form {
             Section("Snapshot") {
-                HStack {
-                    Image(systemName: "photo")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
-                    Text("Upload postcard snapshot")
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Select") {}
+                VStack(alignment: .leading, spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.secondarySystemBackground))
+                            .frame(height: 160)
+                        VStack(spacing: 6) {
+                            Image(systemName: "photo")
+                                .font(.title2)
+                                .foregroundStyle(.secondary)
+                            Text("Snapshot optional (upload disabled)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
             }
 
