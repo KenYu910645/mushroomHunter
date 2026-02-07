@@ -2,3 +2,5 @@
 .DS_Store
 *.xcuserstate
 *.xcuserdatad/
+# Build artifacts
+build/
