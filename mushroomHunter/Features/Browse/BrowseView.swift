@@ -167,6 +167,13 @@ struct BrowseView: View {
             List {
                 Section(
                     header: HStack {
+                        HStack(spacing: 6) {
+                            Image(systemName: "drop.fill")
+                                .foregroundStyle(.yellow)
+                            Text("\(session.honey)")
+                                .font(.subheadline.weight(.semibold))
+                        }
+
                         Spacer()
 
                         HStack(spacing: 12) {

@@ -3,34 +3,29 @@ import SwiftUI
 // MARK: - Root Tab
 
 struct PostcardTabView: View {
-    private enum Section: String, CaseIterable, Identifiable {
-        case browse = "Browse"
-        case register = "Register"
-
-        var id: String { rawValue }
-    }
-
-    @State private var section: Section = .browse
+    @State private var showRegisterSheet: Bool = false
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 12) {
-                Picker("Postcard", selection: $section) {
-                    ForEach(Section.allCases) { tab in
-                        Text(tab.rawValue).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-
-                switch section {
-                case .browse:
-                    PostcardBrowseView()
-                case .register:
-                    PostcardRegisterView()
-                }
+                PostcardBrowseView(onRegister: { showRegisterSheet = true })
             }
             .navigationTitle("PostCard")
+        }
+        .sheet(isPresented: $showRegisterSheet) {
+            NavigationStack {
+                PostcardRegisterView()
+                    .navigationTitle("Register")
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button {
+                                showRegisterSheet = false
+                            } label: {
+                                Image(systemName: "xmark")
+                            }
+                        }
+                    }
+            }
         }
     }
 }
@@ -38,7 +33,10 @@ struct PostcardTabView: View {
 // MARK: - Browse
 
 struct PostcardBrowseView: View {
+    @EnvironmentObject private var session: SessionStore
     @StateObject private var vm = PostcardBrowseViewModel()
+    @State private var showSearchAlert: Bool = false
+    let onRegister: () -> Void
 
     var body: some View {
         ScrollView {
@@ -50,7 +48,7 @@ struct PostcardBrowseView: View {
                         .padding(.horizontal)
                 }
 
-                filterBar
+                headerBar
 
                 LazyVGrid(columns: gridColumns, spacing: 12) {
                     ForEach(vm.filteredListings) { listing in
@@ -80,7 +78,13 @@ struct PostcardBrowseView: View {
                 ProgressView("Loading postcards…")
             }
         }
-        .searchable(text: $vm.query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search title / seller / location")
+        .alert("Search Postcards", isPresented: $showSearchAlert) {
+            TextField("Search title / seller / location", text: $vm.query)
+            Button("Clear") { vm.query = "" }
+            Button("Done") {}
+        } message: {
+            Text("Type to filter postcards.")
+        }
         .onChange(of: vm.query) { _, _ in
             vm.scheduleSearch()
         }
@@ -99,43 +103,61 @@ struct PostcardBrowseView: View {
         [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
     }
 
-    private var filterBar: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 12) {
-                Menu {
-                    Picker("Country", selection: $vm.selectedCountry) {
-                        Text("All").tag("All")
-                        ForEach(vm.availableCountries, id: \.self) { country in
-                            Text(country).tag(country)
-                        }
-                    }
-                } label: {
-                    Label(vm.selectedCountry, systemImage: "globe")
-                }
-
-                Menu {
-                    Picker("Province", selection: $vm.selectedProvince) {
-                        Text("All").tag("All")
-                        ForEach(vm.availableProvinces, id: \.self) { province in
-                            Text(province).tag(province)
-                        }
-                    }
-                } label: {
-                    Label(vm.selectedProvince, systemImage: "map")
-                }
-
-                Menu {
-                    Picker("Sort", selection: $vm.sortOrder) {
-                        ForEach(PostcardSortOrder.allCases) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                } label: {
-                    Label(vm.sortOrder.rawValue, systemImage: "arrow.up.arrow.down")
-                }
+    private var headerBar: some View {
+        HStack {
+            HStack(spacing: 6) {
+                Image(systemName: "drop.fill")
+                    .foregroundStyle(.yellow)
+                Text("\(session.honey)")
+                    .font(.subheadline.weight(.semibold))
             }
-            .font(.subheadline)
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer()
+
+            HStack(spacing: 12) {
+                Button {
+                    showSearchAlert = true
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                }
+                .accessibilityLabel("Search postcards")
+
+                Button {
+                    onRegister()
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                }
+                .accessibilityLabel("Register postcard")
+
+                Menu {
+                    Section("Country") {
+                        Picker("Country", selection: $vm.selectedCountry) {
+                            Text("All").tag("All")
+                            ForEach(vm.availableCountries, id: \.self) { country in
+                                Text(country).tag(country)
+                            }
+                        }
+                    }
+                    Section("Province") {
+                        Picker("Province", selection: $vm.selectedProvince) {
+                            Text("All").tag("All")
+                            ForEach(vm.availableProvinces, id: \.self) { province in
+                                Text(province).tag(province)
+                            }
+                        }
+                    }
+                    Section("Sort") {
+                        Picker("Sort", selection: $vm.sortOrder) {
+                            ForEach(PostcardSortOrder.allCases) { option in
+                                Text(option.rawValue).tag(option)
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                }
+                .accessibilityLabel("Filters")
+            }
         }
         .padding(.horizontal)
     }
