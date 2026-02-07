@@ -10,6 +10,7 @@ import UIKit
 
 struct LoginView: View {
     @EnvironmentObject private var session: SessionStore
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         NavigationStack {
@@ -71,6 +72,7 @@ struct LoginView: View {
                 Spacer()
             }
             .padding()
+            .background(Theme.backgroundGradient(for: scheme))
             .navigationBarHidden(true)
         }
     }

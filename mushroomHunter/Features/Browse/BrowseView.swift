@@ -111,6 +111,7 @@ struct BrowseView: View {
     @State private var bidText: String = ""
     @State private var showJoinAlert: Bool = false
     @State private var showSearchAlert: Bool = false
+    @Environment(\.colorScheme) private var scheme
 
     init(session: SessionStore) {
         self.session = session
@@ -162,7 +163,7 @@ struct BrowseView: View {
         if vm.isLoading && vm.listings.isEmpty {
             ProgressView(LocalizedStringKey("browse_loading"))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.systemGroupedBackground))
+                .background(Theme.backgroundGradient(for: scheme))
         } else {
             List {
                 Section(
@@ -239,7 +240,8 @@ struct BrowseView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .background(Color(.systemGroupedBackground))
+            .scrollContentBackground(.hidden)
+            .background(Theme.backgroundGradient(for: scheme))
             .refreshable {
                 await vm.fetchListings()
             }

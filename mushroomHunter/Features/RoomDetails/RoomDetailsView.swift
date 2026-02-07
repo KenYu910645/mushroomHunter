@@ -11,6 +11,7 @@ import UIKit
 struct RoomDetailsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var session: SessionStore
+    @Environment(\.colorScheme) private var scheme
 
     let onRoomClosed: (() -> Void)?
 
@@ -298,7 +299,7 @@ struct RoomDetailsView: View {
         if vm.isLoading && vm.room == nil {
             ProgressView(LocalizedStringKey("common_loading"))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.systemGroupedBackground))
+                .background(Theme.backgroundGradient(for: scheme))
         } else if let err = vm.errorMessage, vm.room == nil {
             ContentUnavailableView(
                 LocalizedStringKey("room_load_error_title"),
@@ -306,7 +307,7 @@ struct RoomDetailsView: View {
                 description: Text(err)
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(.systemGroupedBackground))
+            .background(Theme.backgroundGradient(for: scheme))
         } else {
             Form {
                 if let err = vm.errorMessage {
@@ -328,6 +329,8 @@ struct RoomDetailsView: View {
                 syncBidTextFromCurrentState()
                 await vm.loadPendingRaidClaim()
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.backgroundGradient(for: scheme))
         }
     }
 

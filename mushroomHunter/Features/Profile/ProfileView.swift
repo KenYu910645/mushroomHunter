@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject private var session: SessionStore
+    @Environment(\.colorScheme) private var scheme
 
     // Name editing
     @State private var isEditingName: Bool = false
@@ -321,6 +322,8 @@ struct ProfileView: View {
                 }
             }
             .navigationTitle(LocalizedStringKey("profile_title"))
+            .scrollContentBackground(.hidden)
+            .background(Theme.backgroundGradient(for: scheme))
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {

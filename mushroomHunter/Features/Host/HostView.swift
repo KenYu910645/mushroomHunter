@@ -186,6 +186,7 @@ final class HostViewModel: ObservableObject {
 struct HostView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var session: SessionStore
+    @Environment(\.colorScheme) private var scheme
     @StateObject private var vm: HostViewModel
     private let onCloseRoom: (() -> Void)?
 
@@ -333,6 +334,8 @@ struct HostView: View {
                 }
             }
             .navigationTitle(vm.navigationTitle)
+            .scrollContentBackground(.hidden)
+            .background(Theme.backgroundGradient(for: scheme))
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {

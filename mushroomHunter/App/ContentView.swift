@@ -7,11 +7,14 @@ struct ContentView: View {
     @EnvironmentObject private var session: SessionStore
 
     var body: some View {
-        Group {
-            if session.isLoggedIn {
-                MainTabView()
-            } else {
-                LoginView()
+        ZStack {
+            ThemedBackground()
+            Group {
+                if session.isLoggedIn {
+                    MainTabView()
+                } else {
+                    LoginView()
+                }
             }
         }
     }

@@ -4,6 +4,7 @@ import SwiftUI
 
 struct PostcardTabView: View {
     @State private var showRegisterSheet: Bool = false
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         NavigationStack {
@@ -11,6 +12,7 @@ struct PostcardTabView: View {
                 PostcardBrowseView(onRegister: { showRegisterSheet = true })
             }
             .navigationTitle(LocalizedStringKey("postcard_title"))
+            .background(Theme.backgroundGradient(for: scheme))
         }
         .sheet(isPresented: $showRegisterSheet) {
             NavigationStack {
@@ -36,6 +38,7 @@ struct PostcardBrowseView: View {
     @EnvironmentObject private var session: SessionStore
     @StateObject private var vm = PostcardBrowseViewModel()
     @State private var showSearchAlert: Bool = false
+    @Environment(\.colorScheme) private var scheme
     let onRegister: () -> Void
 
     var body: some View {
@@ -73,6 +76,7 @@ struct PostcardBrowseView: View {
             }
             .padding(.vertical, 8)
         }
+        .background(Theme.backgroundGradient(for: scheme))
         .overlay {
             if vm.isLoading && vm.filteredListings.isEmpty {
                 ProgressView("Loading postcards…")
@@ -172,6 +176,7 @@ struct PostcardBrowseView: View {
 
 private struct PostcardCardView: View {
     let listing: PostcardListing
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -231,7 +236,7 @@ private struct PostcardCardView: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemBackground))
+                .fill(Theme.cardBackground(for: scheme))
                 .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
         )
     }
@@ -242,6 +247,7 @@ private struct PostcardCardView: View {
 struct PostcardDetailView: View {
     let listing: PostcardListing
     @State private var showBuyConfirm: Bool = false
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         ScrollView {
@@ -315,6 +321,7 @@ struct PostcardDetailView: View {
             }
             .padding()
         }
+        .background(Theme.backgroundGradient(for: scheme))
         .navigationTitle(LocalizedStringKey("postcard_title"))
         .alert(LocalizedStringKey("postcard_confirm_title"), isPresented: $showBuyConfirm) {
             Button(LocalizedStringKey("common_confirm")) {}
@@ -329,6 +336,7 @@ struct PostcardDetailView: View {
 
 struct PostcardRegisterView: View {
     @EnvironmentObject private var session: SessionStore
+    @Environment(\.colorScheme) private var scheme
     @State private var title: String = ""
     @State private var priceText: String = ""
     @State private var country: String = ""
@@ -389,6 +397,8 @@ struct PostcardRegisterView: View {
                 .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.backgroundGradient(for: scheme))
         .alert(LocalizedStringKey("postcard_submitted_title"), isPresented: $showSubmitAlert) {
             Button(LocalizedStringKey("common_ok")) {}
         } message: {

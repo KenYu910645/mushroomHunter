@@ -1,7 +1,15 @@
 {
   "colors" : [
     {
-      "filename" : "download.png",
+      "color" : {
+        "color-space" : "srgb",
+        "components" : {
+          "alpha" : "1.000",
+          "blue" : "0.373",
+          "green" : "0.592",
+          "red" : "0.251"
+        }
+      },
       "idiom" : "universal"
     }
   ],
