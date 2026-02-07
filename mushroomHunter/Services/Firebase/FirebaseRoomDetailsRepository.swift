@@ -93,4 +93,25 @@ final class FirebaseRoomDetailsRepository {
             )
         }
     }
+
+    func fetchPendingRaidClaim(roomId: String, attendeeUid: String) async throws -> RaidClaim? {
+        let snap = try await db.collection("rooms")
+            .document(roomId)
+            .collection("raidClaims")
+            .document(attendeeUid)
+            .getDocument()
+
+        guard let data = snap.data() else { return nil }
+        let status = data["status"] as? String ?? ""
+        guard status == "pending" else { return nil }
+
+        return RaidClaim(
+            id: snap.documentID,
+            hostName: data["hostName"] as? String ?? "Host",
+            bidHoney: data["bidHoney"] as? Int ?? 0,
+            status: status,
+            createdAt: (data["createdAt"] as? Timestamp)?.dateValue(),
+            expiresAt: (data["expiresAt"] as? Timestamp)?.dateValue()
+        )
+    }
 }

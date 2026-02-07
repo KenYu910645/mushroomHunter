@@ -1,38 +1,5 @@
 import SwiftUI
 
-// MARK: - Models
-
-struct PostcardLocation: Equatable {
-    var country: String
-    var province: String
-    var detail: String
-
-    var shortLabel: String {
-        let c = country.trimmingCharacters(in: .whitespacesAndNewlines)
-        let p = province.trimmingCharacters(in: .whitespacesAndNewlines)
-        if c.isEmpty && p.isEmpty { return "Unknown" }
-        if c.isEmpty { return p }
-        if p.isEmpty { return c }
-        return "\(c), \(p)"
-    }
-
-    var fullLabel: String {
-        let base = shortLabel
-        let d = detail.trimmingCharacters(in: .whitespacesAndNewlines)
-        if d.isEmpty || base == "Unknown" { return base }
-        return "\(base) · \(d)"
-    }
-}
-
-struct PostcardListing: Identifiable, Equatable {
-    let id: String
-    let title: String
-    let priceHoney: Int
-    let location: PostcardLocation
-    let sellerName: String
-    let stock: Int
-}
-
 // MARK: - Root Tab
 
 struct PostcardTabView: View {
@@ -71,27 +38,22 @@ struct PostcardTabView: View {
 // MARK: - Browse
 
 struct PostcardBrowseView: View {
-    @State private var query: String = ""
-    @State private var selectedCountry: String = "All"
-    @State private var selectedProvince: String = "All"
-    @State private var sortOrder: SortOrder = .newest
-
-    private enum SortOrder: String, CaseIterable, Identifiable {
-        case newest = "Newest"
-        case lowestPrice = "Lowest Price"
-
-        var id: String { rawValue }
-    }
-
-    private let listings: [PostcardListing] = PostcardSampleData.listings
+    @StateObject private var vm = PostcardBrowseViewModel()
 
     var body: some View {
         ScrollView {
             VStack(spacing: 12) {
+                if let err = vm.errorMessage {
+                    Text(err)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal)
+                }
+
                 filterBar
 
                 LazyVGrid(columns: gridColumns, spacing: 12) {
-                    ForEach(filteredListings) { listing in
+                    ForEach(vm.filteredListings) { listing in
                         NavigationLink {
                             PostcardDetailView(listing: listing)
                         } label: {
@@ -102,7 +64,7 @@ struct PostcardBrowseView: View {
                 }
                 .padding(.horizontal)
 
-                if filteredListings.isEmpty {
+                if vm.filteredListings.isEmpty && !vm.isLoading {
                     ContentUnavailableView(
                         "No postcards found",
                         systemImage: "magnifyingglass",
@@ -113,73 +75,63 @@ struct PostcardBrowseView: View {
             }
             .padding(.vertical, 8)
         }
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search title / seller / location")
+        .overlay {
+            if vm.isLoading && vm.filteredListings.isEmpty {
+                ProgressView("Loading postcards…")
+            }
+        }
+        .searchable(text: $vm.query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search title / seller / location")
+        .onChange(of: vm.query) { _, _ in
+            vm.scheduleSearch()
+        }
+        .onChange(of: vm.selectedCountry) { _, _ in
+            vm.normalizeProvinceSelection()
+        }
+        .task {
+            await vm.loadIfNeeded()
+        }
+        .refreshable {
+            await vm.refresh()
+        }
     }
 
     private var gridColumns: [GridItem] {
         [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
     }
 
-    private var filteredListings: [PostcardListing] {
-        var result = listings.filter { $0.stock > 0 }
-
-        if selectedCountry != "All" {
-            result = result.filter { $0.location.country == selectedCountry }
-        }
-        if selectedProvince != "All" {
-            result = result.filter { $0.location.province == selectedProvince }
-        }
-
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if !q.isEmpty {
-            result = result.filter {
-                $0.title.lowercased().contains(q)
-                || $0.sellerName.lowercased().contains(q)
-                || $0.location.fullLabel.lowercased().contains(q)
-            }
-        }
-
-        switch sortOrder {
-        case .newest:
-            return result.reversed()
-        case .lowestPrice:
-            return result.sorted { $0.priceHoney < $1.priceHoney }
-        }
-    }
-
     private var filterBar: some View {
         VStack(spacing: 8) {
             HStack(spacing: 12) {
                 Menu {
-                    Picker("Country", selection: $selectedCountry) {
+                    Picker("Country", selection: $vm.selectedCountry) {
                         Text("All").tag("All")
-                        ForEach(PostcardSampleData.countries, id: \.self) { country in
+                        ForEach(vm.availableCountries, id: \.self) { country in
                             Text(country).tag(country)
                         }
                     }
                 } label: {
-                    Label(selectedCountry, systemImage: "globe")
+                    Label(vm.selectedCountry, systemImage: "globe")
                 }
 
                 Menu {
-                    Picker("Province", selection: $selectedProvince) {
+                    Picker("Province", selection: $vm.selectedProvince) {
                         Text("All").tag("All")
-                        ForEach(PostcardSampleData.provinces, id: \.self) { province in
+                        ForEach(vm.availableProvinces, id: \.self) { province in
                             Text(province).tag(province)
                         }
                     }
                 } label: {
-                    Label(selectedProvince, systemImage: "map")
+                    Label(vm.selectedProvince, systemImage: "map")
                 }
 
                 Menu {
-                    Picker("Sort", selection: $sortOrder) {
-                        ForEach(SortOrder.allCases) { option in
+                    Picker("Sort", selection: $vm.sortOrder) {
+                        ForEach(PostcardSortOrder.allCases) { option in
                             Text(option.rawValue).tag(option)
                         }
                     }
                 } label: {
-                    Label(sortOrder.rawValue, systemImage: "arrow.up.arrow.down")
+                    Label(vm.sortOrder.rawValue, systemImage: "arrow.up.arrow.down")
                 }
             }
             .font(.subheadline)
@@ -198,9 +150,33 @@ private struct PostcardCardView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color(.secondarySystemBackground))
                     .frame(height: 120)
-                Image(systemName: "photo")
-                    .font(.title)
-                    .foregroundStyle(.secondary)
+
+                if let urlString = listing.imageUrl, let url = URL(string: urlString) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        case .failure:
+                            Image(systemName: "photo")
+                                .font(.title)
+                                .foregroundStyle(.secondary)
+                        case .empty:
+                            ProgressView()
+                        @unknown default:
+                            Image(systemName: "photo")
+                                .font(.title)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(height: 120)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                } else {
+                    Image(systemName: "photo")
+                        .font(.title)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Text(listing.title)
@@ -245,9 +221,33 @@ struct PostcardDetailView: View {
                     RoundedRectangle(cornerRadius: 16)
                         .fill(Color(.secondarySystemBackground))
                         .frame(height: 220)
-                    Image(systemName: "photo")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
+
+                    if let urlString = listing.imageUrl, let url = URL(string: urlString) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                            case .failure:
+                                Image(systemName: "photo")
+                                    .font(.largeTitle)
+                                    .foregroundStyle(.secondary)
+                            case .empty:
+                                ProgressView()
+                            @unknown default:
+                                Image(systemName: "photo")
+                                    .font(.largeTitle)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .frame(height: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                    } else {
+                        Image(systemName: "photo")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -359,40 +359,6 @@ struct PostcardRegisterView: View {
             Text("Postcard submission will be wired to Firebase next.")
         }
     }
-}
-
-// MARK: - Sample Data
-
-private enum PostcardSampleData {
-    static let countries = ["Japan", "USA", "Canada", "UK"]
-    static let provinces = ["Tokyo", "California", "Ontario", "London"]
-
-    static let listings: [PostcardListing] = [
-        PostcardListing(
-            id: "pc1",
-            title: "Cherry Blossom Station",
-            priceHoney: 120,
-            location: PostcardLocation(country: "Japan", province: "Tokyo", detail: "Meguro"),
-            sellerName: "Ken",
-            stock: 3
-        ),
-        PostcardListing(
-            id: "pc2",
-            title: "Golden Gate Sunset",
-            priceHoney: 180,
-            location: PostcardLocation(country: "USA", province: "California", detail: "San Francisco"),
-            sellerName: "Ava",
-            stock: 1
-        ),
-        PostcardListing(
-            id: "pc3",
-            title: "Old Town Street",
-            priceHoney: 90,
-            location: PostcardLocation(country: "Canada", province: "Ontario", detail: "Toronto"),
-            sellerName: "Niko",
-            stock: 4
-        )
-    ]
 }
 
 // MARK: - Preview

@@ -340,15 +340,14 @@ final class FirebaseRoomActionsRepository {
     }
 
     // MARK: - Finish raid (host only)
-    func finishRaid(roomId: String, attendeeUids: [String], hostCurrentHoney: Int) async throws -> Int {
+    func finishRaid(roomId: String, attendeeUids: [String]) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
-        guard !attendeeUids.isEmpty else { return 0 }
+        guard !attendeeUids.isEmpty else { return }
 
         let roomRef = db.collection("rooms").document(roomId)
-        let hostRef = db.collection("users").document(uid)
         let now = Timestamp(date: Date())
 
-        let totalHoney = try await db.runTransaction { [self] tx, errPtr -> Any? in
+        _ = try await db.runTransaction { [self] tx, errPtr -> Any? in
             let roomSnap: DocumentSnapshot
             do { roomSnap = try tx.getDocument(roomRef) }
             catch { errPtr?.pointee = error as NSError; return nil }
@@ -364,32 +363,11 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
-            var total = 0
-            var removedCount = 0
-            let minBid = max(1, room["minBid"] as? Int ?? 10)
-
-            let hostSnap: DocumentSnapshot
-            do { hostSnap = try tx.getDocument(hostRef) }
-            catch { errPtr?.pointee = error as NSError; return nil }
-
-            let hostHoney: Int
-            if let hostData = hostSnap.data() {
-                hostHoney = hostData["honey"] as? Int ?? 0
-            } else {
-                hostHoney = max(0, hostCurrentHoney)
-                tx.setData([
-                    "displayName": "",
-                    "friendCode": "",
-                    "stars": 0,
-                    "honey": hostHoney,
-                    "createdAt": now,
-                    "updatedAt": now
-                ], forDocument: hostRef)
-            }
+            let hostName = room["hostName"] as? String ?? "Host"
+            let expiresAt = Timestamp(date: Date().addingTimeInterval(72 * 60 * 60))
 
             for attendeeUid in attendeeUids {
                 let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
-                let userRef = self.db.collection("users").document(attendeeUid)
                 let attendeeSnap: DocumentSnapshot
                 do { attendeeSnap = try tx.getDocument(attendeeRef) }
                 catch { errPtr?.pointee = error as NSError; return nil }
@@ -399,51 +377,98 @@ final class FirebaseRoomActionsRepository {
                 }
 
                 let bid = data["bidHoney"] as? Int ?? 0
-                let userSnap: DocumentSnapshot
-                do { userSnap = try tx.getDocument(userRef) }
-                catch { errPtr?.pointee = error as NSError; return nil }
+                let claimRef = roomRef.collection("raidClaims").document(attendeeUid)
 
-                let honey = userSnap.data()?["honey"] as? Int ?? 0
+                let claimData: [String: Any] = [
+                    "hostUid": uid,
+                    "hostName": hostName,
+                    "attendeeUid": attendeeUid,
+                    "bidHoney": bid,
+                    "status": "pending",
+                    "createdAt": now,
+                    "updatedAt": now,
+                    "expiresAt": expiresAt
+                ]
 
-                if honey < minBid {
-                    tx.deleteDocument(attendeeRef)
-                    removedCount += 1
-                    continue
-                }
-
-                let newBid = max(minBid, min(bid, honey))
-                total += newBid
-
-                tx.updateData([
-                    "bidHoney": newBid,
-                    "updatedAt": now
-                ], forDocument: attendeeRef)
-
-                tx.updateData([
-                    "honey": honey - newBid,
-                    "updatedAt": now
-                ], forDocument: userRef)
+                tx.setData(claimData, forDocument: claimRef, merge: true)
             }
 
-            var roomUpdates: [String: Any] = [
+            let roomUpdates: [String: Any] = [
                 "lastSuccessfulRaidAt": now,
                 "updatedAt": now
             ]
-            if removedCount > 0 {
-                roomUpdates["joinedCount"] = FieldValue.increment(Int64(-removedCount))
-            }
             tx.updateData(roomUpdates, forDocument: roomRef)
 
-            if total > 0 {
-                tx.updateData([
-                    "honey": hostHoney + total,
-                    "updatedAt": now
-                ], forDocument: hostRef)
+            return nil
+        }
+    }
+
+    // MARK: - Settle raid claim (attendee only, client-side for dev)
+    func settleRaidClaim(roomId: String, attendeeUid: String, accept: Bool) async throws {
+        guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
+        guard uid == attendeeUid else { throw RoomActionError.notInRoom }
+
+        let roomRef = db.collection("rooms").document(roomId)
+        let claimRef = roomRef.collection("raidClaims").document(attendeeUid)
+        let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
+        let attendeeUserRef = db.collection("users").document(attendeeUid)
+        let now = Timestamp(date: Date())
+
+        try await db.runTransaction { [self] tx, errPtr -> Any? in
+            let claimSnap: DocumentSnapshot
+            do { claimSnap = try tx.getDocument(claimRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+
+            guard let claim = claimSnap.data() else { return nil }
+            let status = claim["status"] as? String ?? ""
+            if status != "pending" { return nil }
+
+            let hostUid = claim["hostUid"] as? String ?? ""
+            let bidHoney = claim["bidHoney"] as? Int ?? 0
+            let hostRef = self.db.collection("users").document(hostUid)
+
+            let hostSnap: DocumentSnapshot
+            let attendeeSnap: DocumentSnapshot
+            let attendeeUserSnap: DocumentSnapshot
+            do {
+                hostSnap = try tx.getDocument(hostRef)
+                attendeeSnap = try tx.getDocument(attendeeRef)
+                attendeeUserSnap = try tx.getDocument(attendeeUserRef)
+            } catch {
+                errPtr?.pointee = error as NSError
+                return nil
             }
 
-            return total
-        }
+            let hostHoney = hostSnap.data()?["honey"] as? Int ?? 0
+            let attendeeHoney = attendeeUserSnap.data()?["honey"] as? Int ?? 0
 
-        return totalHoney as? Int ?? 0
+            if accept {
+                tx.updateData([
+                    "honey": hostHoney + max(0, bidHoney),
+                    "updatedAt": now
+                ], forDocument: hostRef)
+            } else {
+                tx.updateData([
+                    "honey": attendeeHoney + max(0, bidHoney),
+                    "updatedAt": now
+                ], forDocument: attendeeUserRef)
+            }
+
+            if attendeeSnap.exists {
+                tx.updateData([
+                    "bidHoney": 0,
+                    "updatedAt": now
+                ], forDocument: attendeeRef)
+            }
+
+            tx.updateData([
+                "status": accept ? "accepted" : "declined",
+                "respondedAt": now,
+                "transferredAt": now,
+                "updatedAt": now
+            ], forDocument: claimRef)
+
+            return nil
+        }
     }
 }

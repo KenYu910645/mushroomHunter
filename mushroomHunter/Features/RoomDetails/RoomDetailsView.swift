@@ -26,6 +26,8 @@ struct RoomDetailsView: View {
     @State private var showCopyToast: Bool = false
     @State private var showFinishSheet: Bool = false
     @State private var finishSelection: Set<String> = []
+    @State private var showRaidConfirmAlert: Bool = false
+    @State private var showNextRoundAlert: Bool = false
 
     /// ✅ New initializer: pass VM from caller (BrowseView already does this)
     init(vm: RoomDetailsViewModel, onRoomClosed: (() -> Void)? = nil) {
@@ -41,10 +43,12 @@ struct RoomDetailsView: View {
                 .toolbar { toolbarContent }
                 .safeAreaInset(edge: .bottom) { actionDock }
                 .task {
-                    if vm.room == nil {
-                        await vm.load()
-                        syncBidTextFromCurrentState()
-                    }
+                    await vm.load()
+                    syncBidTextFromCurrentState()
+                    await vm.loadPendingRaidClaim()
+                }
+                .onChange(of: vm.pendingRaidClaim) { _, newValue in
+                    showRaidConfirmAlert = (newValue != nil)
                 }
         }
         .sheet(item: $editingRoom, onDismiss: {
@@ -75,6 +79,40 @@ struct RoomDetailsView: View {
                     .padding(.top, 10)
                     .transition(.opacity)
             }
+        }
+        .alert(
+            "Raid Confirmation",
+            isPresented: $showRaidConfirmAlert,
+            presenting: vm.pendingRaidClaim
+        ) { claim in
+            Button("Yes") {
+                Task {
+                    await vm.respondToRaidClaim(accept: true)
+                    showNextRoundAlert = true
+                }
+            }
+            Button("No", role: .cancel) {
+                Task {
+                    await vm.respondToRaidClaim(accept: false)
+                    showNextRoundAlert = true
+                }
+            }
+        } message: { claim in
+            Text("\(claim.hostName) claim to invite you to mushroom raid. Did you join the mushroom raid?")
+        }
+        .alert("Next Round", isPresented: $showNextRoundAlert) {
+            Button("Update Bid") {
+                showBidSheet = true
+            }
+            Button("Leave Room", role: .destructive) {
+                Task {
+                    await vm.leave()
+                    syncBidTextFromCurrentState()
+                }
+            }
+            Button("Later", role: .cancel) {}
+        } message: {
+            Text("Update your bid to join the next round, or leave the room now.")
         }
         .sheet(isPresented: $showJoinSheet) {
             NavigationStack {
@@ -192,6 +230,9 @@ struct RoomDetailsView: View {
             NavigationStack {
                 Form {
                     if let room = vm.room {
+                        Text("Please select players who come to join the mushroom raid in Pikmin.\nYou will get the honey after the attendee confirms")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                         Section("Attendees") {
                             if room.attendees.isEmpty {
                                 ContentUnavailableView(
@@ -224,8 +265,9 @@ struct RoomDetailsView: View {
                         }
                     }
                 }
-                .navigationTitle("Finish Raid")
+                .navigationTitle("Claim Rewords")
                 .navigationBarTitleDisplayMode(.inline)
+                // TODO: add the following text in front of the Attendees session: Text("Please select players who come to join the mushroom raid in Pikmin.\n You will get the honey after the attendee confirms")
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Cancel") {
@@ -280,6 +322,11 @@ struct RoomDetailsView: View {
                     hostInfoSection(room)
                     attendeesSection(room)
                 }
+            }
+            .refreshable {
+                await vm.load()
+                syncBidTextFromCurrentState()
+                await vm.loadPendingRaidClaim()
             }
         }
     }
@@ -498,7 +545,7 @@ struct RoomDetailsView: View {
                             finishSelection = []
                             showFinishSheet = true
                         } label: {
-                            Text("Finish Mushroom Raid")
+                            Text("Claim Rewards")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)

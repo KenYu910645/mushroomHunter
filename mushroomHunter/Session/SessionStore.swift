@@ -14,6 +14,7 @@ final class SessionStore: ObservableObject {
     @Published var stars: Int = 0   // ⭐ Community reputation
     @Published var honey: Int = 0
     @Published var authUid: String? = nil
+    @Published var fcmToken: String? = nil
 
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
@@ -25,6 +26,7 @@ final class SessionStore: ObservableObject {
     private let kFriendCode  = "mh.friendCode"
     private let kStars = "mh.stars"
     private let kHoney = "mh.honey"
+    private let kFcmToken = "mh.fcmToken"
 
     init() {
         // Load local profile for convenience (prototype)
@@ -37,6 +39,7 @@ final class SessionStore: ObservableObject {
         } else {
             honey = UserDefaults.standard.integer(forKey: kHoney)
         }
+        fcmToken = UserDefaults.standard.string(forKey: kFcmToken)
 
         authHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             guard let self else { return }
@@ -50,6 +53,19 @@ final class SessionStore: ObservableObject {
                 self.displayName = name
                 UserDefaults.standard.set(name, forKey: self.kDisplayName)
             }
+
+            if let token = self.fcmToken, self.isLoggedIn {
+                Task { await self.syncFcmToken(token) }
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: .didReceiveFcmToken,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let token = notification.object as? String else { return }
+            self?.updateFcmToken(token)
         }
     }
 
@@ -101,6 +117,27 @@ final class SessionStore: ObservableObject {
         guard amount > 0 else { return }
         honey += amount
         UserDefaults.standard.set(honey, forKey: kHoney)
+    }
+
+    func updateFcmToken(_ token: String) {
+        fcmToken = token
+        UserDefaults.standard.set(token, forKey: kFcmToken)
+        Task { await syncFcmToken(token) }
+    }
+
+    private func syncFcmToken(_ token: String) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        do {
+            try await Firestore.firestore()
+                .collection("users")
+                .document(uid)
+                .setData([
+                    "fcmToken": token,
+                    "updatedAt": Timestamp(date: Date())
+                ], merge: true)
+        } catch {
+            print("❌ syncFcmToken error:", error)
+        }
     }
 
     // MARK: - Backend sync
@@ -194,4 +231,8 @@ final class SessionStore: ObservableObject {
             errorMessage = error.localizedDescription
         }
     }
+}
+
+extension Notification.Name {
+    static let didReceiveFcmToken = Notification.Name("mh.didReceiveFcmToken")
 }

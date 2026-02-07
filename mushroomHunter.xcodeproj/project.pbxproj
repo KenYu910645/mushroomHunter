@@ -14,6 +14,7 @@
 		BEA4A7B72F30947A009038BE /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BEA4A7B62F30947A009038BE /* FirebaseAuth */; };
 		BEA4A7B92F30947A009038BE /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = BEA4A7B82F30947A009038BE /* FirebaseCrashlytics */; };
 		BEA4A7BB2F30947A009038BE /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = BEA4A7BA2F30947A009038BE /* FirebaseFirestore */; };
+		BEF0F0F12F50000100123456 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = BEF0F0F22F50000100123456 /* FirebaseMessaging */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +40,7 @@
 				BEA4A7B72F30947A009038BE /* FirebaseAuth in Frameworks */,
 				BEA4A7BB2F30947A009038BE /* FirebaseFirestore in Frameworks */,
 				BEA4A7B52F30947A009038BE /* FirebaseAnalyticsCore in Frameworks */,
+				BEF0F0F12F50000100123456 /* FirebaseMessaging in Frameworks */,
 				BE336F552F30B30400EE3FD7 /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -87,6 +89,7 @@
 				BEA4A7B62F30947A009038BE /* FirebaseAuth */,
 				BEA4A7B82F30947A009038BE /* FirebaseCrashlytics */,
 				BEA4A7BA2F30947A009038BE /* FirebaseFirestore */,
+				BEF0F0F22F50000100123456 /* FirebaseMessaging */,
 				BE336F542F30B30400EE3FD7 /* GoogleSignIn */,
 				BE336F562F30B30400EE3FD7 /* GoogleSignInSwift */,
 			);
@@ -291,6 +294,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -326,6 +330,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -421,6 +426,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BEA4A7B12F30947A009038BE /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
+		};
+		BEF0F0F22F50000100123456 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BEA4A7B12F30947A009038BE /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

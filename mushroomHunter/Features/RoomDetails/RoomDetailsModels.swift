@@ -170,6 +170,17 @@ struct RoomAttendee: Identifiable, Equatable {
     var joinedAt: Date?
 }
 
+// MARK: - Raid claim
+
+struct RaidClaim: Identifiable, Equatable {
+    let id: String
+    let hostName: String
+    let bidHoney: Honey
+    let status: String
+    let createdAt: Date?
+    let expiresAt: Date?
+}
+
 // MARK: - Utilities
 
 extension RoomDetail {

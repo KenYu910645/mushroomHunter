@@ -18,6 +18,7 @@ final class RoomDetailsViewModel: ObservableObject {
     @Published private(set) var room: RoomDetail?
     @Published private(set) var isLoading: Bool = false
     @Published var errorMessage: String? = nil
+    @Published private(set) var pendingRaidClaim: RaidClaim? = nil
     
     // Sorting / presentation
     enum AttendeeSort: String, CaseIterable, Identifiable {
@@ -68,6 +69,32 @@ final class RoomDetailsViewModel: ObservableObject {
             sortAttendees(by: attendeeSort)
         } catch {
             print("❌ RoomDetails load error:", error)
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func loadPendingRaidClaim() async {
+        guard let uid = session.authUid else { return }
+        do {
+            let claim = try await repo.fetchPendingRaidClaim(roomId: roomId, attendeeUid: uid)
+            if let claim, let expiresAt = claim.expiresAt, expiresAt <= Date() {
+                try await actions.settleRaidClaim(roomId: roomId, attendeeUid: uid, accept: true)
+                pendingRaidClaim = nil
+            } else {
+                pendingRaidClaim = claim
+            }
+        } catch {
+            print("❌ loadPendingRaidClaim error:", error)
+        }
+    }
+
+    func respondToRaidClaim(accept: Bool) async {
+        guard let uid = session.authUid else { return }
+        do {
+            try await actions.settleRaidClaim(roomId: roomId, attendeeUid: uid, accept: accept)
+            pendingRaidClaim = nil
+        } catch {
+            print("❌ respondToRaidClaim error:", error)
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
@@ -216,14 +243,10 @@ final class RoomDetailsViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let total = try await actions.finishRaid(
+            try await actions.finishRaid(
                 roomId: room.id,
-                attendeeUids: attendeeIds,
-                hostCurrentHoney: session.honey
+                attendeeUids: attendeeIds
             )
-            if total > 0 {
-                session.addHoney(total)
-            }
             await load()
         } catch is CancellationError {
             return

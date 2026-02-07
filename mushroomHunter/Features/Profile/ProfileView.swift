@@ -23,6 +23,9 @@ struct ProfileView: View {
     @State private var isHostLoading: Bool = false
     @State private var hostErrorMessage: String? = nil
     @State private var hostedRooms: [HostedRoomSummary] = []
+    @State private var isJoinedLoading: Bool = false
+    @State private var joinedErrorMessage: String? = nil
+    @State private var joinedRooms: [JoinedRoomSummary] = []
 
     private let hostRepo = FirebaseProfileHostRepository()
 
@@ -195,6 +198,62 @@ struct ProfileView: View {
                     Text("Stars reflect trust. Honey is your in-app balance (read-only for now).")
                 }
 
+                // MARK: - Joined Rooms
+                Section {
+                    if let err = joinedErrorMessage {
+                        Text(err)
+                            .foregroundStyle(.red)
+                    }
+
+                    if isJoinedLoading && joinedRooms.isEmpty {
+                        HStack {
+                            ProgressView()
+                            Text("Loading joined rooms…")
+                                .foregroundStyle(.secondary)
+                        }
+                    } else if joinedRooms.isEmpty {
+                        ContentUnavailableView(
+                            "No joined raids",
+                            systemImage: "person.2",
+                            description: Text("Rooms you joined will appear here.")
+                        )
+                        .listRowBackground(Color.clear)
+                    } else {
+                        ForEach(joinedRooms) { r in
+                            NavigationLink {
+                                RoomDetailsView(
+                                    vm: RoomDetailsViewModel(roomId: r.id, session: session)
+                                )
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text(r.title)
+                                            .font(.headline)
+                                            .lineLimit(1)
+                                        Spacer()
+                                        Text(r.status.lowercased() == "open" ? "Open" : "Closed")
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                    }
+
+                                    HStack(spacing: 8) {
+                                        Text("Players: \(r.joinedCount)/\(r.maxPlayers)")
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                        Text("Bid: \(r.bidHoney)")
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Joined Mushroom Raid")
+                } footer: {
+                    Text("This list is loaded from Firestore: /rooms/*/attendees where uid == your uid.")
+                }
+
                 // MARK: - Host
                 Section {
                     if let err = hostErrorMessage {
@@ -244,7 +303,7 @@ struct ProfileView: View {
                         }
                     }
                 } header: {
-                    Text("Host")
+                    Text("Host Mushroom Raid")
                 } footer: {
                     Text("This list is loaded from Firestore: /rooms where hostUid == your uid.")
                 }
@@ -263,10 +322,12 @@ struct ProfileView: View {
             .navigationTitle("Profile")
             .task {
                 await session.refreshProfileFromBackend()
+                await loadJoinedRooms()
                 await loadHostedRooms()
             }
             .refreshable {
                 await session.refreshProfileFromBackend()
+                await loadJoinedRooms()
                 await loadHostedRooms()
             }
         }
@@ -302,6 +363,24 @@ struct ProfileView: View {
         } catch {
             print("❌ loadHostedRooms error:", error)
             hostErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func loadJoinedRooms() async {
+        guard session.isLoggedIn else { return }
+
+        isJoinedLoading = true
+        joinedErrorMessage = nil
+        defer { isJoinedLoading = false }
+
+        do {
+            let rooms = try await hostRepo.fetchMyJoinedRooms(limit: 50)
+            joinedRooms = rooms
+        } catch is CancellationError {
+            return
+        } catch {
+            print("❌ loadJoinedRooms error:", error)
+            joinedErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
