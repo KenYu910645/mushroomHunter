@@ -110,6 +110,7 @@ struct BrowseView: View {
     @State private var pendingJoinListing: RoomListing? = nil
     @State private var bidText: String = ""
     @State private var showJoinAlert: Bool = false
+    @State private var showSearchAlert: Bool = false
 
     init(session: SessionStore) {
         self.session = session
@@ -120,7 +121,6 @@ struct BrowseView: View {
         NavigationStack {
             content
                 .navigationTitle("Mushroom List")
-                .toolbar { toolbarContent }
                 .task {
                     if vm.listings.isEmpty {
                         await vm.fetchListings()
@@ -148,6 +148,13 @@ struct BrowseView: View {
         } message: { _ in
             Text("Enter honey bid. You have \(session.honey) 🍯.")
         }
+        .alert("Search Rooms", isPresented: $showSearchAlert) {
+            TextField("Search room / type / host", text: $vm.query)
+            Button("Clear") { vm.query = "" }
+            Button("Done") {}
+        } message: {
+            Text("Type to filter rooms.")
+        }
     }
     
     @ViewBuilder
@@ -158,14 +165,46 @@ struct BrowseView: View {
                 .background(Color(.systemGroupedBackground))
         } else {
             List {
-                if let err = vm.errorMessage {
-                    Section {
+                Section(
+                    header: HStack {
+                        Spacer()
+
+                        HStack(spacing: 12) {
+                            Button {
+                                showSearchAlert = true
+                            } label: {
+                                Image(systemName: "magnifyingglass")
+                            }
+                            .accessibilityLabel("Search rooms")
+
+                            Button {
+                                showHostSheet = true
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                            }
+                            .accessibilityLabel("Create host room")
+
+                            Menu {
+                                Picker("Mushroom Type", selection: $vm.selectedMushroomType) {
+                                    ForEach(vm.mushroomTypes, id: \.self) { t in
+                                        Text(t).tag(t)
+                                    }
+                                }
+
+                                Toggle("Only show available", isOn: $vm.showOnlyAvailable)
+                            } label: {
+                                Image(systemName: "line.3.horizontal.decrease.circle")
+                            }
+                        }
+                    }
+                    .padding(.top, 4)
+                    .padding(.bottom, 8)
+                ) {
+                    if let err = vm.errorMessage {
                         Text(err)
                             .foregroundStyle(.red)
                     }
-                }
-                
-                Section {
+
                     ForEach(vm.filteredListings) { listing in
                         HStack(alignment: .top, spacing: 12) {
                             NavigationLink {
@@ -196,34 +235,6 @@ struct BrowseView: View {
             .background(Color(.systemGroupedBackground))
             .refreshable {
                 await vm.fetchListings()
-            }
-            .searchable(text: $vm.query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search room / type / host")
-        }
-    }
-    
-    // MARK: - Toolbar / Filters
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            HStack(spacing: 12) {
-                Button {
-                    showHostSheet = true
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                }
-                .accessibilityLabel("Create host room")
-                
-                Menu {
-                    Picker("Mushroom Type", selection: $vm.selectedMushroomType) {
-                        ForEach(vm.mushroomTypes, id: \.self) { t in
-                            Text(t).tag(t)
-                        }
-                    }
-                    
-                    Toggle("Only show available", isOn: $vm.showOnlyAvailable)
-                } label: {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
-                }
             }
         }
     }
