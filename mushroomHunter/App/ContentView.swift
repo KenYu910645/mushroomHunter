@@ -29,6 +29,11 @@ struct MainTabView: View {
                     Label("Mushroom", systemImage: "magnifyingglass")
                 }
 
+            PostcardTabView()
+                .tabItem {
+                    Label("PostCard", systemImage: "mail")
+                }
+
             ProfileView()
                 .tabItem {
                     Label("Profile", systemImage: "person.circle")
