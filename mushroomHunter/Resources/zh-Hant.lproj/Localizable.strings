@@ -224,3 +224,15 @@
 "common_copied" = "已複製到剪貼簿";
 "session_error_missing_client_id" = "缺少 Firebase clientID。";
 "session_error_missing_id_token" = "缺少 Google ID 權杖。";
+"room_join_confirm_title" = "確認加入";
+"room_join_confirm_message" = "你將在 %@ 放入 %d 🍯，是否確定？";
+"room_join_confirm_sure" = "確定";
+"room_not_enough_honey_title" = "蜂蜜不足";
+"room_not_enough_honey_message" = "你目前只有 %d 🍯。";
+"room_update_bid_footer" = "請設定你支付給主持人的金額。這筆蜂蜜只會在你待在房間期間暫時保留。你可隨時修改，若在戰鬥完成前離開，會全額退還。只有當你參加戰鬥且戰鬥完成後才會扣除。";
+"room_join_success_title" = "已加入";
+"room_join_success_message" = "已成功加入 %@，出價 %d 🍯。主持人找到蘑菇後可以邀請你參加。";
+"room_update_bid_success_title" = "出價已更新";
+"room_update_bid_success_message" = "已成功將出價從 %d 改為 %d 🍯。";
+"room_leave_confirm_title" = "離開房間";
+"room_leave_confirm_message" = "確定要離開 %@ 嗎？";

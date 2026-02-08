@@ -59,8 +59,8 @@
 "host_min_bid_label" = "Min Bid";
 "host_min_bid_header" = "Minimum Bid";
 "host_min_bid_footer" = "Minimum honey required to join this room. Default is 10.";
-"host_close_room_button" = "Close Room Options";
-"host_close_room_footer" = "This will close the room and remove it from the open list.";
+"host_close_room_button" = "Close Room";
+"host_close_room_footer" = "The room will be removed and cannot be recovery.";
 "host_reset_form" = "Reset Form";
 
 "mushroom_color_red" = "Red";
@@ -127,12 +127,12 @@
 "room_leave_room" = "Leave Room";
 "room_next_round_message" = "Update your bid to join the next round, or leave the room now.";
 "room_max_honey_format" = "Max %d";
-"room_bid_header" = "Bid (🍯)";
-"room_bid_footer" = "Adjust your honey bid before joining.";
+"room_bid_header" = "Payment to the host";
+"room_bid_footer" = "This payment will be placed to the room for now.\n You can change it anytime, and you get a full refund if you leave. It is only deducted after you join a raid and the raid is completed.";
 "room_join_title" = "Join Room";
-"room_update_bid_header" = "Update Bid (🍯)";
-"room_update_bid_footer" = "Adjust your honey bid for this room.";
-"room_edit_bid_title" = "Edit Bid";
+"room_update_bid_header" = "Payment to the host";
+"room_update_bid_footer" = "This payment will be placed to the room for now.\n You can change it anytime, and you get a full refund if you leave. It is only deducted after you join a raid and the raid is completed.";
+"room_edit_bid_title" = "Update Payment";
 "room_finish_hint" = "Please select players who come to join the mushroom raid in Pikmin.\nYou will get the honey after the attendee confirms";
 "room_attendees_header" = "Attendees";
 "room_no_attendees_title" = "No attendees";
@@ -224,3 +224,15 @@
 "common_copied" = "Copied to clipboard";
 "session_error_missing_client_id" = "Missing Firebase clientID.";
 "session_error_missing_id_token" = "Missing Google ID token.";
+"room_join_confirm_title" = "Confirm Join";
+"room_join_confirm_message" = "You are going to place %d 🍯 in %@. Are you sure?";
+"room_join_confirm_sure" = "Sure";
+"room_not_enough_honey_title" = "Not enough honey";
+"room_not_enough_honey_message" = "You only have %d 🍯.";
+"room_update_bid_footer" = "Set your payment to the host. This amount is only held while you are in the room. You can change it anytime, and you get a full refund if you leave before a raid finishes. It is only deducted after you join a raid and the raid is completed.";
+"room_join_success_title" = "Joined";
+"room_join_success_message" = "Successfully joined %@ with %d 🍯. The host can invite you to a mushroom raid if they find one.";
+"room_update_bid_success_title" = "Bid Updated";
+"room_update_bid_success_message" = "Successfully changed your bid from %d to %d 🍯.";
+"room_leave_confirm_title" = "Leave Room";
+"room_leave_confirm_message" = "Are you sure you want to leave %@?";

@@ -24,6 +24,16 @@ struct RoomDetailsView: View {
     @State private var joinBidAmount: Int = 0
     @State private var showBidSheet: Bool = false
     @State private var updateBidAmount: Int = 0
+    @State private var showJoinConfirmAlert: Bool = false
+    @State private var showNotEnoughHoneyAlert: Bool = false
+    @State private var showJoinSuccessAlert: Bool = false
+    @State private var showUpdateBidSuccessAlert: Bool = false
+    @State private var joinSuccessRoomName: String = ""
+    @State private var joinSuccessHoney: Int = 0
+    @State private var updateBidOldAmount: Int = 0
+    @State private var updateBidNewAmount: Int = 0
+    @State private var showLeaveConfirmAlert: Bool = false
+    @State private var leaveRoomName: String = ""
     @State private var showCopyToast: Bool = false
     @State private var showFinishSheet: Bool = false
     @State private var finishSelection: Set<String> = []
@@ -106,14 +116,58 @@ struct RoomDetailsView: View {
                 showBidSheet = true
             }
             Button(LocalizedStringKey("room_leave_room"), role: .destructive) {
+                leaveRoomName = vm.room?.title ?? ""
+                showLeaveConfirmAlert = true
+            }
+            Button(LocalizedStringKey("common_later"), role: .cancel) {}
+        } message: {
+            Text(LocalizedStringKey("room_next_round_message"))
+        }
+        .alert(LocalizedStringKey("room_join_confirm_title"), isPresented: $showJoinConfirmAlert, presenting: vm.room) { room in
+            Button(LocalizedStringKey("room_join_confirm_sure")) {
+                if joinBidAmount > session.honey {
+                    showNotEnoughHoneyAlert = true
+                    return
+                }
+                Task {
+                    await vm.join(initialBid: joinBidAmount)
+                    syncBidTextFromCurrentState()
+                    if vm.errorMessage == nil {
+                        joinSuccessRoomName = room.title
+                        joinSuccessHoney = joinBidAmount
+                        showJoinSuccessAlert = true
+                    }
+                }
+            }
+            Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
+        } message: { room in
+            Text(String(format: NSLocalizedString("room_join_confirm_message", comment: ""), joinBidAmount, room.title))
+        }
+        .alert(LocalizedStringKey("room_not_enough_honey_title"), isPresented: $showNotEnoughHoneyAlert) {
+            Button(LocalizedStringKey("common_ok")) {}
+        } message: {
+            Text(String(format: NSLocalizedString("room_not_enough_honey_message", comment: ""), session.honey))
+        }
+        .alert(LocalizedStringKey("room_join_success_title"), isPresented: $showJoinSuccessAlert) {
+            Button(LocalizedStringKey("common_ok")) {}
+        } message: {
+            Text(String(format: NSLocalizedString("room_join_success_message", comment: ""), joinSuccessRoomName, joinSuccessHoney))
+        }
+        .alert(LocalizedStringKey("room_update_bid_success_title"), isPresented: $showUpdateBidSuccessAlert) {
+            Button(LocalizedStringKey("common_ok")) {}
+        } message: {
+            Text(String(format: NSLocalizedString("room_update_bid_success_message", comment: ""), updateBidOldAmount, updateBidNewAmount))
+        }
+        .alert(LocalizedStringKey("room_leave_confirm_title"), isPresented: $showLeaveConfirmAlert) {
+            Button(LocalizedStringKey("common_yes"), role: .destructive) {
                 Task {
                     await vm.leave()
                     syncBidTextFromCurrentState()
                 }
             }
-            Button(LocalizedStringKey("common_later"), role: .cancel) {}
+            Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
         } message: {
-            Text(LocalizedStringKey("room_next_round_message"))
+            Text(String(format: NSLocalizedString("room_leave_confirm_message", comment: ""), leaveRoomName))
         }
         .sheet(isPresented: $showJoinSheet) {
             NavigationStack {
@@ -123,17 +177,22 @@ struct RoomDetailsView: View {
                             Text("\(joinBidAmount)")
                                 .font(.title2)
                                 .monospacedDigit()
+                            Image(systemName: "drop.fill")
+                                .foregroundStyle(.yellow)
                             Spacer()
                             Text(String(format: NSLocalizedString("room_max_honey_format", comment: ""), session.honey))
                                 .foregroundStyle(.secondary)
                         }
 
+                        let minBid = vm.room?.minBid ?? 0
+                        let maxBid = max(session.honey, 0)
+                        let lower = min(minBid, maxBid)
                         Slider(
                             value: Binding(
                                 get: { Double(joinBidAmount) },
                                 set: { joinBidAmount = Int($0) }
                             ),
-                            in: 0...Double(max(session.honey, 0)),
+                            in: Double(lower)...Double(maxBid),
                             step: 1
                         )
                     } header: {
@@ -153,12 +212,9 @@ struct RoomDetailsView: View {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button(LocalizedStringKey("common_ok")) {
                             showJoinSheet = false
-                            Task {
-                                await vm.join(initialBid: joinBidAmount)
-                                syncBidTextFromCurrentState()
-                            }
+                            showJoinConfirmAlert = true
                         }
-                        .disabled(joinBidAmount <= 0 || joinBidAmount > session.honey)
+                        .disabled(joinBidAmount < (vm.room?.minBid ?? 0) || joinBidAmount > session.honey)
                     }
                 }
             }
@@ -171,17 +227,25 @@ struct RoomDetailsView: View {
                             Text("\(updateBidAmount)")
                                 .font(.title2)
                                 .monospacedDigit()
+                            Image(systemName: "drop.fill")
+                                .foregroundStyle(.yellow)
                             Spacer()
-                            Text(String(format: NSLocalizedString("room_max_honey_format", comment: ""), session.honey))
+                            let currentBid = vm.currentUserBidHoney() ?? 0
+                            let maxBid = max(session.honey + currentBid, 0)
+                            Text(String(format: NSLocalizedString("room_max_honey_format", comment: ""), maxBid))
                                 .foregroundStyle(.secondary)
                         }
 
+                        let minBid = vm.room?.minBid ?? 0
+                        let currentBid = vm.currentUserBidHoney() ?? 0
+                        let maxBid = max(session.honey + currentBid, 0)
+                        let lower = min(minBid, maxBid)
                         Slider(
                             value: Binding(
                                 get: { Double(updateBidAmount) },
                                 set: { updateBidAmount = Int($0) }
                             ),
-                            in: 0...Double(max(session.honey, 0)),
+                            in: Double(lower)...Double(maxBid),
                             step: 1
                         )
                     } header: {
@@ -193,10 +257,8 @@ struct RoomDetailsView: View {
                     Section {
                         Button(role: .destructive) {
                             showBidSheet = false
-                            Task {
-                                await vm.leave()
-                                syncBidTextFromCurrentState()
-                            }
+                            leaveRoomName = vm.room?.title ?? ""
+                            showLeaveConfirmAlert = true
                         } label: {
                             HStack {
                                 Spacer()
@@ -218,11 +280,16 @@ struct RoomDetailsView: View {
                         Button(LocalizedStringKey("common_ok")) {
                             showBidSheet = false
                             Task {
+                                updateBidOldAmount = vm.currentUserBidHoney() ?? 0
+                                updateBidNewAmount = updateBidAmount
                                 await vm.updateBid(to: updateBidAmount)
                                 syncBidTextFromCurrentState()
+                                if vm.errorMessage == nil {
+                                    showUpdateBidSuccessAlert = true
+                                }
                             }
                         }
-                        .disabled(updateBidAmount < 0 || updateBidAmount > session.honey)
+                        .disabled(updateBidAmount < (vm.room?.minBid ?? 0) || updateBidAmount > max(session.honey + (vm.currentUserBidHoney() ?? 0), 0))
                     }
                 }
             }
@@ -497,7 +564,9 @@ struct RoomDetailsView: View {
         ToolbarItem(placement: .topBarTrailing) {
             if vm.role == .viewer, vm.capabilities.canJoin {
                 Button {
-                    joinBidAmount = min(max(joinBidAmount, 0), session.honey)
+                    let minBid = vm.room?.minBid ?? 0
+                    let clamped = max(joinBidAmount, minBid)
+                    joinBidAmount = min(clamped, session.honey)
                     showJoinSheet = true
                 } label: {
                     Image(systemName: "plus")
