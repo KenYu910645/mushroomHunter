@@ -119,7 +119,11 @@ struct RoomDetailsView: View {
         }
         .alert(LocalizedStringKey("room_raid_thanks_title"), isPresented: $showRaidThanksAlert) {
             Button(LocalizedStringKey("common_ok")) {
-                showNextRoundAlert = true
+                if let room = vm.room,
+                   let deposit = vm.currentUserDepositHoney(),
+                   deposit < room.fixedRaidCost {
+                    showNextRoundAlert = true
+                }
             }
         } message: {
             Text(String(format: NSLocalizedString("room_raid_thanks_message", comment: ""), raidThanksHoney))
@@ -357,7 +361,7 @@ struct RoomDetailsView: View {
                                                 .foregroundStyle(.secondary)
                                         }
                                     }
-                                    .disabled(attendee.depositHoney < (room.fixedRaidCost))
+                                    .disabled(attendee.depositHoney < (room.fixedRaidCost) || vm.pendingClaimAttendeeIds.contains(attendee.id))
                                 }
                             }
                         }
@@ -518,6 +522,7 @@ struct RoomDetailsView: View {
                     AttendeeRow(
                         attendee: attendee,
                         isHostViewing: (vm.role == .host),
+                        isPendingClaim: vm.pendingClaimAttendeeIds.contains(attendee.id),
                         onKick: {
                             Task {
                                 await vm.kick(attendeeId: attendee.id)
@@ -575,17 +580,7 @@ struct RoomDetailsView: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             if vm.role == .viewer, vm.capabilities.canJoin {
-                Button {
-                    let minBid = vm.room?.fixedRaidCost ?? 0
-                    let clamped = max(joinDepositAmount, minBid)
-                    joinDepositAmount = min(clamped, session.honey)
-                    showJoinSheet = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.headline)
-                }
-                .accessibilityLabel(LocalizedStringKey("room_join_room_accessibility"))
-                .disabled(vm.isLoading || session.honey < (vm.room?.fixedRaidCost ?? 0))
+                EmptyView()
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -621,6 +616,17 @@ struct RoomDetailsView: View {
 
                     // Viewer actions
                     if vm.role == .viewer, vm.capabilities.canJoin {
+                        Button {
+                            let minBid = room.fixedRaidCost
+                            let clamped = max(joinDepositAmount, minBid)
+                            joinDepositAmount = min(clamped, session.honey)
+                            showJoinSheet = true
+                        } label: {
+                            Text(LocalizedStringKey("common_join"))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(vm.isLoading || session.honey < room.fixedRaidCost)
                     }
 
                     // Attendee actions
@@ -736,6 +742,7 @@ struct RoomDetailsView: View {
 private struct AttendeeRow: View {
     let attendee: RoomAttendee
     let isHostViewing: Bool
+    let isPendingClaim: Bool
     let onKick: () -> Void
     let onCopyFriendCode: (String) -> Void
 
@@ -775,6 +782,12 @@ private struct AttendeeRow: View {
                     .foregroundStyle(.secondary)
 
                 Spacer()
+
+                if isHostViewing, isPendingClaim {
+                    Text(LocalizedStringKey("room_status_waiting_confirm"))
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                }
 
                 Label("\(attendee.stars)", systemImage: "star.fill")
                     .font(.footnote)

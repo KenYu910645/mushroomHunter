@@ -19,6 +19,7 @@ final class RoomDetailsViewModel: ObservableObject {
     @Published private(set) var isLoading: Bool = false
     @Published var errorMessage: String? = nil
     @Published private(set) var pendingRaidClaim: RaidClaim? = nil
+    @Published private(set) var pendingClaimAttendeeIds: Set<String> = []
     
     // Sorting / presentation
     enum AttendeeSort: String, CaseIterable, Identifiable {
@@ -74,6 +75,11 @@ final class RoomDetailsViewModel: ObservableObject {
             self.room = merged
             
             recomputeRoleAndCapabilities()
+            if role == .host {
+                pendingClaimAttendeeIds = try await repo.fetchPendingRaidClaimAttendeeIds(roomId: roomId)
+            } else {
+                pendingClaimAttendeeIds = []
+            }
             sortAttendees(by: attendeeSort)
         } catch {
             print("❌ RoomDetails load error:", error)
@@ -101,6 +107,7 @@ final class RoomDetailsViewModel: ObservableObject {
         do {
             try await actions.settleRaidClaim(roomId: roomId, attendeeUid: uid, accept: accept)
             pendingRaidClaim = nil
+            await load()
         } catch {
             print("❌ respondToRaidClaim error:", error)
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

@@ -78,6 +78,10 @@ final class FirebaseProfileHostRepository {
             guard let data = roomSnap.data() else { continue }
 
             let depositHoney = doc.data()["depositHoney"] as? Int ?? 0
+            let status = (data["status"] as? String) ?? "open"
+            if status.lowercased() != "open" {
+                continue
+            }
 
             results.append(
                 JoinedRoomSummary(
@@ -85,7 +89,7 @@ final class FirebaseProfileHostRepository {
                     title: (data["title"] as? String) ?? "Untitled Room",
                     joinedCount: (data["joinedCount"] as? Int) ?? 0,
                     maxPlayers: (data["maxPlayers"] as? Int) ?? 10,
-                    status: (data["status"] as? String) ?? "open",
+                    status: status,
                     depositHoney: depositHoney,
                     updatedAt: (data["updatedAt"] as? Timestamp)?.dateValue()
                 )

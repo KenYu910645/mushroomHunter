@@ -120,4 +120,15 @@ final class FirebaseRoomDetailsRepository {
             expiresAt: (data["expiresAt"] as? Timestamp)?.dateValue()
         )
     }
+
+    func fetchPendingRaidClaimAttendeeIds(roomId: String) async throws -> Set<String> {
+        let snap = try await db.collection("rooms")
+            .document(roomId)
+            .collection("raidClaims")
+            .whereField("status", isEqualTo: "pending")
+            .getDocuments()
+
+        let ids = snap.documents.map { $0.documentID }
+        return Set(ids)
+    }
 }

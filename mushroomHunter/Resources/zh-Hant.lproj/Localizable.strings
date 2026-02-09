@@ -162,6 +162,7 @@
 "room_kick" = "踢除";
 "room_code_format" = "好友碼：%@";
 "room_copy_attendee_code_accessibility" = "複製參加者好友碼";
+"room_status_waiting_confirm" = "等待確認";
 "room_error_enter_bid" = "加入前請輸入押金。";
 "room_error_min_deposit" = "請至少存入 %d 🍯。";
 "room_error_not_enough_honey" = "蜂蜜不足。你目前有 %d 🍯。";

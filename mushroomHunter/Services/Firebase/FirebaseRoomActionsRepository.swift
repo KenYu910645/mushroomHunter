@@ -301,6 +301,7 @@ final class FirebaseRoomActionsRepository {
 
         let roomRef = db.collection("rooms").document(roomId)
         let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
+        let userRef = db.collection("users").document(attendeeUid)
         let now = Timestamp(date: Date())
 
         try await db.runTransaction { tx, errPtr -> Any? in
@@ -331,11 +332,26 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
+            let deposit = attendeeSnap.data()?["depositHoney"] as? Int ?? 0
+
             tx.deleteDocument(attendeeRef)
             tx.updateData([
                 "joinedCount": FieldValue.increment(Int64(-1)),
                 "updatedAt": now
             ], forDocument: roomRef)
+
+            if deposit > 0 {
+                tx.setData([
+                    "honey": FieldValue.increment(Int64(deposit)),
+                    "activeRoomId": FieldValue.delete(),
+                    "updatedAt": now
+                ], forDocument: userRef, merge: true)
+            } else {
+                tx.setData([
+                    "activeRoomId": FieldValue.delete(),
+                    "updatedAt": now
+                ], forDocument: userRef, merge: true)
+            }
 
             return nil
         }
@@ -352,10 +368,38 @@ final class FirebaseRoomActionsRepository {
         let hostUid = data["hostUid"] as? String ?? ""
         guard hostUid == uid else { throw RoomActionError.notHost }
 
-        try await roomRef.updateData([
+        let attendeesSnap = try await roomRef.collection("attendees").getDocuments()
+        let now = Timestamp(date: Date())
+
+        let batch = db.batch()
+
+        batch.updateData([
             "status": "closed",
-            "updatedAt": Timestamp(date: Date())
-        ])
+            "joinedCount": 0,
+            "updatedAt": now
+        ], forDocument: roomRef)
+
+        for doc in attendeesSnap.documents {
+            let attendeeUid = doc.documentID
+            let deposit = doc.data()["depositHoney"] as? Int ?? 0
+            let userRef = db.collection("users").document(attendeeUid)
+
+            batch.deleteDocument(doc.reference)
+            if deposit > 0 {
+                batch.setData([
+                    "honey": FieldValue.increment(Int64(deposit)),
+                    "activeRoomId": FieldValue.delete(),
+                    "updatedAt": now
+                ], forDocument: userRef, merge: true)
+            } else {
+                batch.setData([
+                    "activeRoomId": FieldValue.delete(),
+                    "updatedAt": now
+                ], forDocument: userRef, merge: true)
+            }
+        }
+
+        try await batch.commit()
     }
 
     // MARK: - Finish raid (host only)

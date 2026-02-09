@@ -162,6 +162,7 @@
 "room_kick" = "Kick";
 "room_code_format" = "Code: %@";
 "room_copy_attendee_code_accessibility" = "Copy attendee friend code";
+"room_status_waiting_confirm" = "Wait for confirmation";
 "room_error_enter_bid" = "Please enter a deposit before joining.";
 "room_error_min_deposit" = "Please deposit at least %d 🍯.";
 "room_error_not_enough_honey" = "Not enough honey. You have %d 🍯.";

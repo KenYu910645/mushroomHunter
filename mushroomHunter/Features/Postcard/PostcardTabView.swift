@@ -98,6 +98,9 @@ struct PostcardBrowseView: View {
         .task {
             await vm.loadIfNeeded()
         }
+        .onAppear {
+            Task { await session.refreshProfileFromBackend() }
+        }
         .refreshable {
             await vm.refresh()
         }

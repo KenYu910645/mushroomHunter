@@ -127,6 +127,9 @@ struct BrowseView: View {
                         await vm.fetchListings()
                     }
                 }
+                .onAppear {
+                    Task { await session.refreshProfileFromBackend() }
+                }
         }
         .sheet(isPresented: $showHostSheet) {
             HostView(vm: HostViewModel(session: session))
