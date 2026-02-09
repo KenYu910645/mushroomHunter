@@ -242,7 +242,7 @@ struct ProfileView: View {
                                         Text(String(format: NSLocalizedString("profile_players_format", comment: ""), r.joinedCount, r.maxPlayers))
                                             .font(.footnote)
                                             .foregroundStyle(.secondary)
-                                        Text(String(format: NSLocalizedString("profile_bid_format", comment: ""), r.bidHoney))
+                                        Text(String(format: NSLocalizedString("profile_bid_format", comment: ""), r.depositHoney))
                                             .font(.footnote)
                                             .foregroundStyle(.secondary)
                                     }

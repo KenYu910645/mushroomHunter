@@ -24,7 +24,7 @@ struct JoinedRoomSummary: Identifiable, Hashable {
     let joinedCount: Int
     let maxPlayers: Int
     let status: String
-    let bidHoney: Int
+    let depositHoney: Int
     let updatedAt: Date?
 }
 
@@ -77,7 +77,7 @@ final class FirebaseProfileHostRepository {
             let roomSnap = try await roomRef.getDocument()
             guard let data = roomSnap.data() else { continue }
 
-            let bidHoney = doc.data()["bidHoney"] as? Int ?? 0
+            let depositHoney = doc.data()["depositHoney"] as? Int ?? 0
 
             results.append(
                 JoinedRoomSummary(
@@ -86,7 +86,7 @@ final class FirebaseProfileHostRepository {
                     joinedCount: (data["joinedCount"] as? Int) ?? 0,
                     maxPlayers: (data["maxPlayers"] as? Int) ?? 10,
                     status: (data["status"] as? String) ?? "open",
-                    bidHoney: bidHoney,
+                    depositHoney: depositHoney,
                     updatedAt: (data["updatedAt"] as? Timestamp)?.dateValue()
                 )
             )

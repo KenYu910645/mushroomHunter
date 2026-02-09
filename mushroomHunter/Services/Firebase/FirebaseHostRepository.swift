@@ -17,7 +17,7 @@ struct FirestoreRoomCreateRequest {
     let location: String
     let note: String
     let hostFriendCode: String
-    let minBid: Int
+    let fixedRaidCost: Int
 }
 
 final class FirebaseHostRepository {
@@ -42,7 +42,7 @@ final class FirebaseHostRepository {
             "targetSize": req.targetSize,
             "location": req.location,
             "note": req.note,
-            "minBid": max(1, req.minBid),
+            "fixedRaidCost": max(1, req.fixedRaidCost),
             "status": "open",
             "maxPlayers": 10,
             "joinedCount": 0,
@@ -71,7 +71,7 @@ final class FirebaseHostRepository {
             "location": req.location,
             "note": req.note,
             "hostFriendCode": req.hostFriendCode,
-            "minBid": max(1, req.minBid),
+            "fixedRaidCost": max(1, req.fixedRaidCost),
             "updatedAt": now
         ]
 

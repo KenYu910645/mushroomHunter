@@ -46,15 +46,15 @@ final class BrowseViewModel: ObservableObject {
 
     @Published var joinErrorMessage: String? = nil
 
-    func join(_ listing: RoomListing, bid: Honey) async {
-        let trimmedBid = max(0, bid)
-        guard trimmedBid > 0 else {
+    func join(_ listing: RoomListing, deposit: Honey) async {
+        let trimmedDeposit = max(0, deposit)
+        guard trimmedDeposit > 0 else {
             let msg = NSLocalizedString("browse_error_enter_bid", comment: "")
             self.joinErrorMessage = msg
             self.errorMessage = msg
             return
         }
-        guard session.canAffordHoney(trimmedBid) else {
+        guard session.canAffordHoney(trimmedDeposit) else {
             let msg = String(format: NSLocalizedString("browse_error_not_enough_honey", comment: ""), session.honey)
             self.joinErrorMessage = msg
             self.errorMessage = msg
@@ -65,17 +65,17 @@ final class BrowseViewModel: ObservableObject {
         defer { isLoading = false }
         do {
             try await withTimeout(seconds: 10) {
-                let balanceAfter = max(0, self.session.honey - trimmedBid)
+                let balanceAfter = max(0, self.session.honey - trimmedDeposit)
                 try await self.actions.joinRoom(
                     roomId: listing.id,
-                    initialBidHoney: trimmedBid,
+                    initialDepositHoney: trimmedDeposit,
                     userName: self.session.displayName,
                     friendCode: self.session.friendCode,
                     stars: self.session.stars,
                     attendeeHoney: balanceAfter
                 )
             }
-            _ = session.spendHoney(trimmedBid)
+            _ = session.spendHoney(trimmedDeposit)
             // Optionally refresh listings after joining to update counts
             await fetchListings()
         } catch {
@@ -142,7 +142,7 @@ struct BrowseView: View {
 
             Button(LocalizedStringKey("common_join")) {
                 let bid = parseBid(bidText)
-                Task { await vm.join(listing, bid: bid) }
+                Task { await vm.join(listing, deposit: bid) }
             }
 
             Button(LocalizedStringKey("common_cancel"), role: .cancel) {}

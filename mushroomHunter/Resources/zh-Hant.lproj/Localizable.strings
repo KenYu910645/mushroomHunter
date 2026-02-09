@@ -4,8 +4,8 @@
 
 "browse_title" = "蘑菇列表";
 "browse_join_room_title" = "加入房間";
-"browse_join_bid_placeholder" = "出價（蜂蜜）";
-"browse_join_message" = "請輸入蜂蜜出價。你目前有 %d 🍯。";
+"browse_join_bid_placeholder" = "押金（蜂蜜）";
+"browse_join_message" = "請輸入押金。你目前有 %d 🍯。";
 "browse_search_title" = "搜尋房間";
 "browse_search_placeholder" = "搜尋房間／類型／主持人";
 "browse_search_message" = "輸入文字以篩選房間。";
@@ -19,7 +19,7 @@
 "browse_host_format" = "主持人：%@";
 "browse_attendee_format" = "參加者：%d/%d";
 "browse_expires_format" = "剩餘：%d 分";
-"browse_error_enter_bid" = "加入前請輸入蜂蜜出價。";
+"browse_error_enter_bid" = "加入前請輸入押金。";
 "browse_error_not_enough_honey" = "蜂蜜不足。你目前有 %d 🍯。";
 
 "mushroom_type_all" = "全部";
@@ -56,9 +56,9 @@
 "host_words_label" = "字數";
 "host_description_header" = "房間描述";
 "host_description_footer" = "最多 500 字，用於時間、需求或好友碼等補充。";
-"host_min_bid_label" = "最低出價";
-"host_min_bid_header" = "最低出價";
-"host_min_bid_footer" = "加入房間所需的最低蜂蜜，預設為 10。";
+"host_min_bid_label" = "固定費用";
+"host_min_bid_header" = "固定團戰費用";
+"host_min_bid_footer" = "每位參加者在團戰後需支付的蜂蜜。加入房間的最低押金等於此費用，預設為 10。";
 "host_close_room_button" = "關閉房間選項";
 "host_close_room_footer" = "將關閉房間並從列表移除。";
 "host_reset_form" = "重設表單";
@@ -123,16 +123,16 @@
 "room_raid_confirm_title" = "戰鬥確認";
 "room_raid_confirm_message" = "%@ 表示你有參加蘑菇戰鬥。你是否有參加？";
 "room_next_round_title" = "下一輪";
-"room_update_bid" = "更新出價";
+"room_update_bid" = "更新押金";
 "room_leave_room" = "離開房間";
-"room_next_round_message" = "更新出價參加下一輪，或現在離開房間。";
+"room_next_round_message" = "更新押金參加下一輪，或現在離開房間。";
 "room_max_honey_format" = "上限 %d";
-"room_bid_header" = "出價（🍯）";
-"room_bid_footer" = "加入前調整蜂蜜出價。";
+"room_bid_header" = "押金";
+"room_bid_footer" = "押金會在你待在房間期間保留。只有在戰鬥完成且你確認後才會扣除。離開房間會退還未使用的押金。";
 "room_join_title" = "加入房間";
-"room_update_bid_header" = "更新出價（🍯）";
-"room_update_bid_footer" = "調整此房間的蜂蜜出價。";
-"room_edit_bid_title" = "編輯出價";
+"room_update_bid_header" = "押金";
+"room_update_bid_footer" = "押金會在你待在房間期間保留。只有在戰鬥完成且你確認後才會扣除。離開房間會退還未使用的押金。";
+"room_edit_bid_title" = "更新押金";
 "room_finish_hint" = "請選擇實際參加蘑菇戰鬥的玩家。\n待參加者確認後你將獲得蜂蜜。";
 "room_attendees_header" = "參加者";
 "room_no_attendees_title" = "沒有參加者";
@@ -153,16 +153,17 @@
 "room_copy_host_code_accessibility" = "複製主持人好友碼";
 "room_attendees_empty_title" = "尚無參加者";
 "room_attendees_empty_description" = "成為第一位加入此房間的人。";
-"room_sort_bid" = "出價（高 → 低）";
+"room_sort_bid" = "押金（高 → 低）";
 "room_sort_stars" = "星數（高 → 低）";
 "room_sort_joined" = "加入時間（舊 → 新）";
 "room_edit_room_accessibility" = "編輯房間";
 "room_join_room_accessibility" = "加入房間";
-"room_edit_bid_accessibility" = "編輯出價";
+"room_edit_bid_accessibility" = "編輯押金";
 "room_kick" = "踢除";
 "room_code_format" = "好友碼：%@";
 "room_copy_attendee_code_accessibility" = "複製參加者好友碼";
-"room_error_enter_bid" = "加入前請輸入蜂蜜出價。";
+"room_error_enter_bid" = "加入前請輸入押金。";
+"room_error_min_deposit" = "請至少存入 %d 🍯。";
 "room_error_not_enough_honey" = "蜂蜜不足。你目前有 %d 🍯。";
 "room_error_need_more_honey" = "蜂蜜不足，還需要 %d 🍯。";
 
@@ -186,7 +187,7 @@
 "profile_joined_empty_title" = "尚未加入";
 "profile_joined_empty_description" = "你加入的房間會顯示在這裡。";
 "profile_players_format" = "人數：%d/%d";
-"profile_bid_format" = "出價：%d";
+"profile_bid_format" = "押金：%d";
 "profile_joined_section" = "已加入的蘑菇團";
 "profile_joined_footer" = "此清單來自 Firestore：/rooms/*/attendees（uid == 你的 uid）。";
 "profile_loading_hosted" = "載入主持的房間…";
@@ -227,15 +228,15 @@
 "session_error_missing_client_id" = "缺少 Firebase clientID。";
 "session_error_missing_id_token" = "缺少 Google ID 權杖。";
 "room_join_confirm_title" = "確認加入";
-"room_join_confirm_message" = "你將在 %@ 放入 %d 🍯，是否確定？";
+"room_join_confirm_message" = "你將在 %@ 存入 %d 🍯，是否確定？";
 "room_join_confirm_sure" = "確定";
 "room_not_enough_honey_title" = "蜂蜜不足";
 "room_not_enough_honey_message" = "你目前只有 %d 🍯。";
-"room_update_bid_footer" = "請設定你支付給主持人的金額。這筆蜂蜜只會在你待在房間期間暫時保留。你可隨時修改，若在戰鬥完成前離開，會全額退還。只有當你參加戰鬥且戰鬥完成後才會扣除。";
+"room_update_bid_footer" = "押金會在你待在房間期間保留。只有在戰鬥完成且你確認後才會扣除。離開房間會退還未使用的押金。";
 "room_join_success_title" = "已加入";
-"room_join_success_message" = "已成功加入 %@，出價 %d 🍯。主持人找到蘑菇後可以邀請你參加。";
-"room_update_bid_success_title" = "出價已更新";
-"room_update_bid_success_message" = "已成功將出價從 %d 改為 %d 🍯。";
+"room_join_success_message" = "已成功加入 %@，押金 %d 🍯。主持人找到蘑菇後可以邀請你參加。";
+"room_update_bid_success_title" = "押金已更新";
+"room_update_bid_success_message" = "已成功將押金從 %d 改為 %d 🍯。";
 "room_leave_confirm_title" = "離開房間";
 "room_leave_confirm_message" = "確定要離開 %@ 嗎？";
 "room_claim_confirm_title" = "確認參加者";

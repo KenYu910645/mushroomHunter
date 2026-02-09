@@ -22,7 +22,7 @@ final class RoomDetailsViewModel: ObservableObject {
     
     // Sorting / presentation
     enum AttendeeSort: String, CaseIterable, Identifiable {
-        case bidHighToLow = "Bid (High → Low)"
+        case depositHighToLow = "Deposit (High → Low)"
         case starsHighToLow = "Stars (High → Low)"
         case joinedOldToNew = "Joined (Old → New)"
         
@@ -30,14 +30,14 @@ final class RoomDetailsViewModel: ObservableObject {
 
         var localizedKey: String {
             switch self {
-            case .bidHighToLow: return "room_sort_bid"
+            case .depositHighToLow: return "room_sort_bid"
             case .starsHighToLow: return "room_sort_stars"
             case .joinedOldToNew: return "room_sort_joined"
             }
         }
     }
     
-    @Published var attendeeSort: AttendeeSort = .bidHighToLow
+    @Published var attendeeSort: AttendeeSort = .depositHighToLow
     
     // Derived: role + capabilities
     @Published private(set) var role: RoomRole = .viewer
@@ -115,33 +115,34 @@ final class RoomDetailsViewModel: ObservableObject {
     // MARK: Actions (stubbed, later map to Firestore transactions)
     
     /// Viewer -> Attendee
-    func join(initialBid: Honey) async {
+    func join(initialDeposit: Honey) async {
         guard let room else { return }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
         
         do {
-            let trimmedBid = max(0, initialBid)
-            guard trimmedBid > 0 else {
-                errorMessage = NSLocalizedString("room_error_enter_bid", comment: "")
+            let trimmedDeposit = max(0, initialDeposit)
+            let minimum = max(1, room.fixedRaidCost)
+            guard trimmedDeposit >= minimum else {
+                errorMessage = String(format: NSLocalizedString("room_error_min_deposit", comment: ""), minimum)
                 return
             }
-            guard session.canAffordHoney(trimmedBid) else {
+            guard session.canAffordHoney(trimmedDeposit) else {
                 errorMessage = String(format: NSLocalizedString("room_error_not_enough_honey", comment: ""), session.honey)
                 return
             }
             let friendCode = session.friendCode // digits only, from your SessionStore
-            let balanceAfter = max(0, session.honey - trimmedBid)
+            let balanceAfter = max(0, session.honey - trimmedDeposit)
             try await actions.joinRoom(
                 roomId: room.id,
-                initialBidHoney: trimmedBid,
+                initialDepositHoney: trimmedDeposit,
                 userName: session.displayName,
                 friendCode: friendCode,
                 stars: session.stars,
                 attendeeHoney: balanceAfter
             )
-            _ = session.spendHoney(trimmedBid)
+            _ = session.spendHoney(trimmedDeposit)
             await load() // refresh room + attendees
         } catch is CancellationError {
             return
@@ -157,10 +158,10 @@ final class RoomDetailsViewModel: ObservableObject {
         defer { isLoading = false }
         
         do {
-            let currentBid = currentUserBidHoney() ?? 0
+            let currentDeposit = currentUserDepositHoney() ?? 0
             try await actions.leaveRoom(roomId: room.id, attendeeHoney: session.honey)
-            if currentBid > 0 {
-                session.addHoney(currentBid)
+            if currentDeposit > 0 {
+                session.addHoney(currentDeposit)
             }
             await load()
         } catch is CancellationError {
@@ -170,17 +171,22 @@ final class RoomDetailsViewModel: ObservableObject {
         }
     }
     
-    /// Attendee updates their bid
-    func updateBid(to bid: Honey) async {
+    /// Attendee updates their deposit
+    func updateDeposit(to deposit: Honey) async {
         guard let room else { return }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
         
         do {
-            let newBid = max(0, bid)
-            let previousBid = currentUserBidHoney() ?? 0
-            let delta = newBid - previousBid
+            let newDeposit = max(0, deposit)
+            let minimum = max(1, room.fixedRaidCost)
+            guard newDeposit >= minimum else {
+                errorMessage = String(format: NSLocalizedString("room_error_min_deposit", comment: ""), minimum)
+                return
+            }
+            let previousDeposit = currentUserDepositHoney() ?? 0
+            let delta = newDeposit - previousDeposit
 
             if delta > 0 && !session.canAffordHoney(delta) {
                 errorMessage = String(format: NSLocalizedString("room_error_need_more_honey", comment: ""), delta)
@@ -196,7 +202,7 @@ final class RoomDetailsViewModel: ObservableObject {
                 newBalance = session.honey
             }
 
-            try await actions.updateBid(roomId: room.id, bidHoney: newBid, attendeeHoney: newBalance)
+            try await actions.updateDeposit(roomId: room.id, depositHoney: newDeposit, attendeeHoney: newBalance)
 
             if delta > 0 {
                 _ = session.spendHoney(delta)
@@ -269,9 +275,9 @@ final class RoomDetailsViewModel: ObservableObject {
         attendeeSort = mode
         
         switch mode {
-        case .bidHighToLow:
+        case .depositHighToLow:
             room.attendees.sort {
-                if $0.bidHoney != $1.bidHoney { return $0.bidHoney > $1.bidHoney }
+                if $0.depositHoney != $1.depositHoney { return $0.depositHoney > $1.depositHoney }
                 // tie-break: stars
                 if $0.stars != $1.stars { return $0.stars > $1.stars }
                 // tie-break: joinedAt (earlier first)
@@ -280,7 +286,7 @@ final class RoomDetailsViewModel: ObservableObject {
         case .starsHighToLow:
             room.attendees.sort {
                 if $0.stars != $1.stars { return $0.stars > $1.stars }
-                if $0.bidHoney != $1.bidHoney { return $0.bidHoney > $1.bidHoney }
+                if $0.depositHoney != $1.depositHoney { return $0.depositHoney > $1.depositHoney }
                 return ($0.joinedAt ?? .distantFuture) < ($1.joinedAt ?? .distantFuture)
             }
         case .joinedOldToNew:
@@ -296,9 +302,9 @@ final class RoomDetailsViewModel: ObservableObject {
         session.authUid
     }
 
-    func currentUserBidHoney() -> Honey? {
+    func currentUserDepositHoney() -> Honey? {
         guard let room, let uid = session.authUid else { return nil }
-        return room.attendees.first(where: { $0.id == uid })?.bidHoney
+        return room.attendees.first(where: { $0.id == uid })?.depositHoney
     }
     
     // MARK: Private helpers

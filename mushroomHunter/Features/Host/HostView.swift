@@ -24,7 +24,7 @@ final class HostViewModel: ObservableObject {
     @Published var size: MushroomSize = .Normal
     @Published var location: String = ""
     @Published var otherMessage: String = ""
-    @Published var minBid: Int = 10
+    @Published var fixedRaidCost: Int = 10
 
     // UI State
     @Published var showSuccessAlert: Bool = false
@@ -118,7 +118,7 @@ final class HostViewModel: ObservableObject {
                 location: location,
                 note: otherMessage,
                 hostFriendCode: session.friendCode,
-                minBid: minBid
+                fixedRaidCost: fixedRaidCost
             )
 
             switch mode {
@@ -153,7 +153,7 @@ final class HostViewModel: ObservableObject {
         size = .Normal
         location = ""
         otherMessage = ""
-        minBid = 10
+        fixedRaidCost = 10
         errorMessage = nil
         successRoomId = nil
         showSuccessAlert = false
@@ -166,7 +166,7 @@ final class HostViewModel: ObservableObject {
         size = room.targetMushroom.size
         location = room.location
         otherMessage = room.note
-        minBid = room.minBid
+        fixedRaidCost = room.fixedRaidCost
     }
 
     // MARK: Word utils
@@ -274,11 +274,11 @@ struct HostView: View {
                 }
 
                 Section {
-                    Stepper(value: $vm.minBid, in: 1...10_000, step: 1) {
+                    Stepper(value: $vm.fixedRaidCost, in: 1...10_000, step: 1) {
                         HStack {
                             Text(LocalizedStringKey("host_min_bid_label"))
                             Spacer()
-                            Text("\(vm.minBid)")
+                            Text("\(vm.fixedRaidCost)")
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
                         }

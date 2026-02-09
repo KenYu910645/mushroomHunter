@@ -10,7 +10,7 @@ import Combine
 
 // MARK: - Core types
 
-/// 🍯 Honey bid stored as Int for MVP (avoid floating point currency)
+/// 🍯 Honey deposit stored as Int for MVP (avoid floating point currency)
 typealias Honey = Int
 
 /// Basic room status for MVP. Keep it simple.
@@ -111,7 +111,7 @@ struct RoomDetail: Identifiable, Equatable {
     var hostStars: Int
     var hostFriendCode: String
     var targetMushroom: MushroomTarget
-    var minBid: Int
+    var fixedRaidCost: Int
 
     /// When the room last completed a successful raid.
     /// We’ll display as “24h ago” style in the UI.
@@ -163,8 +163,8 @@ struct RoomAttendee: Identifiable, Equatable {
     var friendCode: String
     var stars: Int
 
-    /// How much honey the attendee is willing to pay to join.
-    var bidHoney: Honey
+    /// How much honey the attendee has deposited for this room.
+    var depositHoney: Honey
 
     /// When they joined (optional but useful for tie-break sorting)
     var joinedAt: Date?
@@ -175,7 +175,7 @@ struct RoomAttendee: Identifiable, Equatable {
 struct RaidClaim: Identifiable, Equatable {
     let id: String
     let hostName: String
-    let bidHoney: Honey
+    let raidCostHoney: Honey
     let status: String
     let createdAt: Date?
     let expiresAt: Date?

@@ -26,7 +26,9 @@ final class FirebaseRoomDetailsRepository {
         let hostName = data["hostName"] as? String ?? "Unknown"
         let hostStars = data["hostStars"] as? Int ?? 0
         let hostFriendCode = data["hostFriendCode"] as? String ?? ""
-        let minBid = data["minBid"] as? Int ?? 10
+        let fixedRaidCost = (data["fixedRaidCost"] as? Int)
+            ?? (data["minBid"] as? Int)
+            ?? 10
 
         // Mushroom target
         let colorRaw = (data["targetColor"] as? String) ?? "red"
@@ -58,7 +60,7 @@ final class FirebaseRoomDetailsRepository {
             hostStars: hostStars,
             hostFriendCode: hostFriendCode,
             targetMushroom: target,
-            minBid: minBid,
+            fixedRaidCost: fixedRaidCost,
             lastSuccessfulRaidAt: lastRaidAt,
             attendees: [],
             maxPlayers: maxPlayers,
@@ -67,12 +69,12 @@ final class FirebaseRoomDetailsRepository {
     }
 
     func fetchAttendees(roomId: String) async throws -> [RoomAttendee] {
-        // Most useful sort: high bid first
+        // Most useful sort: high deposit first
         // (single-field orderBy in a subcollection does NOT require composite index)
         let qs = try await db.collection("rooms")
             .document(roomId)
             .collection("attendees")
-            .order(by: "bidHoney", descending: true)
+            .order(by: "depositHoney", descending: true)
             .getDocuments()
 
         return qs.documents.map { doc in
@@ -80,7 +82,9 @@ final class FirebaseRoomDetailsRepository {
             let name = d["name"] as? String ?? "Unknown"
             let friendCode = d["friendCode"] as? String ?? ""
             let stars = d["stars"] as? Int ?? 0
-            let bid = d["bidHoney"] as? Int ?? 0
+            let deposit = (d["depositHoney"] as? Int)
+                ?? (d["bidHoney"] as? Int)
+                ?? 0
             let joinedAt = (d["joinedAt"] as? Timestamp)?.dateValue()
 
             return RoomAttendee(
@@ -88,7 +92,7 @@ final class FirebaseRoomDetailsRepository {
                 name: name,
                 friendCode: friendCode,
                 stars: stars,
-                bidHoney: bid,
+                depositHoney: deposit,
                 joinedAt: joinedAt
             )
         }
@@ -108,7 +112,9 @@ final class FirebaseRoomDetailsRepository {
         return RaidClaim(
             id: snap.documentID,
             hostName: data["hostName"] as? String ?? "Host",
-            bidHoney: data["bidHoney"] as? Int ?? 0,
+            raidCostHoney: (data["raidCostHoney"] as? Int)
+                ?? (data["bidHoney"] as? Int)
+                ?? 0,
             status: status,
             createdAt: (data["createdAt"] as? Timestamp)?.dateValue(),
             expiresAt: (data["expiresAt"] as? Timestamp)?.dateValue()

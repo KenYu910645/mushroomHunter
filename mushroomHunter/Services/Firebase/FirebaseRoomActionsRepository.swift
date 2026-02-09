@@ -39,7 +39,7 @@ final class FirebaseRoomActionsRepository {
     // MARK: - Join (transaction)
     func joinRoom(
         roomId: String,
-        initialBidHoney: Int,
+        initialDepositHoney: Int,
         userName: String,
         friendCode: String,
         stars: Int,
@@ -76,6 +76,10 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
+            let fixedRaidCost = (room["fixedRaidCost"] as? Int)
+                ?? (room["minBid"] as? Int)
+                ?? 10
+
             // 2) Check attendee doc doesn't already exist
             let attendeeSnap: DocumentSnapshot
             do { attendeeSnap = try tx.getDocument(attendeeRef) }
@@ -106,8 +110,12 @@ final class FirebaseRoomActionsRepository {
                 ], forDocument: userRef)
             }
 
-            let bid = max(0, initialBidHoney)
-            if currentHoney < bid {
+            let deposit = max(0, initialDepositHoney)
+            if deposit < max(1, fixedRaidCost) {
+                errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
+                return nil
+            }
+            if currentHoney < deposit {
                 errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
                 return nil
             }
@@ -118,7 +126,7 @@ final class FirebaseRoomActionsRepository {
                 "name": userName,
                 "friendCode": friendCode,
                 "stars": stars,
-                "bidHoney": bid,
+                "depositHoney": deposit,
                 "joinedAt": now,
                 "updatedAt": now
             ], forDocument: attendeeRef)
@@ -131,7 +139,7 @@ final class FirebaseRoomActionsRepository {
 
             // 5) Deduct honey from user
             tx.updateData([
-                "honey": currentHoney - bid,
+                "honey": currentHoney - deposit,
                 "activeRoomId": roomId,
                 "updatedAt": now
             ], forDocument: userRef)
@@ -140,8 +148,8 @@ final class FirebaseRoomActionsRepository {
         }
     }
 
-    // MARK: - Update bid (attendee only)
-    func updateBid(roomId: String, bidHoney: Int, attendeeHoney: Int) async throws {
+    // MARK: - Update deposit (attendee only)
+    func updateDeposit(roomId: String, depositHoney: Int, attendeeHoney: Int) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
         let roomRef = db.collection("rooms").document(roomId)
@@ -159,9 +167,20 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
-            let oldBid = attendee["bidHoney"] as? Int ?? 0
-            let newBid = max(0, bidHoney)
-            let delta = newBid - oldBid
+            let oldDeposit = attendee["depositHoney"] as? Int ?? 0
+            let newDeposit = max(0, depositHoney)
+            let delta = newDeposit - oldDeposit
+
+            let roomSnap: DocumentSnapshot
+            do { roomSnap = try tx.getDocument(roomRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+            let fixedRaidCost = (roomSnap.data()?["fixedRaidCost"] as? Int)
+                ?? (roomSnap.data()?["minBid"] as? Int)
+                ?? 10
+            if newDeposit < max(1, fixedRaidCost) {
+                errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
+                return nil
+            }
 
             let userSnap: DocumentSnapshot
             do { userSnap = try tx.getDocument(userRef) }
@@ -189,7 +208,7 @@ final class FirebaseRoomActionsRepository {
             }
 
             tx.updateData([
-                "bidHoney": newBid,
+                "depositHoney": newDeposit,
                 "updatedAt": now
             ], forDocument: attendeeRef)
 
@@ -234,7 +253,7 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
-            let bid = attendeeSnap.data()?["bidHoney"] as? Int ?? 0
+            let deposit = attendeeSnap.data()?["depositHoney"] as? Int ?? 0
 
             let userSnap: DocumentSnapshot
             do { userSnap = try tx.getDocument(userRef) }
@@ -265,9 +284,9 @@ final class FirebaseRoomActionsRepository {
                 "updatedAt": now
             ], forDocument: roomRef)
 
-            // Refund bid
+            // Refund deposit
             tx.updateData([
-                "honey": currentHoney + max(0, bid),
+                "honey": currentHoney + max(0, deposit),
                 "activeRoomId": FieldValue.delete(),
                 "updatedAt": now
             ], forDocument: userRef)
@@ -376,14 +395,21 @@ final class FirebaseRoomActionsRepository {
                     continue
                 }
 
-                let bid = data["bidHoney"] as? Int ?? 0
+                let deposit = data["depositHoney"] as? Int ?? 0
                 let claimRef = roomRef.collection("raidClaims").document(attendeeUid)
+                let raidCost = (room["fixedRaidCost"] as? Int)
+                    ?? (room["minBid"] as? Int)
+                    ?? 10
+
+                if deposit < raidCost {
+                    continue
+                }
 
                 let claimData: [String: Any] = [
                     "hostUid": uid,
                     "hostName": hostName,
                     "attendeeUid": attendeeUid,
-                    "bidHoney": bid,
+                    "raidCostHoney": raidCost,
                     "status": "pending",
                     "createdAt": now,
                     "updatedAt": now,
@@ -411,7 +437,6 @@ final class FirebaseRoomActionsRepository {
         let roomRef = db.collection("rooms").document(roomId)
         let claimRef = roomRef.collection("raidClaims").document(attendeeUid)
         let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
-        let attendeeUserRef = db.collection("users").document(attendeeUid)
         let now = Timestamp(date: Date())
 
         try await db.runTransaction { [self] tx, errPtr -> Any? in
@@ -424,39 +449,38 @@ final class FirebaseRoomActionsRepository {
             if status != "pending" { return nil }
 
             let hostUid = claim["hostUid"] as? String ?? ""
-            let bidHoney = claim["bidHoney"] as? Int ?? 0
+            let raidCostHoney = (claim["raidCostHoney"] as? Int)
+                ?? (claim["bidHoney"] as? Int)
+                ?? 0
             let hostRef = self.db.collection("users").document(hostUid)
 
             let hostSnap: DocumentSnapshot
             let attendeeSnap: DocumentSnapshot
-            let attendeeUserSnap: DocumentSnapshot
             do {
                 hostSnap = try tx.getDocument(hostRef)
                 attendeeSnap = try tx.getDocument(attendeeRef)
-                attendeeUserSnap = try tx.getDocument(attendeeUserRef)
             } catch {
                 errPtr?.pointee = error as NSError
                 return nil
             }
 
             let hostHoney = hostSnap.data()?["honey"] as? Int ?? 0
-            let attendeeHoney = attendeeUserSnap.data()?["honey"] as? Int ?? 0
+            let attendeeDeposit = attendeeSnap.data()?["depositHoney"] as? Int ?? 0
 
             if accept {
+                if attendeeDeposit < raidCostHoney {
+                    errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
+                    return nil
+                }
                 tx.updateData([
-                    "honey": hostHoney + max(0, bidHoney),
+                    "honey": hostHoney + max(0, raidCostHoney),
                     "updatedAt": now
                 ], forDocument: hostRef)
-            } else {
-                tx.updateData([
-                    "honey": attendeeHoney + max(0, bidHoney),
-                    "updatedAt": now
-                ], forDocument: attendeeUserRef)
             }
 
-            if attendeeSnap.exists {
+            if accept, attendeeSnap.exists {
                 tx.updateData([
-                    "bidHoney": 0,
+                    "depositHoney": max(0, attendeeDeposit - raidCostHoney),
                     "updatedAt": now
                 ], forDocument: attendeeRef)
             }
