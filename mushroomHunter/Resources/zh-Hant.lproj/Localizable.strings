@@ -141,6 +141,8 @@
 "room_claim_rewards_title" = "領取獎勵";
 "room_load_error_title" = "無法載入房間";
 "room_attendee_count_format" = "參加者：%d/%d";
+"room_target_mushroom_format" = "目標蘑菇：%@";
+"room_last_successful_raid_format" = "上次成功戰鬥：%@";
 "room_info_section" = "房間資訊";
 "room_target_mushroom" = "目標蘑菇";
 "room_last_successful_raid" = "上次成功戰鬥";
@@ -236,3 +238,10 @@
 "room_update_bid_success_message" = "已成功將出價從 %d 改為 %d 🍯。";
 "room_leave_confirm_title" = "離開房間";
 "room_leave_confirm_message" = "確定要離開 %@ 嗎？";
+"room_claim_confirm_title" = "確認參加者";
+"room_claim_confirm_message" = "你確定以下參加者有參與蘑菇戰鬥嗎？";
+"room_claim_sent_title" = "通知已送出";
+"room_claim_sent_message" = "已通知所選參加者。待他們確認後你將收到蜂蜜付款。";
+"room_claim_confirm_message_with_list" = "你確定以下參加者有參與蘑菇戰鬥嗎？\n%@";
+"room_raid_thanks_title" = "太棒了！";
+"room_raid_thanks_message" = "太棒了！祝你狩獵順利。轉給主持人 %d 🍯。";

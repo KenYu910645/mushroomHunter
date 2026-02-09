@@ -34,11 +34,15 @@ struct RoomDetailsView: View {
     @State private var updateBidNewAmount: Int = 0
     @State private var showLeaveConfirmAlert: Bool = false
     @State private var leaveRoomName: String = ""
+    @State private var showClaimConfirmAlert: Bool = false
+    @State private var showClaimSentAlert: Bool = false
     @State private var showCopyToast: Bool = false
     @State private var showFinishSheet: Bool = false
     @State private var finishSelection: Set<String> = []
     @State private var showRaidConfirmAlert: Bool = false
     @State private var showNextRoundAlert: Bool = false
+    @State private var showRaidThanksAlert: Bool = false
+    @State private var raidThanksHoney: Int = 0
 
     /// ✅ New initializer: pass VM from caller (BrowseView already does this)
     init(vm: RoomDetailsViewModel, onRoomClosed: (() -> Void)? = nil) {
@@ -99,17 +103,26 @@ struct RoomDetailsView: View {
             Button(LocalizedStringKey("common_yes")) {
                 Task {
                     await vm.respondToRaidClaim(accept: true)
-                    showNextRoundAlert = true
+                    raidThanksHoney = claim.bidHoney
+                    showRaidThanksAlert = true
                 }
             }
             Button(LocalizedStringKey("common_no"), role: .cancel) {
                 Task {
                     await vm.respondToRaidClaim(accept: false)
-                    showNextRoundAlert = true
+                    raidThanksHoney = claim.bidHoney
+                    showRaidThanksAlert = true
                 }
             }
         } message: { claim in
             Text(String(format: NSLocalizedString("room_raid_confirm_message", comment: ""), claim.hostName))
+        }
+        .alert(LocalizedStringKey("room_raid_thanks_title"), isPresented: $showRaidThanksAlert) {
+            Button(LocalizedStringKey("common_ok")) {
+                showNextRoundAlert = true
+            }
+        } message: {
+            Text(String(format: NSLocalizedString("room_raid_thanks_message", comment: ""), raidThanksHoney))
         }
         .alert(LocalizedStringKey("room_next_round_title"), isPresented: $showNextRoundAlert) {
             Button(LocalizedStringKey("room_update_bid")) {
@@ -119,7 +132,6 @@ struct RoomDetailsView: View {
                 leaveRoomName = vm.room?.title ?? ""
                 showLeaveConfirmAlert = true
             }
-            Button(LocalizedStringKey("common_later"), role: .cancel) {}
         } message: {
             Text(LocalizedStringKey("room_next_round_message"))
         }
@@ -168,6 +180,23 @@ struct RoomDetailsView: View {
             Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
         } message: {
             Text(String(format: NSLocalizedString("room_leave_confirm_message", comment: ""), leaveRoomName))
+        }
+        .alert(LocalizedStringKey("room_claim_confirm_title"), isPresented: $showClaimConfirmAlert) {
+            Button(LocalizedStringKey("common_yes")) {
+                let selected = Array(finishSelection)
+                Task {
+                    await vm.finishRaid(attendeeIds: selected)
+                    showClaimSentAlert = true
+                }
+            }
+            Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
+        } message: {
+            Text(claimConfirmMessage())
+        }
+        .alert(LocalizedStringKey("room_claim_sent_title"), isPresented: $showClaimSentAlert) {
+            Button(LocalizedStringKey("common_ok")) {}
+        } message: {
+            Text(LocalizedStringKey("room_claim_sent_message"))
         }
         .sheet(isPresented: $showJoinSheet) {
             NavigationStack {
@@ -344,11 +373,8 @@ struct RoomDetailsView: View {
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button(LocalizedStringKey("common_confirm")) {
-                            let selected = Array(finishSelection)
                             showFinishSheet = false
-                            Task {
-                                await vm.finishRaid(attendeeIds: selected)
-                            }
+                            showClaimConfirmAlert = true
                         }
                         .disabled(finishSelection.isEmpty)
                     }
@@ -386,8 +412,6 @@ struct RoomDetailsView: View {
 
                 if let room = vm.room {
                     headerSection(room)
-                    roomInfoSection(room)
-                    hostInfoSection(room)
                     attendeesSection(room)
                 }
             }
@@ -427,6 +451,48 @@ struct RoomDetailsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                HStack(spacing: 10) {
+                    Text(String(format: NSLocalizedString("room_target_mushroom_format", comment: ""), mushroomSummary(room.targetMushroom)))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 10) {
+                    Text(String(format: NSLocalizedString("room_last_successful_raid_format", comment: ""), room.lastSuccessfulRaidAt.relativeShortString()))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 10) {
+                    Text(LocalizedStringKey("room_host_label"))
+                    Text(room.hostName)
+                        .foregroundStyle(.secondary)
+                    Image(systemName: "star.fill")
+                        .foregroundStyle(.secondary)
+                    Text("\(room.hostStars)")
+                        .foregroundStyle(.secondary)
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+                HStack(spacing: 10) {
+                    Text(LocalizedStringKey("room_friend_code_label"))
+                    HStack(spacing: 6) {
+                        Text(room.hostFriendCodeFormatted)
+                            .foregroundStyle(.secondary)
+
+                        Button {
+                            copyFriendCode(room.hostFriendCode)
+                        } label: {
+                            Image(systemName: "doc.on.doc")
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel(LocalizedStringKey("room_copy_host_code_accessibility"))
+                    }
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
                 if !room.note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Text(room.note)
                         .font(.subheadline)
@@ -434,61 +500,6 @@ struct RoomDetailsView: View {
                 }
             }
             .padding(.vertical, 4)
-        }
-    }
-
-    private func roomInfoSection(_ room: RoomDetail) -> some View {
-        Section(LocalizedStringKey("room_info_section")) {
-            HStack {
-                Text(LocalizedStringKey("room_target_mushroom"))
-                Spacer()
-                Text(mushroomSummary(room.targetMushroom))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.trailing)
-            }
-
-            HStack {
-                Text(LocalizedStringKey("room_last_successful_raid"))
-                Spacer()
-                Text(room.lastSuccessfulRaidAt.relativeShortString())
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private func hostInfoSection(_ room: RoomDetail) -> some View {
-        Section(LocalizedStringKey("room_host_info_section")) {
-            HStack {
-                Text(LocalizedStringKey("room_host_label"))
-                Spacer()
-                Text(room.hostName)
-                    .foregroundStyle(.secondary)
-            }
-
-            HStack {
-                Text(LocalizedStringKey("room_host_stars_label"))
-                Spacer()
-                Label("\(room.hostStars)", systemImage: "star.fill")
-                    .labelStyle(.titleAndIcon)
-                    .foregroundStyle(.secondary)
-            }
-
-            HStack {
-                Text(LocalizedStringKey("room_friend_code_label"))
-                Spacer()
-                HStack(spacing: 6) {
-                    Text(room.hostFriendCodeFormatted)
-                        .foregroundStyle(.secondary)
-
-                    Button {
-                        copyFriendCode(room.hostFriendCode)
-                    } label: {
-                        Image(systemName: "doc.on.doc")
-                    }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel(LocalizedStringKey("room_copy_host_code_accessibility"))
-                }
-            }
         }
     }
 
@@ -669,6 +680,19 @@ struct RoomDetailsView: View {
         } else if bidText.isEmpty {
             bidText = "0"
         }
+    }
+
+    private func claimConfirmMessage() -> String {
+        guard let room = vm.room else {
+            return NSLocalizedString("room_claim_confirm_message", comment: "")
+        }
+        let selected = room.attendees.filter { finishSelection.contains($0.id) }
+        let names = selected.map { $0.name }.sorted()
+        let list = names.joined(separator: ", ")
+        if list.isEmpty {
+            return NSLocalizedString("room_claim_confirm_message", comment: "")
+        }
+        return String(format: NSLocalizedString("room_claim_confirm_message_with_list", comment: ""), list)
     }
 
     private func localizedColor(_ color: MushroomColor) -> String {
