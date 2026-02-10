@@ -191,6 +191,7 @@
 "profile_players_format" = "人數：%d/%d";
 "profile_bid_format" = "押金：%d";
 "profile_joined_section" = "已加入的蘑菇團";
+"profile_mushroom_section" = "蘑菇";
 "profile_joined_footer" = "此清單來自 Firestore：/rooms/*/attendees（uid == 你的 uid）。";
 "profile_loading_hosted" = "載入主持的房間…";
 "profile_hosted_empty_title" = "尚未主持";

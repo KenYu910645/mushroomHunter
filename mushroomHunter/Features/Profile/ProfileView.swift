@@ -14,11 +14,13 @@ struct ProfileView: View {
     // Name editing
     @State private var isEditingName: Bool = false
     @State private var draftName: String = ""
+    @State private var nameFieldFocused: Bool = false
 
     // Friend code editing
     @State private var isEditingFriendCode: Bool = false
     @State private var draftFriendCode: String = ""
     @State private var friendCodeError: String? = nil
+    @State private var friendCodeFieldFocused: Bool = false
 
     // host room
     @State private var isHostLoading: Bool = false
@@ -46,17 +48,24 @@ struct ProfileView: View {
                             Text(LocalizedStringKey("profile_name"))
                             Spacer()
                             if isEditingName {
-                                TextField(LocalizedStringKey("profile_name_placeholder"), text: $draftName)
-                                    .multilineTextAlignment(.trailing)
-                                    .textInputAutocapitalization(.words)
-                                    .disableAutocorrection(true)
+                                SelectAllTextField(
+                                    placeholderKey: "profile_name_placeholder",
+                                    text: $draftName,
+                                    isFirstResponder: $nameFieldFocused
+                                )
+                                .frame(height: 22)
+                                .multilineTextAlignment(.trailing)
                             } else {
                                 Text(session.displayName)
                                     .foregroundStyle(.secondary)
                             }
 
                             Button {
-                                if !isEditingName { isEditingName = true }
+                                if !isEditingName {
+                                    isEditingName = true
+                                    draftName = session.displayName
+                                    nameFieldFocused = true
+                                }
                             } label: {
                                 Image(systemName: "pencil")
                             }
@@ -73,6 +82,7 @@ struct ProfileView: View {
                                 Button(LocalizedStringKey("common_cancel")) {
                                     draftName = session.displayName
                                     isEditingName = false
+                                    nameFieldFocused = false
                                 }
 
                                 Spacer()
@@ -82,6 +92,7 @@ struct ProfileView: View {
                                     guard !trimmed.isEmpty else { return }
                                     session.updateDisplayName(trimmed)
                                     isEditingName = false
+                                    nameFieldFocused = false
                                 }
                                 .buttonStyle(.borderedProminent)
                                 .disabled(draftName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -97,20 +108,26 @@ struct ProfileView: View {
                             Spacer()
 
                             if isEditingFriendCode {
-                                TextField(LocalizedStringKey("profile_friend_code_placeholder"), text: $draftFriendCode)
-                                    .multilineTextAlignment(.trailing)
-                                    .keyboardType(.numberPad)
-                                    .textContentType(.oneTimeCode)
-                                    .onChange(of: draftFriendCode) { _, newValue in
-                                        let digitsOnly = newValue.filter { $0.isNumber }
-                                        if digitsOnly != newValue {
-                                            draftFriendCode = digitsOnly
-                                        }
-                                        if draftFriendCode.count > 12 {
-                                            draftFriendCode = String(draftFriendCode.prefix(12))
-                                        }
-                                        friendCodeError = validateFriendCode(draftFriendCode)
+                                SelectAllTextField(
+                                    placeholderKey: "profile_friend_code_placeholder",
+                                    text: $draftFriendCode,
+                                    isFirstResponder: $friendCodeFieldFocused,
+                                    keyboardType: .numberPad,
+                                    textContentType: .oneTimeCode,
+                                    autocapitalization: .none,
+                                    autocorrection: .no
+                                ) { newValue in
+                                    let digitsOnly = newValue.filter { $0.isNumber }
+                                    if digitsOnly != newValue {
+                                        draftFriendCode = digitsOnly
                                     }
+                                    if draftFriendCode.count > 12 {
+                                        draftFriendCode = String(draftFriendCode.prefix(12))
+                                    }
+                                    friendCodeError = validateFriendCode(draftFriendCode)
+                                }
+                                .frame(height: 22)
+                                .multilineTextAlignment(.trailing)
                             } else {
                                 let raw = session.friendCode
                                 Text(raw.isEmpty ? "XXXX XXXX XXXX" : formatFriendCode(raw))
@@ -122,6 +139,7 @@ struct ProfileView: View {
                                     isEditingFriendCode = true
                                     draftFriendCode = session.friendCode.filter { $0.isNumber }
                                     friendCodeError = validateFriendCode(draftFriendCode)
+                                    friendCodeFieldFocused = true
                                 }
                             } label: {
                                 Image(systemName: "pencil")
@@ -146,6 +164,7 @@ struct ProfileView: View {
                                     draftFriendCode = session.friendCode.filter { $0.isNumber }
                                     friendCodeError = nil
                                     isEditingFriendCode = false
+                                    friendCodeFieldFocused = false
                                 }
 
                                 Spacer()
@@ -155,6 +174,7 @@ struct ProfileView: View {
                                         session.updateFriendCode(draftFriendCode)
                                         isEditingFriendCode = false
                                         friendCodeError = nil
+                                        friendCodeFieldFocused = false
                                     } else {
                                         friendCodeError = validateFriendCode(draftFriendCode)
                                     }
@@ -200,115 +220,20 @@ struct ProfileView: View {
                     Text(LocalizedStringKey("profile_community_footer"))
                 }
 
-                // MARK: - Joined Rooms
-                Section {
-                    if let err = joinedErrorMessage {
-                        Text(err)
-                            .foregroundStyle(.red)
-                    }
+                JoinedRoomsSection(
+                    rooms: joinedRooms,
+                    isLoading: isJoinedLoading,
+                    errorMessage: joinedErrorMessage
+                )
+                .equatable()
 
-                    if isJoinedLoading && joinedRooms.isEmpty {
-                        HStack {
-                            ProgressView()
-                            Text(LocalizedStringKey("profile_loading_joined"))
-                                .foregroundStyle(.secondary)
-                        }
-                    } else if joinedRooms.isEmpty {
-                        ContentUnavailableView(
-                            LocalizedStringKey("profile_joined_empty_title"),
-                            systemImage: "person.2",
-                            description: Text(LocalizedStringKey("profile_joined_empty_description"))
-                        )
-                        .listRowBackground(Color.clear)
-                    } else {
-                        ForEach(joinedRooms) { r in
-                            NavigationLink {
-                                RoomDetailsView(
-                                    vm: RoomDetailsViewModel(roomId: r.id, session: session)
-                                )
-                            } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack {
-                                        Text(r.title)
-                                            .font(.headline)
-                                            .lineLimit(1)
-                                        Spacer()
-                                        Text(localizedRoomStatus(r.status))
-                                            .font(.footnote)
-                                            .foregroundStyle(.secondary)
-                                    }
-
-                                    HStack(spacing: 8) {
-                                        Text(String(format: NSLocalizedString("profile_players_format", comment: ""), r.joinedCount, r.maxPlayers))
-                                            .font(.footnote)
-                                            .foregroundStyle(.secondary)
-                                        Text(String(format: NSLocalizedString("profile_bid_format", comment: ""), r.depositHoney))
-                                            .font(.footnote)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } header: {
-                    Text(LocalizedStringKey("profile_joined_section"))
-                } footer: {
-                    Text(LocalizedStringKey("profile_joined_footer"))
-                }
-
-                // MARK: - Host
-                Section {
-                    if let err = hostErrorMessage {
-                        Text(err)
-                            .foregroundStyle(.red)
-                    }
-
-                    if isHostLoading && hostedRooms.isEmpty {
-                        HStack {
-                            ProgressView()
-                            Text(LocalizedStringKey("profile_loading_hosted"))
-                                .foregroundStyle(.secondary)
-                        }
-                    } else if hostedRooms.isEmpty {
-                        ContentUnavailableView(
-                            LocalizedStringKey("profile_hosted_empty_title"),
-                            systemImage: "house",
-                            description: Text(LocalizedStringKey("profile_hosted_empty_description"))
-                        )
-                        .listRowBackground(Color.clear)
-                    } else {
-                        ForEach(hostedRooms) { r in
-                            NavigationLink {
-                                RoomDetailsView(
-                                    vm: RoomDetailsViewModel(roomId: r.id, session: session),
-                                    onRoomClosed: {
-                                        Task { await loadHostedRooms() }   // ✅ refresh list immediately
-                                    }
-                                )
-                            } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack {
-                                        Text(r.title)
-                                            .font(.headline)
-                                            .lineLimit(1)
-                                        Spacer()
-                                        Text(localizedRoomStatus(r.status))
-                                            .font(.footnote)
-                                            .foregroundStyle(.secondary)
-                                    }
-
-                                    Text(String(format: NSLocalizedString("profile_players_format", comment: ""), r.joinedCount, r.maxPlayers))
-                                        .font(.footnote)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
-                } header: {
-                    Text(LocalizedStringKey("profile_hosted_section"))
-                } footer: {
-                    Text(LocalizedStringKey("profile_hosted_footer"))
-                }
+                HostedRoomsSection(
+                    rooms: hostedRooms,
+                    isLoading: isHostLoading,
+                    errorMessage: hostErrorMessage,
+                    onRoomClosed: { Task { await loadHostedRooms() } }
+                )
+                .equatable()
 
                 // MARK: Sign out
                 Section {
@@ -429,10 +354,11 @@ struct ProfileView: View {
         return parts.joined(separator: " ")
     }
 
-    private func localizedRoomStatus(_ status: String) -> LocalizedStringKey {
-        let lower = status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return lower == "open" ? "common_open" : "common_closed"
-    }
+}
+
+private func localizedRoomStatus(_ status: String) -> LocalizedStringKey {
+    let lower = status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    return lower == "open" ? "common_open" : "common_closed"
 }
 
 // MARK: - Host room stub (MVP)
@@ -441,6 +367,215 @@ private struct HostedRoomStub: Identifiable {
     let id: String
     let roomId: String
     let title: String
+}
+
+// MARK: - Joined/Hosted Sections (Equatable for smoother typing)
+
+private struct SelectAllTextField: UIViewRepresentable {
+    let placeholderKey: String
+    @Binding var text: String
+    @Binding var isFirstResponder: Bool
+    var keyboardType: UIKeyboardType = .default
+    var textContentType: UITextContentType? = .name
+    var autocapitalization: UITextAutocapitalizationType = .words
+    var autocorrection: UITextAutocorrectionType = .no
+    var onChange: ((String) -> Void)? = nil
+
+    func makeUIView(context: Context) -> UITextField {
+        let tf = UITextField()
+        tf.borderStyle = .none
+        tf.textAlignment = .right
+        tf.autocorrectionType = autocorrection
+        tf.autocapitalizationType = autocapitalization
+        tf.textContentType = textContentType
+        tf.keyboardType = keyboardType
+        tf.placeholder = NSLocalizedString(placeholderKey, comment: "")
+        tf.addTarget(context.coordinator, action: #selector(Coordinator.textChanged), for: .editingChanged)
+        tf.delegate = context.coordinator
+        return tf
+    }
+
+    func updateUIView(_ uiView: UITextField, context: Context) {
+        if uiView.text != text {
+            uiView.text = text
+        }
+        if isFirstResponder, !uiView.isFirstResponder {
+            uiView.becomeFirstResponder()
+            DispatchQueue.main.async {
+                uiView.selectAll(nil)
+            }
+        } else if !isFirstResponder, uiView.isFirstResponder {
+            uiView.resignFirstResponder()
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text, isFirstResponder: $isFirstResponder, onChange: onChange)
+    }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        @Binding var text: String
+        @Binding var isFirstResponder: Bool
+        let onChange: ((String) -> Void)?
+
+        init(text: Binding<String>, isFirstResponder: Binding<Bool>, onChange: ((String) -> Void)?) {
+            _text = text
+            _isFirstResponder = isFirstResponder
+            self.onChange = onChange
+        }
+
+        @objc func textChanged(_ sender: UITextField) {
+            let value = sender.text ?? ""
+            text = value
+            onChange?(value)
+        }
+
+        func textFieldDidBeginEditing(_ textField: UITextField) {
+            isFirstResponder = true
+            DispatchQueue.main.async {
+                textField.selectAll(nil)
+            }
+        }
+
+        func textFieldDidEndEditing(_ textField: UITextField) {
+            isFirstResponder = false
+        }
+    }
+}
+
+private struct JoinedRoomsSection: View, Equatable {
+    @EnvironmentObject private var session: SessionStore
+
+    let rooms: [JoinedRoomSummary]
+    let isLoading: Bool
+    let errorMessage: String?
+
+    static func == (lhs: JoinedRoomsSection, rhs: JoinedRoomsSection) -> Bool {
+        lhs.rooms == rhs.rooms
+            && lhs.isLoading == rhs.isLoading
+            && lhs.errorMessage == rhs.errorMessage
+    }
+
+    var body: some View {
+        Section {
+            if let err = errorMessage {
+                Text(err)
+                    .foregroundStyle(.red)
+            }
+
+            if isLoading && rooms.isEmpty {
+                HStack {
+                    ProgressView()
+                    Text(LocalizedStringKey("profile_loading_joined"))
+                        .foregroundStyle(.secondary)
+                }
+            } else if rooms.isEmpty {
+                ContentUnavailableView(
+                    LocalizedStringKey("profile_joined_empty_title"),
+                    systemImage: "person.2"
+//                    description: Text(LocalizedStringKey("profile_joined_empty_description"))
+                )
+                .listRowBackground(Color.clear)
+            } else {
+                ForEach(rooms) { r in
+                    NavigationLink {
+                        RoomDetailsView(
+                            vm: RoomDetailsViewModel(roomId: r.id, session: session)
+                        )
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(r.title)
+                                    .font(.headline)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(localizedRoomStatus(r.status))
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            HStack(spacing: 8) {
+                                Text(String(format: NSLocalizedString("profile_players_format", comment: ""), r.joinedCount, r.maxPlayers))
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                Text(String(format: NSLocalizedString("profile_bid_format", comment: ""), r.depositHoney))
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        } header: {
+            Text(LocalizedStringKey("profile_mushroom_section"))
+        }
+    }
+}
+
+private struct HostedRoomsSection: View, Equatable {
+    @EnvironmentObject private var session: SessionStore
+
+    let rooms: [HostedRoomSummary]
+    let isLoading: Bool
+    let errorMessage: String?
+    let onRoomClosed: () -> Void
+
+    static func == (lhs: HostedRoomsSection, rhs: HostedRoomsSection) -> Bool {
+        lhs.rooms == rhs.rooms
+            && lhs.isLoading == rhs.isLoading
+            && lhs.errorMessage == rhs.errorMessage
+    }
+
+    var body: some View {
+        Section {
+            if let err = errorMessage {
+                Text(err)
+                    .foregroundStyle(.red)
+            }
+
+            if isLoading && rooms.isEmpty {
+                HStack {
+                    ProgressView()
+                    Text(LocalizedStringKey("profile_loading_hosted"))
+                        .foregroundStyle(.secondary)
+                }
+            } else if rooms.isEmpty {
+                ContentUnavailableView(
+                    LocalizedStringKey("profile_hosted_empty_title"),
+                    systemImage: "house"
+//                    description: Text(LocalizedStringKey("profile_hosted_empty_description"))
+                )
+                .listRowBackground(Color.clear)
+            } else {
+                ForEach(rooms) { r in
+                    NavigationLink {
+                        RoomDetailsView(
+                            vm: RoomDetailsViewModel(roomId: r.id, session: session),
+                            onRoomClosed: onRoomClosed
+                        )
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(r.title)
+                                    .font(.headline)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(localizedRoomStatus(r.status))
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Text(String(format: NSLocalizedString("profile_players_format", comment: ""), r.joinedCount, r.maxPlayers))
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        } header: {
+            Text(LocalizedStringKey("profile_mushroom_section"))
+        }
+    }
 }
 
 private extension ProfileView {
