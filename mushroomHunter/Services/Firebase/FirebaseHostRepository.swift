@@ -20,12 +20,37 @@ struct FirestoreRoomCreateRequest {
     let fixedRaidCost: Int
 }
 
+enum HostRoomError: LocalizedError {
+    case maxHostRoomsReached(Int)
+
+    var errorDescription: String? {
+        switch self {
+        case .maxHostRoomsReached(let limit):
+            return "You can only host up to \(limit) rooms."
+        }
+    }
+}
+
 final class FirebaseHostRepository {
     private let db = Firestore.firestore()
+    private let defaultMaxHostRooms = 1
+    private let defaultMaxJoinRooms = 3
 
     func createRoom(req: FirestoreRoomCreateRequest, hostName: String, hostStars: Int) async throws -> String {
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
+        }
+
+        let userSnap = try await db.collection("users").document(uid).getDocument()
+        let maxHostRooms = userSnap.data()?["maxHostRoom"] as? Int ?? defaultMaxHostRooms
+
+        let existing = try await db.collection("rooms")
+            .whereField("hostUid", isEqualTo: uid)
+            .whereField("status", isEqualTo: "open")
+            .getDocuments()
+
+        if existing.documents.count >= maxHostRooms {
+            throw HostRoomError.maxHostRoomsReached(maxHostRooms)
         }
 
         let ref = db.collection("rooms").document()
@@ -52,6 +77,17 @@ final class FirebaseHostRepository {
         ]
 
         try await ref.setData(data)
+        if !userSnap.exists {
+            try await db.collection("users").document(uid).setData([
+                "displayName": hostName,
+                "stars": hostStars,
+                "honey": 0,
+                "maxHostRoom": defaultMaxHostRooms,
+                "maxJoinRoom": defaultMaxJoinRooms,
+                "createdAt": now,
+                "updatedAt": now
+            ], merge: true)
+        }
         return ref.documentID
     }
 

@@ -18,6 +18,7 @@ enum RoomActionError: LocalizedError {
     case notInRoom
     case notHost
     case notEnoughHoney
+    case maxJoinRoomsReached(Int)
 
     var errorDescription: String? {
         switch self {
@@ -29,12 +30,37 @@ enum RoomActionError: LocalizedError {
         case .notInRoom: return "You are not in this room."
         case .notHost: return "Only the host can do this."
         case .notEnoughHoney: return "Not enough honey."
+        case .maxJoinRoomsReached(let limit): return "You can only join up to \(limit) rooms."
         }
     }
 }
 
 final class FirebaseRoomActionsRepository {
     private let db = Firestore.firestore()
+    private let defaultMaxHostRooms = 1
+    private let defaultMaxJoinRooms = 3
+
+    private func fetchMaxJoinRooms(uid: String) async throws -> Int {
+        let userSnap = try await db.collection("users").document(uid).getDocument()
+        return userSnap.data()?["maxJoinRoom"] as? Int ?? defaultMaxJoinRooms
+    }
+
+    private func countActiveJoinedRooms(uid: String) async throws -> Int {
+        let attendeeSnap = try await db.collectionGroup("attendees")
+            .whereField("uid", isEqualTo: uid)
+            .getDocuments()
+
+        var count = 0
+        for doc in attendeeSnap.documents {
+            guard let roomRef = doc.reference.parent.parent else { continue }
+            let roomSnap = try await roomRef.getDocument()
+            let status = (roomSnap.data()?["status"] as? String) ?? "open"
+            if status.lowercased() == "open" {
+                count += 1
+            }
+        }
+        return count
+    }
 
     // MARK: - Join (transaction)
     func joinRoom(
@@ -47,12 +73,18 @@ final class FirebaseRoomActionsRepository {
     ) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
+        let maxJoinRooms = try await fetchMaxJoinRooms(uid: uid)
+        let currentJoined = try await countActiveJoinedRooms(uid: uid)
+        if currentJoined >= maxJoinRooms {
+            throw RoomActionError.maxJoinRoomsReached(maxJoinRooms)
+        }
+
         let roomRef = db.collection("rooms").document(roomId)
         let attendeeRef = roomRef.collection("attendees").document(uid)
         let userRef = db.collection("users").document(uid)
         let now = Timestamp(date: Date())
 
-        try await db.runTransaction { tx, errPtr -> Any? in
+        try await db.runTransaction { [self] tx, errPtr -> Any? in
             // 1) Read room
             let roomSnap: DocumentSnapshot
             do { roomSnap = try tx.getDocument(roomRef) }
@@ -104,6 +136,8 @@ final class FirebaseRoomActionsRepository {
                     "friendCode": friendCode,
                     "stars": stars,
                     "honey": currentHoney,
+                    "maxHostRoom": self.defaultMaxHostRooms,
+                    "maxJoinRoom": self.defaultMaxJoinRooms,
                     "activeRoomId": roomId,
                     "createdAt": now,
                     "updatedAt": now
@@ -196,6 +230,8 @@ final class FirebaseRoomActionsRepository {
                     "friendCode": "",
                     "stars": 0,
                     "honey": currentHoney,
+                    "maxHostRoom": self.defaultMaxHostRooms,
+                    "maxJoinRoom": self.defaultMaxJoinRooms,
                     "activeRoomId": roomId,
                     "createdAt": now,
                     "updatedAt": now
@@ -269,6 +305,8 @@ final class FirebaseRoomActionsRepository {
                     "friendCode": "",
                     "stars": 0,
                     "honey": currentHoney,
+                    "maxHostRoom": self.defaultMaxHostRooms,
+                    "maxJoinRoom": self.defaultMaxJoinRooms,
                     "activeRoomId": roomId,
                     "createdAt": now,
                     "updatedAt": now

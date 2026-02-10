@@ -5,6 +5,8 @@ import FirebaseFirestore
 import GoogleSignIn
 import UIKit
 import Combine
+import AuthenticationServices
+import CryptoKit
 
 @MainActor
 final class SessionStore: ObservableObject {
@@ -13,6 +15,8 @@ final class SessionStore: ObservableObject {
     @Published var friendCode: String = ""          // ✅ NEW
     @Published var stars: Int = 0   // ⭐ Community reputation
     @Published var honey: Int = 0
+    @Published var maxHostRoom: Int = 1
+    @Published var maxJoinRoom: Int = 3
     @Published var authUid: String? = nil
     @Published var fcmToken: String? = nil
 
@@ -20,6 +24,7 @@ final class SessionStore: ObservableObject {
     @Published var errorMessage: String? = nil
 
     private var authHandle: AuthStateDidChangeListenerHandle?
+    private var currentAppleNonce: String?
 
     // Local persistence keys (prototype-friendly)
     private let kDisplayName = "mh.displayName"
@@ -27,6 +32,8 @@ final class SessionStore: ObservableObject {
     private let kStars = "mh.stars"
     private let kHoney = "mh.honey"
     private let kFcmToken = "mh.fcmToken"
+    private let kMaxHostRoom = "mh.maxHostRoom"
+    private let kMaxJoinRoom = "mh.maxJoinRoom"
 
     init() {
         // Load local profile for convenience (prototype)
@@ -38,6 +45,18 @@ final class SessionStore: ObservableObject {
             UserDefaults.standard.set(honey, forKey: kHoney)
         } else {
             honey = UserDefaults.standard.integer(forKey: kHoney)
+        }
+        if UserDefaults.standard.object(forKey: kMaxHostRoom) == nil {
+            maxHostRoom = 1
+            UserDefaults.standard.set(maxHostRoom, forKey: kMaxHostRoom)
+        } else {
+            maxHostRoom = max(1, UserDefaults.standard.integer(forKey: kMaxHostRoom))
+        }
+        if UserDefaults.standard.object(forKey: kMaxJoinRoom) == nil {
+            maxJoinRoom = 3
+            UserDefaults.standard.set(maxJoinRoom, forKey: kMaxJoinRoom)
+        } else {
+            maxJoinRoom = max(1, UserDefaults.standard.integer(forKey: kMaxJoinRoom))
         }
         fcmToken = UserDefaults.standard.string(forKey: kFcmToken)
 
@@ -149,6 +168,8 @@ final class SessionStore: ObservableObject {
             let snap = try await Firestore.firestore().collection("users").document(uid).getDocument()
             guard let data = snap.data() else { return }
 
+            var needsDefaults: [String: Any] = [:]
+
             if let name = data["displayName"] as? String, !name.isEmpty {
                 displayName = name
                 UserDefaults.standard.set(name, forKey: kDisplayName)
@@ -167,6 +188,32 @@ final class SessionStore: ObservableObject {
             if let honeyValue = data["honey"] as? Int {
                 honey = max(0, honeyValue)
                 UserDefaults.standard.set(honey, forKey: kHoney)
+            }
+
+            if let maxHostValue = data["maxHostRoom"] as? Int {
+                maxHostRoom = max(1, maxHostValue)
+                UserDefaults.standard.set(maxHostRoom, forKey: kMaxHostRoom)
+            } else {
+                maxHostRoom = 1
+                UserDefaults.standard.set(maxHostRoom, forKey: kMaxHostRoom)
+                needsDefaults["maxHostRoom"] = maxHostRoom
+            }
+
+            if let maxJoinValue = data["maxJoinRoom"] as? Int {
+                maxJoinRoom = max(1, maxJoinValue)
+                UserDefaults.standard.set(maxJoinRoom, forKey: kMaxJoinRoom)
+            } else {
+                maxJoinRoom = 3
+                UserDefaults.standard.set(maxJoinRoom, forKey: kMaxJoinRoom)
+                needsDefaults["maxJoinRoom"] = maxJoinRoom
+            }
+
+            if !needsDefaults.isEmpty {
+                needsDefaults["updatedAt"] = Timestamp(date: Date())
+                try await Firestore.firestore()
+                    .collection("users")
+                    .document(uid)
+                    .setData(needsDefaults, merge: true)
             }
         } catch {
             // Keep local values if backend fetch fails.
@@ -231,8 +278,108 @@ final class SessionStore: ObservableObject {
             errorMessage = error.localizedDescription
         }
     }
+
+    // MARK: - Apple Sign-In then Firebase Auth
+
+    func configureAppleRequest(_ request: ASAuthorizationAppleIDRequest) {
+        errorMessage = nil
+        let nonce = randomNonceString()
+        currentAppleNonce = nonce
+        request.requestedScopes = [.fullName, .email]
+        request.nonce = sha256(nonce)
+    }
+
+    func handleAppleCompletion(_ result: Result<ASAuthorization, Error>) async {
+        isLoading = true
+        defer { isLoading = false }
+
+        switch result {
+        case .failure(let error):
+            errorMessage = error.localizedDescription
+        case .success(let authorization):
+            guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+                errorMessage = NSLocalizedString("session_error_apple_credential", comment: "")
+                return
+            }
+            guard let nonce = currentAppleNonce else {
+                errorMessage = NSLocalizedString("session_error_apple_nonce", comment: "")
+                return
+            }
+            guard let appleIDToken = appleIDCredential.identityToken else {
+                errorMessage = NSLocalizedString("session_error_apple_token", comment: "")
+                return
+            }
+            guard let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
+                errorMessage = NSLocalizedString("session_error_apple_token_format", comment: "")
+                return
+            }
+
+            let credential = OAuthProvider.credential(
+                providerID: .apple,
+                idToken: idTokenString,
+                rawNonce: nonce
+            )
+
+            do {
+                let authResult = try await Auth.auth().signIn(with: credential)
+                self.authUid = authResult.user.uid
+                self.isLoggedIn = true
+
+                let currentDisplayName = authResult.user.displayName ?? ""
+                if currentDisplayName.isEmpty {
+                    if let fullName = appleIDCredential.fullName {
+                        let formatter = PersonNameComponentsFormatter()
+                        let nameString = formatter.string(from: fullName)
+                        if !nameString.isEmpty {
+                            self.displayName = nameString
+                            UserDefaults.standard.set(nameString, forKey: self.kDisplayName)
+                        }
+                    }
+                } else {
+                    self.displayName = currentDisplayName
+                    UserDefaults.standard.set(currentDisplayName, forKey: self.kDisplayName)
+                }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
 }
 
 extension Notification.Name {
     static let didReceiveFcmToken = Notification.Name("mh.didReceiveFcmToken")
+}
+
+// MARK: - Apple Sign-In helpers
+
+private func randomNonceString(length: Int = 32) -> String {
+    precondition(length > 0)
+    let charset: [Character] =
+        Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+    var result = ""
+    var remainingLength = length
+
+    while remainingLength > 0 {
+        var randoms: [UInt8] = Array(repeating: 0, count: 16)
+        let status = SecRandomCopyBytes(kSecRandomDefault, randoms.count, &randoms)
+        if status != errSecSuccess {
+            fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(status)")
+        }
+
+        randoms.forEach { random in
+            if remainingLength == 0 { return }
+            if random < charset.count {
+                result.append(charset[Int(random)])
+                remainingLength -= 1
+            }
+        }
+    }
+
+    return result
+}
+
+private func sha256(_ input: String) -> String {
+    let inputData = Data(input.utf8)
+    let hashed = SHA256.hash(data: inputData)
+    return hashed.compactMap { String(format: "%02x", $0) }.joined()
 }

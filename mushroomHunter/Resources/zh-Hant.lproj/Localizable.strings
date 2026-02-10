@@ -43,6 +43,7 @@
 "host_success_created_title" = "房間已建立！";
 "host_success_updated_message" = "房間設定已儲存。";
 "host_success_created_message" = "此為原型，稍後會加入後端寫入。";
+"host_limit_title" = "房間上限";
 "host_room_name_placeholder" = "例如：一起打蘑菇";
 "host_room_name_header" = "房間名稱";
 "host_room_name_footer" = "可支援多語言，請簡短易辨識。";
@@ -53,9 +54,9 @@
 "host_location_placeholder" = "國家／城市／區域";
 "host_location_header" = "地點";
 "host_location_footer" = "輸入大致位置，請避免完整地址以保護隱私。";
-"host_words_label" = "字數";
+"host_words_label" = "字元";
 "host_description_header" = "房間描述";
-"host_description_footer" = "最多 500 字，用於時間、需求或好友碼等補充。";
+"host_description_footer" = "最多 100 字元，用於時間、需求或好友碼等補充。";
 "host_min_bid_label" = "固定費用";
 "host_min_bid_header" = "固定團戰費用";
 "host_min_bid_footer" = "每位參加者在團戰後需支付的蜂蜜。加入房間的最低押金等於此費用，預設為 10。";
@@ -203,10 +204,14 @@
 "profile_friend_code_error_digits" = "好友碼只能包含數字。";
 
 "login_title" = "Mushroom Hunter";
-"login_continue_apple" = "使用 Apple 繼續（尚未開放）";
+"login_continue_apple" = "使用 Apple 繼續";
 "login_continue_google" = "使用 Google 繼續";
-"login_apple_error" = "Apple 登入需要 Apple 開發者計畫（每年 99 美元）。";
+"login_apple_error" = "Apple 登入目前無法使用。";
 "login_google_error" = "無法找到用來顯示 Google 登入的畫面。";
+"session_error_apple_credential" = "Apple 憑證無效。";
+"session_error_apple_nonce" = "Apple 登入狀態遺失（nonce）。";
+"session_error_apple_token" = "缺少 Apple ID 權杖。";
+"session_error_apple_token_format" = "無法讀取 Apple ID 權杖。";
 
 "common_ok" = "確定";
 "common_cancel" = "取消";
@@ -231,6 +236,7 @@
 "room_join_confirm_title" = "確認加入";
 "room_join_confirm_message" = "你將在 %@ 存入 %d 🍯，是否確定？";
 "room_join_confirm_sure" = "確定";
+"room_join_limit_title" = "房間上限";
 "room_not_enough_honey_title" = "蜂蜜不足";
 "room_not_enough_honey_message" = "你目前只有 %d 🍯。";
 "room_update_bid_footer" = "押金會在你待在房間期間保留。只有在戰鬥完成且你確認後才會扣除。離開房間會退還未使用的押金。";

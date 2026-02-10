@@ -31,10 +31,12 @@ final class HostViewModel: ObservableObject {
     @Published var successRoomId: String? = nil
     @Published var errorMessage: String? = nil
     @Published var isSubmitting: Bool = false
+    @Published var showLimitAlert: Bool = false
+    @Published var limitAlertMessage: String = ""
 
     // Limits
     static let hostNameMaxChars = 30
-    static let otherMaxWords = 500
+    static let otherMaxChars = 100
 
     init(session: SessionStore, repo: FirebaseHostRepository = FirebaseHostRepository()) {
         self.session = session
@@ -50,7 +52,7 @@ final class HostViewModel: ObservableObject {
     }
 
     var hostNameRemaining: Int { Self.hostNameMaxChars - hostName.count }
-    var otherWordCount: Int { Self.wordCount(otherMessage) }
+    var otherCharCount: Int { Self.charCount(otherMessage) }
 
     var isEditMode: Bool {
         if case .edit = mode { return true }
@@ -84,7 +86,7 @@ final class HostViewModel: ObservableObject {
     var canSubmit: Bool {
         let nameOK = !hostName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let locOK = !location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let msgOK = otherWordCount <= Self.otherMaxWords
+        let msgOK = otherCharCount <= Self.otherMaxChars
         return nameOK && locOK && msgOK && !isSubmitting
     }
 
@@ -92,8 +94,8 @@ final class HostViewModel: ObservableObject {
         if hostName.count > Self.hostNameMaxChars {
             hostName = String(hostName.prefix(Self.hostNameMaxChars))
         }
-        if otherWordCount > Self.otherMaxWords {
-            otherMessage = Self.trimToWords(otherMessage, maxWords: Self.otherMaxWords)
+        if otherCharCount > Self.otherMaxChars {
+            otherMessage = Self.trimToChars(otherMessage, maxChars: Self.otherMaxChars)
         }
     }
 
@@ -142,7 +144,12 @@ final class HostViewModel: ObservableObject {
 
         } catch {
             print("❌ submit(): error =", error)
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            if let limitError = error as? HostRoomError {
+                limitAlertMessage = limitError.errorDescription ?? ""
+                showLimitAlert = true
+            } else {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
         }
     }
 
@@ -170,14 +177,13 @@ final class HostViewModel: ObservableObject {
     }
 
     // MARK: Word utils
-    static func wordCount(_ text: String) -> Int {
-        text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
+    static func charCount(_ text: String) -> Int {
+        text.unicodeScalars.count
     }
 
-    static func trimToWords(_ text: String, maxWords: Int) -> String {
-        let comps = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline })
-        if comps.count <= maxWords { return text }
-        return comps.prefix(maxWords).joined(separator: " ")
+    static func trimToChars(_ text: String, maxChars: Int) -> String {
+        if text.count <= maxChars { return text }
+        return String(text.prefix(maxChars))
     }
 }
 
@@ -215,9 +221,10 @@ struct HostView: View {
 //                    }
                 } header: {
                     Text(LocalizedStringKey("host_room_name_header"))
-                } footer: {
-                    Text(LocalizedStringKey("host_room_name_footer"))
                 }
+//                } footer: {
+//                    Text(LocalizedStringKey("host_room_name_footer"))
+//                }
 
                 // Mushroom properties
                 Section(LocalizedStringKey("host_target_section")) {
@@ -253,7 +260,7 @@ struct HostView: View {
                     Text(LocalizedStringKey("host_location_footer"))
                 }
 
-                // Other message (500 words max)
+                // Other message (100 chars max)
                 Section {
                     TextEditor(text: $vm.otherMessage)
                         .frame(minHeight: 140)
@@ -263,15 +270,16 @@ struct HostView: View {
                         Text(LocalizedStringKey("host_words_label"))
                             .foregroundStyle(.secondary)
                         Spacer()
-                        Text("\(vm.otherWordCount)/\(HostViewModel.otherMaxWords)")
-                            .foregroundColor(vm.otherWordCount <= HostViewModel.otherMaxWords ? .secondary : .red)
+                        Text("\(vm.otherCharCount)/\(HostViewModel.otherMaxChars)")
+                            .foregroundColor(vm.otherCharCount <= HostViewModel.otherMaxChars ? .secondary : .red)
                             .monospacedDigit()
                     }
                 } header: {
                     Text(LocalizedStringKey("host_description_header"))
-                } footer: {
-                    Text(LocalizedStringKey("host_description_footer"))
                 }
+//                footer: {
+//                    Text(LocalizedStringKey("host_description_footer"))
+//                }
 
                 Section {
                     Stepper(value: $vm.fixedRaidCost, in: 1...10_000, step: 1) {
@@ -348,14 +356,16 @@ struct HostView: View {
                 }
             }
             .alert(vm.successAlertTitle, isPresented: $vm.showSuccessAlert) {
-                if vm.isEditMode {
-                    Button(LocalizedStringKey("common_ok")) { dismiss() }
-                } else {
-                    Button(LocalizedStringKey("common_ok")) { }
-                    Button(LocalizedStringKey("host_reset_form")) { vm.reset() }
+                Button(LocalizedStringKey("common_ok")) {
+                    dismiss()
                 }
             } message: {
                 Text(vm.successAlertMessage)
+            }
+            .alert(LocalizedStringKey("host_limit_title"), isPresented: $vm.showLimitAlert) {
+                Button(LocalizedStringKey("common_ok")) {}
+            } message: {
+                Text(vm.limitAlertMessage)
             }
         }
     }

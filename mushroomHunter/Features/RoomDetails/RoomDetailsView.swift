@@ -169,6 +169,11 @@ struct RoomDetailsView: View {
         } message: {
             Text(String(format: NSLocalizedString("room_join_success_message", comment: ""), joinSuccessRoomName, joinSuccessHoney))
         }
+        .alert(LocalizedStringKey("room_join_limit_title"), isPresented: $vm.showJoinLimitAlert) {
+            Button(LocalizedStringKey("common_ok")) {}
+        } message: {
+            Text(vm.joinLimitMessage)
+        }
         .alert(LocalizedStringKey("room_update_bid_success_title"), isPresented: $showUpdateDepositSuccessAlert) {
             Button(LocalizedStringKey("common_ok")) {}
         } message: {

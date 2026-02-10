@@ -39,6 +39,8 @@ final class RoomDetailsViewModel: ObservableObject {
     }
     
     @Published var attendeeSort: AttendeeSort = .depositHighToLow
+    @Published var showJoinLimitAlert: Bool = false
+    @Published var joinLimitMessage: String = ""
     
     // Derived: role + capabilities
     @Published private(set) var role: RoomRole = .viewer
@@ -154,7 +156,14 @@ final class RoomDetailsViewModel: ObservableObject {
         } catch is CancellationError {
             return
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            print("❌ join error:", error)
+            if let actionError = error as? RoomActionError,
+               case .maxJoinRoomsReached = actionError {
+                joinLimitMessage = actionError.errorDescription ?? ""
+                showJoinLimitAlert = true
+            } else {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
         }
     }
     

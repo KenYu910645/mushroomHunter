@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import AuthenticationServices
 
 struct LoginView: View {
     @EnvironmentObject private var session: SessionStore
@@ -34,15 +35,13 @@ struct LoginView: View {
                         .padding(.horizontal)
                 }
 
-                // Apple button can stay visible but disabled / not implemented
-                Button {
-                    session.errorMessage = NSLocalizedString("login_apple_error", comment: "")
-                } label: {
-                    Text(LocalizedStringKey("login_continue_apple"))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 48)
+                SignInWithAppleButton(.signIn) { request in
+                    session.configureAppleRequest(request)
+                } onCompletion: { result in
+                    Task { await session.handleAppleCompletion(result) }
                 }
-                .buttonStyle(.bordered)
+                .signInWithAppleButtonStyle(scheme == .dark ? .white : .black)
+                .frame(height: 48)
                 .disabled(session.isLoading)
 
                 // ✅ Google Sign-In implemented

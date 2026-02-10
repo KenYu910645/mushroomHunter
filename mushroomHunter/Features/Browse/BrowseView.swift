@@ -9,6 +9,8 @@ final class BrowseViewModel: ObservableObject {
     @Published var listings: [RoomListing] = []
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
+    @Published var showJoinLimitAlert: Bool = false
+    @Published var joinLimitMessage: String = ""
 
     @Published var query: String = ""
     @Published var selectedMushroomType: String = "All"
@@ -80,9 +82,15 @@ final class BrowseViewModel: ObservableObject {
             await fetchListings()
         } catch {
             print("❌ join error:", error)
-            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            self.joinErrorMessage = message
-            self.errorMessage = message
+            if let actionError = error as? RoomActionError,
+               case .maxJoinRoomsReached = actionError {
+                self.joinLimitMessage = actionError.errorDescription ?? ""
+                self.showJoinLimitAlert = true
+            } else {
+                let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                self.joinErrorMessage = message
+                self.errorMessage = message
+            }
         }
     }
 
@@ -122,13 +130,9 @@ struct BrowseView: View {
         NavigationStack {
             content
                 .navigationTitle(LocalizedStringKey("browse_title"))
-                .task {
-                    if vm.listings.isEmpty {
-                        await vm.fetchListings()
-                    }
-                }
                 .onAppear {
                     Task { await session.refreshProfileFromBackend() }
+                    Task { await vm.fetchListings() }
                 }
         }
         .sheet(isPresented: $showHostSheet) {
@@ -151,6 +155,11 @@ struct BrowseView: View {
             Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
         } message: { _ in
             Text(String(format: NSLocalizedString("browse_join_message", comment: ""), session.honey))
+        }
+        .alert(LocalizedStringKey("room_join_limit_title"), isPresented: $vm.showJoinLimitAlert) {
+            Button(LocalizedStringKey("common_ok")) {}
+        } message: {
+            Text(vm.joinLimitMessage)
         }
         .alert(LocalizedStringKey("browse_search_title"), isPresented: $showSearchAlert) {
             TextField(LocalizedStringKey("browse_search_placeholder"), text: $vm.query)
