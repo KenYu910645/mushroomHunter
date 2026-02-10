@@ -204,8 +204,13 @@ struct ProfileView: View {
                     }
 
                     HStack {
-                        Label(LocalizedStringKey("profile_honey"), systemImage: "drop.fill")
-                            .foregroundStyle(.orange)
+                        HStack(spacing: 6) {
+                            Image("HoneyIcon")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 20, height: 20)
+                            Text(LocalizedStringKey("profile_honey"))
+                        }
 
                         Spacer()
 

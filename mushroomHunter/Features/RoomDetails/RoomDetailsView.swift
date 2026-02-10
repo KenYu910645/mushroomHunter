@@ -156,7 +156,6 @@ struct RoomDetailsView: View {
                     }
                 }
             }
-            Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
         } message: { room in
             Text(String(format: NSLocalizedString("room_join_confirm_message", comment: ""), joinDepositAmount, room.title))
         }
@@ -233,8 +232,10 @@ struct RoomDetailsView: View {
                             Text("\(joinDepositAmount)")
                                 .font(.title2)
                                 .monospacedDigit()
-                            Image(systemName: "drop.fill")
-                                .foregroundStyle(.yellow)
+                            Image("HoneyIcon")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 20, height: 20)
                             Spacer()
                             Text(String(format: NSLocalizedString("room_max_honey_format", comment: ""), session.honey))
                                 .foregroundStyle(.secondary)
@@ -283,8 +284,10 @@ struct RoomDetailsView: View {
                             Text("\(updateDepositAmount)")
                                 .font(.title2)
                                 .monospacedDigit()
-                            Image(systemName: "drop.fill")
-                                .foregroundStyle(.yellow)
+                            Image("HoneyIcon")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 20, height: 20)
                             Spacer()
                             let currentBid = vm.currentUserDepositHoney() ?? 0
                             let maxBid = max(session.honey + currentBid, 0)

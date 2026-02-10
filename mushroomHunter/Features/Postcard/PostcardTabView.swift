@@ -113,8 +113,10 @@ struct PostcardBrowseView: View {
     private var headerBar: some View {
         HStack {
             HStack(spacing: 6) {
-                Image(systemName: "drop.fill")
-                    .foregroundStyle(.yellow)
+                Image("HoneyIcon")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 20, height: 20)
                 Text("\(session.honey)")
                     .font(.subheadline.weight(.semibold))
             }
