@@ -74,7 +74,10 @@ final class SessionStore: ObservableObject {
             }
 
             if let token = self.fcmToken, self.isLoggedIn {
-                Task { await self.syncFcmToken(token) }
+                Task {
+                    await self.syncFcmToken(token)
+                    await self.ensureUserProfile()
+                }
             }
         }
 
@@ -105,6 +108,7 @@ final class SessionStore: ObservableObject {
         // Optional: later push to Firebase user profile / Firestore users/{uid}
         // For Google users, you *can* update Firebase displayName:
         // Auth.auth().currentUser?.createProfileChangeRequest().displayName = trimmed ...
+        Task { await syncProfileFields(["displayName": trimmed]) }
     }
 
     func updateFriendCode(_ code: String) {
@@ -112,11 +116,13 @@ final class SessionStore: ObservableObject {
         UserDefaults.standard.set(code, forKey: kFriendCode)
 
         // Optional: later push to Firestore users/{uid}
+        Task { await syncProfileFields(["friendCode": code]) }
     }
 
     func updateStars(_ newValue: Int) {
         stars = max(0, newValue)
         UserDefaults.standard.set(stars, forKey: kStars)
+        Task { await syncProfileFields(["stars": stars]) }
     }
 
     func canAffordHoney(_ amount: Int) -> Bool {
@@ -136,12 +142,16 @@ final class SessionStore: ObservableObject {
         guard amount > 0 else { return }
         honey += amount
         UserDefaults.standard.set(honey, forKey: kHoney)
+        Task { await syncProfileFields(["honey": honey]) }
     }
 
     func updateFcmToken(_ token: String) {
         fcmToken = token
         UserDefaults.standard.set(token, forKey: kFcmToken)
-        Task { await syncFcmToken(token) }
+        Task {
+            await syncFcmToken(token)
+            await ensureUserProfile()
+        }
     }
 
     private func syncFcmToken(_ token: String) async {
@@ -156,6 +166,42 @@ final class SessionStore: ObservableObject {
                 ], merge: true)
         } catch {
             print("❌ syncFcmToken error:", error)
+        }
+    }
+
+    private func syncProfileFields(_ fields: [String: Any]) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        var data = fields
+        data["updatedAt"] = Timestamp(date: Date())
+        do {
+            try await Firestore.firestore()
+                .collection("users")
+                .document(uid)
+                .setData(data, merge: true)
+        } catch {
+            print("❌ syncProfileFields error:", error)
+        }
+    }
+
+    private func ensureUserProfile() async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        do {
+            let now = Timestamp(date: Date())
+            try await Firestore.firestore()
+                .collection("users")
+                .document(uid)
+                .setData([
+                    "displayName": displayName,
+                    "friendCode": friendCode,
+                    "stars": stars,
+                    "honey": honey,
+                    "maxHostRoom": maxHostRoom,
+                    "maxJoinRoom": maxJoinRoom,
+                    "createdAt": now,
+                    "updatedAt": now
+                ], merge: true)
+        } catch {
+            print("❌ ensureUserProfile error:", error)
         }
     }
 
@@ -274,6 +320,7 @@ final class SessionStore: ObservableObject {
                 UserDefaults.standard.set(self.displayName, forKey: self.kDisplayName)
             }
 
+            await ensureUserProfile()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -342,12 +389,15 @@ final class SessionStore: ObservableObject {
             } catch {
                 errorMessage = error.localizedDescription
             }
+
+            await ensureUserProfile()
         }
     }
 }
 
 extension Notification.Name {
     static let didReceiveFcmToken = Notification.Name("mh.didReceiveFcmToken")
+    static let didOpenRoomFromPush = Notification.Name("mh.didOpenRoomFromPush")
 }
 
 // MARK: - Apple Sign-In helpers
