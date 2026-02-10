@@ -43,6 +43,9 @@ struct RoomDetailsView: View {
     @State private var showNextRoundAlert: Bool = false
     @State private var showRaidThanksAlert: Bool = false
     @State private var raidThanksHoney: Int = 0
+    @State private var showRejectResolveAlert: Bool = false
+    @State private var rejectAttendeeId: String = ""
+    @State private var rejectAttendeeName: String = ""
 
     /// ✅ New initializer: pass VM from caller (BrowseView already does this)
     init(vm: RoomDetailsViewModel, onRoomClosed: (() -> Void)? = nil) {
@@ -110,8 +113,6 @@ struct RoomDetailsView: View {
             Button(LocalizedStringKey("common_no"), role: .cancel) {
                 Task {
                     await vm.respondToRaidClaim(accept: false)
-                    raidThanksHoney = claim.raidCostHoney
-                    showRaidThanksAlert = true
                 }
             }
         } message: { claim in
@@ -206,6 +207,23 @@ struct RoomDetailsView: View {
             Button(LocalizedStringKey("common_ok")) {}
         } message: {
             Text(LocalizedStringKey("room_claim_sent_message"))
+        }
+        .alert(LocalizedStringKey("room_reject_alert_title"), isPresented: $showRejectResolveAlert) {
+            Button(LocalizedStringKey("room_reject_resend")) {
+                let id = rejectAttendeeId
+                Task {
+                    await vm.resendRaidClaim(attendeeId: id)
+                }
+            }
+            Button(LocalizedStringKey("room_reject_giveup"), role: .destructive) {
+                let id = rejectAttendeeId
+                Task {
+                    await vm.cancelRaidClaim(attendeeId: id)
+                }
+            }
+            Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
+        } message: {
+            Text(String(format: NSLocalizedString("room_reject_alert_message", comment: ""), rejectAttendeeName))
         }
         .sheet(isPresented: $showJoinSheet) {
             NavigationStack {
@@ -366,7 +384,7 @@ struct RoomDetailsView: View {
                                                 .foregroundStyle(.secondary)
                                         }
                                     }
-                                    .disabled(attendee.depositHoney < (room.fixedRaidCost) || vm.pendingClaimAttendeeIds.contains(attendee.id))
+                                    .disabled(attendee.depositHoney < (room.fixedRaidCost) || vm.isClaimBlocked(attendeeId: attendee.id))
                                 }
                             }
                         }
@@ -528,10 +546,16 @@ struct RoomDetailsView: View {
                         attendee: attendee,
                         isHostViewing: (vm.role == .host),
                         isPendingClaim: vm.pendingClaimAttendeeIds.contains(attendee.id),
+                        isRejectedClaim: vm.isClaimRejected(attendeeId: attendee.id),
                         onKick: {
                             Task {
                                 await vm.kick(attendeeId: attendee.id)
                             }
+                        },
+                        onResolve: {
+                            rejectAttendeeId = attendee.id
+                            rejectAttendeeName = attendee.name
+                            showRejectResolveAlert = true
                         },
                         onCopyFriendCode: { code in
                             copyFriendCode(code)
@@ -748,7 +772,9 @@ private struct AttendeeRow: View {
     let attendee: RoomAttendee
     let isHostViewing: Bool
     let isPendingClaim: Bool
+    let isRejectedClaim: Bool
     let onKick: () -> Void
+    let onResolve: () -> Void
     let onCopyFriendCode: (String) -> Void
 
     var body: some View {
@@ -794,6 +820,18 @@ private struct AttendeeRow: View {
                         .foregroundStyle(.orange)
                 }
 
+                if isHostViewing, isRejectedClaim {
+                    Text(LocalizedStringKey("room_status_rejected"))
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+
+                if isHostViewing, !isPendingClaim, !isRejectedClaim {
+                    Text(LocalizedStringKey("room_status_ready"))
+                        .font(.footnote)
+                        .foregroundStyle(.green)
+                }
+
                 Label("\(attendee.stars)", systemImage: "star.fill")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -801,6 +839,14 @@ private struct AttendeeRow: View {
 
             HStack {
                 Spacer()
+                if isHostViewing, isRejectedClaim {
+                    Button(LocalizedStringKey("room_reject_resolve")) {
+                        onResolve()
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.red)
+                }
                 Button {
                     onCopyFriendCode(attendee.friendCode)
                 } label: {

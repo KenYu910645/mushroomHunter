@@ -567,10 +567,80 @@ final class FirebaseRoomActionsRepository {
                 ], forDocument: attendeeRef)
             }
 
-            tx.updateData([
-                "status": accept ? "accepted" : "declined",
+            var claimUpdates: [String: Any] = [
+                "status": accept ? "accepted" : "rejected",
                 "respondedAt": now,
-                "transferredAt": now,
+                "updatedAt": now
+            ]
+            if accept {
+                claimUpdates["transferredAt"] = now
+            }
+            tx.updateData(claimUpdates, forDocument: claimRef)
+
+            return nil
+        }
+    }
+
+    // MARK: - Resend / Cancel raid claim (host only)
+    func resendRaidClaim(roomId: String, attendeeUid: String) async throws {
+        guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
+
+        let roomRef = db.collection("rooms").document(roomId)
+        let claimRef = roomRef.collection("raidClaims").document(attendeeUid)
+        let now = Timestamp(date: Date())
+        let expiresAt = Timestamp(date: Date().addingTimeInterval(72 * 60 * 60))
+
+        try await db.runTransaction { tx, errPtr -> Any? in
+            let roomSnap: DocumentSnapshot
+            do { roomSnap = try tx.getDocument(roomRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+
+            guard let room = roomSnap.data() else {
+                errPtr?.pointee = RoomActionError.roomNotFound as NSError
+                return nil
+            }
+
+            let hostUid = room["hostUid"] as? String ?? ""
+            guard hostUid == uid else {
+                errPtr?.pointee = RoomActionError.notHost as NSError
+                return nil
+            }
+
+            tx.updateData([
+                "status": "pending",
+                "updatedAt": now,
+                "expiresAt": expiresAt
+            ], forDocument: claimRef)
+
+            return nil
+        }
+    }
+
+    func cancelRaidClaim(roomId: String, attendeeUid: String) async throws {
+        guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
+
+        let roomRef = db.collection("rooms").document(roomId)
+        let claimRef = roomRef.collection("raidClaims").document(attendeeUid)
+        let now = Timestamp(date: Date())
+
+        try await db.runTransaction { tx, errPtr -> Any? in
+            let roomSnap: DocumentSnapshot
+            do { roomSnap = try tx.getDocument(roomRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+
+            guard let room = roomSnap.data() else {
+                errPtr?.pointee = RoomActionError.roomNotFound as NSError
+                return nil
+            }
+
+            let hostUid = room["hostUid"] as? String ?? ""
+            guard hostUid == uid else {
+                errPtr?.pointee = RoomActionError.notHost as NSError
+                return nil
+            }
+
+            tx.updateData([
+                "status": "cancelled",
                 "updatedAt": now
             ], forDocument: claimRef)
 

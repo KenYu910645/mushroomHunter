@@ -122,13 +122,25 @@ final class FirebaseRoomDetailsRepository {
     }
 
     func fetchPendingRaidClaimAttendeeIds(roomId: String) async throws -> Set<String> {
+        let statuses = try await fetchRaidClaimStatuses(roomId: roomId)
+        let ids = statuses.filter { $0.value == "pending" }.map { $0.key }
+        return Set(ids)
+    }
+
+    func fetchRaidClaimStatuses(roomId: String) async throws -> [String: String] {
         let snap = try await db.collection("rooms")
             .document(roomId)
             .collection("raidClaims")
-            .whereField("status", isEqualTo: "pending")
             .getDocuments()
 
-        let ids = snap.documents.map { $0.documentID }
-        return Set(ids)
+        var result: [String: String] = [:]
+        result.reserveCapacity(snap.documents.count)
+        for doc in snap.documents {
+            let status = (doc.data()["status"] as? String) ?? ""
+            if !status.isEmpty {
+                result[doc.documentID] = status
+            }
+        }
+        return result
     }
 }

@@ -20,6 +20,7 @@ final class RoomDetailsViewModel: ObservableObject {
     @Published var errorMessage: String? = nil
     @Published private(set) var pendingRaidClaim: RaidClaim? = nil
     @Published private(set) var pendingClaimAttendeeIds: Set<String> = []
+    @Published private(set) var claimStatusByAttendeeId: [String: String] = [:]
     
     // Sorting / presentation
     enum AttendeeSort: String, CaseIterable, Identifiable {
@@ -78,9 +79,12 @@ final class RoomDetailsViewModel: ObservableObject {
             
             recomputeRoleAndCapabilities()
             if role == .host {
-                pendingClaimAttendeeIds = try await repo.fetchPendingRaidClaimAttendeeIds(roomId: roomId)
+                let statuses = try await repo.fetchRaidClaimStatuses(roomId: roomId)
+                claimStatusByAttendeeId = statuses
+                pendingClaimAttendeeIds = Set(statuses.filter { $0.value == "pending" }.map { $0.key })
             } else {
                 pendingClaimAttendeeIds = []
+                claimStatusByAttendeeId = [:]
             }
             sortAttendees(by: attendeeSort)
         } catch {
@@ -119,6 +123,36 @@ final class RoomDetailsViewModel: ObservableObject {
     func refreshRoleState() {
         // Call this if session changes (login, profile name updated, etc.)
         recomputeRoleAndCapabilities()
+    }
+
+    func isClaimBlocked(attendeeId: String) -> Bool {
+        let status = (claimStatusByAttendeeId[attendeeId] ?? "").lowercased()
+        return status == "pending" || status == "rejected" || status == "declined"
+    }
+
+    func isClaimRejected(attendeeId: String) -> Bool {
+        let status = (claimStatusByAttendeeId[attendeeId] ?? "").lowercased()
+        return status == "rejected" || status == "declined"
+    }
+
+    func resendRaidClaim(attendeeId: String) async {
+        guard let room else { return }
+        do {
+            try await actions.resendRaidClaim(roomId: room.id, attendeeUid: attendeeId)
+            await load()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func cancelRaidClaim(attendeeId: String) async {
+        guard let room else { return }
+        do {
+            try await actions.cancelRaidClaim(roomId: room.id, attendeeUid: attendeeId)
+            await load()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
     }
     
     // MARK: Actions (stubbed, later map to Firestore transactions)

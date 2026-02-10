@@ -164,6 +164,13 @@
 "room_code_format" = "Code: %@";
 "room_copy_attendee_code_accessibility" = "Copy attendee friend code";
 "room_status_waiting_confirm" = "Wait for confirmation";
+"room_status_rejected" = "Reject confirmation";
+"room_status_ready" = "Ready";
+"room_reject_resolve" = "Resolve";
+"room_reject_alert_title" = "Confirmation Rejected";
+"room_reject_alert_message" = "%@ rejected the confirmation. Resend or give up?";
+"room_reject_resend" = "Resend";
+"room_reject_giveup" = "Give up";
 "room_error_enter_bid" = "Please enter a deposit before joining.";
 "room_error_min_deposit" = "Please deposit at least %d 🍯.";
 "room_error_not_enough_honey" = "Not enough honey. You have %d 🍯.";
@@ -249,7 +256,7 @@
 "room_leave_confirm_message" = "Are you sure you want to leave %@?";
 "room_claim_confirm_title" = "Confirm Attendees";
 "room_claim_confirm_message" = "Are you sure the following attendees came to the mushroom raid?";
-"room_claim_sent_title" = "Notifications Sent";
+"room_claim_sent_title" = "Confirmation Sent";
 "room_claim_sent_message" = "Sent notification to the selected attendees. You will receive the honey payment after their confirmation.";
 "room_claim_confirm_message_with_list" = "Are you sure the following attendees came to the mushroom raid?\n%@";
 "room_raid_thanks_title" = "Nice!";

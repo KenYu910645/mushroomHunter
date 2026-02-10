@@ -164,6 +164,13 @@
 "room_code_format" = "好友碼：%@";
 "room_copy_attendee_code_accessibility" = "複製參加者好友碼";
 "room_status_waiting_confirm" = "等待確認";
+"room_status_rejected" = "已拒絕確認";
+"room_status_ready" = "可出戰";
+"room_reject_resolve" = "處理";
+"room_reject_alert_title" = "確認被拒絕";
+"room_reject_alert_message" = "%@ 已拒絕確認。要重新送出或放棄？";
+"room_reject_resend" = "重新送出";
+"room_reject_giveup" = "放棄";
 "room_error_enter_bid" = "加入前請輸入押金。";
 "room_error_min_deposit" = "請至少存入 %d 🍯。";
 "room_error_not_enough_honey" = "蜂蜜不足。你目前有 %d 🍯。";
