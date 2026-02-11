@@ -74,7 +74,19 @@ final class RoomDetailsViewModel: ObservableObject {
             let attendees = try await repo.fetchAttendees(roomId: roomId)
             
             var merged = fetchedRoom
-            merged.attendees = attendees
+            if attendees.contains(where: { $0.id == fetchedRoom.hostUid }) {
+                merged.attendees = attendees
+            } else {
+                let hostAttendee = RoomAttendee(
+                    id: fetchedRoom.hostUid,
+                    name: fetchedRoom.hostName,
+                    friendCode: fetchedRoom.hostFriendCode,
+                    stars: fetchedRoom.hostStars,
+                    depositHoney: 0,
+                    joinedAt: nil
+                )
+                merged.attendees = attendees + [hostAttendee]
+            }
             self.room = merged
             
             recomputeRoleAndCapabilities()
@@ -354,6 +366,7 @@ final class RoomDetailsViewModel: ObservableObject {
 
     func currentUserDepositHoney() -> Honey? {
         guard let room, let uid = session.authUid else { return nil }
+        guard uid != room.hostUid else { return nil }
         return room.attendees.first(where: { $0.id == uid })?.depositHoney
     }
     

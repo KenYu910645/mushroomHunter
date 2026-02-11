@@ -369,7 +369,7 @@ struct RoomDetailsView: View {
                                 )
                                 .listRowBackground(Color.clear)
                             } else {
-                                ForEach(room.attendees) { attendee in
+                                ForEach(room.attendees.filter { $0.id != room.hostUid }) { attendee in
                                     Toggle(isOn: Binding(
                                         get: { finishSelection.contains(attendee.id) },
                                         set: { isOn in
@@ -466,20 +466,18 @@ struct RoomDetailsView: View {
 
                     Spacer()
 
-                    if !room.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        HStack(spacing: 4) {
-                            Image(systemName: "mappin.and.ellipse")
-                            Text(room.location)
-                        }
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    }
-                }
-
-                HStack(spacing: 10) {
                     Text(String(format: NSLocalizedString("room_attendee_count_format", comment: ""), room.attendees.count, room.maxPlayers))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                }
+
+                if !room.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    HStack(spacing: 4) {
+                        Image(systemName: "mappin.and.ellipse")
+                        Text(room.location)
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 }
 
                 HStack(spacing: 10) {
@@ -493,36 +491,6 @@ struct RoomDetailsView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-
-                HStack(spacing: 10) {
-                    Text(LocalizedStringKey("room_host_label"))
-                    Text(room.hostName)
-                        .foregroundStyle(.secondary)
-                    Image(systemName: "star.fill")
-                        .foregroundStyle(.secondary)
-                    Text("\(room.hostStars)")
-                        .foregroundStyle(.secondary)
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-                HStack(spacing: 10) {
-                    Text(LocalizedStringKey("room_friend_code_label"))
-                    HStack(spacing: 6) {
-                        Text(room.hostFriendCodeFormatted)
-                            .foregroundStyle(.secondary)
-
-                        Button {
-                            copyFriendCode(room.hostFriendCode)
-                        } label: {
-                            Image(systemName: "doc.on.doc")
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel(LocalizedStringKey("room_copy_host_code_accessibility"))
-                    }
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
 
                 if !room.note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Text(room.note)
@@ -547,6 +515,7 @@ struct RoomDetailsView: View {
                 ForEach(room.attendees) { attendee in
                     AttendeeRow(
                         attendee: attendee,
+                        isHostAttendee: attendee.id == room.hostUid,
                         isHostViewing: (vm.role == .host),
                         isPendingClaim: vm.pendingClaimAttendeeIds.contains(attendee.id),
                         isRejectedClaim: vm.isClaimRejected(attendeeId: attendee.id),
@@ -776,6 +745,7 @@ struct RoomDetailsView: View {
 
 private struct AttendeeRow: View {
     let attendee: RoomAttendee
+    let isHostAttendee: Bool
     let isHostViewing: Bool
     let isPendingClaim: Bool
     let isRejectedClaim: Bool
@@ -793,59 +763,76 @@ private struct AttendeeRow: View {
                 Spacer()
 
                 HStack(spacing: 6) {
-                    Text(String(format: NSLocalizedString("room_bid_honey_format", comment: ""), attendee.depositHoney))
-                        .font(.subheadline.weight(.semibold))
-                        .monospacedDigit()
+                    Text(attendee.friendCodeFormatted)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
 
-                    if isHostViewing {
-                        Menu {
-                            Button(role: .destructive) {
-                                onKick()
-                            } label: {
-                                Label(LocalizedStringKey("room_kick"), systemImage: "person.fill.xmark")
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
-                                .font(.title3)
-                        }
-                        .buttonStyle(.plain)
+                    Button {
+                        onCopyFriendCode(attendee.friendCode)
+                    } label: {
+                        Image(systemName: "doc.on.doc")
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(LocalizedStringKey("room_copy_attendee_code_accessibility"))
                 }
             }
 
             HStack(spacing: 10) {
-                Text(String(format: NSLocalizedString("room_code_format", comment: ""), attendee.friendCodeFormatted))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                if isHostViewing, isPendingClaim {
-                    Text(LocalizedStringKey("room_status_waiting_confirm"))
+                if isHostAttendee {
+                    Text(LocalizedStringKey("room_status_host"))
                         .font(.footnote)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(.blue)
+                } else {
+                    if isHostViewing, isPendingClaim {
+                        Text(LocalizedStringKey("room_status_waiting_confirm"))
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                    }
+
+                    if isHostViewing, isRejectedClaim {
+                        Text(LocalizedStringKey("room_status_rejected"))
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+
+                    if isHostViewing, !isPendingClaim, !isRejectedClaim {
+                        Text(LocalizedStringKey("room_status_ready"))
+                            .font(.footnote)
+                            .foregroundStyle(.green)
+                    }
                 }
 
-                if isHostViewing, isRejectedClaim {
-                    Text(LocalizedStringKey("room_status_rejected"))
+                if !isHostAttendee {
+                    Text(String(format: NSLocalizedString("room_bid_honey_format", comment: ""), attendee.depositHoney))
                         .font(.footnote)
-                        .foregroundStyle(.red)
-                }
-
-                if isHostViewing, !isPendingClaim, !isRejectedClaim {
-                    Text(LocalizedStringKey("room_status_ready"))
-                        .font(.footnote)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
                 }
 
                 Label("\(attendee.stars)", systemImage: "star.fill")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+
+                Spacer()
+
+                if isHostViewing && !isHostAttendee {
+                    Menu {
+                        Button(role: .destructive) {
+                            onKick()
+                        } label: {
+                            Label(LocalizedStringKey("room_kick"), systemImage: "person.fill.xmark")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title3)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
             HStack {
                 Spacer()
-                if isHostViewing, isRejectedClaim {
+                if isHostViewing, isRejectedClaim, !isHostAttendee {
                     Button(LocalizedStringKey("room_reject_resolve")) {
                         onResolve()
                     }
@@ -853,13 +840,6 @@ private struct AttendeeRow: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.red)
                 }
-                Button {
-                    onCopyFriendCode(attendee.friendCode)
-                } label: {
-                    Image(systemName: "doc.on.doc")
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(LocalizedStringKey("room_copy_attendee_code_accessibility"))
             }
         }
         .padding(.vertical, 4)

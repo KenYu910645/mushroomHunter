@@ -493,10 +493,6 @@ private struct JoinedRoomsSection: View, Equatable {
                                 Text(r.title)
                                     .font(.headline)
                                     .lineLimit(1)
-                                Spacer()
-                                Text(localizedRoomStatus(r.status))
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
                             }
 
                             HStack(spacing: 8) {
@@ -564,10 +560,6 @@ private struct HostedRoomsSection: View, Equatable {
                                 Text(r.title)
                                     .font(.headline)
                                     .lineLimit(1)
-                                Spacer()
-                                Text(localizedRoomStatus(r.status))
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
                             }
 
                             Text(String(format: NSLocalizedString("profile_players_format", comment: ""), r.joinedCount, r.maxPlayers))

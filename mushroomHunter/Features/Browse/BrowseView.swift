@@ -247,7 +247,6 @@ struct BrowseView: View {
                         ContentUnavailableView(
                             LocalizedStringKey("browse_empty_title"),
                             systemImage: "magnifyingglass",
-                            description: Text(LocalizedStringKey("browse_empty_description"))
                         )
                         .listRowBackground(Color.clear)
                     }
@@ -266,7 +265,11 @@ struct BrowseView: View {
     private struct RoomRowContent: View {
         let listing: RoomListing
         
-        var isFull: Bool { listing.joinedPlayers >= listing.maxPlayers }
+        private var displayedJoined: Int {
+            min(listing.maxPlayers, listing.joinedPlayers + 1)
+        }
+
+        var isFull: Bool { displayedJoined >= listing.maxPlayers }
         
         private var targetSummary: String {
             let color = formatTargetValue(listing.targetColor, allLabelKey: "target_color")
@@ -293,37 +296,27 @@ struct BrowseView: View {
 
                             Spacer()
 
-                            if !listing.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "mappin.and.ellipse")
-                                    Text(listing.location)
-                                }
+                            Text(String(format: NSLocalizedString("browse_attendee_format", comment: ""), displayedJoined, listing.maxPlayers))
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            }
+                                .foregroundStyle(isFull ? .red : .secondary)
                         }
                         
+                        if !listing.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            HStack(spacing: 4) {
+                                Image(systemName: "mappin.and.ellipse")
+                                Text(listing.location)
+                            }
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        }
+
                         HStack(spacing: 8) {
                             Text(targetSummary)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
 
-                        if let host = listing.hostName, !host.isEmpty {
-                            HStack(spacing: 6) {
-                                Text(String(format: NSLocalizedString("browse_host_format", comment: ""), host))
-                                Image(systemName: "star.fill")
-                                Text("\(listing.hostStars)")
-                            }
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        }
-                        
                         HStack(spacing: 8) {
-                            Text(String(format: NSLocalizedString("browse_attendee_format", comment: ""), listing.joinedPlayers, listing.maxPlayers))
-                                .font(.subheadline)
-                                .foregroundStyle(isFull ? .red : .secondary)
-                            
                             if let mins = expiresInMinutes {
                                 Text(String(format: NSLocalizedString("browse_expires_format", comment: ""), mins))
                                     .font(.subheadline)
