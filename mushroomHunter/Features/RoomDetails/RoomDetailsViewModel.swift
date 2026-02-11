@@ -18,9 +18,9 @@ final class RoomDetailsViewModel: ObservableObject {
     @Published private(set) var room: RoomDetail?
     @Published private(set) var isLoading: Bool = false
     @Published var errorMessage: String? = nil
-    @Published private(set) var pendingRaidClaim: RaidClaim? = nil
-    @Published private(set) var pendingClaimAttendeeIds: Set<String> = []
-    @Published private(set) var claimStatusByAttendeeId: [String: String] = [:]
+    @Published private(set) var pendingConfirmationAttendeeIds: Set<String> = []
+    @Published private(set) var rejectedConfirmationAttendeeIds: Set<String> = []
+    @Published private(set) var pendingConfirmationForCurrentUser: Bool = false
     
     // Sorting / presentation
     enum AttendeeSort: String, CaseIterable, Identifiable {
@@ -74,30 +74,11 @@ final class RoomDetailsViewModel: ObservableObject {
             let attendees = try await repo.fetchAttendees(roomId: roomId)
             
             var merged = fetchedRoom
-            if attendees.contains(where: { $0.id == fetchedRoom.hostUid }) {
-                merged.attendees = attendees
-            } else {
-                let hostAttendee = RoomAttendee(
-                    id: fetchedRoom.hostUid,
-                    name: fetchedRoom.hostName,
-                    friendCode: fetchedRoom.hostFriendCode,
-                    stars: fetchedRoom.hostStars,
-                    depositHoney: 0,
-                    joinedAt: nil
-                )
-                merged.attendees = attendees + [hostAttendee]
-            }
+            merged.attendees = attendees
             self.room = merged
             
             recomputeRoleAndCapabilities()
-            if role == .host {
-                let statuses = try await repo.fetchRaidClaimStatuses(roomId: roomId)
-                claimStatusByAttendeeId = statuses
-                pendingClaimAttendeeIds = Set(statuses.filter { $0.value == "pending" }.map { $0.key })
-            } else {
-                pendingClaimAttendeeIds = []
-                claimStatusByAttendeeId = [:]
-            }
+            recomputeConfirmationStates()
             sortAttendees(by: attendeeSort)
         } catch {
             print("❌ RoomDetails load error:", error)
@@ -105,29 +86,13 @@ final class RoomDetailsViewModel: ObservableObject {
         }
     }
 
-    func loadPendingRaidClaim() async {
+    func respondToRaidConfirmation(accept: Bool) async {
         guard let uid = session.authUid else { return }
         do {
-            let claim = try await repo.fetchPendingRaidClaim(roomId: roomId, attendeeUid: uid)
-            if let claim, let expiresAt = claim.expiresAt, expiresAt <= Date() {
-                try await actions.settleRaidClaim(roomId: roomId, attendeeUid: uid, accept: true)
-                pendingRaidClaim = nil
-            } else {
-                pendingRaidClaim = claim
-            }
-        } catch {
-            print("❌ loadPendingRaidClaim error:", error)
-        }
-    }
-
-    func respondToRaidClaim(accept: Bool) async {
-        guard let uid = session.authUid else { return }
-        do {
-            try await actions.settleRaidClaim(roomId: roomId, attendeeUid: uid, accept: accept)
-            pendingRaidClaim = nil
+            try await actions.respondToRaidConfirmation(roomId: roomId, attendeeUid: uid, accept: accept)
             await load()
         } catch {
-            print("❌ respondToRaidClaim error:", error)
+            print("❌ respondToRaidConfirmation error:", error)
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
@@ -137,30 +102,18 @@ final class RoomDetailsViewModel: ObservableObject {
         recomputeRoleAndCapabilities()
     }
 
-    func isClaimBlocked(attendeeId: String) -> Bool {
-        let status = (claimStatusByAttendeeId[attendeeId] ?? "").lowercased()
-        return status == "pending" || status == "rejected" || status == "declined"
+    func isWaitingConfirmation(attendeeId: String) -> Bool {
+        pendingConfirmationAttendeeIds.contains(attendeeId)
     }
 
-    func isClaimRejected(attendeeId: String) -> Bool {
-        let status = (claimStatusByAttendeeId[attendeeId] ?? "").lowercased()
-        return status == "rejected" || status == "declined"
+    func isRejectedConfirmation(attendeeId: String) -> Bool {
+        rejectedConfirmationAttendeeIds.contains(attendeeId)
     }
 
-    func resendRaidClaim(attendeeId: String) async {
+    func resolveRejectedConfirmation(attendeeId: String) async {
         guard let room else { return }
         do {
-            try await actions.resendRaidClaim(roomId: room.id, attendeeUid: attendeeId)
-            await load()
-        } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        }
-    }
-
-    func cancelRaidClaim(attendeeId: String) async {
-        guard let room else { return }
-        do {
-            try await actions.cancelRaidClaim(roomId: room.id, attendeeUid: attendeeId)
+            try await actions.resolveRejectedConfirmation(roomId: room.id, attendeeUid: attendeeId)
             await load()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -336,7 +289,7 @@ final class RoomDetailsViewModel: ObservableObject {
         
         attendeeSort = mode
 
-        let hostId = room.hostUid
+        let hostId = room.hostId
         let hostAttendee = room.attendees.first(where: { $0.id == hostId })
         var others = room.attendees.filter { $0.id != hostId }
 
@@ -374,7 +327,7 @@ final class RoomDetailsViewModel: ObservableObject {
 
     func currentUserDepositHoney() -> Honey? {
         guard let room, let uid = session.authUid else { return nil }
-        guard uid != room.hostUid else { return nil }
+        guard uid != room.hostId else { return nil }
         return room.attendees.first(where: { $0.id == uid })?.depositHoney
     }
     
@@ -388,7 +341,7 @@ final class RoomDetailsViewModel: ObservableObject {
         
         let uid = session.authUid
         
-        if let uid, uid == room.hostUid {
+        if let uid, uid == room.hostId {
             role = .host
         } else if let uid, room.attendees.contains(where: { $0.id == uid }) {
             role = .attendee
@@ -397,6 +350,32 @@ final class RoomDetailsViewModel: ObservableObject {
         }
         
         capabilities = .derive(role: role, room: room)
+    }
+
+    private func recomputeConfirmationStates() {
+        guard let room else {
+            pendingConfirmationAttendeeIds = []
+            rejectedConfirmationAttendeeIds = []
+            pendingConfirmationForCurrentUser = false
+            return
+        }
+
+        let pending = room.attendees
+            .filter { $0.status == .waitingConfirmation }
+            .map { $0.id }
+        let rejected = room.attendees
+            .filter { $0.status == .rejected }
+            .map { $0.id }
+
+        pendingConfirmationAttendeeIds = Set(pending)
+        rejectedConfirmationAttendeeIds = Set(rejected)
+
+        if let uid = session.authUid,
+           let me = room.attendees.first(where: { $0.id == uid }) {
+            pendingConfirmationForCurrentUser = (me.status == .waitingConfirmation)
+        } else {
+            pendingConfirmationForCurrentUser = false
+        }
     }
     
 }

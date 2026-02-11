@@ -13,12 +13,6 @@ import Combine
 /// 🍯 Honey deposit stored as Int for MVP (avoid floating point currency)
 typealias Honey = Int
 
-/// Basic room status for MVP. Keep it simple.
-enum RoomStatus: String, Codable {
-    case open
-    case closed
-}
-
 /// Role of the current user *with respect to this room*.
 enum RoomRole: Equatable {
     case host
@@ -59,7 +53,6 @@ struct RoomCapabilities: Equatable {
     }
 
     static func derive(role: RoomRole, room: RoomDetail) -> RoomCapabilities {
-        let isOpen = (room.status == .open)
         let isFull = (room.attendees.count >= room.maxPlayers)
 
         switch role {
@@ -78,12 +71,12 @@ struct RoomCapabilities: Equatable {
                 canLeave: true,
                 canEditRoom: false,
                 canKickAttendees: false,
-                canUpdateBid: isOpen
+                canUpdateBid: true
             )
 
         case .viewer:
             return .init(
-                canJoin: isOpen && !isFull,
+                canJoin: !isFull,
                 canLeave: false,
                 canEditRoom: false,
                 canKickAttendees: false,
@@ -103,13 +96,9 @@ struct RoomDetail: Identifiable, Equatable {
     // Header
     var title: String
     var location: String
-    var note: String
+    var description: String
 
     // Middle info
-    let hostUid: String
-    var hostName: String
-    var hostStars: Int
-    var hostFriendCode: String
     var targetMushroom: MushroomTarget
     var fixedRaidCost: Int
 
@@ -120,9 +109,6 @@ struct RoomDetail: Identifiable, Equatable {
     // Attendance
     var attendees: [RoomAttendee]
     var maxPlayers: Int
-
-    // Room state
-    var status: RoomStatus
 }
 
 /// Mushroom targeting info (align with your Host tab)
@@ -177,17 +163,16 @@ struct RoomAttendee: Identifiable, Equatable {
 
     /// When they joined (optional but useful for tie-break sorting)
     var joinedAt: Date?
+
+    /// Current attendee state in this room.
+    var status: AttendeeStatus
 }
 
-// MARK: - Raid claim
-
-struct RaidClaim: Identifiable, Equatable {
-    let id: String
-    let hostName: String
-    let raidCostHoney: Honey
-    let status: String
-    let createdAt: Date?
-    let expiresAt: Date?
+enum AttendeeStatus: String, CaseIterable, Codable {
+    case host = "Host"
+    case ready = "Ready"
+    case waitingConfirmation = "WaitingConfirmation"
+    case rejected = "Rejected"
 }
 
 // MARK: - Utilities
@@ -196,7 +181,7 @@ extension RoomDetail {
     /// Convenience: compute role from current uid.
     func role(forUid uid: String?) -> RoomRole {
         guard let uid else { return .viewer }
-        if uid == hostUid { return .host }
+        if uid == hostId { return .host }
         if attendees.contains(where: { $0.id == uid }) { return .attendee }
         return .viewer
     }
@@ -212,6 +197,26 @@ extension RoomDetail {
             i = end
         }
         return parts.joined(separator: " ")
+    }
+
+    var hostAttendee: RoomAttendee? {
+        attendees.first(where: { $0.status == .host })
+    }
+
+    var hostId: String? {
+        hostAttendee?.id
+    }
+
+    var hostName: String {
+        hostAttendee?.name ?? "Host"
+    }
+
+    var hostStars: Int {
+        hostAttendee?.stars ?? 0
+    }
+
+    var hostFriendCode: String {
+        hostAttendee?.friendCode ?? ""
     }
 }
 

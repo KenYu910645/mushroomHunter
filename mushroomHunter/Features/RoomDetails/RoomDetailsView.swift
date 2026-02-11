@@ -63,10 +63,9 @@ struct RoomDetailsView: View {
                 .task {
                     await vm.load()
                     syncDepositTextFromCurrentState()
-                    await vm.loadPendingRaidClaim()
                 }
-                .onChange(of: vm.pendingRaidClaim) { _, newValue in
-                    showRaidConfirmAlert = (newValue != nil)
+                .onChange(of: vm.pendingConfirmationForCurrentUser) { _, newValue in
+                    showRaidConfirmAlert = newValue
                 }
         }
         .sheet(item: $editingRoom, onDismiss: {
@@ -101,22 +100,22 @@ struct RoomDetailsView: View {
         .alert(
             LocalizedStringKey("room_raid_confirm_title"),
             isPresented: $showRaidConfirmAlert,
-            presenting: vm.pendingRaidClaim
-        ) { claim in
+            presenting: vm.room
+        ) { _ in
             Button(LocalizedStringKey("common_yes")) {
                 Task {
-                    await vm.respondToRaidClaim(accept: true)
-                    raidThanksHoney = claim.raidCostHoney
+                    await vm.respondToRaidConfirmation(accept: true)
+                    raidThanksHoney = vm.room?.fixedRaidCost ?? 0
                     showRaidThanksAlert = true
                 }
             }
             Button(LocalizedStringKey("common_no"), role: .cancel) {
                 Task {
-                    await vm.respondToRaidClaim(accept: false)
+                    await vm.respondToRaidConfirmation(accept: false)
                 }
             }
-        } message: { claim in
-            Text(String(format: NSLocalizedString("room_raid_confirm_message", comment: ""), claim.hostName))
+        } message: { room in
+            Text(String(format: NSLocalizedString("room_raid_confirm_message", comment: ""), room.hostName))
         }
         .alert(LocalizedStringKey("room_raid_thanks_title"), isPresented: $showRaidThanksAlert) {
             Button(LocalizedStringKey("common_ok")) {
@@ -195,6 +194,7 @@ struct RoomDetailsView: View {
                 let selected = Array(finishSelection)
                 Task {
                     await vm.finishRaid(attendeeIds: selected)
+                    finishSelection.removeAll()
                     showClaimSentAlert = true
                 }
             }
@@ -208,16 +208,10 @@ struct RoomDetailsView: View {
             Text(LocalizedStringKey("room_claim_sent_message"))
         }
         .alert(LocalizedStringKey("room_reject_alert_title"), isPresented: $showRejectResolveAlert) {
-            Button(LocalizedStringKey("room_reject_resend")) {
+            Button(LocalizedStringKey("room_reject_resolve")) {
                 let id = rejectAttendeeId
                 Task {
-                    await vm.resendRaidClaim(attendeeId: id)
-                }
-            }
-            Button(LocalizedStringKey("room_reject_giveup"), role: .destructive) {
-                let id = rejectAttendeeId
-                Task {
-                    await vm.cancelRaidClaim(attendeeId: id)
+                    await vm.resolveRejectedConfirmation(attendeeId: id)
                 }
             }
             Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
@@ -369,7 +363,7 @@ struct RoomDetailsView: View {
                                 )
                                 .listRowBackground(Color.clear)
                             } else {
-                                ForEach(room.attendees.filter { $0.id != room.hostUid }) { attendee in
+                                ForEach(room.attendees.filter { $0.status != .host }) { attendee in
                                     Toggle(isOn: Binding(
                                         get: { finishSelection.contains(attendee.id) },
                                         set: { isOn in
@@ -387,7 +381,7 @@ struct RoomDetailsView: View {
                                                 .foregroundStyle(.secondary)
                                         }
                                     }
-                                    .disabled(attendee.depositHoney < (room.fixedRaidCost) || vm.isClaimBlocked(attendeeId: attendee.id))
+                                    .disabled(attendee.depositHoney < room.fixedRaidCost || vm.isWaitingConfirmation(attendeeId: attendee.id))
                                 }
                             }
                         }
@@ -449,7 +443,6 @@ struct RoomDetailsView: View {
         .refreshable {
                 await vm.load()
                 syncDepositTextFromCurrentState()
-                await vm.loadPendingRaidClaim()
             }
             .scrollContentBackground(.hidden)
             .background(Theme.backgroundGradient(for: scheme))
@@ -492,8 +485,8 @@ struct RoomDetailsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                if !room.note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(room.note)
+                if !room.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(room.description)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -515,10 +508,10 @@ struct RoomDetailsView: View {
                 ForEach(room.attendees) { attendee in
                     AttendeeRow(
                         attendee: attendee,
-                        isHostAttendee: attendee.id == room.hostUid,
+                        isHostAttendee: attendee.status == .host,
                         isHostViewing: (vm.role == .host),
-                        isPendingClaim: vm.pendingClaimAttendeeIds.contains(attendee.id),
-                        isRejectedClaim: vm.isClaimRejected(attendeeId: attendee.id),
+                        isPendingConfirmation: vm.isWaitingConfirmation(attendeeId: attendee.id),
+                        isRejectedConfirmation: vm.isRejectedConfirmation(attendeeId: attendee.id),
                         onKick: {
                             Task {
                                 await vm.kick(attendeeId: attendee.id)
@@ -731,8 +724,8 @@ private struct AttendeeRow: View {
     let attendee: RoomAttendee
     let isHostAttendee: Bool
     let isHostViewing: Bool
-    let isPendingClaim: Bool
-    let isRejectedClaim: Bool
+    let isPendingConfirmation: Bool
+    let isRejectedConfirmation: Bool
     let onKick: () -> Void
     let onResolve: () -> Void
     let onCopyFriendCode: (String) -> Void
@@ -767,19 +760,19 @@ private struct AttendeeRow: View {
                         .font(.footnote)
                         .foregroundStyle(.blue)
                 } else {
-                    if isPendingClaim {
+                    if isPendingConfirmation {
                         Text(LocalizedStringKey("room_status_waiting_confirm"))
                             .font(.footnote)
                             .foregroundStyle(.orange)
                     }
 
-                    if isRejectedClaim {
+                    if isRejectedConfirmation {
                         Text(LocalizedStringKey("room_status_rejected"))
                             .font(.footnote)
                             .foregroundStyle(.red)
                     }
 
-                    if !isPendingClaim, !isRejectedClaim {
+                    if !isPendingConfirmation, !isRejectedConfirmation {
                         Text(LocalizedStringKey("room_status_ready"))
                             .font(.footnote)
                             .foregroundStyle(.green)
@@ -816,7 +809,7 @@ private struct AttendeeRow: View {
 
             HStack {
                 Spacer()
-                if isHostViewing, isRejectedClaim, !isHostAttendee {
+                if isHostViewing, isRejectedConfirmation, !isHostAttendee {
                     Button(LocalizedStringKey("room_reject_resolve")) {
                         onResolve()
                     }

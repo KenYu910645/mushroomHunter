@@ -38,7 +38,6 @@ final class FirebaseBrowseRepository {
     func fetchOpenListings(limit: Int = 50) async throws -> [RoomListing] {
         // ✅ Must match your createRoom(): collection is "rooms"
         let q = db.collection("rooms")
-            .whereField("status", isEqualTo: "open")
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
 
@@ -49,7 +48,6 @@ final class FirebaseBrowseRepository {
 
             let title = (data["title"] as? String)
                 ?? (data["roomTitle"] as? String)
-                ?? ((data["hostName"] as? String).map { "\($0)'s Room" })
                 ?? "Untitled Room"
 
             // ✅ Your Firestore fields are: targetColor / targetAttribute / targetSize
@@ -73,8 +71,8 @@ final class FirebaseBrowseRepository {
                 targetSize: targetSize,
                 joinedPlayers: joined,
                 maxPlayers: maxPlayers,
-                hostName: data["hostName"] as? String,
-                hostStars: data["hostStars"] as? Int ?? 0,
+                hostName: nil,
+                hostStars: 0,
                 location: data["location"] as? String ?? "",
                 expiresAt: (data["expiresAt"] as? Timestamp)?.dateValue()
             )

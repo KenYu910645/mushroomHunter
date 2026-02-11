@@ -140,7 +140,7 @@ final class HostViewModel: ObservableObject {
             targetAttribute: attribute.rawValue,
             targetSize: size.rawValue,
             location: locationString,
-            note: otherMessage,
+            description: otherMessage,
             hostFriendCode: session.friendCode,
             fixedRaidCost: fixedRaidCost
         )
@@ -203,7 +203,7 @@ final class HostViewModel: ObservableObject {
             countryCode = Locale.current.region?.identifier ?? "US"
             city = room.location
         }
-        otherMessage = room.note
+        otherMessage = room.description
         fixedRaidCost = room.fixedRaidCost
     }
 

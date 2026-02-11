@@ -12,7 +12,6 @@ import FirebaseFirestore
 enum RoomActionError: LocalizedError {
     case notSignedIn
     case roomNotFound
-    case roomClosed
     case roomFull
     case alreadyJoined
     case notInRoom
@@ -24,7 +23,6 @@ enum RoomActionError: LocalizedError {
         switch self {
         case .notSignedIn: return "You are not signed in."
         case .roomNotFound: return "Room not found."
-        case .roomClosed: return "This room is closed."
         case .roomFull: return "This room is full."
         case .alreadyJoined: return "You already joined this room."
         case .notInRoom: return "You are not in this room."
@@ -54,8 +52,7 @@ final class FirebaseRoomActionsRepository {
         for doc in attendeeSnap.documents {
             guard let roomRef = doc.reference.parent.parent else { continue }
             let roomSnap = try await roomRef.getDocument()
-            let status = (roomSnap.data()?["status"] as? String) ?? "open"
-            if status.lowercased() == "open" {
+            if roomSnap.exists {
                 count += 1
             }
         }
@@ -95,12 +92,6 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
-            let status = (room["status"] as? String ?? "open").lowercased()
-            if status != "open" {
-                errPtr?.pointee = RoomActionError.roomClosed as NSError
-                return nil
-            }
-
             let maxPlayers = room["maxPlayers"] as? Int ?? 10
             let joinedCount = room["joinedCount"] as? Int ?? 0
             if joinedCount >= maxPlayers {
@@ -108,9 +99,7 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
-            let fixedRaidCost = (room["fixedRaidCost"] as? Int)
-                ?? (room["minBid"] as? Int)
-                ?? 10
+            let fixedRaidCost = (room["fixedRaidCost"] as? Int) ?? 10
 
             // 2) Check attendee doc doesn't already exist
             let attendeeSnap: DocumentSnapshot
@@ -138,7 +127,6 @@ final class FirebaseRoomActionsRepository {
                     "honey": currentHoney,
                     "maxHostRoom": self.defaultMaxHostRooms,
                     "maxJoinRoom": self.defaultMaxJoinRooms,
-                    "activeRoomId": roomId,
                     "createdAt": now,
                     "updatedAt": now
                 ], forDocument: userRef)
@@ -156,11 +144,11 @@ final class FirebaseRoomActionsRepository {
 
             // 3) Write attendee
             tx.setData([
-                "uid": uid,
                 "name": userName,
                 "friendCode": friendCode,
                 "stars": stars,
                 "depositHoney": deposit,
+                "status": AttendeeStatus.ready.rawValue,
                 "joinedAt": now,
                 "updatedAt": now
             ], forDocument: attendeeRef)
@@ -174,7 +162,6 @@ final class FirebaseRoomActionsRepository {
             // 5) Deduct honey from user
             tx.updateData([
                 "honey": currentHoney - deposit,
-                "activeRoomId": roomId,
                 "updatedAt": now
             ], forDocument: userRef)
 
@@ -208,9 +195,7 @@ final class FirebaseRoomActionsRepository {
             let roomSnap: DocumentSnapshot
             do { roomSnap = try tx.getDocument(roomRef) }
             catch { errPtr?.pointee = error as NSError; return nil }
-            let fixedRaidCost = (roomSnap.data()?["fixedRaidCost"] as? Int)
-                ?? (roomSnap.data()?["minBid"] as? Int)
-                ?? 10
+            let fixedRaidCost = (roomSnap.data()?["fixedRaidCost"] as? Int) ?? 10
             if newDeposit < max(1, fixedRaidCost) {
                 errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
                 return nil
@@ -232,7 +217,6 @@ final class FirebaseRoomActionsRepository {
                     "honey": currentHoney,
                     "maxHostRoom": self.defaultMaxHostRooms,
                     "maxJoinRoom": self.defaultMaxJoinRooms,
-                    "activeRoomId": roomId,
                     "createdAt": now,
                     "updatedAt": now
                 ], forDocument: userRef)
@@ -245,13 +229,13 @@ final class FirebaseRoomActionsRepository {
 
             tx.updateData([
                 "depositHoney": newDeposit,
+                "status": AttendeeStatus.ready.rawValue,
                 "updatedAt": now
             ], forDocument: attendeeRef)
 
             let newHoney = currentHoney - delta
             tx.updateData([
                 "honey": newHoney,
-                "activeRoomId": roomId,
                 "updatedAt": now
             ], forDocument: userRef)
 
@@ -307,7 +291,6 @@ final class FirebaseRoomActionsRepository {
                     "honey": currentHoney,
                     "maxHostRoom": self.defaultMaxHostRooms,
                     "maxJoinRoom": self.defaultMaxJoinRooms,
-                    "activeRoomId": roomId,
                     "createdAt": now,
                     "updatedAt": now
                 ], forDocument: userRef)
@@ -325,7 +308,6 @@ final class FirebaseRoomActionsRepository {
             // Refund deposit
             tx.updateData([
                 "honey": currentHoney + max(0, deposit),
-                "activeRoomId": FieldValue.delete(),
                 "updatedAt": now
             ], forDocument: userRef)
 
@@ -353,8 +335,12 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
-            let hostUid = room["hostUid"] as? String ?? ""
-            guard hostUid == uid else {
+            let hostSelfRef = roomRef.collection("attendees").document(uid)
+            let hostSelfSnap: DocumentSnapshot
+            do { hostSelfSnap = try tx.getDocument(hostSelfRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+            let status = hostSelfSnap.data()?["status"] as? String ?? ""
+            guard status == AttendeeStatus.host.rawValue else {
                 errPtr?.pointee = RoomActionError.notHost as NSError
                 return nil
             }
@@ -381,12 +367,10 @@ final class FirebaseRoomActionsRepository {
             if deposit > 0 {
                 tx.setData([
                     "honey": FieldValue.increment(Int64(deposit)),
-                    "activeRoomId": FieldValue.delete(),
                     "updatedAt": now
                 ], forDocument: userRef, merge: true)
             } else {
                 tx.setData([
-                    "activeRoomId": FieldValue.delete(),
                     "updatedAt": now
                 ], forDocument: userRef, merge: true)
             }
@@ -401,10 +385,11 @@ final class FirebaseRoomActionsRepository {
 
         let roomRef = db.collection("rooms").document(roomId)
         let snap = try await roomRef.getDocument()
-        guard let data = snap.data() else { throw RoomActionError.roomNotFound }
+        guard snap.exists else { throw RoomActionError.roomNotFound }
 
-        let hostUid = data["hostUid"] as? String ?? ""
-        guard hostUid == uid else { throw RoomActionError.notHost }
+        let hostSelfSnap = try await roomRef.collection("attendees").document(uid).getDocument()
+        let status = hostSelfSnap.data()?["status"] as? String ?? ""
+        guard status == AttendeeStatus.host.rawValue else { throw RoomActionError.notHost }
 
         let attendeesSnap = try await roomRef.collection("attendees").getDocuments()
         let now = Timestamp(date: Date())
@@ -412,7 +397,6 @@ final class FirebaseRoomActionsRepository {
         let batch = db.batch()
 
         batch.updateData([
-            "status": "closed",
             "joinedCount": 0,
             "updatedAt": now
         ], forDocument: roomRef)
@@ -426,17 +410,16 @@ final class FirebaseRoomActionsRepository {
             if deposit > 0 {
                 batch.setData([
                     "honey": FieldValue.increment(Int64(deposit)),
-                    "activeRoomId": FieldValue.delete(),
                     "updatedAt": now
                 ], forDocument: userRef, merge: true)
             } else {
                 batch.setData([
-                    "activeRoomId": FieldValue.delete(),
                     "updatedAt": now
                 ], forDocument: userRef, merge: true)
             }
         }
 
+        batch.deleteDocument(roomRef)
         try await batch.commit()
     }
 
@@ -458,14 +441,17 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
-            let hostUid = room["hostUid"] as? String ?? ""
-            guard hostUid == uid else {
+            let hostSelfRef = roomRef.collection("attendees").document(uid)
+            let hostSelfSnap: DocumentSnapshot
+            do { hostSelfSnap = try tx.getDocument(hostSelfRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+            let status = hostSelfSnap.data()?["status"] as? String ?? ""
+            guard status == AttendeeStatus.host.rawValue else {
                 errPtr?.pointee = RoomActionError.notHost as NSError
                 return nil
             }
 
-            let hostName = room["hostName"] as? String ?? "Host"
-            let expiresAt = Timestamp(date: Date().addingTimeInterval(72 * 60 * 60))
+            let raidCost = (room["fixedRaidCost"] as? Int) ?? 10
 
             for attendeeUid in attendeeUids {
                 let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
@@ -478,27 +464,12 @@ final class FirebaseRoomActionsRepository {
                 }
 
                 let deposit = data["depositHoney"] as? Int ?? 0
-                let claimRef = roomRef.collection("raidClaims").document(attendeeUid)
-                let raidCost = (room["fixedRaidCost"] as? Int)
-                    ?? (room["minBid"] as? Int)
-                    ?? 10
+                if deposit < raidCost { continue }
 
-                if deposit < raidCost {
-                    continue
-                }
-
-                let claimData: [String: Any] = [
-                    "hostUid": uid,
-                    "hostName": hostName,
-                    "attendeeUid": attendeeUid,
-                    "raidCostHoney": raidCost,
-                    "status": "pending",
-                    "createdAt": now,
-                    "updatedAt": now,
-                    "expiresAt": expiresAt
-                ]
-
-                tx.setData(claimData, forDocument: claimRef, merge: true)
+                tx.updateData([
+                    "status": AttendeeStatus.waitingConfirmation.rawValue,
+                    "updatedAt": now
+                ], forDocument: attendeeRef)
             }
 
             let roomUpdates: [String: Any] = [
@@ -511,29 +482,35 @@ final class FirebaseRoomActionsRepository {
         }
     }
 
-    // MARK: - Settle raid claim (attendee only, client-side for dev)
-    func settleRaidClaim(roomId: String, attendeeUid: String, accept: Bool) async throws {
+    // MARK: - Confirm raid (attendee only)
+    func respondToRaidConfirmation(roomId: String, attendeeUid: String, accept: Bool) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
         guard uid == attendeeUid else { throw RoomActionError.notInRoom }
 
         let roomRef = db.collection("rooms").document(roomId)
-        let claimRef = roomRef.collection("raidClaims").document(attendeeUid)
         let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
         let now = Timestamp(date: Date())
 
+        let hostQuery = try await roomRef.collection("attendees")
+            .whereField("status", isEqualTo: AttendeeStatus.host.rawValue)
+            .limit(to: 1)
+            .getDocuments()
+        guard let hostDoc = hostQuery.documents.first else {
+            throw RoomActionError.notHost
+        }
+        let hostUid = hostDoc.documentID
+
         try await db.runTransaction { [self] tx, errPtr -> Any? in
-            let claimSnap: DocumentSnapshot
-            do { claimSnap = try tx.getDocument(claimRef) }
+            let roomSnap: DocumentSnapshot
+            do { roomSnap = try tx.getDocument(roomRef) }
             catch { errPtr?.pointee = error as NSError; return nil }
 
-            guard let claim = claimSnap.data() else { return nil }
-            let status = claim["status"] as? String ?? ""
-            if status != "pending" { return nil }
+            guard let room = roomSnap.data() else {
+                errPtr?.pointee = RoomActionError.roomNotFound as NSError
+                return nil
+            }
 
-            let hostUid = claim["hostUid"] as? String ?? ""
-            let raidCostHoney = (claim["raidCostHoney"] as? Int)
-                ?? (claim["bidHoney"] as? Int)
-                ?? 0
+            let raidCostHoney = (room["fixedRaidCost"] as? Int) ?? 10
             let hostRef = self.db.collection("users").document(hostUid)
 
             let hostSnap: DocumentSnapshot
@@ -558,69 +535,29 @@ final class FirebaseRoomActionsRepository {
                     "honey": hostHoney + max(0, raidCostHoney),
                     "updatedAt": now
                 ], forDocument: hostRef)
-            }
 
-            if accept, attendeeSnap.exists {
                 tx.updateData([
                     "depositHoney": max(0, attendeeDeposit - raidCostHoney),
+                    "status": AttendeeStatus.ready.rawValue,
+                    "updatedAt": now
+                ], forDocument: attendeeRef)
+            } else {
+                tx.updateData([
+                    "status": AttendeeStatus.rejected.rawValue,
                     "updatedAt": now
                 ], forDocument: attendeeRef)
             }
 
-            var claimUpdates: [String: Any] = [
-                "status": accept ? "accepted" : "rejected",
-                "respondedAt": now,
-                "updatedAt": now
-            ]
-            if accept {
-                claimUpdates["transferredAt"] = now
-            }
-            tx.updateData(claimUpdates, forDocument: claimRef)
-
             return nil
         }
     }
 
-    // MARK: - Resend / Cancel raid claim (host only)
-    func resendRaidClaim(roomId: String, attendeeUid: String) async throws {
+    // MARK: - Resolve rejected (host only)
+    func resolveRejectedConfirmation(roomId: String, attendeeUid: String) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
         let roomRef = db.collection("rooms").document(roomId)
-        let claimRef = roomRef.collection("raidClaims").document(attendeeUid)
-        let now = Timestamp(date: Date())
-        let expiresAt = Timestamp(date: Date().addingTimeInterval(72 * 60 * 60))
-
-        try await db.runTransaction { tx, errPtr -> Any? in
-            let roomSnap: DocumentSnapshot
-            do { roomSnap = try tx.getDocument(roomRef) }
-            catch { errPtr?.pointee = error as NSError; return nil }
-
-            guard let room = roomSnap.data() else {
-                errPtr?.pointee = RoomActionError.roomNotFound as NSError
-                return nil
-            }
-
-            let hostUid = room["hostUid"] as? String ?? ""
-            guard hostUid == uid else {
-                errPtr?.pointee = RoomActionError.notHost as NSError
-                return nil
-            }
-
-            tx.updateData([
-                "status": "pending",
-                "updatedAt": now,
-                "expiresAt": expiresAt
-            ], forDocument: claimRef)
-
-            return nil
-        }
-    }
-
-    func cancelRaidClaim(roomId: String, attendeeUid: String) async throws {
-        guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
-
-        let roomRef = db.collection("rooms").document(roomId)
-        let claimRef = roomRef.collection("raidClaims").document(attendeeUid)
+        let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
         let now = Timestamp(date: Date())
 
         try await db.runTransaction { tx, errPtr -> Any? in
@@ -633,16 +570,20 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
-            let hostUid = room["hostUid"] as? String ?? ""
-            guard hostUid == uid else {
+            let hostSelfRef = roomRef.collection("attendees").document(uid)
+            let hostSelfSnap: DocumentSnapshot
+            do { hostSelfSnap = try tx.getDocument(hostSelfRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+            let status = hostSelfSnap.data()?["status"] as? String ?? ""
+            guard status == AttendeeStatus.host.rawValue else {
                 errPtr?.pointee = RoomActionError.notHost as NSError
                 return nil
             }
 
             tx.updateData([
-                "status": "cancelled",
+                "status": AttendeeStatus.ready.rawValue,
                 "updatedAt": now
-            ], forDocument: claimRef)
+            ], forDocument: attendeeRef)
 
             return nil
         }

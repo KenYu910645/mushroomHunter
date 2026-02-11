@@ -15,7 +15,7 @@ struct FirestoreRoomCreateRequest {
     let targetAttribute: String
     let targetSize: String
     let location: String
-    let note: String
+    let description: String
     let hostFriendCode: String
     let fixedRaidCost: Int
 }
@@ -44,12 +44,12 @@ final class FirebaseHostRepository {
         let userSnap = try await db.collection("users").document(uid).getDocument()
         let maxHostRooms = userSnap.data()?["maxHostRoom"] as? Int ?? defaultMaxHostRooms
 
-        let existing = try await db.collection("rooms")
-            .whereField("hostUid", isEqualTo: uid)
-            .whereField("status", isEqualTo: "open")
+        let existingSnap = try await db.collectionGroup("attendees")
+            .whereField("status", isEqualTo: AttendeeStatus.host.rawValue)
             .getDocuments()
+        let existing = existingSnap.documents.filter { $0.documentID == uid }
 
-        if existing.documents.count >= maxHostRooms {
+        if existing.count >= maxHostRooms {
             throw HostRoomError.maxHostRoomsReached(maxHostRooms)
         }
 
@@ -58,25 +58,34 @@ final class FirebaseHostRepository {
 
         let data: [String: Any] = [
             "title": req.title,
-            "hostUid": uid,
-            "hostName": hostName,
-            "hostStars": hostStars,
-            "hostFriendCode": req.hostFriendCode,
             "targetColor": req.targetColor,
             "targetAttribute": req.targetAttribute,
             "targetSize": req.targetSize,
             "location": req.location,
-            "note": req.note,
+            "description": req.description,
             "fixedRaidCost": max(1, req.fixedRaidCost),
-            "status": "open",
             "maxPlayers": 10,
-            "joinedCount": 0,
+            "joinedCount": 1,
             "createdAt": now,
             "updatedAt": now
             // "lastSuccessfulRaidAt": FieldValue.delete() 
         ]
 
-        try await ref.setData(data)
+        let hostAttendeeRef = ref.collection("attendees").document(uid)
+        let attendeeData: [String: Any] = [
+            "name": hostName,
+            "friendCode": req.hostFriendCode,
+            "stars": hostStars,
+            "depositHoney": 0,
+            "status": AttendeeStatus.host.rawValue,
+            "joinedAt": now,
+            "updatedAt": now
+        ]
+
+        let batch = db.batch()
+        batch.setData(data, forDocument: ref)
+        batch.setData(attendeeData, forDocument: hostAttendeeRef)
+        try await batch.commit()
         if !userSnap.exists {
             try await db.collection("users").document(uid).setData([
                 "displayName": hostName,
@@ -105,8 +114,7 @@ final class FirebaseHostRepository {
             "targetAttribute": req.targetAttribute,
             "targetSize": req.targetSize,
             "location": req.location,
-            "note": req.note,
-            "hostFriendCode": req.hostFriendCode,
+            "description": req.description,
             "fixedRaidCost": max(1, req.fixedRaidCost),
             "updatedAt": now
         ]

@@ -87,13 +87,19 @@ final class SessionStore: ObservableObject {
         if let uid = authUid {
             UserDefaults.standard.set(trimmed, forKey: scopedKey(kDisplayName, uid: uid))
         }
-        isProfileComplete = !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let newComplete = !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !friendCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        isProfileComplete = isProfileComplete || newComplete
 
         // Optional: later push to Firebase user profile / Firestore users/{uid}
         // For Google users, you *can* update Firebase displayName:
         // Auth.auth().currentUser?.createProfileChangeRequest().displayName = trimmed ...
-        Task { await syncProfileFields(["displayName": trimmed, "profileComplete": isProfileComplete]) }
+        var fields: [String: Any] = ["displayName": trimmed]
+        if isProfileComplete {
+            fields["profileComplete"] = true
+        }
+        Task { await syncProfileFields(fields) }
+        Task { await syncHostedRoomProfile(displayName: trimmed) }
     }
 
     func updateFriendCode(_ code: String) {
@@ -101,11 +107,17 @@ final class SessionStore: ObservableObject {
         if let uid = authUid {
             UserDefaults.standard.set(code, forKey: scopedKey(kFriendCode, uid: uid))
         }
-        isProfileComplete = !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let newComplete = !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !friendCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        isProfileComplete = isProfileComplete || newComplete
 
         // Optional: later push to Firestore users/{uid}
-        Task { await syncProfileFields(["friendCode": code, "profileComplete": isProfileComplete]) }
+        var fields: [String: Any] = ["friendCode": code]
+        if isProfileComplete {
+            fields["profileComplete"] = true
+        }
+        Task { await syncProfileFields(fields) }
+        Task { await syncHostedRoomProfile(friendCode: code) }
     }
 
     func completeProfile(name: String, friendCode: String) async {
@@ -127,6 +139,7 @@ final class SessionStore: ObservableObject {
             "friendCode": digits,
             "profileComplete": true
         ])
+        await syncHostedRoomProfile(displayName: trimmedName, friendCode: digits, stars: stars)
         await ensureUserProfile()
     }
 
@@ -136,6 +149,7 @@ final class SessionStore: ObservableObject {
             UserDefaults.standard.set(stars, forKey: scopedKey(kStars, uid: uid))
         }
         Task { await syncProfileFields(["stars": stars]) }
+        Task { await syncHostedRoomProfile(stars: stars) }
     }
 
     func canAffordHoney(_ amount: Int) -> Bool {
@@ -223,6 +237,47 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    private func syncHostedRoomProfile(displayName: String? = nil, friendCode: String? = nil, stars: Int? = nil) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        var attendeeUpdates: [String: Any] = [:]
+        if let displayName {
+            attendeeUpdates["name"] = displayName
+        }
+        if let friendCode {
+            attendeeUpdates["friendCode"] = friendCode
+        }
+        if let stars {
+            attendeeUpdates["stars"] = stars
+        }
+
+        guard !attendeeUpdates.isEmpty else { return }
+
+        let now = Timestamp(date: Date())
+        attendeeUpdates["updatedAt"] = now
+
+        do {
+            let snap = try await Firestore.firestore()
+                .collectionGroup("attendees")
+                .whereField("status", isEqualTo: AttendeeStatus.host.rawValue)
+                .getDocuments()
+
+            if snap.documents.isEmpty { return }
+
+            let batch = Firestore.firestore().batch()
+            for doc in snap.documents {
+                guard doc.documentID == uid else { continue }
+                batch.setData(attendeeUpdates, forDocument: doc.reference, merge: true)
+                if let roomRef = doc.reference.parent.parent {
+                    batch.updateData(["updatedAt": now], forDocument: roomRef)
+                }
+            }
+            try await batch.commit()
+        } catch {
+            print("❌ syncHostedRoomProfile error:", error)
+        }
+    }
+
     // MARK: - Backend sync
 
     func refreshProfileFromBackend() async {
@@ -290,14 +345,15 @@ final class SessionStore: ObservableObject {
 
             let nameOK = !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             let codeOK = !friendCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            isProfileComplete = nameOK && codeOK
+            let computedComplete = nameOK && codeOK
 
-            if let complete = data["profileComplete"] as? Bool {
-                if complete != isProfileComplete {
-                    needsDefaults["profileComplete"] = isProfileComplete
-                }
+            if let complete = data["profileComplete"] as? Bool, complete == true {
+                isProfileComplete = true
             } else {
-                needsDefaults["profileComplete"] = isProfileComplete
+                isProfileComplete = isProfileComplete || computedComplete
+                if isProfileComplete {
+                    needsDefaults["profileComplete"] = true
+                }
             }
 
             if !needsDefaults.isEmpty {
