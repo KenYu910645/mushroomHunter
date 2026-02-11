@@ -11,7 +11,7 @@ import CryptoKit
 @MainActor
 final class SessionStore: ObservableObject {
     @Published var isLoggedIn: Bool = false
-    @Published var displayName: String = "Ken"
+    @Published var displayName: String = ""
     @Published var friendCode: String = ""          // ✅ NEW
     @Published var stars: Int = 0   // ⭐ Community reputation
     @Published var honey: Int = 0
@@ -19,6 +19,7 @@ final class SessionStore: ObservableObject {
     @Published var maxJoinRoom: Int = 3
     @Published var authUid: String? = nil
     @Published var fcmToken: String? = nil
+    @Published var isProfileComplete: Bool = false
 
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
@@ -36,28 +37,8 @@ final class SessionStore: ObservableObject {
     private let kMaxJoinRoom = "mh.maxJoinRoom"
 
     init() {
-        // Load local profile for convenience (prototype)
-        displayName = UserDefaults.standard.string(forKey: kDisplayName) ?? "Ken"
-        friendCode  = UserDefaults.standard.string(forKey: kFriendCode) ?? ""
-        stars = UserDefaults.standard.integer(forKey: kStars)
-        if UserDefaults.standard.object(forKey: kHoney) == nil {
-            honey = 100
-            UserDefaults.standard.set(honey, forKey: kHoney)
-        } else {
-            honey = UserDefaults.standard.integer(forKey: kHoney)
-        }
-        if UserDefaults.standard.object(forKey: kMaxHostRoom) == nil {
-            maxHostRoom = 1
-            UserDefaults.standard.set(maxHostRoom, forKey: kMaxHostRoom)
-        } else {
-            maxHostRoom = max(1, UserDefaults.standard.integer(forKey: kMaxHostRoom))
-        }
-        if UserDefaults.standard.object(forKey: kMaxJoinRoom) == nil {
-            maxJoinRoom = 3
-            UserDefaults.standard.set(maxJoinRoom, forKey: kMaxJoinRoom)
-        } else {
-            maxJoinRoom = max(1, UserDefaults.standard.integer(forKey: kMaxJoinRoom))
-        }
+        // Default local profile before login; will be replaced after auth
+        resetToDefaults()
         fcmToken = UserDefaults.standard.string(forKey: kFcmToken)
 
         authHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
@@ -66,11 +47,11 @@ final class SessionStore: ObservableObject {
             self.authUid = user?.uid
             self.isLoggedIn = (user != nil)
 
-            // If Firebase provides a displayName, prefer it.
-            // (You can flip this behavior later if you want local override.)
-            if let user, let name = user.displayName, !name.isEmpty {
-                self.displayName = name
-                UserDefaults.standard.set(name, forKey: self.kDisplayName)
+            if let user {
+                self.loadLocalProfile(for: user.uid)
+                Task { await self.refreshProfileFromBackend() }
+            } else {
+                self.resetToDefaults()
             }
 
             if let token = self.fcmToken, self.isLoggedIn {
@@ -103,25 +84,57 @@ final class SessionStore: ObservableObject {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         displayName = trimmed
-        UserDefaults.standard.set(trimmed, forKey: kDisplayName)
+        if let uid = authUid {
+            UserDefaults.standard.set(trimmed, forKey: scopedKey(kDisplayName, uid: uid))
+        }
+        isProfileComplete = !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !friendCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
         // Optional: later push to Firebase user profile / Firestore users/{uid}
         // For Google users, you *can* update Firebase displayName:
         // Auth.auth().currentUser?.createProfileChangeRequest().displayName = trimmed ...
-        Task { await syncProfileFields(["displayName": trimmed]) }
+        Task { await syncProfileFields(["displayName": trimmed, "profileComplete": isProfileComplete]) }
     }
 
     func updateFriendCode(_ code: String) {
         friendCode = code
-        UserDefaults.standard.set(code, forKey: kFriendCode)
+        if let uid = authUid {
+            UserDefaults.standard.set(code, forKey: scopedKey(kFriendCode, uid: uid))
+        }
+        isProfileComplete = !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !friendCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
         // Optional: later push to Firestore users/{uid}
-        Task { await syncProfileFields(["friendCode": code]) }
+        Task { await syncProfileFields(["friendCode": code, "profileComplete": isProfileComplete]) }
+    }
+
+    func completeProfile(name: String, friendCode: String) async {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let digits = friendCode.filter { $0.isNumber }
+        guard !trimmedName.isEmpty, digits.count == 12 else { return }
+
+        displayName = trimmedName
+        self.friendCode = digits
+        isProfileComplete = true
+
+        if let uid = authUid {
+            UserDefaults.standard.set(trimmedName, forKey: scopedKey(kDisplayName, uid: uid))
+            UserDefaults.standard.set(digits, forKey: scopedKey(kFriendCode, uid: uid))
+        }
+
+        await syncProfileFields([
+            "displayName": trimmedName,
+            "friendCode": digits,
+            "profileComplete": true
+        ])
+        await ensureUserProfile()
     }
 
     func updateStars(_ newValue: Int) {
         stars = max(0, newValue)
-        UserDefaults.standard.set(stars, forKey: kStars)
+        if let uid = authUid {
+            UserDefaults.standard.set(stars, forKey: scopedKey(kStars, uid: uid))
+        }
         Task { await syncProfileFields(["stars": stars]) }
     }
 
@@ -134,14 +147,18 @@ final class SessionStore: ObservableObject {
     func spendHoney(_ amount: Int) -> Bool {
         guard amount >= 0, honey >= amount else { return false }
         honey -= amount
-        UserDefaults.standard.set(honey, forKey: kHoney)
+        if let uid = authUid {
+            UserDefaults.standard.set(honey, forKey: scopedKey(kHoney, uid: uid))
+        }
         return true
     }
 
     func addHoney(_ amount: Int) {
         guard amount > 0 else { return }
         honey += amount
-        UserDefaults.standard.set(honey, forKey: kHoney)
+        if let uid = authUid {
+            UserDefaults.standard.set(honey, forKey: scopedKey(kHoney, uid: uid))
+        }
         Task { await syncProfileFields(["honey": honey]) }
     }
 
@@ -197,6 +214,7 @@ final class SessionStore: ObservableObject {
                     "honey": honey,
                     "maxHostRoom": maxHostRoom,
                     "maxJoinRoom": maxJoinRoom,
+                    "profileComplete": isProfileComplete,
                     "createdAt": now,
                     "updatedAt": now
                 ], merge: true)
@@ -218,40 +236,68 @@ final class SessionStore: ObservableObject {
 
             if let name = data["displayName"] as? String, !name.isEmpty {
                 displayName = name
-                UserDefaults.standard.set(name, forKey: kDisplayName)
+                if let uid = authUid {
+                    UserDefaults.standard.set(name, forKey: scopedKey(kDisplayName, uid: uid))
+                }
             }
 
             if let code = data["friendCode"] as? String {
                 friendCode = code
-                UserDefaults.standard.set(code, forKey: kFriendCode)
+                if let uid = authUid {
+                    UserDefaults.standard.set(code, forKey: scopedKey(kFriendCode, uid: uid))
+                }
             }
 
             if let starsValue = data["stars"] as? Int {
                 stars = max(0, starsValue)
-                UserDefaults.standard.set(stars, forKey: kStars)
+                if let uid = authUid {
+                    UserDefaults.standard.set(stars, forKey: scopedKey(kStars, uid: uid))
+                }
             }
 
             if let honeyValue = data["honey"] as? Int {
                 honey = max(0, honeyValue)
-                UserDefaults.standard.set(honey, forKey: kHoney)
+                if let uid = authUid {
+                    UserDefaults.standard.set(honey, forKey: scopedKey(kHoney, uid: uid))
+                }
             }
 
             if let maxHostValue = data["maxHostRoom"] as? Int {
                 maxHostRoom = max(1, maxHostValue)
-                UserDefaults.standard.set(maxHostRoom, forKey: kMaxHostRoom)
+                if let uid = authUid {
+                    UserDefaults.standard.set(maxHostRoom, forKey: scopedKey(kMaxHostRoom, uid: uid))
+                }
             } else {
                 maxHostRoom = 1
-                UserDefaults.standard.set(maxHostRoom, forKey: kMaxHostRoom)
+                if let uid = authUid {
+                    UserDefaults.standard.set(maxHostRoom, forKey: scopedKey(kMaxHostRoom, uid: uid))
+                }
                 needsDefaults["maxHostRoom"] = maxHostRoom
             }
 
             if let maxJoinValue = data["maxJoinRoom"] as? Int {
                 maxJoinRoom = max(1, maxJoinValue)
-                UserDefaults.standard.set(maxJoinRoom, forKey: kMaxJoinRoom)
+                if let uid = authUid {
+                    UserDefaults.standard.set(maxJoinRoom, forKey: scopedKey(kMaxJoinRoom, uid: uid))
+                }
             } else {
                 maxJoinRoom = 3
-                UserDefaults.standard.set(maxJoinRoom, forKey: kMaxJoinRoom)
+                if let uid = authUid {
+                    UserDefaults.standard.set(maxJoinRoom, forKey: scopedKey(kMaxJoinRoom, uid: uid))
+                }
                 needsDefaults["maxJoinRoom"] = maxJoinRoom
+            }
+
+            let nameOK = !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            let codeOK = !friendCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            isProfileComplete = nameOK && codeOK
+
+            if let complete = data["profileComplete"] as? Bool {
+                if complete != isProfileComplete {
+                    needsDefaults["profileComplete"] = isProfileComplete
+                }
+            } else {
+                needsDefaults["profileComplete"] = isProfileComplete
             }
 
             if !needsDefaults.isEmpty {
@@ -266,6 +312,64 @@ final class SessionStore: ObservableObject {
             print("❌ refreshProfileFromBackend error:", error)
         }
     }
+
+    // MARK: - Local profile
+
+    private func resetToDefaults() {
+        displayName = ""
+        friendCode = ""
+        stars = 0
+        honey = 100
+        maxHostRoom = 1
+        maxJoinRoom = 3
+        isProfileComplete = false
+    }
+
+    private func scopedKey(_ key: String, uid: String) -> String {
+        "\(key).\(uid)"
+    }
+
+    private func loadLocalProfile(for uid: String) {
+        if let name = UserDefaults.standard.string(forKey: scopedKey(kDisplayName, uid: uid)) {
+            displayName = name
+        } else {
+            displayName = ""
+        }
+
+        if let code = UserDefaults.standard.string(forKey: scopedKey(kFriendCode, uid: uid)) {
+            friendCode = code
+        } else {
+            friendCode = ""
+        }
+
+        if UserDefaults.standard.object(forKey: scopedKey(kStars, uid: uid)) != nil {
+            stars = max(0, UserDefaults.standard.integer(forKey: scopedKey(kStars, uid: uid)))
+        } else {
+            stars = 0
+        }
+
+        if UserDefaults.standard.object(forKey: scopedKey(kHoney, uid: uid)) != nil {
+            honey = max(0, UserDefaults.standard.integer(forKey: scopedKey(kHoney, uid: uid)))
+        } else {
+            honey = 100
+        }
+
+        if UserDefaults.standard.object(forKey: scopedKey(kMaxHostRoom, uid: uid)) != nil {
+            maxHostRoom = max(1, UserDefaults.standard.integer(forKey: scopedKey(kMaxHostRoom, uid: uid)))
+        } else {
+            maxHostRoom = 1
+        }
+
+        if UserDefaults.standard.object(forKey: scopedKey(kMaxJoinRoom, uid: uid)) != nil {
+            maxJoinRoom = max(1, UserDefaults.standard.integer(forKey: scopedKey(kMaxJoinRoom, uid: uid)))
+        } else {
+            maxJoinRoom = 3
+        }
+
+        let nameOK = !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let codeOK = !friendCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        isProfileComplete = nameOK && codeOK
+    }
     
     // MARK: - Auth
 
@@ -276,6 +380,7 @@ final class SessionStore: ObservableObject {
             try Auth.auth().signOut()
             isLoggedIn = false
             authUid = nil
+            resetToDefaults()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -311,14 +416,8 @@ final class SessionStore: ObservableObject {
             self.authUid = authResult.user.uid
             self.isLoggedIn = true
 
-            // Prefer Firebase display name if available
-            if let name = authResult.user.displayName, !name.isEmpty {
-                self.displayName = name
-                UserDefaults.standard.set(name, forKey: self.kDisplayName)
-            } else {
-                // Keep locally saved name (already loaded in init)
-                UserDefaults.standard.set(self.displayName, forKey: self.kDisplayName)
-            }
+            // Do not auto-fill display name; user must set it in Profile.
+            UserDefaults.standard.set(self.displayName, forKey: self.scopedKey(self.kDisplayName, uid: authResult.user.uid))
 
             await ensureUserProfile()
         } catch {
@@ -372,20 +471,8 @@ final class SessionStore: ObservableObject {
                 self.authUid = authResult.user.uid
                 self.isLoggedIn = true
 
-                let currentDisplayName = authResult.user.displayName ?? ""
-                if currentDisplayName.isEmpty {
-                    if let fullName = appleIDCredential.fullName {
-                        let formatter = PersonNameComponentsFormatter()
-                        let nameString = formatter.string(from: fullName)
-                        if !nameString.isEmpty {
-                            self.displayName = nameString
-                            UserDefaults.standard.set(nameString, forKey: self.kDisplayName)
-                        }
-                    }
-                } else {
-                    self.displayName = currentDisplayName
-                    UserDefaults.standard.set(currentDisplayName, forKey: self.kDisplayName)
-                }
+                // Do not auto-fill display name; user must set it in Profile.
+                UserDefaults.standard.set(self.displayName, forKey: self.scopedKey(self.kDisplayName, uid: authResult.user.uid))
             } catch {
                 errorMessage = error.localizedDescription
             }

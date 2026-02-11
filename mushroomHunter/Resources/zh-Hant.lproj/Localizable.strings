@@ -176,6 +176,7 @@
 "room_status_waiting_confirm" = "等待確認";
 "room_status_rejected" = "已拒絕確認";
 "room_status_ready" = "可出戰";
+"room_status_host" = "主持人";
 "room_reject_resolve" = "處理";
 "room_reject_alert_title" = "確認被拒絕";
 "room_reject_alert_message" = "%@ 已拒絕確認。要重新送出或放棄？";
@@ -187,6 +188,11 @@
 "room_error_need_more_honey" = "蜂蜜不足，還需要 %d 🍯。";
 
 "profile_title" = "個人資料";
+"create_profile_title" = "建立個人資料";
+"create_profile_button" = "建立個人資料";
+"create_profile_error_title" = "資料未完成";
+"create_profile_error_message" = "請填寫名稱與好友碼以繼續。";
+"create_profile_name_error_required" = "需要填寫名稱。";
 "settings_title" = "設定";
 "settings_language_managed" = "語言請到 iOS 設定中變更。";
 "profile_name" = "名稱";

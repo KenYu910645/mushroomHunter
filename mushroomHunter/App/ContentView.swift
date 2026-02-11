@@ -12,7 +12,11 @@ struct ContentView: View {
             ThemedBackground()
             Group {
                 if session.isLoggedIn {
-                    MainTabView()
+                    if session.isProfileComplete {
+                        MainTabView()
+                    } else {
+                        CreateProfileView()
+                    }
                 } else {
                     LoginView()
                 }
