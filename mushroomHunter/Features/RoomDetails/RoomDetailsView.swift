@@ -538,23 +538,7 @@ struct RoomDetailsView: View {
         } header: {
             HStack {
                 Text(LocalizedStringKey("room_attendees_header"))
-                Spacer()
-
-                Menu {
-                    Picker(LocalizedStringKey("common_sort"), selection: $vm.attendeeSort) {
-                        ForEach(RoomDetailsViewModel.AttendeeSort.allCases) { s in
-                            Text(LocalizedStringKey(s.localizedKey))
-                                .tag(s)
-                        }
-                    }
-                } label: {
-                    Label(LocalizedStringKey("common_sort"), systemImage: "arrow.up.arrow.down")
-                        .font(.subheadline)
-                }
             }
-        }
-        .onChange(of: vm.attendeeSort) { _, newValue in
-            vm.sortAttendees(by: newValue)
         }
     }
 
@@ -783,24 +767,26 @@ private struct AttendeeRow: View {
                         .font(.footnote)
                         .foregroundStyle(.blue)
                 } else {
-                    if isHostViewing, isPendingClaim {
+                    if isPendingClaim {
                         Text(LocalizedStringKey("room_status_waiting_confirm"))
                             .font(.footnote)
                             .foregroundStyle(.orange)
                     }
 
-                    if isHostViewing, isRejectedClaim {
+                    if isRejectedClaim {
                         Text(LocalizedStringKey("room_status_rejected"))
                             .font(.footnote)
                             .foregroundStyle(.red)
                     }
 
-                    if isHostViewing, !isPendingClaim, !isRejectedClaim {
+                    if !isPendingClaim, !isRejectedClaim {
                         Text(LocalizedStringKey("room_status_ready"))
                             .font(.footnote)
                             .foregroundStyle(.green)
                     }
                 }
+
+                Spacer()
 
                 if !isHostAttendee {
                     Text(String(format: NSLocalizedString("room_bid_honey_format", comment: ""), attendee.depositHoney))
@@ -812,8 +798,6 @@ private struct AttendeeRow: View {
                 Label("\(attendee.stars)", systemImage: "star.fill")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-
-                Spacer()
 
                 if isHostViewing && !isHostAttendee {
                     Menu {

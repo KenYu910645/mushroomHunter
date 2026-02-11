@@ -335,26 +335,34 @@ final class RoomDetailsViewModel: ObservableObject {
         guard var room else { return }
         
         attendeeSort = mode
-        
+
+        let hostId = room.hostUid
+        let hostAttendee = room.attendees.first(where: { $0.id == hostId })
+        var others = room.attendees.filter { $0.id != hostId }
+
         switch mode {
         case .depositHighToLow:
-            room.attendees.sort {
+            others.sort {
                 if $0.depositHoney != $1.depositHoney { return $0.depositHoney > $1.depositHoney }
-                // tie-break: stars
                 if $0.stars != $1.stars { return $0.stars > $1.stars }
-                // tie-break: joinedAt (earlier first)
                 return ($0.joinedAt ?? .distantFuture) < ($1.joinedAt ?? .distantFuture)
             }
         case .starsHighToLow:
-            room.attendees.sort {
+            others.sort {
                 if $0.stars != $1.stars { return $0.stars > $1.stars }
                 if $0.depositHoney != $1.depositHoney { return $0.depositHoney > $1.depositHoney }
                 return ($0.joinedAt ?? .distantFuture) < ($1.joinedAt ?? .distantFuture)
             }
         case .joinedOldToNew:
-            room.attendees.sort {
+            others.sort {
                 ($0.joinedAt ?? .distantFuture) < ($1.joinedAt ?? .distantFuture)
             }
+        }
+
+        if let hostAttendee {
+            room.attendees = [hostAttendee] + others
+        } else {
+            room.attendees = others
         }
         
         self.room = room
