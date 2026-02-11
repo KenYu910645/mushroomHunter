@@ -36,9 +36,9 @@
 "target_all_format" = "all %@";
 
 "host_edit_title" = "Edit Room";
-"host_create_title" = "Create Mushroom Room";
-"host_save_button" = "Save Room Settings";
-"host_create_button" = "Create Mushroom Room";
+"host_create_title" = "Create Room";
+"host_save_button" = "Save Settings";
+"host_create_button" = "Create Room";
 "host_success_updated_title" = "Room updated!";
 "host_success_created_title" = "Mushroom Room Created!";
 "host_success_updated_message" = "Your room settings were saved.";
@@ -54,8 +54,15 @@
 "host_location_placeholder" = "Country / City / Suburb / Area";
 "host_location_header" = "Location";
 "host_location_footer" = "Type a rough location. Avoid full addresses for privacy.";
-"host_words_label" = "Chars";
-"host_description_header" = "Room Description";
+"host_country_label" = "Country";
+"host_area_label" = "Area";
+"host_city_placeholder" = "City / suburb / province";
+"host_city_default" = "Somewhere";
+"host_field_required" = "This field is required.";
+"host_required_title" = "Missing Required Fields";
+"host_required_message" = "Please fill in the room name and area before creating the room.";
+"host_words_label" = "Characters";
+"host_description_header" = "Other Description";
 "host_description_footer" = "Max 100 characters. Use it for extra notes like time window, expectations, or friend code.";
 "host_min_bid_label" = "Honey";
 "host_min_bid_header" = "Mushroom Raid Payment";
@@ -65,6 +72,7 @@
 "host_reset_form" = "Reset Form";
 
 "mushroom_color_red" = "Red";
+"mushroom_color_all" = "All";
 "mushroom_color_yellow" = "Yellow";
 "mushroom_color_blue" = "Blue";
 "mushroom_color_purple" = "Purple";
@@ -72,6 +80,7 @@
 "mushroom_color_gray" = "Gray";
 "mushroom_color_pink" = "Pink";
 
+"mushroom_attr_all" = "All";
 "mushroom_attr_normal" = "Normal";
 "mushroom_attr_fire" = "Fire";
 "mushroom_attr_water" = "Water";
@@ -79,9 +88,12 @@
 "mushroom_attr_electric" = "Electric";
 "mushroom_attr_poisonous" = "Poisonous";
 
+"mushroom_size_all" = "All";
 "mushroom_size_small" = "Small";
 "mushroom_size_normal" = "Normal";
 "mushroom_size_magnificent" = "Magnificent";
+
+"host_room_default_name" = "Let's fight mushroom";
 
 "postcard_title" = "Postcard";
 "postcard_register_title" = "Register";
@@ -123,17 +135,17 @@
 "room_title" = "Room";
 "room_raid_confirm_title" = "Raid Confirmation";
 "room_raid_confirm_message" = "%@ claims to invite you to a mushroom raid. Did you join the raid?";
-"room_next_round_title" = "Stay in the room?";
-"room_update_bid" = "Update Deposit";
+"room_next_round_title" = "Not enough honey";
+"room_update_bid" = "Top-up";
 "room_leave_room" = "Leave Room";
-"room_next_round_message" = "Update your deposit to join the next raid, or leave the room now.";
+"room_next_round_message" = "You deposit is not enough for the next raid";
 "room_max_honey_format" = "Max %d";
 "room_bid_header" = "Deposit";
 "room_bid_footer" = "This deposit is held while you stay in the room. It is only spent after a raid finishes and you confirm. Leaving the room returns any unspent deposit.";
 "room_join_title" = "Join Room";
 "room_update_bid_header" = "Deposit";
 "room_update_bid_footer" = "This deposit is held while you stay in the room. It is only spent after a raid finishes and you confirm. Leaving the room returns any unspent deposit.";
-"room_edit_bid_title" = "Update Deposit";
+"room_edit_bid_title" = "Top-up Honey";
 "room_finish_hint" = "Please select players who actually joined the mushroom raid.";
 "room_attendees_header" = "Attendee";
 "room_no_attendees_title" = "No attendees";
@@ -242,7 +254,7 @@
 "session_error_missing_client_id" = "Missing Firebase clientID.";
 "session_error_missing_id_token" = "Missing Google ID token.";
 "room_join_confirm_title" = "Confirm Join";
-"room_join_confirm_message" = "You are going to deposit %d 🍯 in %@. Are you sure?";
+"room_join_confirm_message" = "You are going to deposit %1$d 🍯 in %2$@. Are you sure?";
 "room_join_confirm_sure" = "Sure";
 "room_join_limit_title" = "Room Limit";
 "room_not_enough_honey_title" = "Not enough honey";

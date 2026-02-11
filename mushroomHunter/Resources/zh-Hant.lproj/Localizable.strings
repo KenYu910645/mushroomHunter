@@ -54,6 +54,13 @@
 "host_location_placeholder" = "國家／城市／區域";
 "host_location_header" = "地點";
 "host_location_footer" = "輸入大致位置，請避免完整地址以保護隱私。";
+"host_country_label" = "國家";
+"host_area_label" = "區域";
+"host_city_placeholder" = "城市／區域／州";
+"host_city_default" = "某處";
+"host_field_required" = "此欄位必填。";
+"host_required_title" = "缺少必填欄位";
+"host_required_message" = "請先填寫房間名稱與區域後再建立房間。";
 "host_words_label" = "字元";
 "host_description_header" = "房間描述";
 "host_description_footer" = "最多 100 字元，用於時間、需求或好友碼等補充。";
@@ -65,6 +72,7 @@
 "host_reset_form" = "重設表單";
 
 "mushroom_color_red" = "紅";
+"mushroom_color_all" = "全部";
 "mushroom_color_yellow" = "黃";
 "mushroom_color_blue" = "藍";
 "mushroom_color_purple" = "紫";
@@ -73,6 +81,7 @@
 "mushroom_color_pink" = "粉";
 
 "mushroom_attr_normal" = "普通";
+"mushroom_attr_all" = "全部";
 "mushroom_attr_fire" = "火";
 "mushroom_attr_water" = "水";
 "mushroom_attr_crystal" = "水晶";
@@ -80,6 +89,7 @@
 "mushroom_attr_poisonous" = "毒";
 
 "mushroom_size_small" = "小";
+"mushroom_size_all" = "全部";
 "mushroom_size_normal" = "普通";
 "mushroom_size_magnificent" = "巨大";
 
@@ -242,7 +252,7 @@
 "session_error_missing_client_id" = "缺少 Firebase clientID。";
 "session_error_missing_id_token" = "缺少 Google ID 權杖。";
 "room_join_confirm_title" = "確認加入";
-"room_join_confirm_message" = "你將在 %@ 存入 %d 🍯，是否確定？";
+"room_join_confirm_message" = "你將在 %2$@ 存入 %1$d 🍯，是否確定？";
 "room_join_confirm_sure" = "確定";
 "room_join_limit_title" = "房間上限";
 "room_not_enough_honey_title" = "蜂蜜不足";
@@ -261,3 +271,4 @@
 "room_claim_confirm_message_with_list" = "你確定以下參加者有參與蘑菇戰鬥嗎？\n%@";
 "room_raid_thanks_title" = "太棒了！";
 "room_raid_thanks_message" = "太棒了！祝你狩獵順利。轉給主持人 %d 🍯。";
+"host_room_default_name" = "一起打蘑菇吧";

@@ -133,10 +133,18 @@ struct MushroomTarget: Equatable {
 }
 
 enum MushroomColor: String, CaseIterable, Codable {
-    case Red, Yellow, Blue, Purple, White, Gray, Pink
+    case All
+    case Red
+    case Yellow
+    case Blue
+    case Purple
+    case White
+    case Gray
+    case Pink
 }
 
 enum MushroomAttribute: String, CaseIterable, Codable {
+    case All
     case Normal
     case Fire
     case Water
@@ -146,6 +154,7 @@ enum MushroomAttribute: String, CaseIterable, Codable {
 }
 
 enum MushroomSize: String, CaseIterable, Codable {
+    case All
     case Small
     case Normal
     case Magnificent

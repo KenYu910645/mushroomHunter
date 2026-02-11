@@ -11,6 +11,11 @@ final class HostViewModel: ObservableObject {
         case edit(roomId: String)
     }
 
+    struct CountryItem: Hashable {
+        let code: String
+        let name: String
+    }
+
     // Dependencies
     private unowned let session: SessionStore
     private let repo: FirebaseHostRepository
@@ -18,11 +23,12 @@ final class HostViewModel: ObservableObject {
     let mode: Mode
 
     // Inputs
-    @Published var hostName: String = ""
-    @Published var color: MushroomColor = .Red
-    @Published var attribute: MushroomAttribute = .Normal
-    @Published var size: MushroomSize = .Normal
-    @Published var location: String = ""
+    @Published var hostName: String = NSLocalizedString("host_room_default_name", comment: "")
+    @Published var color: MushroomColor = .All
+    @Published var attribute: MushroomAttribute = .All
+    @Published var size: MushroomSize = .All
+    @Published var countryCode: String = Locale.current.region?.identifier ?? "US"
+    @Published var city: String = NSLocalizedString("host_city_default", comment: "")
     @Published var otherMessage: String = ""
     @Published var fixedRaidCost: Int = 10
 
@@ -33,10 +39,21 @@ final class HostViewModel: ObservableObject {
     @Published var isSubmitting: Bool = false
     @Published var showLimitAlert: Bool = false
     @Published var limitAlertMessage: String = ""
+    @Published var showNameError: Bool = false
+    @Published var showAreaError: Bool = false
+    @Published var showRequiredAlert: Bool = false
 
     // Limits
     static let hostNameMaxChars = 30
     static let otherMaxChars = 100
+    static let availableCountries: [CountryItem] = {
+        let locale = Locale.current
+        let items = Locale.isoRegionCodes.map { code in
+            let name = locale.localizedString(forRegionCode: code) ?? code
+            return CountryItem(code: code, name: name)
+        }
+        return items.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }()
 
     init(session: SessionStore, repo: FirebaseHostRepository = FirebaseHostRepository()) {
         self.session = session
@@ -85,7 +102,8 @@ final class HostViewModel: ObservableObject {
 
     var canSubmit: Bool {
         let nameOK = !hostName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let locOK = !location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let locOK = !countryDisplayName.isEmpty
+            && !city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let msgOK = otherCharCount <= Self.otherMaxChars
         return nameOK && locOK && msgOK && !isSubmitting
     }
@@ -100,7 +118,11 @@ final class HostViewModel: ObservableObject {
     }
 
     func submit() async {
-        guard canSubmit else { return }
+        guard validateRequired() else {
+            showRequiredAlert = true
+            return
+        }
+        guard otherCharCount <= Self.otherMaxChars else { return }
 
         isSubmitting = true
         errorMessage = nil
@@ -112,16 +134,16 @@ final class HostViewModel: ObservableObject {
         defer { isSubmitting = false }
 
         do {
-            let req = FirestoreRoomCreateRequest(
-                title: hostName,
-                targetColor: color.rawValue,
-                targetAttribute: attribute.rawValue,
-                targetSize: size.rawValue,
-                location: location,
-                note: otherMessage,
-                hostFriendCode: session.friendCode,
-                fixedRaidCost: fixedRaidCost
-            )
+        let req = FirestoreRoomCreateRequest(
+            title: hostName,
+            targetColor: color.rawValue,
+            targetAttribute: attribute.rawValue,
+            targetSize: size.rawValue,
+            location: locationString,
+            note: otherMessage,
+            hostFriendCode: session.friendCode,
+            fixedRaidCost: fixedRaidCost
+        )
 
             switch mode {
             case .create:
@@ -154,16 +176,19 @@ final class HostViewModel: ObservableObject {
     }
 
     func reset() {
-        hostName = ""
-        color = .Red
-        attribute = .Normal
-        size = .Normal
-        location = ""
+        hostName = NSLocalizedString("host_room_default_name", comment: "")
+        color = .All
+        attribute = .All
+        size = .All
+        countryCode = Locale.current.region?.identifier ?? "US"
+        city = NSLocalizedString("host_city_default", comment: "")
         otherMessage = ""
         fixedRaidCost = 10
         errorMessage = nil
         successRoomId = nil
         showSuccessAlert = false
+        showNameError = false
+        showAreaError = false
     }
 
     private func seed(from room: RoomDetail) {
@@ -171,7 +196,13 @@ final class HostViewModel: ObservableObject {
         color = room.targetMushroom.color
         attribute = room.targetMushroom.attribute
         size = room.targetMushroom.size
-        location = room.location
+        if let parsed = parseLocation(room.location) {
+            countryCode = parsed.countryCode
+            city = parsed.city
+        } else {
+            countryCode = Locale.current.region?.identifier ?? "US"
+            city = room.location
+        }
         otherMessage = room.note
         fixedRaidCost = room.fixedRaidCost
     }
@@ -185,6 +216,66 @@ final class HostViewModel: ObservableObject {
         if text.count <= maxChars { return text }
         return String(text.prefix(maxChars))
     }
+
+    // MARK: Location helpers
+    var countryDisplayName: String {
+        HostViewModel.countryName(for: countryCode)
+    }
+
+    var locationString: String {
+        let cityTrim = city.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cityTrim.isEmpty { return countryDisplayName }
+        return "\(countryDisplayName), \(cityTrim)"
+    }
+
+    private func parseLocation(_ raw: String) -> (countryCode: String, city: String)? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let separators = [", ", " - ", " – ", " — "]
+        for sep in separators {
+            let parts = trimmed.components(separatedBy: sep)
+            if parts.count >= 2 {
+                let countryName = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+                let cityPart = parts.dropFirst().joined(separator: sep).trimmingCharacters(in: .whitespacesAndNewlines)
+                if let code = HostViewModel.countryCode(forName: countryName) {
+                    return (code, cityPart.isEmpty ? NSLocalizedString("host_city_default", comment: "") : cityPart)
+                }
+            }
+        }
+
+        if let code = HostViewModel.countryCode(forName: trimmed) {
+            return (code, NSLocalizedString("host_city_default", comment: ""))
+        }
+
+        return nil
+    }
+
+    static func countryName(for code: String) -> String {
+        Locale.current.localizedString(forRegionCode: code) ?? code
+    }
+
+    static func countryCode(forName name: String) -> String? {
+        let target = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if target.isEmpty { return nil }
+        for code in Locale.isoRegionCodes {
+            let display = Locale.current.localizedString(forRegionCode: code) ?? ""
+            if display.lowercased() == target {
+                return code
+            }
+        }
+        return nil
+    }
+
+    // MARK: Validation
+    @discardableResult
+    func validateRequired() -> Bool {
+        let nameOK = !hostName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let areaOK = !city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        showNameError = !nameOK
+        showAreaError = !areaOK
+        return nameOK && areaOK
+    }
 }
 
 // MARK: - View
@@ -195,6 +286,8 @@ struct HostView: View {
     @Environment(\.colorScheme) private var scheme
     @StateObject private var vm: HostViewModel
     private let onCloseRoom: (() -> Void)?
+    @State private var isNameFirstResponder: Bool = false
+    @State private var isAreaFirstResponder: Bool = false
 
     init(vm: HostViewModel, onCloseRoom: (() -> Void)? = nil) {
         _vm = StateObject(wrappedValue: vm)
@@ -206,10 +299,31 @@ struct HostView: View {
             Form {
                 // Host name
                 Section {
-                    TextField(LocalizedStringKey("host_room_name_placeholder"), text: $vm.hostName)
-                        .onChange(of: vm.hostName) { _, _ in vm.enforceLimits() }
-                        .textInputAutocapitalization(.words)
-                        .submitLabel(.done)
+                    SelectAllTextField(
+                        placeholderKey: "host_room_name_placeholder",
+                        text: $vm.hostName,
+                        isFirstResponder: $isNameFirstResponder,
+                        keyboardType: .default,
+                        textContentType: .name,
+                        autocapitalization: .words,
+                        autocorrection: .yes,
+                        onChange: { _ in
+                            vm.enforceLimits()
+                            if vm.showNameError {
+                                vm.showNameError = vm.hostName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            }
+                        }
+                    )
+                    .frame(minHeight: 22)
+                    .onTapGesture {
+                        isNameFirstResponder = true
+                    }
+
+                    if vm.showNameError {
+                        Text(LocalizedStringKey("host_field_required"))
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
 
 //                    HStack {
 //                        Text("Remaining")
@@ -249,11 +363,45 @@ struct HostView: View {
 
                 // Location
                 Section {
-                    TextField(LocalizedStringKey("host_location_placeholder"), text: $vm.location)
-                        .onChange(of: vm.location) { _, _ in
-                            // Optional: you can add a char limit here too if you want.
+                    Picker(LocalizedStringKey("host_country_label"), selection: $vm.countryCode) {
+                        ForEach(HostViewModel.availableCountries, id: \.code) { item in
+                            Text(item.name).tag(item.code)
                         }
-                        .textInputAutocapitalization(.words)
+                    }
+
+                    HStack(spacing: 12) {
+                        Text(LocalizedStringKey("host_area_label"))
+
+                        Spacer()
+
+                        SelectAllTextField(
+                            placeholderKey: "host_city_placeholder",
+                            text: $vm.city,
+                            isFirstResponder: $isAreaFirstResponder,
+                            keyboardType: .default,
+                            textContentType: .location,
+                            autocapitalization: .words,
+                            autocorrection: .yes,
+                            textAlignment: .right,
+                            onChange: { _ in
+                                if vm.showAreaError {
+                                    vm.showAreaError = vm.city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                }
+                            }
+                        )
+                        .frame(minHeight: 22)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .onTapGesture {
+                            isAreaFirstResponder = true
+                        }
+                    }
+
+                    if vm.showAreaError {
+                        Text(LocalizedStringKey("host_field_required"))
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
                 } header: {
                     Text(LocalizedStringKey("host_location_header"))
                 } footer: {
@@ -320,7 +468,7 @@ struct HostView: View {
                             Spacer()
                         }
                     }
-                    .disabled(!vm.canSubmit)
+                    .disabled(vm.isSubmitting)
                 }
 
                 if vm.isEditMode {
@@ -367,11 +515,17 @@ struct HostView: View {
             } message: {
                 Text(vm.limitAlertMessage)
             }
+            .alert(LocalizedStringKey("host_required_title"), isPresented: $vm.showRequiredAlert) {
+                Button(LocalizedStringKey("common_ok")) {}
+            } message: {
+                Text(LocalizedStringKey("host_required_message"))
+            }
         }
     }
 
     private func localizedColor(_ color: MushroomColor) -> LocalizedStringKey {
         switch color {
+        case .All: return "mushroom_color_all"
         case .Red: return "mushroom_color_red"
         case .Yellow: return "mushroom_color_yellow"
         case .Blue: return "mushroom_color_blue"
@@ -384,6 +538,7 @@ struct HostView: View {
 
     private func localizedAttribute(_ attribute: MushroomAttribute) -> LocalizedStringKey {
         switch attribute {
+        case .All: return "mushroom_attr_all"
         case .Normal: return "mushroom_attr_normal"
         case .Fire: return "mushroom_attr_fire"
         case .Water: return "mushroom_attr_water"
@@ -395,9 +550,83 @@ struct HostView: View {
 
     private func localizedSize(_ size: MushroomSize) -> LocalizedStringKey {
         switch size {
+        case .All: return "mushroom_size_all"
         case .Small: return "mushroom_size_small"
         case .Normal: return "mushroom_size_normal"
         case .Magnificent: return "mushroom_size_magnificent"
+        }
+    }
+}
+
+private struct SelectAllTextField: UIViewRepresentable {
+    let placeholderKey: String
+    @Binding var text: String
+    @Binding var isFirstResponder: Bool
+    var keyboardType: UIKeyboardType = .default
+    var textContentType: UITextContentType? = .name
+    var autocapitalization: UITextAutocapitalizationType = .words
+    var autocorrection: UITextAutocorrectionType = .no
+    var textAlignment: NSTextAlignment = .left
+    var onChange: ((String) -> Void)? = nil
+
+    func makeUIView(context: Context) -> UITextField {
+        let tf = UITextField()
+        tf.borderStyle = .none
+        tf.textAlignment = textAlignment
+        tf.autocorrectionType = autocorrection
+        tf.autocapitalizationType = autocapitalization
+        tf.textContentType = textContentType
+        tf.keyboardType = keyboardType
+        tf.placeholder = NSLocalizedString(placeholderKey, comment: "")
+        tf.addTarget(context.coordinator, action: #selector(Coordinator.textChanged), for: .editingChanged)
+        tf.delegate = context.coordinator
+        return tf
+    }
+
+    func updateUIView(_ uiView: UITextField, context: Context) {
+        if uiView.text != text {
+            uiView.text = text
+        }
+        if isFirstResponder, !uiView.isFirstResponder {
+            uiView.becomeFirstResponder()
+            DispatchQueue.main.async {
+                uiView.selectAll(nil)
+            }
+        } else if !isFirstResponder, uiView.isFirstResponder {
+            uiView.resignFirstResponder()
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text, isFirstResponder: $isFirstResponder, onChange: onChange)
+    }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        @Binding var text: String
+        @Binding var isFirstResponder: Bool
+        let onChange: ((String) -> Void)?
+
+        init(text: Binding<String>, isFirstResponder: Binding<Bool>, onChange: ((String) -> Void)?) {
+            _text = text
+            _isFirstResponder = isFirstResponder
+            self.onChange = onChange
+        }
+
+        @objc func textChanged(_ sender: UITextField) {
+            let value = sender.text ?? ""
+            text = value
+            onChange?(value)
+        }
+
+        func textFieldDidBeginEditing(_ textField: UITextField) {
+            isFirstResponder = true
+            DispatchQueue.main.async {
+                textField.selectAll(nil)
+            }
+        }
+
+        func textFieldDidEndEditing(_ textField: UITextField) {
+            isFirstResponder = false
         }
     }
 }

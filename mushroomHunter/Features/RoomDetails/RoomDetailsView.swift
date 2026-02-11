@@ -739,6 +739,7 @@ struct RoomDetailsView: View {
 
     private func localizedColor(_ color: MushroomColor) -> String {
         switch color {
+        case .All: return NSLocalizedString("mushroom_color_all", comment: "")
         case .Red: return NSLocalizedString("mushroom_color_red", comment: "")
         case .Yellow: return NSLocalizedString("mushroom_color_yellow", comment: "")
         case .Blue: return NSLocalizedString("mushroom_color_blue", comment: "")
@@ -751,6 +752,7 @@ struct RoomDetailsView: View {
 
     private func localizedAttribute(_ attribute: MushroomAttribute) -> String {
         switch attribute {
+        case .All: return NSLocalizedString("mushroom_attr_all", comment: "")
         case .Normal: return NSLocalizedString("mushroom_attr_normal", comment: "")
         case .Fire: return NSLocalizedString("mushroom_attr_fire", comment: "")
         case .Water: return NSLocalizedString("mushroom_attr_water", comment: "")
@@ -762,6 +764,7 @@ struct RoomDetailsView: View {
 
     private func localizedSize(_ size: MushroomSize) -> String {
         switch size {
+        case .All: return NSLocalizedString("mushroom_size_all", comment: "")
         case .Small: return NSLocalizedString("mushroom_size_small", comment: "")
         case .Normal: return NSLocalizedString("mushroom_size_normal", comment: "")
         case .Magnificent: return NSLocalizedString("mushroom_size_magnificent", comment: "")

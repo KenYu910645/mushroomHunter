@@ -31,14 +31,14 @@ final class FirebaseRoomDetailsRepository {
             ?? 10
 
         // Mushroom target
-        let colorRaw = (data["targetColor"] as? String) ?? "red"
-        let attrRaw  = (data["targetAttribute"] as? String) ?? "normal"
-        let sizeRaw  = (data["targetSize"] as? String) ?? "normal"
+        let colorRaw = (data["targetColor"] as? String) ?? "All"
+        let attrRaw  = (data["targetAttribute"] as? String) ?? "All"
+        let sizeRaw  = (data["targetSize"] as? String) ?? "All"
 
         let target = MushroomTarget(
-            color: MushroomColor(rawValue: colorRaw) ?? .Red,
-            attribute: MushroomAttribute(rawValue: attrRaw) ?? .Normal,
-            size: MushroomSize(rawValue: sizeRaw) ?? .Normal
+            color: MushroomColor(rawValue: normalizeTargetRaw(colorRaw)) ?? .All,
+            attribute: MushroomAttribute(rawValue: normalizeTargetRaw(attrRaw)) ?? .All,
+            size: MushroomSize(rawValue: normalizeTargetRaw(sizeRaw)) ?? .All
         )
 
         // Meta
@@ -96,6 +96,10 @@ final class FirebaseRoomDetailsRepository {
                 joinedAt: joinedAt
             )
         }
+    }
+
+    private func normalizeTargetRaw(_ raw: String) -> String {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines).capitalized
     }
 
     func fetchPendingRaidClaim(roomId: String, attendeeUid: String) async throws -> RaidClaim? {
