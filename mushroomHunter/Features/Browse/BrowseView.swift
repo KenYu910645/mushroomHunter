@@ -262,11 +262,11 @@ struct BrowseView: View {
     }
     
     // MARK: - Row UI
-    private struct RoomRowContent: View {
+        private struct RoomRowContent: View {
         let listing: RoomListing
         
         private var displayedJoined: Int {
-            min(listing.maxPlayers, listing.joinedPlayers + 1)
+            min(listing.maxPlayers, max(0, listing.joinedPlayers))
         }
 
         var isFull: Bool { displayedJoined >= listing.maxPlayers }

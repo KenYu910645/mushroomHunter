@@ -225,21 +225,25 @@ struct ProfileView: View {
                     Text(LocalizedStringKey("profile_community_footer"))
                 }
 
-                JoinedRoomsSection(
-                    rooms: joinedRooms,
-                    isLoading: isJoinedLoading,
-                    errorMessage: joinedErrorMessage
-                )
-                .equatable()
-
-                HostedRoomsSection(
-                    rooms: hostedRooms,
-                    isLoading: isHostLoading,
-                    errorMessage: hostErrorMessage,
-                    onRoomClosed: { Task { await loadHostedRooms() } }
-                )
-                .equatable()
-
+                Section{
+                    JoinedRoomsSection(
+                        rooms: joinedRooms,
+                        isLoading: isJoinedLoading,
+                        errorMessage: joinedErrorMessage
+                    )
+                    .equatable()
+                    
+                    HostedRoomsSection(
+                        rooms: hostedRooms,
+                        isLoading: isHostLoading,
+                        errorMessage: hostErrorMessage,
+                        onRoomClosed: { Task { await loadHostedRooms() } }
+                    )
+                    .equatable()
+                    header: {
+                        Text("Mushroom")
+                    }
+                }
                 // MARK: Sign out
                 Section {
                     Button(role: .destructive) {
@@ -508,7 +512,7 @@ private struct JoinedRoomsSection: View, Equatable {
                 }
             }
         } header: {
-            Text(LocalizedStringKey("profile_mushroom_section"))
+            Text(LocalizedStringKey("profile_joined_section"))
         }
     }
 }
@@ -570,7 +574,7 @@ private struct HostedRoomsSection: View, Equatable {
                 }
             }
         } header: {
-            Text(LocalizedStringKey("profile_mushroom_section"))
+            Text(LocalizedStringKey("profile_hosted_section"))
         }
     }
 }

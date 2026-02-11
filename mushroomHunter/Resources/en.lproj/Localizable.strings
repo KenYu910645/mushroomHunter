@@ -215,8 +215,8 @@
 "profile_joined_empty_description" = "Rooms you joined will appear here.";
 "profile_players_format" = "👤 %d/%d";
 "profile_bid_format" = "Deposit: %d";
-"profile_joined_section" = "Joined Room";
-"profile_mushroom_section" = "Mushroom";
+"profile_joined_section" = "Joined Rooms";
+"profile_mushroom_section" = "Mushrooms";
 "profile_joined_footer" = "This list is loaded from Firestore: /rooms/*/attendees where uid == your uid.";
 "profile_loading_hosted" = "Loading hosted rooms…";
 "profile_hosted_empty_title" = "No Hosted Room";
