@@ -225,14 +225,14 @@ struct ProfileView: View {
                     Text(LocalizedStringKey("profile_community_footer"))
                 }
 
-                Section{
+                Section {
                     JoinedRoomsSection(
                         rooms: joinedRooms,
                         isLoading: isJoinedLoading,
                         errorMessage: joinedErrorMessage
                     )
                     .equatable()
-                    
+
                     HostedRoomsSection(
                         rooms: hostedRooms,
                         isLoading: isHostLoading,
@@ -240,9 +240,8 @@ struct ProfileView: View {
                         onRoomClosed: { Task { await loadHostedRooms() } }
                     )
                     .equatable()
-                    header: {
-                        Text("Mushroom")
-                    }
+                } header: {
+                    Text(LocalizedStringKey("profile_mushroom_section"))
                 }
                 // MARK: Sign out
                 Section {
@@ -466,7 +465,7 @@ private struct JoinedRoomsSection: View, Equatable {
     }
 
     var body: some View {
-        Section {
+        Group {
             if let err = errorMessage {
                 Text(err)
                     .foregroundStyle(.red)
@@ -511,8 +510,6 @@ private struct JoinedRoomsSection: View, Equatable {
                     }
                 }
             }
-        } header: {
-            Text(LocalizedStringKey("profile_joined_section"))
         }
     }
 }
@@ -532,7 +529,7 @@ private struct HostedRoomsSection: View, Equatable {
     }
 
     var body: some View {
-        Section {
+        Group {
             if let err = errorMessage {
                 Text(err)
                     .foregroundStyle(.red)
@@ -573,8 +570,6 @@ private struct HostedRoomsSection: View, Equatable {
                     }
                 }
             }
-        } header: {
-            Text(LocalizedStringKey("profile_hosted_section"))
         }
     }
 }
