@@ -1,31 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "big_mushroom 1.png",
-      "idiom" : "universal",
-      "platform" : "ios",
-      "size" : "1024x1024"
-    },
-    {
-      "appearances" : [
-        {
-          "appearance" : "luminosity",
-          "value" : "dark"
-        }
-      ],
-      "filename" : "big_mushroom.png",
-      "idiom" : "universal",
-      "platform" : "ios",
-      "size" : "1024x1024"
-    },
-    {
-      "appearances" : [
-        {
-          "appearance" : "luminosity",
-          "value" : "tinted"
-        }
-      ],
-      "filename" : "big_mushroom 2.png",
+      "filename" : "honeyHub_icon.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"

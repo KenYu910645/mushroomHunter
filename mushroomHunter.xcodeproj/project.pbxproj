@@ -19,7 +19,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		BEA4A7952F3070D8009038BE /* mushroomHunter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = mushroomHunter.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BEA4A7952F3070D8009038BE /* HoneyHub.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HoneyHub.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -61,7 +61,7 @@
 		BEA4A7962F3070D8009038BE /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				BEA4A7952F3070D8009038BE /* mushroomHunter.app */,
+				BEA4A7952F3070D8009038BE /* HoneyHub.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -69,9 +69,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		BEA4A7942F3070D8009038BE /* mushroomHunter */ = {
+		BEA4A7942F3070D8009038BE /* HoneyHub */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = BEA4A7A02F3070DA009038BE /* Build configuration list for PBXNativeTarget "mushroomHunter" */;
+			buildConfigurationList = BEA4A7A02F3070DA009038BE /* Build configuration list for PBXNativeTarget "HoneyHub" */;
 			buildPhases = (
 				BEA4A7912F3070D8009038BE /* Sources */,
 				BEA4A7922F3070D8009038BE /* Frameworks */,
@@ -84,7 +84,7 @@
 			fileSystemSynchronizedGroups = (
 				BEA4A7972F3070D8009038BE /* mushroomHunter */,
 			);
-			name = mushroomHunter;
+			name = HoneyHub;
 			packageProductDependencies = (
 				BEA4A7B22F30947A009038BE /* FirebaseAnalytics */,
 				BEA4A7B42F30947A009038BE /* FirebaseAnalyticsCore */,
@@ -97,7 +97,7 @@
 				BE336F562F30B30400EE3FD7 /* GoogleSignInSwift */,
 			);
 			productName = mushroomHunter;
-			productReference = BEA4A7952F3070D8009038BE /* mushroomHunter.app */;
+			productReference = BEA4A7952F3070D8009038BE /* HoneyHub.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -134,7 +134,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				BEA4A7942F3070D8009038BE /* mushroomHunter */,
+				BEA4A7942F3070D8009038BE /* HoneyHub */,
 			);
 		};
 /* End PBXProject section */
@@ -367,7 +367,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		BEA4A7A02F3070DA009038BE /* Build configuration list for PBXNativeTarget "mushroomHunter" */ = {
+		BEA4A7A02F3070DA009038BE /* Build configuration list for PBXNativeTarget "HoneyHub" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				BEA4A7A12F3070DA009038BE /* Debug */,

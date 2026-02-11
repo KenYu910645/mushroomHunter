@@ -57,4 +57,24 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         guard let token = fcmToken else { return }
         NotificationCenter.default.post(name: .didReceiveFcmToken, object: token)
     }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound, .badge])
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let userInfo = response.notification.request.content.userInfo
+        if let roomId = userInfo["roomId"] as? String ?? userInfo["room_id"] as? String {
+            NotificationCenter.default.post(name: .didOpenRoomFromPush, object: roomId)
+        }
+        completionHandler()
+    }
 }

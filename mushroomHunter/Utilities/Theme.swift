@@ -6,15 +6,15 @@ enum Theme {
         switch scheme {
         case .dark:
             colors = [
-                Color(red: 0.08, green: 0.10, blue: 0.09),
-                Color(red: 0.12, green: 0.16, blue: 0.12),
-                Color(red: 0.10, green: 0.12, blue: 0.15)
+                Color(red: 0.20, green: 0.14, blue: 0.06),
+                Color(red: 0.28, green: 0.18, blue: 0.07),
+                Color(red: 0.18, green: 0.12, blue: 0.06)
             ]
         default:
             colors = [
-                Color(red: 0.96, green: 0.94, blue: 0.89),
-                Color(red: 0.86, green: 0.92, blue: 0.82),
-                Color(red: 0.92, green: 0.87, blue: 0.80)
+                Color(red: 0.99, green: 0.94, blue: 0.78),
+                Color(red: 0.98, green: 0.86, blue: 0.60),
+                Color(red: 0.96, green: 0.80, blue: 0.52)
             ]
         }
 
@@ -28,9 +28,9 @@ enum Theme {
     static func cardBackground(for scheme: ColorScheme) -> Color {
         switch scheme {
         case .dark:
-            return Color(red: 0.14, green: 0.16, blue: 0.15).opacity(0.95)
+            return Color(red: 0.22, green: 0.16, blue: 0.09).opacity(0.95)
         default:
-            return Color.white.opacity(0.92)
+            return Color(red: 1.00, green: 0.97, blue: 0.90).opacity(0.95)
         }
     }
 }
