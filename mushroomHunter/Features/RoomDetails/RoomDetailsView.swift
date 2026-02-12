@@ -135,9 +135,12 @@ struct RoomDetailsView: View {
             Button(LocalizedStringKey("room_update_bid")) {
                 showDepositSheet = true
             }
-            Button(LocalizedStringKey("room_leave_room"), role: .destructive) {
+            Button {
                 leaveRoomName = vm.room?.title ?? ""
                 showLeaveConfirmAlert = true
+            } label: {
+                Text(LocalizedStringKey("room_leave_room"))
+                    .foregroundStyle(.red)
             }
         } message: {
             Text(LocalizedStringKey("room_next_round_message"))
@@ -915,7 +918,7 @@ private struct AttendeeRow: View {
                         Image("HoneyIcon")
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 14, height: 14)
+                            .frame(width: 20, height: 20)
                         Text(String(format: NSLocalizedString("room_bid_honey_format", comment: ""), attendee.depositHoney))
                             .font(.footnote)
                             .foregroundStyle(.secondary)
