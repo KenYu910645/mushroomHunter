@@ -128,6 +128,7 @@ Notes:
   - Seller (`auth.uid == sellerId`) sees edit toolbar action and can update listing fields or delete listing.
   - Non-seller sees buy action button only.
   - On buy, client runs Firestore transaction: decrements `stock` and deducts buyer `users/{uid}.honey` atomically.
+  - Postcard create/edit form clamps numeric input to avoid integer overflow (`priceHoney` max `1,000,000,000`; `stock` max `1,000,000`).
 
 #### `postcardOrders/{orderId}`
 Postcard transaction documents created when buyer confirms purchase.
@@ -193,3 +194,4 @@ Notes:
 - Attendee flow: after attendee accepts raid confirmation and pays host (`depositHoney -= fixedRaidCost`, host `honey += fixedRaidCost`), attendee can give host `1`, `2`, or `3` stars.
 - Host flow: when attendee accepts confirmation, attendee doc is marked `needsHostRating = true`; host can then give that attendee `1`, `2`, or `3` stars.
 - Stars updates write to `users/{uid}.stars` and also refresh room attendee stars in the active room so Room Details reflects new totals immediately.
+- Firestore transaction rule reminder: in room raid settlement transactions, read all attendee docs before applying any writes to avoid "all reads must occur before writes" transaction failures.

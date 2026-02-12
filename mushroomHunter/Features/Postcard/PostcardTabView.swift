@@ -1,6 +1,23 @@
 import SwiftUI
 import PhotosUI
 
+private let postcardMaxPriceHoney: Int = 1_000_000_000
+private let postcardMaxStock: Int = 1_000_000
+
+private func clampedNumericText(_ value: String, max: Int) -> String {
+    let digits = value.filter { $0.isNumber }
+    guard !digits.isEmpty else { return "" }
+
+    let maxText = String(max)
+    if digits.count > maxText.count {
+        return maxText
+    }
+    if digits.count == maxText.count && digits > maxText {
+        return maxText
+    }
+    return digits
+}
+
 // MARK: - Root Tab
 
 struct PostcardTabView: View {
@@ -70,6 +87,7 @@ struct PostcardBrowseView: View {
                             PostcardCardView(listing: listing, cardWidth: cardWidth)
                         }
                         .buttonStyle(.plain)
+                        .contentShape(RoundedRectangle(cornerRadius: 12))
                     }
                 }
                 .padding(.horizontal)
@@ -269,6 +287,8 @@ private struct PostcardCardView: View {
                 .fill(Theme.cardBackground(for: scheme))
                 .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
         )
+        .frame(width: cardWidth, alignment: .topLeading)
+        .contentShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
@@ -611,8 +631,8 @@ struct PostcardEditView: View {
                 TextField(LocalizedStringKey("postcard_price_field"), text: $priceText)
                     .keyboardType(.numberPad)
                     .onChange(of: priceText) { _, newValue in
-                        let filtered = newValue.filter { $0.isNumber }
-                        if filtered != newValue { priceText = filtered }
+                        let clamped = clampedNumericText(newValue, max: postcardMaxPriceHoney)
+                        if clamped != newValue { priceText = clamped }
                     }
 
                 TextField(LocalizedStringKey("postcard_country_field"), text: $country)
@@ -622,8 +642,8 @@ struct PostcardEditView: View {
                 TextField(LocalizedStringKey("postcard_stock_field"), text: $stockText)
                     .keyboardType(.numberPad)
                     .onChange(of: stockText) { _, newValue in
-                        let filtered = newValue.filter { $0.isNumber }
-                        if filtered != newValue { stockText = filtered }
+                        let clamped = clampedNumericText(newValue, max: postcardMaxStock)
+                        if clamped != newValue { stockText = clamped }
                     }
             }
 
@@ -673,13 +693,13 @@ struct PostcardEditView: View {
             return
         }
 
-        let price = Int(priceText.filter { $0.isNumber }) ?? 0
+        let price = Int(clampedNumericText(priceText, max: postcardMaxPriceHoney)) ?? 0
         guard price > 0 else {
             presentError(NSLocalizedString("postcard_validation_price_error", comment: ""))
             return
         }
 
-        let stock = Int(stockText.filter { $0.isNumber }) ?? 0
+        let stock = Int(clampedNumericText(stockText, max: postcardMaxStock)) ?? 0
         guard stock > 0 else {
             presentError(NSLocalizedString("postcard_validation_stock_error", comment: ""))
             return
@@ -817,8 +837,8 @@ struct PostcardRegisterView: View {
                 TextField(LocalizedStringKey("postcard_price_field"), text: $priceText)
                     .keyboardType(.numberPad)
                     .onChange(of: priceText) { _, newValue in
-                        let filtered = newValue.filter { $0.isNumber }
-                        if filtered != newValue { priceText = filtered }
+                        let clamped = clampedNumericText(newValue, max: postcardMaxPriceHoney)
+                        if clamped != newValue { priceText = clamped }
                     }
 
                 TextField(LocalizedStringKey("postcard_country_field"), text: $country)
@@ -828,8 +848,8 @@ struct PostcardRegisterView: View {
                 TextField(LocalizedStringKey("postcard_stock_field"), text: $stockText)
                     .keyboardType(.numberPad)
                     .onChange(of: stockText) { _, newValue in
-                        let filtered = newValue.filter { $0.isNumber }
-                        if filtered != newValue { stockText = filtered }
+                        let clamped = clampedNumericText(newValue, max: postcardMaxStock)
+                        if clamped != newValue { stockText = clamped }
                     }
             }
 
@@ -879,13 +899,13 @@ struct PostcardRegisterView: View {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanTitle.isEmpty else { return }
 
-        let price = Int(priceText.filter { $0.isNumber }) ?? 0
+        let price = Int(clampedNumericText(priceText, max: postcardMaxPriceHoney)) ?? 0
         guard price > 0 else {
             presentError(NSLocalizedString("postcard_validation_price_error", comment: ""))
             return
         }
 
-        let stock = Int(stockText.filter { $0.isNumber }) ?? 0
+        let stock = Int(clampedNumericText(stockText, max: postcardMaxStock)) ?? 0
         guard stock > 0 else {
             presentError(NSLocalizedString("postcard_validation_stock_error", comment: ""))
             return

@@ -459,6 +459,9 @@ final class FirebaseRoomActionsRepository {
 
             let raidCost = (room["fixedRaidCost"] as? Int) ?? 10
 
+            var attendeeDocs: [(ref: DocumentReference, data: [String: Any])] = []
+            attendeeDocs.reserveCapacity(attendeeUids.count)
+
             for attendeeUid in attendeeUids {
                 let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
                 let attendeeSnap: DocumentSnapshot
@@ -468,8 +471,11 @@ final class FirebaseRoomActionsRepository {
                 guard attendeeSnap.exists, let data = attendeeSnap.data() else {
                     continue
                 }
+                attendeeDocs.append((ref: attendeeRef, data: data))
+            }
 
-                let deposit = data["depositHoney"] as? Int ?? 0
+            for attendee in attendeeDocs {
+                let deposit = attendee.data["depositHoney"] as? Int ?? 0
                 if deposit < raidCost { continue }
 
                 tx.updateData([
@@ -478,7 +484,7 @@ final class FirebaseRoomActionsRepository {
                     "hostRatedAttendee": false,
                     "needsHostRating": false,
                     "updatedAt": now
-                ], forDocument: attendeeRef)
+                ], forDocument: attendee.ref)
             }
 
             let roomUpdates: [String: Any] = [

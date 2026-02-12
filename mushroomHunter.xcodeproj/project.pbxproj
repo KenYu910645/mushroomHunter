@@ -32,7 +32,7 @@
 
 /* Begin PBXFileReference section */
 		4DA9BB33F8CA7C3E4F4FD9BC /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
-		6F90ED5D794402F5CA079713 /* HoneyHubUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = HoneyHubUITests.xctest; path = HoneyHubUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6F90ED5D794402F5CA079713 /* HoneyHubUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HoneyHubUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7E02BB0AD9AE0EA4F453F4CE /* HoneyHubUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HoneyHubUITests.swift; path = HoneyHubUITests/HoneyHubUITests.swift; sourceTree = "<group>"; };
 		BEA4A7952F3070D8009038BE /* HoneyHub.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HoneyHub.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -40,8 +40,6 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		BEA4A7972F3070D8009038BE /* mushroomHunter */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = mushroomHunter;
 			sourceTree = "<group>";
 		};
@@ -427,7 +425,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kenyu.mushroomHunter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -464,7 +462,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kenyu.mushroomHunter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
