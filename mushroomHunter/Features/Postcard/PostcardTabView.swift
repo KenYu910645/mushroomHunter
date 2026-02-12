@@ -3,6 +3,7 @@ import PhotosUI
 
 private let postcardMaxPriceHoney: Int = 1_000_000_000
 private let postcardMaxStock: Int = 1_000_000
+private let postcardMaxDetailChars: Int = 100
 
 private func clampedNumericText(_ value: String, max: Int) -> String {
     let digits = value.filter { $0.isNumber }
@@ -303,6 +304,8 @@ struct PostcardDetailView: View {
     @State private var showBuyErrorAlert: Bool = false
     @State private var buyErrorMessage: String = ""
     @State private var showShippingSheet: Bool = false
+    @State private var sellerFriendCode: String = ""
+    @State private var showCopyToast: Bool = false
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var session: SessionStore
@@ -364,17 +367,40 @@ struct PostcardDetailView: View {
                         .font(.title2)
                         .fontWeight(.semibold)
 
-                    Text(currentListing.location.fullLabel)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 6) {
+                        Image(systemName: "mappin.and.ellipse")
+                        Text(currentListing.location.shortLabel)
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
 
-                    Text(String(format: NSLocalizedString("postcard_seller_format", comment: ""), currentListing.sellerName))
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 6) {
+                        Text(String(format: NSLocalizedString("postcard_seller_format", comment: ""), currentListing.sellerName))
+                        Text(formattedFriendCode(sellerFriendCode))
+                            .foregroundStyle(.secondary)
+                        Button {
+                            copyFriendCode(sellerFriendCode)
+                        } label: {
+                            Image(systemName: "doc.on.doc")
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(LocalizedStringKey("room_copy_host_code_accessibility"))
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
 
                     HStack {
                         Text(LocalizedStringKey("postcard_price_label"))
                         Spacer()
-                        Text(String(format: NSLocalizedString("postcard_price_honey_format", comment: ""), currentListing.priceHoney))
-                            .fontWeight(.semibold)
+                        HStack(spacing: 4) {
+                            Text("\(currentListing.priceHoney)")
+                                .fontWeight(.semibold)
+                                .monospacedDigit()
+                            Image("HoneyIcon")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 18, height: 18)
+                        }
                     }
 
                     HStack {
@@ -382,6 +408,12 @@ struct PostcardDetailView: View {
                         Spacer()
                         Text(String(format: NSLocalizedString("postcard_stock_plain_format", comment: ""), currentListing.stock))
                             .fontWeight(.semibold)
+                    }
+
+                    if !currentListing.location.detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(currentListing.location.detail)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -463,17 +495,61 @@ struct PostcardDetailView: View {
                 PostcardShippingView(postcard: currentListing)
             }
         }
+        .overlay(alignment: .top) {
+            if showCopyToast {
+                Text(LocalizedStringKey("common_copied"))
+                    .font(.footnote)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
     }
 
     private func refreshListing() async {
         do {
             if let refreshed = try await repo.fetchPostcard(postcardId: currentListing.id) {
                 currentListing = refreshed
+                sellerFriendCode = try await repo.fetchUserFriendCode(userId: refreshed.sellerId)
             } else {
                 dismiss()
             }
         } catch {
             // Keep existing content if network refresh fails.
+        }
+    }
+
+    private func formattedFriendCode(_ raw: String) -> String {
+        let digits = raw.filter { $0.isNumber }
+        guard !digits.isEmpty else { return "-" }
+        if digits.count <= 4 { return digits }
+        if digits.count <= 8 {
+            let first = digits.prefix(4)
+            let second = digits.suffix(max(0, digits.count - 4))
+            return "\(first) \(second)"
+        }
+        let first = digits.prefix(4)
+        let second = digits.dropFirst(4).prefix(4)
+        let third = digits.dropFirst(8).prefix(4)
+        return "\(first) \(second) \(third)"
+    }
+
+    private func copyFriendCode(_ raw: String) {
+        let digits = raw.filter { $0.isNumber }
+        guard !digits.isEmpty else { return }
+        UIPasteboard.general.string = digits
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showCopyToast = true
+        }
+        Task {
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showCopyToast = false
+                }
+            }
         }
     }
 
@@ -599,56 +675,184 @@ struct PostcardEditView: View {
     let onDeleted: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
     @State private var title: String
     @State private var priceText: String
-    @State private var country: String
+    @State private var countryCode: String
     @State private var province: String
     @State private var detail: String
     @State private var stockText: String
+    @State private var selectedItem: PhotosPickerItem? = nil
+    @State private var selectedImage: UIImage? = nil
     @State private var isSaving: Bool = false
     @State private var showErrorAlert: Bool = false
     @State private var errorMessage: String = ""
     @State private var showDeleteConfirm: Bool = false
+    @State private var uploadError: String? = nil
     private let repo = FirebasePostcardRepository()
+    private let uploader = FirebasePostcardImageUploader()
 
     init(listing: PostcardListing, onDeleted: @escaping () -> Void) {
         self.listing = listing
         self.onDeleted = onDeleted
         _title = State(initialValue: listing.title)
         _priceText = State(initialValue: "\(listing.priceHoney)")
-        _country = State(initialValue: listing.location.country)
+        _countryCode = State(initialValue: HostViewModel.countryCode(forName: listing.location.country) ?? "TW")
         _province = State(initialValue: listing.location.province)
         _detail = State(initialValue: listing.location.detail)
         _stockText = State(initialValue: "\(listing.stock)")
     }
 
+    private var countryName: String {
+        HostViewModel.countryName(for: countryCode)
+    }
+
     var body: some View {
         Form {
+            Section(LocalizedStringKey("postcard_snapshot_section")) {
+                VStack(alignment: .leading, spacing: 12) {
+                    PhotosPicker(selection: $selectedItem, matching: .images) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(.secondarySystemBackground))
+                                .frame(height: 160)
+
+                            if let uiImage = selectedImage {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(height: 160)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                            } else if let urlString = listing.imageUrl,
+                                      let url = URL(string: urlString) {
+                                AsyncImage(url: url) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image
+                                            .resizable()
+                                            .scaledToFill()
+                                    case .failure:
+                                        Image(systemName: "photo")
+                                            .font(.title2)
+                                            .foregroundStyle(.secondary)
+                                    case .empty:
+                                        ProgressView()
+                                    @unknown default:
+                                        Image(systemName: "photo")
+                                            .font(.title2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .frame(height: 160)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                            } else {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "photo")
+                                        .font(.title2)
+                                        .foregroundStyle(.secondary)
+                                    Text(LocalizedStringKey("postcard_snapshot_hint"))
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+
+                    if let err = uploadError {
+                        Text(err)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+
             Section(LocalizedStringKey("postcard_info_section")) {
-                TextField(LocalizedStringKey("postcard_title_field"), text: $title)
-                    .textInputAutocapitalization(.words)
+                HStack(spacing: 12) {
+                    Text(LocalizedStringKey("postcard_title_field"))
+                    Spacer()
+                    TextField("Postcard", text: $title)
+                        .multilineTextAlignment(.trailing)
+                        .textInputAutocapitalization(.words)
+                }
 
-                TextField(LocalizedStringKey("postcard_price_field"), text: $priceText)
-                    .keyboardType(.numberPad)
-                    .onChange(of: priceText) { _, newValue in
-                        let clamped = clampedNumericText(newValue, max: postcardMaxPriceHoney)
-                        if clamped != newValue { priceText = clamped }
+                HStack(spacing: 12) {
+                    Text(LocalizedStringKey("postcard_price_field"))
+                    Spacer()
+                    TextField("10", text: $priceText)
+                        .multilineTextAlignment(.trailing)
+                        .keyboardType(.numberPad)
+                        .onChange(of: priceText) { _, newValue in
+                            let clamped = clampedNumericText(newValue, max: postcardMaxPriceHoney)
+                            if clamped != newValue { priceText = clamped }
+                        }
+                }
+
+                HStack(spacing: 12) {
+                    Text(LocalizedStringKey("postcard_country_field"))
+                    Spacer()
+                    Picker("", selection: $countryCode) {
+                        ForEach(HostViewModel.availableCountries, id: \.code) { item in
+                            Text(item.name).tag(item.code)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                }
+
+                HStack(spacing: 12) {
+                    Text(LocalizedStringKey("postcard_province_field"))
+                    Spacer()
+                    TextField("somewhere", text: $province)
+                        .multilineTextAlignment(.trailing)
+                }
+
+                HStack(spacing: 12) {
+                    Text(LocalizedStringKey("postcard_stock_field"))
+                    Spacer()
+                    TextField("1", text: $stockText)
+                        .multilineTextAlignment(.trailing)
+                        .keyboardType(.numberPad)
+                        .onChange(of: stockText) { _, newValue in
+                            let clamped = clampedNumericText(newValue, max: postcardMaxStock)
+                            if clamped != newValue { stockText = clamped }
+                        }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(LocalizedStringKey("postcard_detail_field"))
+                        Spacer()
                     }
 
-                TextField(LocalizedStringKey("postcard_country_field"), text: $country)
-                TextField(LocalizedStringKey("postcard_province_field"), text: $province)
-                TextField(LocalizedStringKey("postcard_detail_field"), text: $detail)
+                    ZStack(alignment: .topLeading) {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color(.secondarySystemBackground))
 
-                TextField(LocalizedStringKey("postcard_stock_field"), text: $stockText)
-                    .keyboardType(.numberPad)
-                    .onChange(of: stockText) { _, newValue in
-                        let clamped = clampedNumericText(newValue, max: postcardMaxStock)
-                        if clamped != newValue { stockText = clamped }
+                        if detail.isEmpty {
+                            Text("I found this postcard in the forest...")
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 8)
+                                .padding(.leading, 6)
+                        }
+
+                        TextEditor(text: $detail)
+                            .scrollContentBackground(.hidden)
+                            .padding(.horizontal, 2)
+                            .frame(minHeight: 110)
                     }
+                    .frame(minHeight: 110)
+
+                    HStack {
+                        Spacer()
+                        Text("\(detail.count)/\(postcardMaxDetailChars)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             Section {
-                Button(LocalizedStringKey("common_save")) {
+                Button(LocalizedStringKey("host_save_button")) {
                     Task { await saveChanges() }
                 }
                 .disabled(isSaving)
@@ -662,6 +866,8 @@ struct PostcardEditView: View {
             }
         }
         .navigationTitle(LocalizedStringKey("postcard_edit_title"))
+        .scrollContentBackground(.hidden)
+        .background(Theme.backgroundGradient(for: scheme))
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button(LocalizedStringKey("common_cancel")) {
@@ -684,6 +890,29 @@ struct PostcardEditView: View {
         } message: {
             Text(errorMessage)
         }
+        .onChange(of: selectedItem) { _, newValue in
+            guard let newValue else { return }
+            Task { await loadSelectedPhoto(newValue) }
+        }
+        .onChange(of: detail) { _, newValue in
+            if newValue.count > postcardMaxDetailChars {
+                detail = String(newValue.prefix(postcardMaxDetailChars))
+            }
+        }
+    }
+
+    private func loadSelectedPhoto(_ item: PhotosPickerItem) async {
+        uploadError = nil
+        do {
+            if let data = try await item.loadTransferable(type: Data.self),
+               let image = UIImage(data: data) {
+                selectedImage = image
+            } else {
+                uploadError = NSLocalizedString("postcard_upload_load_error", comment: "")
+            }
+        } catch {
+            uploadError = error.localizedDescription
+        }
     }
 
     private func saveChanges() async {
@@ -705,7 +934,7 @@ struct PostcardEditView: View {
             return
         }
 
-        let cleanCountry = country.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanCountry = countryName.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanProvince = province.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanCountry.isEmpty, !cleanProvince.isEmpty else {
             presentError(NSLocalizedString("postcard_validation_location_error", comment: ""))
@@ -716,6 +945,16 @@ struct PostcardEditView: View {
         defer { isSaving = false }
 
         do {
+            var newImageUrl: String? = nil
+            if let image = selectedImage {
+                guard let data = image.jpegData(compressionQuality: 0.85) else {
+                    presentError(NSLocalizedString("postcard_upload_process_error", comment: ""))
+                    return
+                }
+                let uploaded = try await uploader.uploadPostcardImage(data: data, ownerId: listing.sellerId)
+                newImageUrl = uploaded.absoluteString
+            }
+
             try await repo.updatePostcard(
                 postcardId: listing.id,
                 title: cleanTitle,
@@ -726,7 +965,8 @@ struct PostcardEditView: View {
                     detail: detail.trimmingCharacters(in: .whitespacesAndNewlines)
                 ),
                 stock: stock,
-                sellerName: listing.sellerName
+                sellerName: listing.sellerName,
+                imageUrl: newImageUrl
             )
             dismiss()
         } catch {
@@ -760,10 +1000,10 @@ struct PostcardRegisterView: View {
     @Environment(\.colorScheme) private var scheme
     @State private var title: String = ""
     @State private var priceText: String = ""
-    @State private var country: String = ""
+    @State private var countryCode: String = "TW"
     @State private var province: String = ""
     @State private var detail: String = ""
-    @State private var stockText: String = "1"
+    @State private var stockText: String = ""
     @State private var showErrorAlert: Bool = false
     @State private var errorAlertMessage: String = ""
     @State private var selectedItem: PhotosPickerItem? = nil
@@ -780,35 +1020,37 @@ struct PostcardRegisterView: View {
         self.onSubmitted = onSubmitted
     }
 
+    private var countryName: String {
+        HostViewModel.countryName(for: countryCode)
+    }
+
     var body: some View {
         Form {
             Section(LocalizedStringKey("postcard_snapshot_section")) {
                 VStack(alignment: .leading, spacing: 12) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.secondarySystemBackground))
-                            .frame(height: 160)
-
-                        if let uiImage = selectedImage {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFill()
+                    PhotosPicker(selection: $selectedItem, matching: .images) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(.secondarySystemBackground))
                                 .frame(height: 160)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                        } else {
-                            VStack(spacing: 6) {
-                                Image(systemName: "photo")
-                                    .font(.title2)
-                                    .foregroundStyle(.secondary)
-                                Text(LocalizedStringKey("postcard_snapshot_hint"))
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+
+                            if let uiImage = selectedImage {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(height: 160)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                            } else {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "photo")
+                                        .font(.title2)
+                                        .foregroundStyle(.secondary)
+                                    Text(LocalizedStringKey("postcard_snapshot_hint"))
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
-                    }
-
-                    PhotosPicker(selection: $selectedItem, matching: .images) {
-                        Label(LocalizedStringKey("postcard_select_photo_button"), systemImage: "photo.on.rectangle")
                     }
 
                     if isUploading {
@@ -831,26 +1073,88 @@ struct PostcardRegisterView: View {
             }
 
             Section(LocalizedStringKey("postcard_info_section")) {
-                TextField(LocalizedStringKey("postcard_title_field"), text: $title)
-                    .textInputAutocapitalization(.words)
+                HStack(spacing: 12) {
+                    Text(LocalizedStringKey("postcard_title_field"))
+                    Spacer()
+                    TextField("Postcard", text: $title)
+                        .multilineTextAlignment(.trailing)
+                        .textInputAutocapitalization(.words)
+                }
 
-                TextField(LocalizedStringKey("postcard_price_field"), text: $priceText)
-                    .keyboardType(.numberPad)
-                    .onChange(of: priceText) { _, newValue in
-                        let clamped = clampedNumericText(newValue, max: postcardMaxPriceHoney)
-                        if clamped != newValue { priceText = clamped }
+                HStack(spacing: 12) {
+                    Text(LocalizedStringKey("postcard_price_field"))
+                    Spacer()
+                    TextField("10", text: $priceText)
+                        .multilineTextAlignment(.trailing)
+                        .keyboardType(.numberPad)
+                        .onChange(of: priceText) { _, newValue in
+                            let clamped = clampedNumericText(newValue, max: postcardMaxPriceHoney)
+                            if clamped != newValue { priceText = clamped }
+                        }
+                }
+
+                HStack(spacing: 12) {
+                    Text(LocalizedStringKey("postcard_country_field"))
+                    Spacer()
+                    Picker("", selection: $countryCode) {
+                        ForEach(HostViewModel.availableCountries, id: \.code) { item in
+                            Text(item.name).tag(item.code)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                }
+
+                HStack(spacing: 12) {
+                    Text(LocalizedStringKey("postcard_province_field"))
+                    Spacer()
+                    TextField("somewhere", text: $province)
+                        .multilineTextAlignment(.trailing)
+                }
+
+                HStack(spacing: 12) {
+                    Text(LocalizedStringKey("postcard_stock_field"))
+                    Spacer()
+                    TextField("1", text: $stockText)
+                        .multilineTextAlignment(.trailing)
+                        .keyboardType(.numberPad)
+                        .onChange(of: stockText) { _, newValue in
+                            let clamped = clampedNumericText(newValue, max: postcardMaxStock)
+                            if clamped != newValue { stockText = clamped }
+                        }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(LocalizedStringKey("postcard_detail_field"))
+                        Spacer()
                     }
 
-                TextField(LocalizedStringKey("postcard_country_field"), text: $country)
-                TextField(LocalizedStringKey("postcard_province_field"), text: $province)
-                TextField(LocalizedStringKey("postcard_detail_field"), text: $detail)
+                    ZStack(alignment: .topLeading) {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color(.secondarySystemBackground))
 
-                TextField(LocalizedStringKey("postcard_stock_field"), text: $stockText)
-                    .keyboardType(.numberPad)
-                    .onChange(of: stockText) { _, newValue in
-                        let clamped = clampedNumericText(newValue, max: postcardMaxStock)
-                        if clamped != newValue { stockText = clamped }
+                        if detail.isEmpty {
+                            Text("I found this postcard in the forest...")
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 8)
+                                .padding(.leading, 6)
+                        }
+
+                        TextEditor(text: $detail)
+                            .scrollContentBackground(.hidden)
+                            .padding(.horizontal, 2)
+                            .frame(minHeight: 110)
                     }
+                    .frame(minHeight: 110)
+
+                    HStack {
+                        Spacer()
+                        Text("\(detail.count)/\(postcardMaxDetailChars)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             Section {
@@ -867,6 +1171,11 @@ struct PostcardRegisterView: View {
         .onChange(of: selectedItem) { _, newValue in
             guard let newValue else { return }
             Task { await loadSelectedPhoto(newValue) }
+        }
+        .onChange(of: detail) { _, newValue in
+            if newValue.count > postcardMaxDetailChars {
+                detail = String(newValue.prefix(postcardMaxDetailChars))
+            }
         }
         .alert(LocalizedStringKey("common_error"), isPresented: $showErrorAlert) {
             Button(LocalizedStringKey("common_ok")) {}
@@ -905,13 +1214,14 @@ struct PostcardRegisterView: View {
             return
         }
 
-        let stock = Int(clampedNumericText(stockText, max: postcardMaxStock)) ?? 0
+        let stockInput = clampedNumericText(stockText, max: postcardMaxStock)
+        let stock = Int(stockInput.isEmpty ? "1" : stockInput) ?? 0
         guard stock > 0 else {
             presentError(NSLocalizedString("postcard_validation_stock_error", comment: ""))
             return
         }
 
-        let cleanCountry = country.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanCountry = countryName.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanProvince = province.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanCountry.isEmpty, !cleanProvince.isEmpty else {
             presentError(NSLocalizedString("postcard_validation_location_error", comment: ""))
@@ -965,10 +1275,10 @@ struct PostcardRegisterView: View {
     private func resetForm() {
         title = ""
         priceText = ""
-        country = ""
+        countryCode = "TW"
         province = ""
         detail = ""
-        stockText = "1"
+        stockText = ""
         selectedItem = nil
         selectedImage = nil
         uploadedImageUrl = nil

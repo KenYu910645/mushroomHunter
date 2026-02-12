@@ -77,6 +77,17 @@ final class FirebasePostcardRepository {
         return decodeListing(id: snap.documentID, data: data)
     }
 
+    func fetchUserFriendCode(userId: String) async throws -> String {
+        let ref = db.collection("users").document(userId)
+        let snap: DocumentSnapshot
+        do {
+            snap = try await ref.getDocument(source: .server)
+        } catch {
+            snap = try await ref.getDocument(source: .default)
+        }
+        return snap.data()?["friendCode"] as? String ?? ""
+    }
+
     func createPostcard(
         title: String,
         priceHoney: Int,
@@ -120,7 +131,8 @@ final class FirebasePostcardRepository {
         priceHoney: Int,
         location: PostcardLocation,
         stock: Int,
-        sellerName: String
+        sellerName: String,
+        imageUrl: String? = nil
     ) async throws {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanSeller = sellerName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -131,7 +143,7 @@ final class FirebasePostcardRepository {
             from: [cleanTitle, cleanSeller, cleanCountry, cleanProvince, cleanDetail]
         )
 
-        try await db.collection("postcards").document(postcardId).setData([
+        var payload: [String: Any] = [
             "title": cleanTitle,
             "priceHoney": priceHoney,
             "stock": stock,
@@ -142,7 +154,12 @@ final class FirebasePostcardRepository {
             ],
             "searchTokens": tokens,
             "updatedAt": Timestamp(date: Date())
-        ], merge: true)
+        ]
+        if let imageUrl {
+            payload["imageUrl"] = imageUrl
+        }
+
+        try await db.collection("postcards").document(postcardId).setData(payload, merge: true)
     }
 
     func deletePostcard(postcardId: String) async throws {

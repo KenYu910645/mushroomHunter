@@ -13,6 +13,9 @@ Core flows:
 - Browse/search postcards and upload postcard images to Firebase Storage.
 - Postcard register success dismisses the sheet and refreshes browse; postcard browse/detail pull-to-refresh fetch latest Firestore data.
 - Seller can open a shipping sheet from postcard detail, see waiting buyers, and mark each order as sent.
+- Postcard register form uses left-label/right-input rows, and country selection uses a dropdown list (same country source as room create).
+- In postcard register, tapping the snapshot area opens photo picker (no separate photo button); default country is Taiwan.
+- Postcard register detail text is capped at 100 characters.
 
 
 ## Always Build/Install/Run After Code Changes
