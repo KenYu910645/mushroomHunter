@@ -26,6 +26,7 @@ struct PostcardLocation: Equatable {
 
 struct PostcardListing: Identifiable, Equatable {
     let id: String
+    let sellerId: String
     let title: String
     let priceHoney: Int
     let location: PostcardLocation

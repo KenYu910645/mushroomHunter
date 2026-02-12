@@ -624,12 +624,8 @@ final class FirebaseRoomActionsRepository {
 
         try await db.runTransaction { tx, errPtr -> Any? in
             let attendeeSnap: DocumentSnapshot
-            let hostUserSnap: DocumentSnapshot
-            let hostAttendeeSnap: DocumentSnapshot
             do {
                 attendeeSnap = try tx.getDocument(attendeeRef)
-                hostUserSnap = try tx.getDocument(hostUserRef)
-                hostAttendeeSnap = try tx.getDocument(hostAttendeeRef)
             } catch {
                 errPtr?.pointee = error as NSError
                 return nil
@@ -651,19 +647,17 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
-            let hostStars = hostUserSnap.data()?["stars"] as? Int ?? 0
-            let updatedHostStars = max(0, hostStars) + stars
+            // Always persist rating to users/{hostUid} so profile + backend data stay in sync.
             tx.setData([
-                "stars": updatedHostStars,
+                "stars": FieldValue.increment(Int64(stars)),
                 "updatedAt": now
             ], forDocument: hostUserRef, merge: true)
 
-            if hostAttendeeSnap.exists {
-                tx.setData([
-                    "stars": updatedHostStars,
-                    "updatedAt": now
-                ], forDocument: hostAttendeeRef, merge: true)
-            }
+            // Also reflect the latest stars in this room attendee row.
+            tx.setData([
+                "stars": FieldValue.increment(Int64(stars)),
+                "updatedAt": now
+            ], forDocument: hostAttendeeRef, merge: true)
 
             tx.updateData([
                 "attendeeRatedHost": true,
@@ -688,11 +682,9 @@ final class FirebaseRoomActionsRepository {
         try await db.runTransaction { tx, errPtr -> Any? in
             let hostSelfSnap: DocumentSnapshot
             let attendeeSnap: DocumentSnapshot
-            let attendeeUserSnap: DocumentSnapshot
             do {
                 hostSelfSnap = try tx.getDocument(hostSelfRef)
                 attendeeSnap = try tx.getDocument(attendeeRef)
-                attendeeUserSnap = try tx.getDocument(attendeeUserRef)
             } catch {
                 errPtr?.pointee = error as NSError
                 return nil
@@ -727,15 +719,15 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
-            let attendeeStars = attendeeUserSnap.data()?["stars"] as? Int ?? 0
-            let updatedAttendeeStars = max(0, attendeeStars) + stars
+            // Always persist rating to users/{attendeeUid} so profile + backend data stay in sync.
             tx.setData([
-                "stars": updatedAttendeeStars,
+                "stars": FieldValue.increment(Int64(stars)),
                 "updatedAt": now
             ], forDocument: attendeeUserRef, merge: true)
 
+            // Also reflect the latest stars in this room attendee row.
             tx.updateData([
-                "stars": updatedAttendeeStars,
+                "stars": FieldValue.increment(Int64(stars)),
                 "hostRatedAttendee": true,
                 "needsHostRating": false,
                 "updatedAt": now

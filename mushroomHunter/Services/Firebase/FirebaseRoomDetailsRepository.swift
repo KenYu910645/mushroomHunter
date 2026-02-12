@@ -12,7 +12,13 @@ final class FirebaseRoomDetailsRepository {
     private let db = Firestore.firestore()
 
     func fetchRoom(roomId: String) async throws -> RoomDetail {
-        let snap = try await db.collection("rooms").document(roomId).getDocument()
+        let ref = db.collection("rooms").document(roomId)
+        let snap: DocumentSnapshot
+        do {
+            snap = try await ref.getDocument(source: .server)
+        } catch {
+            snap = try await ref.getDocument(source: .default)
+        }
 
         guard let data = snap.data() else {
             throw NSError(domain: "Room", code: 404, userInfo: [NSLocalizedDescriptionKey: "Room not found"])
@@ -57,11 +63,17 @@ final class FirebaseRoomDetailsRepository {
     func fetchAttendees(roomId: String) async throws -> [RoomAttendee] {
         // Most useful sort: high deposit first
         // (single-field orderBy in a subcollection does NOT require composite index)
-        let qs = try await db.collection("rooms")
+        let query = db.collection("rooms")
             .document(roomId)
             .collection("attendees")
             .order(by: "depositHoney", descending: true)
-            .getDocuments()
+
+        let qs: QuerySnapshot
+        do {
+            qs = try await query.getDocuments(source: .server)
+        } catch {
+            qs = try await query.getDocuments(source: .default)
+        }
 
         return qs.documents.map { doc in
             let d = doc.data()

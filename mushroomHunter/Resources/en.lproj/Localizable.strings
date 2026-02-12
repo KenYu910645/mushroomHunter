@@ -104,6 +104,7 @@
 "postcard_search_message" = "Type to filter postcards.";
 "postcard_search_accessibility" = "Search postcards";
 "postcard_register_accessibility" = "Register postcard";
+"postcard_edit_accessibility" = "Edit postcard";
 "postcard_country" = "Country";
 "postcard_province" = "Province";
 "postcard_sort" = "Sort";
@@ -134,8 +135,12 @@
 "postcard_detail_field" = "Detail (optional)";
 "postcard_stock_field" = "Stock";
 "postcard_submit_button" = "Submit Postcard";
+"postcard_edit_title" = "Edit Postcard";
+"postcard_remove_button" = "Remove from Market";
+"postcard_remove_confirm_title" = "Remove this postcard listing?";
 "postcard_submitted_title" = "Submitted";
 "postcard_submitted_message" = "Postcard listed successfully.";
+"postcard_validation_title_error" = "Please enter a title.";
 "postcard_validation_price_error" = "Please enter a valid price.";
 "postcard_validation_stock_error" = "Please enter valid stock.";
 "postcard_validation_location_error" = "Country and province are required.";
@@ -295,10 +300,8 @@
 "room_claim_confirm_message_with_list" = "Are you sure the following attendees came to the mushroom raid?\n%@";
 "room_raid_thanks_title" = "Nice!";
 "room_raid_thanks_message" = "Nice! Enjoy the mushroom. Transfer %d 🍯 to the host.";
-"room_rate_host_title" = "Rate Host";
-"room_rate_host_message" = "How many stars do you want to give %@?";
-"room_rate_attendee_title" = "Rate Attendee";
-"room_rate_attendee_message" = "How many stars do you want to give %@?";
-"room_rate_one_star" = "1 Star";
-"room_rate_two_stars" = "2 Stars";
-"room_rate_three_stars" = "3 Stars";
+"room_rate_host_title" = "Rate the Host: %@";
+"room_rate_attendee_title" = "Rate Attendee: %@?";
+"room_rate_one_star" = "⭐";
+"room_rate_two_stars" = "⭐⭐";
+"room_rate_three_stars" = "⭐⭐⭐";

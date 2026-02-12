@@ -143,7 +143,10 @@ struct RoomDetailsView: View {
         } message: {
             Text(String(format: NSLocalizedString("room_raid_thanks_message", comment: ""), raidThanksHoney))
         }
-        .alert(LocalizedStringKey("room_rate_host_title"), isPresented: $showAttendeeRateHostAlert) {
+        .alert(
+            Text(String(format: NSLocalizedString("room_rate_host_title", comment: ""), vm.room?.hostName ?? "Host")),
+            isPresented: $showAttendeeRateHostAlert
+        ) {
             Button(LocalizedStringKey("room_rate_one_star")) {
                 Task {
                     await vm.rateHost(stars: 1)
@@ -165,10 +168,11 @@ struct RoomDetailsView: View {
             Button(LocalizedStringKey("common_cancel"), role: .cancel) {
                 presentNextRoundAlertIfNeeded()
             }
-        } message: {
-            Text(String(format: NSLocalizedString("room_rate_host_message", comment: ""), vm.room?.hostName ?? "Host"))
         }
-        .alert(LocalizedStringKey("room_rate_attendee_title"), isPresented: $showHostRateAttendeeAlert) {
+        .alert(
+            Text(String(format: NSLocalizedString("room_rate_attendee_title", comment: ""), hostRateAttendeeName)),
+            isPresented: $showHostRateAttendeeAlert
+        ) {
             Button(LocalizedStringKey("room_rate_one_star")) {
                 let attendeeId = hostRateAttendeeId
                 Task {
@@ -193,8 +197,6 @@ struct RoomDetailsView: View {
             Button(LocalizedStringKey("common_cancel"), role: .cancel) {
                 presentNextHostRatingAlertIfNeeded(excluding: hostRateAttendeeId)
             }
-        } message: {
-            Text(String(format: NSLocalizedString("room_rate_attendee_message", comment: ""), hostRateAttendeeName))
         }
         .alert(LocalizedStringKey("room_next_round_title"), isPresented: $showNextRoundAlert) {
             Button(LocalizedStringKey("room_update_bid")) {
