@@ -1,18 +1,35 @@
 import Foundation
+import FirebaseAuth
 import FirebaseFirestore
 
 enum PostcardRepoError: LocalizedError {
     case decodeFailed(String)
+    case notSignedIn
+    case listingNotFound
+    case invalidListing
+    case outOfStock
+    case notEnoughHoney
+    case cannotBuyOwnListing
 
     var errorDescription: String? {
         switch self {
         case .decodeFailed(let msg): return msg
+        case .notSignedIn: return "Please sign in first."
+        case .listingNotFound: return "Postcard listing not found."
+        case .invalidListing: return "Postcard listing is invalid."
+        case .outOfStock: return "This postcard is out of stock."
+        case .notEnoughHoney: return "Not enough honey."
+        case .cannotBuyOwnListing: return "You cannot buy your own postcard."
         }
     }
 }
 
 final class FirebasePostcardRepository {
     private let db = Firestore.firestore()
+    private let sellerSendReminderHours = 24
+    private let sellerSendDeadlineHours = 24
+    private let buyerReceiveReminderHours = 24
+    private let buyerAutoCompleteHours = 72
 
     func fetchRecent(limit: Int = 50) async throws -> [PostcardListing] {
         let q = db.collection("postcards")
@@ -128,6 +145,110 @@ final class FirebasePostcardRepository {
         try await db.collection("postcards").document(postcardId).delete()
     }
 
+    @discardableResult
+    func buyPostcard(postcardId: String) async throws -> String {
+        guard let buyerId = Auth.auth().currentUser?.uid else {
+            throw PostcardRepoError.notSignedIn
+        }
+
+        let orderRef = db.collection("postcardOrders").document()
+        let postcardRef = db.collection("postcards").document(postcardId)
+        let buyerRef = db.collection("users").document(buyerId)
+
+        let nowDate = Date()
+        let now = Timestamp(date: nowDate)
+        let sellerReminderAt = Timestamp(date: nowDate.addingTimeInterval(TimeInterval(sellerSendReminderHours * 3600)))
+        let sellerDeadlineAt = Timestamp(date: nowDate.addingTimeInterval(TimeInterval(sellerSendDeadlineHours * 3600)))
+        let buyerReminderAt = Timestamp(date: nowDate.addingTimeInterval(TimeInterval(buyerReceiveReminderHours * 3600)))
+        let buyerAutoCompleteAt = Timestamp(date: nowDate.addingTimeInterval(TimeInterval(buyerAutoCompleteHours * 3600)))
+
+        _ = try await db.runTransaction { tx, errorPointer in
+            let postcardSnap: DocumentSnapshot
+            let buyerSnap: DocumentSnapshot
+            do {
+                postcardSnap = try tx.getDocument(postcardRef)
+                buyerSnap = try tx.getDocument(buyerRef)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+
+            guard let postcard = postcardSnap.data() else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.listingNotFound)
+                return nil
+            }
+
+            let stock = postcard["stock"] as? Int ?? 0
+            let priceHoney = postcard["priceHoney"] as? Int ?? 0
+            let sellerId = postcard["sellerId"] as? String ?? ""
+            let sellerName = postcard["sellerName"] as? String ?? "Unknown"
+            let title = postcard["title"] as? String ?? "Untitled"
+
+            guard stock > 0 else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.outOfStock)
+                return nil
+            }
+            guard priceHoney > 0, !sellerId.isEmpty else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.invalidListing)
+                return nil
+            }
+            guard sellerId != buyerId else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.cannotBuyOwnListing)
+                return nil
+            }
+
+            let buyerHoney = buyerSnap.data()?["honey"] as? Int ?? 0
+            guard buyerHoney >= priceHoney else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.notEnoughHoney)
+                return nil
+            }
+
+            tx.updateData([
+                "stock": stock - 1,
+                "updatedAt": now
+            ], forDocument: postcardRef)
+
+            tx.setData([
+                "honey": buyerHoney - priceHoney,
+                "updatedAt": now
+            ], forDocument: buyerRef, merge: true)
+
+            let location = postcard["location"] as? [String: Any] ?? [:]
+            let imageUrl = postcard["imageUrl"] as? String ?? ""
+            let buyerName = buyerSnap.data()?["displayName"] as? String ?? "Unknown"
+
+            tx.setData([
+                "postcardId": postcardId,
+                "postcardTitle": title,
+                "postcardImageUrl": imageUrl,
+                "location": location,
+                "status": PostcardOrderStatus.awaitingSellerSend.rawValue,
+                "buyerId": buyerId,
+                "buyerName": buyerName,
+                "sellerId": sellerId,
+                "sellerName": sellerName,
+                "priceHoney": priceHoney,
+                "holdHoney": priceHoney,
+                "sellerReminderAt": sellerReminderAt,
+                "sellerDeadlineAt": sellerDeadlineAt,
+                "buyerReminderAt": buyerReminderAt,
+                "buyerAutoCompleteAt": buyerAutoCompleteAt,
+                "timeouts": [
+                    "sellerSendReminderHours": self.sellerSendReminderHours,
+                    "sellerSendDeadlineHours": self.sellerSendDeadlineHours,
+                    "buyerReceiveReminderHours": self.buyerReceiveReminderHours,
+                    "buyerAutoCompleteHours": self.buyerAutoCompleteHours
+                ],
+                "createdAt": now,
+                "updatedAt": now
+            ], forDocument: orderRef)
+
+            return nil
+        }
+
+        return orderRef.documentID
+    }
+
     private func decodeListing(_ doc: QueryDocumentSnapshot) -> PostcardListing {
         decodeListing(id: doc.documentID, data: doc.data())
     }
@@ -159,6 +280,14 @@ final class FirebasePostcardRepository {
             stock: stock,
             imageUrl: imageUrl,
             createdAt: createdAt
+        )
+    }
+
+    private func makeError(_ error: PostcardRepoError) -> NSError {
+        NSError(
+            domain: "Postcard",
+            code: 400,
+            userInfo: [NSLocalizedDescriptionKey: error.errorDescription ?? "Postcard error."]
         )
     }
 }

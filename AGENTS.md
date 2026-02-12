@@ -126,6 +126,33 @@ Notes:
 - Postcard detail view behavior:
   - Seller (`auth.uid == sellerId`) sees edit toolbar action and can update listing fields or delete listing.
   - Non-seller sees buy action button only.
+  - On buy, client runs Firestore transaction: decrements `stock` and deducts buyer `users/{uid}.honey` atomically.
+
+#### `postcardOrders/{orderId}`
+Postcard transaction documents created when buyer confirms purchase.
+Fields:
+- `postcardId` (String): source listing id.
+- `postcardTitle` (String): snapshot title at purchase time.
+- `postcardImageUrl` (String): snapshot image URL at purchase time.
+- `location` (Map): snapshot `{ country, province, detail }`.
+- `status` (String): current transaction state. Starts as `AwaitingSellerSend`.
+- `buyerId` (String): buyer uid.
+- `buyerName` (String): buyer display name snapshot.
+- `sellerId` (String): seller uid.
+- `sellerName` (String): seller display name snapshot.
+- `priceHoney` (Int): listing price at purchase.
+- `holdHoney` (Int): honey held for escrow (equal to `priceHoney` in MVP).
+- `sellerReminderAt` (Timestamp): next seller reminder time.
+- `sellerDeadlineAt` (Timestamp): current seller deadline.
+- `buyerReminderAt` (Timestamp): default buyer reminder anchor.
+- `buyerAutoCompleteAt` (Timestamp): default buyer auto-complete deadline anchor.
+- `timeouts` (Map): hour-based parameters written to each order:
+  - `sellerSendReminderHours`
+  - `sellerSendDeadlineHours`
+  - `buyerReceiveReminderHours`
+  - `buyerAutoCompleteHours`
+- `createdAt` (Timestamp): order creation time.
+- `updatedAt` (Timestamp): latest order update time.
 
 ### Firebase Storage
 - Path: `postcards/{ownerId}/{uuid}.jpg` where `ownerId` is the authenticated uploader uid.

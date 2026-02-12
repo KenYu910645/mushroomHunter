@@ -49,3 +49,11 @@ enum PostcardSortOrder: String, CaseIterable, Identifiable {
         }
     }
 }
+
+enum PostcardOrderStatus: String {
+    case awaitingSellerSend = "AwaitingSellerSend"
+    case inTransit = "InTransit"
+    case awaitingBuyerDecision = "AwaitingBuyerDecision"
+    case completed = "Completed"
+    case cancelled = "Cancelled"
+}

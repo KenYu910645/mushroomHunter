@@ -278,6 +278,10 @@ struct PostcardDetailView: View {
     @State private var showBuyConfirm: Bool = false
     @State private var showEditSheet: Bool = false
     @State private var currentListing: PostcardListing
+    @State private var isBuying: Bool = false
+    @State private var showBuySuccessAlert: Bool = false
+    @State private var showBuyErrorAlert: Bool = false
+    @State private var buyErrorMessage: String = ""
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var session: SessionStore
@@ -364,10 +368,16 @@ struct PostcardDetailView: View {
                     Button {
                         showBuyConfirm = true
                     } label: {
-                        Text(LocalizedStringKey("postcard_buy_button"))
-                            .frame(maxWidth: .infinity)
+                        if isBuying {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                        } else {
+                            Text(LocalizedStringKey("postcard_buy_button"))
+                                .frame(maxWidth: .infinity)
+                        }
                     }
                     .buttonStyle(.borderedProminent)
+                    .disabled(isBuying)
                 }
             }
             .padding()
@@ -387,10 +397,22 @@ struct PostcardDetailView: View {
             }
         }
         .alert(LocalizedStringKey("postcard_confirm_title"), isPresented: $showBuyConfirm) {
-            Button(LocalizedStringKey("common_confirm")) {}
+            Button(LocalizedStringKey("common_confirm")) {
+                Task { await buyPostcard() }
+            }
             Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
         } message: {
             Text(LocalizedStringKey("postcard_confirm_message"))
+        }
+        .alert(LocalizedStringKey("postcard_buy_success_title"), isPresented: $showBuySuccessAlert) {
+            Button(LocalizedStringKey("common_ok")) {}
+        } message: {
+            Text(LocalizedStringKey("postcard_buy_success_message"))
+        }
+        .alert(LocalizedStringKey("common_error"), isPresented: $showBuyErrorAlert) {
+            Button(LocalizedStringKey("common_ok")) {}
+        } message: {
+            Text(buyErrorMessage)
         }
         .task {
             await refreshListing()
@@ -418,6 +440,22 @@ struct PostcardDetailView: View {
             }
         } catch {
             // Keep existing content if network refresh fails.
+        }
+    }
+
+    private func buyPostcard() async {
+        guard !isBuying else { return }
+        isBuying = true
+        defer { isBuying = false }
+
+        do {
+            _ = try await repo.buyPostcard(postcardId: currentListing.id)
+            await session.refreshProfileFromBackend()
+            await refreshListing()
+            showBuySuccessAlert = true
+        } catch {
+            buyErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            showBuyErrorAlert = true
         }
     }
 }

@@ -119,6 +119,8 @@
 "postcard_buy_button" = "Buy";
 "postcard_confirm_title" = "Confirm Purchase";
 "postcard_confirm_message" = "Honey will be held until you confirm received.";
+"postcard_buy_success_title" = "Purchase Created";
+"postcard_buy_success_message" = "Honey is now on hold. Wait for the seller to mark postcard sent.";
 "postcard_snapshot_section" = "Snapshot";
 "postcard_snapshot_hint" = "Upload postcard snapshot";
 "postcard_select_photo_button" = "Select Photo";
