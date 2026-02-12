@@ -33,6 +33,39 @@ final class FirebasePostcardRepository {
         return snap.documents.map(decodeListing)
     }
 
+    func createPostcard(
+        title: String,
+        priceHoney: Int,
+        location: PostcardLocation,
+        stock: Int,
+        sellerName: String,
+        imageUrl: String
+    ) async throws {
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanSeller = sellerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanCountry = location.country.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanProvince = location.province.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanDetail = location.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+        let tokens = SearchTokenBuilder.indexTokens(
+            from: [cleanTitle, cleanSeller, cleanCountry, cleanProvince, cleanDetail]
+        )
+
+        try await db.collection("postcards").addDocument(data: [
+            "title": cleanTitle,
+            "priceHoney": priceHoney,
+            "sellerName": cleanSeller,
+            "stock": stock,
+            "imageUrl": imageUrl,
+            "location": [
+                "country": cleanCountry,
+                "province": cleanProvince,
+                "detail": cleanDetail
+            ],
+            "searchTokens": tokens,
+            "createdAt": Timestamp(date: Date())
+        ])
+    }
+
     private func decodeListing(_ doc: QueryDocumentSnapshot) -> PostcardListing {
         let data = doc.data()
 

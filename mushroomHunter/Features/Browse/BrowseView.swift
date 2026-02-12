@@ -32,6 +32,11 @@ final class BrowseViewModel: ObservableObject {
         errorMessage = nil
         defer { isLoading = false }
 
+        if AppTesting.useMockRooms {
+            listings = [AppTesting.fixtureListing()]
+            return
+        }
+
         do {
             let docs = try await withTimeout(seconds: 10) {
                 try await self.repo.fetchOpenListings(limit: 50)
@@ -49,6 +54,17 @@ final class BrowseViewModel: ObservableObject {
     @Published var joinErrorMessage: String? = nil
 
     func join(_ listing: RoomListing, deposit: Honey) async {
+        if AppTesting.useMockRooms {
+            guard deposit > 0 else {
+                let msg = NSLocalizedString("browse_error_enter_bid", comment: "")
+                self.joinErrorMessage = msg
+                self.errorMessage = msg
+                return
+            }
+            _ = session.spendHoney(deposit)
+            return
+        }
+
         let trimmedDeposit = max(0, deposit)
         guard trimmedDeposit > 0 else {
             let msg = NSLocalizedString("browse_error_enter_bid", comment: "")
@@ -131,7 +147,9 @@ struct BrowseView: View {
             content
                 .navigationTitle(LocalizedStringKey("browse_title"))
                 .onAppear {
-                    Task { await session.refreshProfileFromBackend() }
+                    if !AppTesting.isUITesting {
+                        Task { await session.refreshProfileFromBackend() }
+                    }
                     Task { await vm.fetchListings() }
                 }
         }
@@ -198,6 +216,7 @@ struct BrowseView: View {
                                 Image(systemName: "magnifyingglass")
                             }
                             .accessibilityLabel(LocalizedStringKey("browse_search_accessibility"))
+                            .accessibilityIdentifier("browse_search_button")
 
                             Button {
                                 showHostSheet = true
@@ -205,6 +224,7 @@ struct BrowseView: View {
                                 Image(systemName: "plus.circle.fill")
                             }
                             .accessibilityLabel(LocalizedStringKey("browse_create_accessibility"))
+                            .accessibilityIdentifier("browse_create_button")
 
                             Menu {
                                 Picker(LocalizedStringKey("browse_mushroom_type"), selection: $vm.selectedMushroomType) {
@@ -237,8 +257,21 @@ struct BrowseView: View {
                                 RoomRowContent(listing: listing)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("browse_room_link_\(listing.id)")
 
                             Spacer(minLength: 0)
+
+                            if AppTesting.useMockRooms {
+                                Button {
+                                    pendingJoinListing = listing
+                                    bidText = "\(max(1, listing.joinedPlayers > 0 ? 10 : 1))"
+                                    showJoinAlert = true
+                                } label: {
+                                    Text(LocalizedStringKey("common_join"))
+                                }
+                                .buttonStyle(.bordered)
+                                .accessibilityIdentifier("browse_quick_join_button_\(listing.id)")
+                            }
                         }
                         .padding(.vertical, 4)
                     }

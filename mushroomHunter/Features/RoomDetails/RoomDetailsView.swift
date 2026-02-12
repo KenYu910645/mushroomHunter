@@ -45,6 +45,11 @@ struct RoomDetailsView: View {
     @State private var showNextRoundAlert: Bool = false
     @State private var showRaidThanksAlert: Bool = false
     @State private var raidThanksHoney: Int = 0
+    @State private var showAttendeeRateHostAlert: Bool = false
+    @State private var showNextRoundAfterRating: Bool = false
+    @State private var showHostRateAttendeeAlert: Bool = false
+    @State private var hostRateAttendeeId: String = ""
+    @State private var hostRateAttendeeName: String = ""
     @State private var showRejectResolveAlert: Bool = false
     @State private var rejectAttendeeId: String = ""
     @State private var rejectAttendeeName: String = ""
@@ -59,6 +64,7 @@ struct RoomDetailsView: View {
     var body: some View {
         NavigationStack {
             content
+                .accessibilityIdentifier("room_details_screen")
                 .navigationTitle(LocalizedStringKey("room_title"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbarContent }
@@ -69,6 +75,9 @@ struct RoomDetailsView: View {
                 }
                 .onChange(of: vm.pendingConfirmationForCurrentUser) { _, newValue in
                     showRaidConfirmAlert = newValue
+                }
+                .onChange(of: vm.hostPendingRatingAttendeeIds) { _, _ in
+                    presentNextHostRatingAlertIfNeeded()
                 }
         }
         .sheet(item: $editingRoom, onDismiss: {
@@ -107,9 +116,11 @@ struct RoomDetailsView: View {
         ) { _ in
             Button(LocalizedStringKey("common_yes")) {
                 Task {
-                    await vm.respondToRaidConfirmation(accept: true)
-                    raidThanksHoney = vm.room?.fixedRaidCost ?? 0
-                    showRaidThanksAlert = true
+                    let didConfirm = await vm.respondToRaidConfirmation(accept: true)
+                    if didConfirm {
+                        raidThanksHoney = vm.room?.fixedRaidCost ?? 0
+                        showRaidThanksAlert = true
+                    }
                 }
             }
             Button(LocalizedStringKey("common_no"), role: .cancel) {
@@ -125,11 +136,65 @@ struct RoomDetailsView: View {
                 if let room = vm.room,
                    let deposit = vm.currentUserDepositHoney(),
                    deposit < room.fixedRaidCost {
-                    showNextRoundAlert = true
+                    showNextRoundAfterRating = true
                 }
+                showAttendeeRateHostAlert = true
             }
         } message: {
             Text(String(format: NSLocalizedString("room_raid_thanks_message", comment: ""), raidThanksHoney))
+        }
+        .alert(LocalizedStringKey("room_rate_host_title"), isPresented: $showAttendeeRateHostAlert) {
+            Button(LocalizedStringKey("room_rate_one_star")) {
+                Task {
+                    await vm.rateHost(stars: 1)
+                    presentNextRoundAlertIfNeeded()
+                }
+            }
+            Button(LocalizedStringKey("room_rate_two_stars")) {
+                Task {
+                    await vm.rateHost(stars: 2)
+                    presentNextRoundAlertIfNeeded()
+                }
+            }
+            Button(LocalizedStringKey("room_rate_three_stars")) {
+                Task {
+                    await vm.rateHost(stars: 3)
+                    presentNextRoundAlertIfNeeded()
+                }
+            }
+            Button(LocalizedStringKey("common_cancel"), role: .cancel) {
+                presentNextRoundAlertIfNeeded()
+            }
+        } message: {
+            Text(String(format: NSLocalizedString("room_rate_host_message", comment: ""), vm.room?.hostName ?? "Host"))
+        }
+        .alert(LocalizedStringKey("room_rate_attendee_title"), isPresented: $showHostRateAttendeeAlert) {
+            Button(LocalizedStringKey("room_rate_one_star")) {
+                let attendeeId = hostRateAttendeeId
+                Task {
+                    await vm.rateAttendee(attendeeId: attendeeId, stars: 1)
+                    presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
+                }
+            }
+            Button(LocalizedStringKey("room_rate_two_stars")) {
+                let attendeeId = hostRateAttendeeId
+                Task {
+                    await vm.rateAttendee(attendeeId: attendeeId, stars: 2)
+                    presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
+                }
+            }
+            Button(LocalizedStringKey("room_rate_three_stars")) {
+                let attendeeId = hostRateAttendeeId
+                Task {
+                    await vm.rateAttendee(attendeeId: attendeeId, stars: 3)
+                    presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
+                }
+            }
+            Button(LocalizedStringKey("common_cancel"), role: .cancel) {
+                presentNextHostRatingAlertIfNeeded(excluding: hostRateAttendeeId)
+            }
+        } message: {
+            Text(String(format: NSLocalizedString("room_rate_attendee_message", comment: ""), hostRateAttendeeName))
         }
         .alert(LocalizedStringKey("room_next_round_title"), isPresented: $showNextRoundAlert) {
             Button(LocalizedStringKey("room_update_bid")) {
@@ -265,6 +330,7 @@ struct RoomDetailsView: View {
                         Button(LocalizedStringKey("common_cancel")) {
                             showJoinSheet = false
                         }
+                        .accessibilityIdentifier("room_join_sheet_cancel_button")
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button(LocalizedStringKey("common_ok")) {
@@ -272,6 +338,7 @@ struct RoomDetailsView: View {
                             showJoinConfirmAlert = true
                         }
                         .disabled(joinDepositAmount < (vm.room?.fixedRaidCost ?? 0) || joinDepositAmount > session.honey)
+                        .accessibilityIdentifier("room_join_sheet_ok_button")
                     }
                 }
             }
@@ -609,6 +676,7 @@ struct RoomDetailsView: View {
                         .font(.headline)
                 }
                 .accessibilityLabel(LocalizedStringKey("room_edit_bid_accessibility"))
+                .accessibilityIdentifier("room_edit_bid_button")
                 .disabled(vm.isLoading)
             }
         }
@@ -623,6 +691,21 @@ struct RoomDetailsView: View {
                 Divider()
 
                 HStack(spacing: 10) {
+                    if AppTesting.useMockRooms, vm.role != .attendee {
+                        Button {
+                            let minBid = room.fixedRaidCost
+                            let clamped = max(joinDepositAmount, minBid)
+                            joinDepositAmount = min(clamped, session.honey)
+                            showJoinSheet = true
+                        } label: {
+                            Text(LocalizedStringKey("common_join"))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("room_join_button")
+                        .disabled(vm.isLoading || session.honey < room.fixedRaidCost)
+                    }
+
                     // Host actions (placeholder for now)
                     if vm.role == .host {
                     }
@@ -639,6 +722,7 @@ struct RoomDetailsView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("room_join_button")
                         .disabled(vm.isLoading || session.honey < room.fixedRaidCost)
                     }
 
@@ -750,6 +834,34 @@ struct RoomDetailsView: View {
         case .Normal: return NSLocalizedString("mushroom_size_normal", comment: "")
         case .Magnificent: return NSLocalizedString("mushroom_size_magnificent", comment: "")
         }
+    }
+
+    private func presentNextHostRatingAlertIfNeeded(excluding attendeeId: String? = nil) {
+        guard vm.role == .host else { return }
+        let pending = vm.hostPendingRatingAttendeeIds
+            .filter { id in
+                guard let attendeeId else { return true }
+                return id != attendeeId
+            }
+            .sorted()
+
+        guard let nextId = pending.first,
+              let attendee = vm.attendeeById(nextId) else {
+            showHostRateAttendeeAlert = false
+            hostRateAttendeeId = ""
+            hostRateAttendeeName = ""
+            return
+        }
+
+        hostRateAttendeeId = attendee.id
+        hostRateAttendeeName = attendee.name
+        showHostRateAttendeeAlert = true
+    }
+
+    private func presentNextRoundAlertIfNeeded() {
+        guard showNextRoundAfterRating else { return }
+        showNextRoundAfterRating = false
+        showNextRoundAlert = true
     }
 }
 

@@ -1,0 +1,27 @@
+name: iOS UI Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  ui-tests:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Run UI tests
+        run: |
+          xcodebuild \
+            -project "$GITHUB_WORKSPACE/mushroomHunter.xcodeproj" \
+            -scheme HoneyHub \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -maximum-parallel-testing-workers 1 \
+            test

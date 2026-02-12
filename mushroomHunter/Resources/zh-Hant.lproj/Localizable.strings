@@ -117,7 +117,13 @@
 "postcard_confirm_title" = "確認購買";
 "postcard_confirm_message" = "蜂蜜將暫時保留，直到你確認收件。";
 "postcard_snapshot_section" = "照片";
-"postcard_snapshot_hint" = "照片可選（尚未開放上傳）";
+"postcard_snapshot_hint" = "上傳明信片照片";
+"postcard_select_photo_button" = "選擇照片";
+"postcard_uploading" = "上傳中...";
+"postcard_uploaded_prefix" = "已上傳：";
+"postcard_upload_load_error" = "無法載入此圖片。";
+"postcard_upload_select_error" = "請先選擇一張照片。";
+"postcard_upload_process_error" = "圖片處理失敗。";
 "postcard_info_section" = "明信片資訊";
 "postcard_title_field" = "標題";
 "postcard_price_field" = "價格（蜂蜜）";
@@ -127,7 +133,10 @@
 "postcard_stock_field" = "庫存";
 "postcard_submit_button" = "送出明信片";
 "postcard_submitted_title" = "已送出";
-"postcard_submitted_message" = "之後會接上 Firebase。";
+"postcard_submitted_message" = "明信片已成功上架。";
+"postcard_validation_price_error" = "請輸入有效價格。";
+"postcard_validation_stock_error" = "請輸入有效庫存。";
+"postcard_validation_location_error" = "國家與省／州為必填。";
 "postcard_location_unknown" = "未知";
 
 "room_title" = "房間";
@@ -244,6 +253,7 @@
 "session_error_apple_token_format" = "無法讀取 Apple ID 權杖。";
 
 "common_ok" = "確定";
+"common_error" = "錯誤";
 "common_cancel" = "取消";
 "common_confirm" = "確認";
 "common_clear" = "清除";
@@ -283,4 +293,11 @@
 "room_claim_confirm_message_with_list" = "你確定以下參加者有參與蘑菇戰鬥嗎？\n%@";
 "room_raid_thanks_title" = "太棒了！";
 "room_raid_thanks_message" = "太棒了！祝你狩獵順利。轉給主持人 %d 🍯。";
+"room_rate_host_title" = "評價主持人";
+"room_rate_host_message" = "你想給 %@ 幾顆星？";
+"room_rate_attendee_title" = "評價參加者";
+"room_rate_attendee_message" = "你想給 %@ 幾顆星？";
+"room_rate_one_star" = "1 星";
+"room_rate_two_stars" = "2 星";
+"room_rate_three_stars" = "3 星";
 "host_room_default_name" = "一起打蘑菇吧";

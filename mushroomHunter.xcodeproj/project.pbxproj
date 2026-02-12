@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		656C51E472EB689224D98614 /* HoneyHubUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E02BB0AD9AE0EA4F453F4CE /* HoneyHubUITests.swift */; };
+		85F2B0FB6665E6B59339A123 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DA9BB33F8CA7C3E4F4FD9BC /* Foundation.framework */; };
 		BE336F552F30B30400EE3FD7 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = BE336F542F30B30400EE3FD7 /* GoogleSignIn */; };
 		BE336F572F30B30400EE3FD7 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = BE336F562F30B30400EE3FD7 /* GoogleSignInSwift */; };
 		BEA4A7B32F30947A009038BE /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = BEA4A7B22F30947A009038BE /* FirebaseAnalytics */; };
@@ -18,19 +20,42 @@
 		BEF0F0F32F50000200123456 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = BEF0F0F42F50000200123456 /* FirebaseStorage */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		8F29F2E5C6A62A1DAD9C5B57 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BEA4A78D2F3070D8009038BE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BEA4A7942F3070D8009038BE;
+			remoteInfo = HoneyHub;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		4DA9BB33F8CA7C3E4F4FD9BC /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		6F90ED5D794402F5CA079713 /* HoneyHubUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = HoneyHubUITests.xctest; path = HoneyHubUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7E02BB0AD9AE0EA4F453F4CE /* HoneyHubUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HoneyHubUITests.swift; path = HoneyHubUITests/HoneyHubUITests.swift; sourceTree = "<group>"; };
 		BEA4A7952F3070D8009038BE /* HoneyHub.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HoneyHub.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		BEA4A7972F3070D8009038BE /* mushroomHunter */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = mushroomHunter;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		1E8732C1229D131E11BF9CB6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				85F2B0FB6665E6B59339A123 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BEA4A7922F3070D8009038BE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -50,11 +75,37 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0D423C61E9954DD50D41BA1E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2E8D03F579FBF1D435452525 /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		134CA114C6E8BD6FB8B8C1D4 /* HoneyHubUITests */ = {
+			isa = PBXGroup;
+			children = (
+				7E02BB0AD9AE0EA4F453F4CE /* HoneyHubUITests.swift */,
+			);
+			name = HoneyHubUITests;
+			sourceTree = "<group>";
+		};
+		2E8D03F579FBF1D435452525 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				4DA9BB33F8CA7C3E4F4FD9BC /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
 		BEA4A78C2F3070D8009038BE = {
 			isa = PBXGroup;
 			children = (
 				BEA4A7972F3070D8009038BE /* mushroomHunter */,
 				BEA4A7962F3070D8009038BE /* Products */,
+				134CA114C6E8BD6FB8B8C1D4 /* HoneyHubUITests */,
+				0D423C61E9954DD50D41BA1E /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -62,6 +113,7 @@
 			isa = PBXGroup;
 			children = (
 				BEA4A7952F3070D8009038BE /* HoneyHub.app */,
+				6F90ED5D794402F5CA079713 /* HoneyHubUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -69,6 +121,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		5CE82F07271DF55CA700A57E /* HoneyHubUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 738F0242675CF71365F1D3CE /* Build configuration list for PBXNativeTarget "HoneyHubUITests" */;
+			buildPhases = (
+				5A66FD2A7E129F4C452FE801 /* Sources */,
+				1E8732C1229D131E11BF9CB6 /* Frameworks */,
+				C402BE5540F91E2A4F32AC8A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E03F36B688B18F8F7DFAE66F /* PBXTargetDependency */,
+			);
+			name = HoneyHubUITests;
+			productName = HoneyHubUITests;
+			productReference = 6F90ED5D794402F5CA079713 /* HoneyHubUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		BEA4A7942F3070D8009038BE /* HoneyHub */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = BEA4A7A02F3070DA009038BE /* Build configuration list for PBXNativeTarget "HoneyHub" */;
@@ -110,6 +180,10 @@
 				LastSwiftUpdateCheck = 2610;
 				LastUpgradeCheck = 2610;
 				TargetAttributes = {
+					5CE82F07271DF55CA700A57E = {
+						CreatedOnToolsVersion = 26.1.1;
+						TestTargetID = BEA4A7942F3070D8009038BE;
+					};
 					BEA4A7942F3070D8009038BE = {
 						CreatedOnToolsVersion = 26.1.1;
 					};
@@ -135,6 +209,7 @@
 			projectRoot = "";
 			targets = (
 				BEA4A7942F3070D8009038BE /* HoneyHub */,
+				5CE82F07271DF55CA700A57E /* HoneyHubUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -147,9 +222,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C402BE5540F91E2A4F32AC8A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		5A66FD2A7E129F4C452FE801 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				656C51E472EB689224D98614 /* HoneyHubUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BEA4A7912F3070D8009038BE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -159,7 +249,40 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		E03F36B688B18F8F7DFAE66F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = HoneyHub;
+			target = BEA4A7942F3070D8009038BE /* HoneyHub */;
+			targetProxy = 8F29F2E5C6A62A1DAD9C5B57 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		545340524483B6DFED1BD01F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 4LLX8NSPK5;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = HoneyHubUITests;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.kenyu.mushroomHunterUITests;
+				PRODUCT_MODULE_NAME = HoneyHubUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = HoneyHub;
+			};
+			name = Debug;
+		};
 		BEA4A79E2F3070DA009038BE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -355,9 +478,43 @@
 			};
 			name = Release;
 		};
+		F3E70F30139AA1C3B234CE98 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 4LLX8NSPK5;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = HoneyHubUITests;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.kenyu.mushroomHunterUITests;
+				PRODUCT_MODULE_NAME = HoneyHubUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = HoneyHub;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		738F0242675CF71365F1D3CE /* Build configuration list for PBXNativeTarget "HoneyHubUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F3E70F30139AA1C3B234CE98 /* Release */,
+				545340524483B6DFED1BD01F /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		BEA4A7902F3070D8009038BE /* Build configuration list for PBXProject "mushroomHunter" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

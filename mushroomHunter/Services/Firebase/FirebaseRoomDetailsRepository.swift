@@ -72,6 +72,7 @@ final class FirebaseRoomDetailsRepository {
             let joinedAt = (d["joinedAt"] as? Timestamp)?.dateValue()
             let statusRaw = (d["status"] as? String) ?? AttendeeStatus.ready.rawValue
             let status = AttendeeStatus(rawValue: statusRaw) ?? .ready
+            let needsHostRating = d["needsHostRating"] as? Bool ?? false
 
             return RoomAttendee(
                 id: doc.documentID,
@@ -80,7 +81,8 @@ final class FirebaseRoomDetailsRepository {
                 stars: stars,
                 depositHoney: deposit,
                 joinedAt: joinedAt,
-                status: status
+                status: status,
+                needsHostRating: needsHostRating
             )
         }
     }

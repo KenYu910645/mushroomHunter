@@ -11,8 +11,8 @@ struct ContentView: View {
         ZStack {
             ThemedBackground()
             Group {
-                if session.isLoggedIn {
-                    if session.isProfileComplete {
+                if session.isLoggedIn || AppTesting.isUITesting {
+                    if session.isProfileComplete || AppTesting.isUITesting {
                         MainTabView()
                     } else {
                         CreateProfileView()
@@ -33,6 +33,17 @@ struct ContentView: View {
             RoomDetailsView(vm: RoomDetailsViewModel(roomId: link.id, session: session))
                 .environmentObject(session)
         }
+        .onAppear {
+            if AppTesting.isUITesting {
+                session.isLoggedIn = true
+                session.authUid = AppTesting.userId
+                session.displayName = "UI Tester"
+                session.friendCode = "999988887777"
+                session.stars = 1
+                session.honey = 100
+                session.isProfileComplete = true
+            }
+        }
     }
 }
 
@@ -51,16 +62,19 @@ struct MainTabView: View {
                 .tabItem {
                     Label("tab_mushroom", systemImage: "magnifyingglass")
                 }
+                .accessibilityIdentifier("tab_browse")
 
             PostcardTabView()
                 .tabItem {
                     Label("tab_postcard", systemImage: "mail")
                 }
+                .accessibilityIdentifier("tab_postcard")
 
             ProfileView()
                 .tabItem {
                     Label("tab_profile", systemImage: "person.circle")
                 }
+                .accessibilityIdentifier("tab_profile")
         }
     }
 }

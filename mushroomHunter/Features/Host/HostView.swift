@@ -315,6 +315,7 @@ struct HostView: View {
                         }
                     )
                     .frame(minHeight: 22)
+                    .accessibilityIdentifier("host_name_field")
                     .onTapGesture {
                         isNameFirstResponder = true
                     }
@@ -390,6 +391,7 @@ struct HostView: View {
                             }
                         )
                         .frame(minHeight: 22)
+                        .accessibilityIdentifier("host_city_field")
                         .multilineTextAlignment(.trailing)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .onTapGesture {
@@ -413,6 +415,7 @@ struct HostView: View {
                     TextEditor(text: $vm.otherMessage)
                         .frame(minHeight: 140)
                         .onChange(of: vm.otherMessage) { _, _ in vm.enforceLimits() }
+                        .accessibilityIdentifier("host_message_editor")
 
                     HStack {
                         Text(LocalizedStringKey("host_words_label"))
@@ -469,6 +472,7 @@ struct HostView: View {
                         }
                     }
                     .disabled(vm.isSubmitting)
+                    .accessibilityIdentifier("host_submit_button")
                 }
 
                 if vm.isEditMode {
@@ -501,6 +505,7 @@ struct HostView: View {
                             .font(.headline)
                     }
                     .accessibilityLabel(LocalizedStringKey("common_close"))
+                    .accessibilityIdentifier("host_close_button")
                 }
             }
             .alert(vm.successAlertTitle, isPresented: $vm.showSuccessAlert) {

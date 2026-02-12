@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 // MARK: - Root Tab
 
@@ -58,7 +59,7 @@ struct PostcardBrowseView: View {
                         NavigationLink {
                             PostcardDetailView(listing: listing)
                         } label: {
-                            PostcardCardView(listing: listing)
+                            PostcardCardView(listing: listing, cardWidth: cardWidth)
                         }
                         .buttonStyle(.plain)
                     }
@@ -108,6 +109,12 @@ struct PostcardBrowseView: View {
 
     private var gridColumns: [GridItem] {
         [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+    }
+
+    // 2-column layout: horizontal padding(16 + 16) + inter-item spacing(12)
+    private var cardWidth: CGFloat {
+        let screenWidth = UIScreen.main.bounds.width
+        return max(120, (screenWidth - 44) / 2.0)
     }
 
     private var headerBar: some View {
@@ -181,14 +188,20 @@ struct PostcardBrowseView: View {
 
 private struct PostcardCardView: View {
     let listing: PostcardListing
+    let cardWidth: CGFloat
     @Environment(\.colorScheme) private var scheme
+    private let imageAspectRatio: CGFloat = 4.0 / 3.0
+
+    private var imageHeight: CGFloat {
+        cardWidth / imageAspectRatio
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color(.secondarySystemBackground))
-                    .frame(height: 120)
+                    .frame(height: imageHeight)
 
                 if let urlString = listing.imageUrl, let url = URL(string: urlString) {
                     AsyncImage(url: url) { phase in
@@ -209,7 +222,7 @@ private struct PostcardCardView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .frame(height: 120)
+                    .frame(height: imageHeight)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 } else {
                     Image(systemName: "photo")
@@ -217,6 +230,7 @@ private struct PostcardCardView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .frame(height: imageHeight)
 
             Text(listing.title)
                 .font(.headline)
@@ -253,6 +267,8 @@ struct PostcardDetailView: View {
     let listing: PostcardListing
     @State private var showBuyConfirm: Bool = false
     @Environment(\.colorScheme) private var scheme
+    private let imageAspectRatio: CGFloat = 4.0 / 3.0
+    private let detailImageMaxWidth: CGFloat = 300
 
     var body: some View {
         ScrollView {
@@ -260,7 +276,8 @@ struct PostcardDetailView: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 16)
                         .fill(Color(.secondarySystemBackground))
-                        .frame(height: 220)
+                        .frame(maxWidth: .infinity)
+                        .aspectRatio(imageAspectRatio, contentMode: .fit)
 
                     if let urlString = listing.imageUrl, let url = URL(string: urlString) {
                         AsyncImage(url: url) { phase in
@@ -281,7 +298,7 @@ struct PostcardDetailView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
-                        .frame(height: 220)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                     } else {
                         Image(systemName: "photo")
@@ -289,6 +306,9 @@ struct PostcardDetailView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .frame(maxWidth: detailImageMaxWidth)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .aspectRatio(imageAspectRatio, contentMode: .fit)
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(listing.title)
@@ -349,6 +369,16 @@ struct PostcardRegisterView: View {
     @State private var detail: String = ""
     @State private var stockText: String = "1"
     @State private var showSubmitAlert: Bool = false
+    @State private var showErrorAlert: Bool = false
+    @State private var errorAlertMessage: String = ""
+    @State private var selectedItem: PhotosPickerItem? = nil
+    @State private var selectedImage: UIImage? = nil
+    @State private var isUploading: Bool = false
+    @State private var uploadError: String? = nil
+    @State private var uploadedImageUrl: URL? = nil
+
+    private let uploader = FirebasePostcardImageUploader()
+    private let repo = FirebasePostcardRepository()
 
     var body: some View {
         Form {
@@ -358,14 +388,44 @@ struct PostcardRegisterView: View {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color(.secondarySystemBackground))
                             .frame(height: 160)
-                        VStack(spacing: 6) {
-                            Image(systemName: "photo")
-                                .font(.title2)
-                                .foregroundStyle(.secondary)
-                            Text(LocalizedStringKey("postcard_snapshot_hint"))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+
+                        if let uiImage = selectedImage {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(height: 160)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        } else {
+                            VStack(spacing: 6) {
+                                Image(systemName: "photo")
+                                    .font(.title2)
+                                    .foregroundStyle(.secondary)
+                                Text(LocalizedStringKey("postcard_snapshot_hint"))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                    }
+
+                    PhotosPicker(selection: $selectedItem, matching: .images) {
+                        Label(LocalizedStringKey("postcard_select_photo_button"), systemImage: "photo.on.rectangle")
+                    }
+
+                    if isUploading {
+                        ProgressView(LocalizedStringKey("postcard_uploading"))
+                    }
+
+                    if let err = uploadError {
+                        Text(err)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+
+                    if let url = uploadedImageUrl {
+                        Text("\(NSLocalizedString("postcard_uploaded_prefix", comment: "")) \(url.absoluteString)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
                     }
                 }
             }
@@ -395,20 +455,128 @@ struct PostcardRegisterView: View {
 
             Section {
                 Button(LocalizedStringKey("postcard_submit_button")) {
-                    showSubmitAlert = true
+                    Task { await submitPostcard() }
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
                 .buttonStyle(.borderedProminent)
-                .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(isUploading || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
         .scrollContentBackground(.hidden)
         .background(Theme.backgroundGradient(for: scheme))
+        .onChange(of: selectedItem) { _, newValue in
+            guard let newValue else { return }
+            Task { await loadSelectedPhoto(newValue) }
+        }
         .alert(LocalizedStringKey("postcard_submitted_title"), isPresented: $showSubmitAlert) {
             Button(LocalizedStringKey("common_ok")) {}
         } message: {
             Text(LocalizedStringKey("postcard_submitted_message"))
         }
+        .alert(LocalizedStringKey("common_error"), isPresented: $showErrorAlert) {
+            Button(LocalizedStringKey("common_ok")) {}
+        } message: {
+            Text(errorAlertMessage)
+        }
+    }
+
+    private func loadSelectedPhoto(_ item: PhotosPickerItem) async {
+        uploadError = nil
+        do {
+            if let data = try await item.loadTransferable(type: Data.self),
+               let image = UIImage(data: data) {
+                selectedImage = image
+            } else {
+                uploadError = NSLocalizedString("postcard_upload_load_error", comment: "")
+            }
+        } catch {
+            uploadError = error.localizedDescription
+        }
+    }
+
+    private func submitPostcard() async {
+        uploadError = nil
+        showSubmitAlert = false
+        showErrorAlert = false
+        errorAlertMessage = ""
+
+        guard !isUploading else { return }
+
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanTitle.isEmpty else { return }
+
+        let price = Int(priceText.filter { $0.isNumber }) ?? 0
+        guard price > 0 else {
+            presentError(NSLocalizedString("postcard_validation_price_error", comment: ""))
+            return
+        }
+
+        let stock = Int(stockText.filter { $0.isNumber }) ?? 0
+        guard stock > 0 else {
+            presentError(NSLocalizedString("postcard_validation_stock_error", comment: ""))
+            return
+        }
+
+        let cleanCountry = country.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanProvince = province.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanCountry.isEmpty, !cleanProvince.isEmpty else {
+            presentError(NSLocalizedString("postcard_validation_location_error", comment: ""))
+            return
+        }
+
+        guard let image = selectedImage else {
+            presentError(NSLocalizedString("postcard_upload_select_error", comment: ""))
+            return
+        }
+        guard let data = image.jpegData(compressionQuality: 0.85) else {
+            presentError(NSLocalizedString("postcard_upload_process_error", comment: ""))
+            return
+        }
+
+        isUploading = true
+        defer { isUploading = false }
+
+        do {
+            let imageUrl = try await uploader.uploadPostcardImage(data: data, ownerId: session.authUid)
+            uploadedImageUrl = imageUrl
+
+            try await repo.createPostcard(
+                title: cleanTitle,
+                priceHoney: price,
+                location: PostcardLocation(
+                    country: cleanCountry,
+                    province: cleanProvince,
+                    detail: detail.trimmingCharacters(in: .whitespacesAndNewlines)
+                ),
+                stock: stock,
+                sellerName: session.displayName.isEmpty ? "Unknown" : session.displayName,
+                imageUrl: imageUrl.absoluteString
+            )
+
+            resetForm()
+            showSubmitAlert = true
+        } catch {
+            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            presentError(message)
+        }
+    }
+
+    private func presentError(_ message: String) {
+        uploadError = message
+        errorAlertMessage = message
+        showErrorAlert = true
+    }
+
+    private func resetForm() {
+        title = ""
+        priceText = ""
+        country = ""
+        province = ""
+        detail = ""
+        stockText = "1"
+        selectedItem = nil
+        selectedImage = nil
+        uploadedImageUrl = nil
     }
 }
 

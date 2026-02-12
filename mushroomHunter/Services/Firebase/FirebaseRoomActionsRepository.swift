@@ -18,6 +18,9 @@ enum RoomActionError: LocalizedError {
     case notHost
     case notEnoughHoney
     case maxJoinRoomsReached(Int)
+    case invalidStars
+    case alreadyRated
+    case ratingNotAvailable
 
     var errorDescription: String? {
         switch self {
@@ -29,6 +32,9 @@ enum RoomActionError: LocalizedError {
         case .notHost: return "Only the host can do this."
         case .notEnoughHoney: return "Not enough honey."
         case .maxJoinRoomsReached(let limit): return "You can only join up to \(limit) rooms."
+        case .invalidStars: return "Stars must be between 1 and 3."
+        case .alreadyRated: return "You already submitted stars for this raid."
+        case .ratingNotAvailable: return "Star rating is not available right now."
         }
     }
 }
@@ -468,6 +474,9 @@ final class FirebaseRoomActionsRepository {
 
                 tx.updateData([
                     "status": AttendeeStatus.waitingConfirmation.rawValue,
+                    "attendeeRatedHost": false,
+                    "hostRatedAttendee": false,
+                    "needsHostRating": false,
                     "updatedAt": now
                 ], forDocument: attendeeRef)
             }
@@ -539,11 +548,13 @@ final class FirebaseRoomActionsRepository {
                 tx.updateData([
                     "depositHoney": max(0, attendeeDeposit - raidCostHoney),
                     "status": AttendeeStatus.ready.rawValue,
+                    "needsHostRating": true,
                     "updatedAt": now
                 ], forDocument: attendeeRef)
             } else {
                 tx.updateData([
                     "status": AttendeeStatus.rejected.rawValue,
+                    "needsHostRating": false,
                     "updatedAt": now
                 ], forDocument: attendeeRef)
             }
@@ -582,6 +593,151 @@ final class FirebaseRoomActionsRepository {
 
             tx.updateData([
                 "status": AttendeeStatus.ready.rawValue,
+                "needsHostRating": false,
+                "updatedAt": now
+            ], forDocument: attendeeRef)
+
+            return nil
+        }
+    }
+
+    // MARK: - Stars (attendee -> host)
+    func rateHostAfterConfirmation(roomId: String, attendeeUid: String, stars: Int) async throws {
+        guard (1...3).contains(stars) else { throw RoomActionError.invalidStars }
+        guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
+        guard uid == attendeeUid else { throw RoomActionError.notInRoom }
+
+        let roomRef = db.collection("rooms").document(roomId)
+        let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
+        let now = Timestamp(date: Date())
+
+        let hostQuery = try await roomRef.collection("attendees")
+            .whereField("status", isEqualTo: AttendeeStatus.host.rawValue)
+            .limit(to: 1)
+            .getDocuments()
+        guard let hostDoc = hostQuery.documents.first else {
+            throw RoomActionError.notHost
+        }
+        let hostUid = hostDoc.documentID
+        let hostAttendeeRef = hostDoc.reference
+        let hostUserRef = db.collection("users").document(hostUid)
+
+        try await db.runTransaction { tx, errPtr -> Any? in
+            let attendeeSnap: DocumentSnapshot
+            let hostUserSnap: DocumentSnapshot
+            let hostAttendeeSnap: DocumentSnapshot
+            do {
+                attendeeSnap = try tx.getDocument(attendeeRef)
+                hostUserSnap = try tx.getDocument(hostUserRef)
+                hostAttendeeSnap = try tx.getDocument(hostAttendeeRef)
+            } catch {
+                errPtr?.pointee = error as NSError
+                return nil
+            }
+
+            guard attendeeSnap.exists else {
+                errPtr?.pointee = RoomActionError.notInRoom as NSError
+                return nil
+            }
+            let attendeeData = attendeeSnap.data() ?? [:]
+            let attendeeStatus = attendeeData["status"] as? String ?? ""
+            if attendeeStatus != AttendeeStatus.ready.rawValue {
+                errPtr?.pointee = RoomActionError.ratingNotAvailable as NSError
+                return nil
+            }
+            let alreadyRated = attendeeData["attendeeRatedHost"] as? Bool ?? false
+            if alreadyRated {
+                errPtr?.pointee = RoomActionError.alreadyRated as NSError
+                return nil
+            }
+
+            let hostStars = hostUserSnap.data()?["stars"] as? Int ?? 0
+            let updatedHostStars = max(0, hostStars) + stars
+            tx.setData([
+                "stars": updatedHostStars,
+                "updatedAt": now
+            ], forDocument: hostUserRef, merge: true)
+
+            if hostAttendeeSnap.exists {
+                tx.setData([
+                    "stars": updatedHostStars,
+                    "updatedAt": now
+                ], forDocument: hostAttendeeRef, merge: true)
+            }
+
+            tx.updateData([
+                "attendeeRatedHost": true,
+                "updatedAt": now
+            ], forDocument: attendeeRef)
+
+            return nil
+        }
+    }
+
+    // MARK: - Stars (host -> attendee)
+    func rateAttendeeAfterConfirmation(roomId: String, attendeeUid: String, stars: Int) async throws {
+        guard (1...3).contains(stars) else { throw RoomActionError.invalidStars }
+        guard let hostUid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
+
+        let roomRef = db.collection("rooms").document(roomId)
+        let hostSelfRef = roomRef.collection("attendees").document(hostUid)
+        let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
+        let attendeeUserRef = db.collection("users").document(attendeeUid)
+        let now = Timestamp(date: Date())
+
+        try await db.runTransaction { tx, errPtr -> Any? in
+            let hostSelfSnap: DocumentSnapshot
+            let attendeeSnap: DocumentSnapshot
+            let attendeeUserSnap: DocumentSnapshot
+            do {
+                hostSelfSnap = try tx.getDocument(hostSelfRef)
+                attendeeSnap = try tx.getDocument(attendeeRef)
+                attendeeUserSnap = try tx.getDocument(attendeeUserRef)
+            } catch {
+                errPtr?.pointee = error as NSError
+                return nil
+            }
+
+            let hostStatus = hostSelfSnap.data()?["status"] as? String ?? ""
+            guard hostStatus == AttendeeStatus.host.rawValue else {
+                errPtr?.pointee = RoomActionError.notHost as NSError
+                return nil
+            }
+
+            guard attendeeSnap.exists else {
+                errPtr?.pointee = RoomActionError.notInRoom as NSError
+                return nil
+            }
+            let attendeeData = attendeeSnap.data() ?? [:]
+            let attendeeStatus = attendeeData["status"] as? String ?? ""
+            if attendeeStatus != AttendeeStatus.ready.rawValue {
+                errPtr?.pointee = RoomActionError.ratingNotAvailable as NSError
+                return nil
+            }
+
+            let isPendingHostRating = attendeeData["needsHostRating"] as? Bool ?? false
+            if !isPendingHostRating {
+                errPtr?.pointee = RoomActionError.ratingNotAvailable as NSError
+                return nil
+            }
+
+            let alreadyRated = attendeeData["hostRatedAttendee"] as? Bool ?? false
+            if alreadyRated {
+                errPtr?.pointee = RoomActionError.alreadyRated as NSError
+                return nil
+            }
+
+            let attendeeStars = attendeeUserSnap.data()?["stars"] as? Int ?? 0
+            let updatedAttendeeStars = max(0, attendeeStars) + stars
+            tx.setData([
+                "stars": updatedAttendeeStars,
+                "updatedAt": now
+            ], forDocument: attendeeUserRef, merge: true)
+
+            tx.updateData([
+                "stars": updatedAttendeeStars,
+                "hostRatedAttendee": true,
+                "needsHostRating": false,
                 "updatedAt": now
             ], forDocument: attendeeRef)
 

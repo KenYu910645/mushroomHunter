@@ -166,6 +166,8 @@ struct RoomAttendee: Identifiable, Equatable {
 
     /// Current attendee state in this room.
     var status: AttendeeStatus
+    /// Host should rate this attendee for the latest confirmed raid.
+    var needsHostRating: Bool
 }
 
 enum AttendeeStatus: String, CaseIterable, Codable {

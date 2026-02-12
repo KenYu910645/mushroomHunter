@@ -1,37 +1,47 @@
 import Foundation
 import FirebaseStorage
 
+enum PostcardImageUploadError: LocalizedError {
+    case unauthenticated
+    case missingDownloadURL
+
+    var errorDescription: String? {
+        switch self {
+        case .unauthenticated:
+            return "Please sign in before uploading a postcard image."
+        case .missingDownloadURL:
+            return "Image uploaded, but failed to get a public download URL."
+        }
+    }
+}
+
 final class FirebasePostcardImageUploader {
     private let storage = Storage.storage()
 
     func uploadPostcardImage(data: Data, ownerId: String?) async throws -> URL {
-        let owner = (ownerId?.isEmpty == false) ? ownerId! : "anonymous"
+        guard let owner = ownerId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !owner.isEmpty else {
+            throw PostcardImageUploadError.unauthenticated
+        }
+
         let filename = UUID().uuidString + ".jpg"
         let ref = storage.reference().child("postcards/\(owner)/\(filename)")
 
         let metadata = StorageMetadata()
         metadata.contentType = "image/jpeg"
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            ref.putData(data, metadata: metadata) { _, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
-                }
+        _ = try await ref.putDataAsync(data, metadata: metadata)
+
+        // Some buckets can return transient "object does not exist" immediately after upload.
+        for attempt in 0..<2 {
+            do {
+                return try await ref.downloadURL()
+            } catch {
+                if attempt == 1 { throw error }
+                try await Task.sleep(nanoseconds: 600_000_000)
             }
         }
 
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
-            ref.downloadURL { url, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else if let url {
-                    continuation.resume(returning: url)
-                } else {
-                    continuation.resume(throwing: URLError(.badURL))
-                }
-            }
-        }
+        throw PostcardImageUploadError.missingDownloadURL
     }
 }

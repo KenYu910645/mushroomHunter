@@ -119,7 +119,13 @@
 "postcard_confirm_title" = "Confirm Purchase";
 "postcard_confirm_message" = "Honey will be held until you confirm received.";
 "postcard_snapshot_section" = "Snapshot";
-"postcard_snapshot_hint" = "Snapshot optional (upload disabled)";
+"postcard_snapshot_hint" = "Upload postcard snapshot";
+"postcard_select_photo_button" = "Select Photo";
+"postcard_uploading" = "Uploading...";
+"postcard_uploaded_prefix" = "Uploaded:";
+"postcard_upload_load_error" = "Unable to load this image.";
+"postcard_upload_select_error" = "Please select a snapshot first.";
+"postcard_upload_process_error" = "Failed to process image.";
 "postcard_info_section" = "Postcard Info";
 "postcard_title_field" = "Title";
 "postcard_price_field" = "Price (honey)";
@@ -129,7 +135,10 @@
 "postcard_stock_field" = "Stock";
 "postcard_submit_button" = "Submit Postcard";
 "postcard_submitted_title" = "Submitted";
-"postcard_submitted_message" = "Postcard submission will be wired to Firebase next.";
+"postcard_submitted_message" = "Postcard listed successfully.";
+"postcard_validation_price_error" = "Please enter a valid price.";
+"postcard_validation_stock_error" = "Please enter valid stock.";
+"postcard_validation_location_error" = "Country and province are required.";
 "postcard_location_unknown" = "Unknown";
 
 "room_title" = "Room";
@@ -246,6 +255,7 @@
 "session_error_apple_token_format" = "Unable to read Apple ID token.";
 
 "common_ok" = "OK";
+"common_error" = "Error";
 "common_cancel" = "Cancel";
 "common_confirm" = "Confirm";
 "common_clear" = "Clear";
@@ -285,3 +295,10 @@
 "room_claim_confirm_message_with_list" = "Are you sure the following attendees came to the mushroom raid?\n%@";
 "room_raid_thanks_title" = "Nice!";
 "room_raid_thanks_message" = "Nice! Enjoy the mushroom. Transfer %d 🍯 to the host.";
+"room_rate_host_title" = "Rate Host";
+"room_rate_host_message" = "How many stars do you want to give %@?";
+"room_rate_attendee_title" = "Rate Attendee";
+"room_rate_attendee_message" = "How many stars do you want to give %@?";
+"room_rate_one_star" = "1 Star";
+"room_rate_two_stars" = "2 Stars";
+"room_rate_three_stars" = "3 Stars";

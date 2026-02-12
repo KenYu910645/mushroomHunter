@@ -21,6 +21,7 @@ final class RoomDetailsViewModel: ObservableObject {
     @Published private(set) var pendingConfirmationAttendeeIds: Set<String> = []
     @Published private(set) var rejectedConfirmationAttendeeIds: Set<String> = []
     @Published private(set) var pendingConfirmationForCurrentUser: Bool = false
+    @Published private(set) var hostPendingRatingAttendeeIds: Set<String> = []
     
     // Sorting / presentation
     enum AttendeeSort: String, CaseIterable, Identifiable {
@@ -60,6 +61,12 @@ final class RoomDetailsViewModel: ObservableObject {
     init(roomId: String, session: SessionStore) {
         self.roomId = roomId
         self.session = session
+        if AppTesting.useMockRooms, roomId == AppTesting.fixtureRoomId {
+            self.room = AppTesting.fixtureRoom(includeCurrentUser: false)
+            recomputeRoleAndCapabilities()
+            recomputeConfirmationStates()
+            sortAttendees(by: attendeeSort)
+        }
     }
     
     // MARK: Public API
@@ -68,6 +75,15 @@ final class RoomDetailsViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
+
+        if AppTesting.useMockRooms, roomId == AppTesting.fixtureRoomId {
+            let includeCurrentUser = false
+            self.room = AppTesting.fixtureRoom(includeCurrentUser: includeCurrentUser)
+            recomputeRoleAndCapabilities()
+            recomputeConfirmationStates()
+            sortAttendees(by: attendeeSort)
+            return
+        }
         
         do {
             let fetchedRoom = try await repo.fetchRoom(roomId: roomId)
@@ -86,13 +102,38 @@ final class RoomDetailsViewModel: ObservableObject {
         }
     }
 
-    func respondToRaidConfirmation(accept: Bool) async {
-        guard let uid = session.authUid else { return }
+    @discardableResult
+    func respondToRaidConfirmation(accept: Bool) async -> Bool {
+        guard let uid = session.authUid else { return false }
         do {
             try await actions.respondToRaidConfirmation(roomId: roomId, attendeeUid: uid, accept: accept)
             await load()
+            return true
         } catch {
             print("❌ respondToRaidConfirmation error:", error)
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            return false
+        }
+    }
+
+    func rateHost(stars: Int) async {
+        guard let room, let uid = session.authUid else { return }
+        do {
+            try await actions.rateHostAfterConfirmation(roomId: room.id, attendeeUid: uid, stars: stars)
+            await load()
+            await session.refreshProfileFromBackend()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func rateAttendee(attendeeId: String, stars: Int) async {
+        guard let room else { return }
+        do {
+            try await actions.rateAttendeeAfterConfirmation(roomId: room.id, attendeeUid: attendeeId, stars: stars)
+            await load()
+            await session.refreshProfileFromBackend()
+        } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
@@ -108,6 +149,10 @@ final class RoomDetailsViewModel: ObservableObject {
 
     func isRejectedConfirmation(attendeeId: String) -> Bool {
         rejectedConfirmationAttendeeIds.contains(attendeeId)
+    }
+
+    func attendeeById(_ attendeeId: String) -> RoomAttendee? {
+        room?.attendees.first(where: { $0.id == attendeeId })
     }
 
     func resolveRejectedConfirmation(attendeeId: String) async {
@@ -128,6 +173,25 @@ final class RoomDetailsViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
+
+        if AppTesting.useMockRooms, room.id == AppTesting.fixtureRoomId {
+            let trimmedDeposit = max(0, initialDeposit)
+            guard trimmedDeposit >= max(1, room.fixedRaidCost) else {
+                errorMessage = String(format: NSLocalizedString("room_error_min_deposit", comment: ""), room.fixedRaidCost)
+                return
+            }
+            guard session.canAffordHoney(trimmedDeposit) else {
+                errorMessage = String(format: NSLocalizedString("room_error_not_enough_honey", comment: ""), session.honey)
+                return
+            }
+
+            _ = session.spendHoney(trimmedDeposit)
+            self.room = AppTesting.fixtureRoom(includeCurrentUser: true)
+            recomputeRoleAndCapabilities()
+            recomputeConfirmationStates()
+            sortAttendees(by: attendeeSort)
+            return
+        }
         
         do {
             let trimmedDeposit = max(0, initialDeposit)
@@ -357,6 +421,7 @@ final class RoomDetailsViewModel: ObservableObject {
             pendingConfirmationAttendeeIds = []
             rejectedConfirmationAttendeeIds = []
             pendingConfirmationForCurrentUser = false
+            hostPendingRatingAttendeeIds = []
             return
         }
 
@@ -369,6 +434,11 @@ final class RoomDetailsViewModel: ObservableObject {
 
         pendingConfirmationAttendeeIds = Set(pending)
         rejectedConfirmationAttendeeIds = Set(rejected)
+        hostPendingRatingAttendeeIds = Set(
+            room.attendees
+                .filter { $0.status != .host && $0.needsHostRating }
+                .map(\.id)
+        )
 
         if let uid = session.authUid,
            let me = room.attendees.first(where: { $0.id == uid }) {
