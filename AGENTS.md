@@ -165,6 +165,7 @@ Notes:
 ### Firebase Storage
 - Path: `postcards/{ownerId}/{uuid}.jpg` where `ownerId` is the authenticated uploader uid.
 - Image is uploaded with `image/jpeg` metadata and the download URL is stored in `postcards.imageUrl`.
+- Client-side upload preprocessing resizes postcard snapshots to max long-edge `1280px` before JPEG encoding/upload.
 
 ### Cloud Functions (Push Notifications)
 - Function: `sendRaidConfirmationPush` in `functions/index.js`.

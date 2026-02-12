@@ -1,5 +1,6 @@
 import Foundation
 import FirebaseStorage
+import UIKit
 
 enum PostcardImageUploadError: LocalizedError {
     case unauthenticated
@@ -17,6 +18,15 @@ enum PostcardImageUploadError: LocalizedError {
 
 final class FirebasePostcardImageUploader {
     private let storage = Storage.storage()
+
+    func prepareUploadJPEGData(
+        from image: UIImage,
+        maxLongEdge: CGFloat = 640,
+        compressionQuality: CGFloat = 0.82
+    ) -> Data? {
+        let normalized = resizedImageIfNeeded(image, maxLongEdge: maxLongEdge)
+        return normalized.jpegData(compressionQuality: compressionQuality)
+    }
 
     func uploadPostcardImage(data: Data, ownerId: String?) async throws -> URL {
         guard let owner = ownerId?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -43,5 +53,26 @@ final class FirebasePostcardImageUploader {
         }
 
         throw PostcardImageUploadError.missingDownloadURL
+    }
+
+    private func resizedImageIfNeeded(_ image: UIImage, maxLongEdge: CGFloat) -> UIImage {
+        let pixelWidth = image.size.width * image.scale
+        let pixelHeight = image.size.height * image.scale
+        let longEdge = max(pixelWidth, pixelHeight)
+        guard longEdge > maxLongEdge, longEdge > 0 else { return image }
+
+        let scaleRatio = maxLongEdge / longEdge
+        let targetSize = CGSize(
+            width: max(1, floor(pixelWidth * scaleRatio)),
+            height: max(1, floor(pixelHeight * scaleRatio))
+        )
+
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
     }
 }

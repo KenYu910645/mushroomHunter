@@ -947,7 +947,7 @@ struct PostcardEditView: View {
         do {
             var newImageUrl: String? = nil
             if let image = selectedImage {
-                guard let data = image.jpegData(compressionQuality: 0.85) else {
+                guard let data = uploader.prepareUploadJPEGData(from: image, maxLongEdge: 640) else {
                     presentError(NSLocalizedString("postcard_upload_process_error", comment: ""))
                     return
                 }
@@ -1232,7 +1232,7 @@ struct PostcardRegisterView: View {
             presentError(NSLocalizedString("postcard_upload_select_error", comment: ""))
             return
         }
-        guard let data = image.jpegData(compressionQuality: 0.85) else {
+        guard let data = uploader.prepareUploadJPEGData(from: image, maxLongEdge: 640) else {
             presentError(NSLocalizedString("postcard_upload_process_error", comment: ""))
             return
         }
