@@ -57,3 +57,10 @@ enum PostcardOrderStatus: String {
     case completed = "Completed"
     case cancelled = "Cancelled"
 }
+
+struct PostcardShippingRecipient: Identifiable, Equatable {
+    let id: String // orderId
+    let buyerId: String
+    let buyerName: String
+    let buyerFriendCode: String
+}

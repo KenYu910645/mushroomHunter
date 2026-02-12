@@ -105,6 +105,7 @@
 "postcard_search_accessibility" = "Search postcards";
 "postcard_register_accessibility" = "Register postcard";
 "postcard_edit_accessibility" = "Edit postcard";
+"postcard_shipping_accessibility" = "Ship postcard";
 "postcard_country" = "Country";
 "postcard_province" = "Province";
 "postcard_sort" = "Sort";
@@ -121,6 +122,10 @@
 "postcard_confirm_message" = "Honey will be held until you confirm received.";
 "postcard_buy_success_title" = "Purchase Created";
 "postcard_buy_success_message" = "Honey is now on hold. Wait for the seller to mark postcard sent.";
+"postcard_shipping_title" = "Shipping Postcard";
+"postcard_shipping_empty" = "No buyers are waiting for shipment.";
+"postcard_shipping_send_button" = "Postcard Sent";
+"postcard_shipping_friend_code_format" = "Friend code: %@";
 "postcard_snapshot_section" = "Snapshot";
 "postcard_snapshot_hint" = "Upload postcard snapshot";
 "postcard_select_photo_button" = "Select Photo";

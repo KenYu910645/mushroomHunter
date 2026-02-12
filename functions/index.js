@@ -169,3 +169,52 @@ exports.notifyHostRaidConfirmationResult = onDocumentUpdated(
       }
     },
 );
+
+exports.sendPostcardShippedPush = onDocumentUpdated(
+    {
+      document: "postcardOrders/{orderId}",
+      region: "us-central1",
+    },
+    async (event) => {
+      const beforeData = event.data?.before?.data();
+      const afterData = event.data?.after?.data();
+      if (!beforeData || !afterData) return;
+
+      const oldStatus = beforeData.status ?? null;
+      const newStatus = afterData.status ?? null;
+      if (oldStatus === "InTransit" || newStatus !== "InTransit") {
+        return;
+      }
+
+      const orderId = event.params.orderId;
+      const buyerUid = (afterData.buyerId || "").toString();
+      if (!buyerUid) {
+        logger.warn("Missing buyerId for postcard order push", {orderId});
+        return;
+      }
+
+      const sellerName = (afterData.sellerName || "Seller").toString();
+      const postcardTitle = (afterData.postcardTitle || "postcard").toString();
+
+      try {
+        await sendPushToUser(buyerUid, {
+          notification: {
+            title: "Postcard Sent",
+            body: `${sellerName} marked "${postcardTitle}" as sent. Please wait for delivery.`,
+          },
+          data: {
+            type: "postcard_shipped",
+            orderId,
+            postcardId: (afterData.postcardId || "").toString(),
+          },
+        }, {orderId, buyerUid});
+        logger.info("Postcard shipped push sent", {orderId, buyerUid});
+      } catch (error) {
+        logger.error("Failed to send postcard shipped push", {
+          orderId,
+          buyerUid,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+);

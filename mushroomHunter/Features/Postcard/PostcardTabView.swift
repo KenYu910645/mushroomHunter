@@ -282,6 +282,7 @@ struct PostcardDetailView: View {
     @State private var showBuySuccessAlert: Bool = false
     @State private var showBuyErrorAlert: Bool = false
     @State private var buyErrorMessage: String = ""
+    @State private var showShippingSheet: Bool = false
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var session: SessionStore
@@ -394,6 +395,14 @@ struct PostcardDetailView: View {
                     }
                     .accessibilityLabel(LocalizedStringKey("postcard_edit_accessibility"))
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showShippingSheet = true
+                    } label: {
+                        Image(systemName: "shippingbox")
+                    }
+                    .accessibilityLabel(LocalizedStringKey("postcard_shipping_accessibility"))
+                }
             }
         }
         .alert(LocalizedStringKey("postcard_confirm_title"), isPresented: $showBuyConfirm) {
@@ -429,6 +438,11 @@ struct PostcardDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: $showShippingSheet) {
+            NavigationStack {
+                PostcardShippingView(postcard: currentListing)
+            }
+        }
     }
 
     private func refreshListing() async {
@@ -456,6 +470,106 @@ struct PostcardDetailView: View {
         } catch {
             buyErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             showBuyErrorAlert = true
+        }
+    }
+}
+
+struct PostcardShippingView: View {
+    let postcard: PostcardListing
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var recipients: [PostcardShippingRecipient] = []
+    @State private var isLoading: Bool = false
+    @State private var isSendingOrderId: String? = nil
+    @State private var errorMessage: String?
+    private let repo = FirebasePostcardRepository()
+
+    var body: some View {
+        List {
+            if let errorMessage {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+            }
+
+            if isLoading && recipients.isEmpty {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                }
+            } else if recipients.isEmpty {
+                Text(LocalizedStringKey("postcard_shipping_empty"))
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(recipients) { recipient in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(recipient.buyerName)
+                            .font(.headline)
+                        Text(
+                            String(
+                                format: NSLocalizedString("postcard_shipping_friend_code_format", comment: ""),
+                                recipient.buyerFriendCode.isEmpty ? "-" : recipient.buyerFriendCode
+                            )
+                        )
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                        Button {
+                            Task { await markSent(recipient) }
+                        } label: {
+                            if isSendingOrderId == recipient.id {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                Text(LocalizedStringKey("postcard_shipping_send_button"))
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(isSendingOrderId != nil)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .navigationTitle(LocalizedStringKey("postcard_shipping_title"))
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(LocalizedStringKey("common_close")) {
+                    dismiss()
+                }
+            }
+        }
+        .task {
+            await loadRecipients()
+        }
+        .refreshable {
+            await loadRecipients()
+        }
+    }
+
+    private func loadRecipients() async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            recipients = try await repo.fetchShippingRecipients(postcardId: postcard.id)
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func markSent(_ recipient: PostcardShippingRecipient) async {
+        guard isSendingOrderId == nil else { return }
+        isSendingOrderId = recipient.id
+        defer { isSendingOrderId = nil }
+
+        do {
+            try await repo.markPostcardSent(orderId: recipient.id)
+            recipients.removeAll { $0.id == recipient.id }
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 }

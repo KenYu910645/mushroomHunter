@@ -12,6 +12,7 @@ Core flows:
 - Maintain a user profile (display name, friend code, stars/reputation).
 - Browse/search postcards and upload postcard images to Firebase Storage.
 - Postcard register success dismisses the sheet and refreshes browse; postcard browse/detail pull-to-refresh fetch latest Firestore data.
+- Seller can open a shipping sheet from postcard detail, see waiting buyers, and mark each order as sent.
 
 
 ## Always Build/Install/Run After Code Changes
@@ -146,6 +147,7 @@ Fields:
 - `sellerDeadlineAt` (Timestamp): current seller deadline.
 - `buyerReminderAt` (Timestamp): default buyer reminder anchor.
 - `buyerAutoCompleteAt` (Timestamp): default buyer auto-complete deadline anchor.
+- `sentAt` (Timestamp, optional): set when seller marks postcard sent.
 - `timeouts` (Map): hour-based parameters written to each order:
   - `sellerSendReminderHours`
   - `sellerSendDeadlineHours`
@@ -153,6 +155,8 @@ Fields:
   - `buyerAutoCompleteHours`
 - `createdAt` (Timestamp): order creation time.
 - `updatedAt` (Timestamp): latest order update time.
+Notes:
+- Seller shipping action transitions status from `AwaitingSellerSend` -> `InTransit` and updates `sentAt`, `buyerReminderAt`, and `buyerAutoCompleteAt`.
 
 ### Firebase Storage
 - Path: `postcards/{ownerId}/{uuid}.jpg` where `ownerId` is the authenticated uploader uid.
@@ -177,6 +181,13 @@ Fields:
 - Payload includes room routing keys `roomId` and `room_id`, and type:
   - `raid_confirmation_accepted`
   - `raid_confirmation_rejected`
+- Function: `sendPostcardShippedPush` in `functions/index.js`.
+- Trigger: Firestore document update on `postcardOrders/{orderId}`.
+- Condition: send only when order `status` transitions into `InTransit`.
+- Target token source: `users/{buyerId}.fcmToken`.
+- Payload includes:
+  - Notification title/body that seller marked postcard as sent.
+  - Data keys `type = postcard_shipped`, `orderId`, and `postcardId`.
 
 ### Confirmation stars flow
 - Attendee flow: after attendee accepts raid confirmation and pays host (`depositHoney -= fixedRaidCost`, host `honey += fixedRaidCost`), attendee can give host `1`, `2`, or `3` stars.

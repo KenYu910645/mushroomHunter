@@ -10,6 +10,8 @@ enum PostcardRepoError: LocalizedError {
     case outOfStock
     case notEnoughHoney
     case cannotBuyOwnListing
+    case forbidden
+    case invalidOrderState
 
     var errorDescription: String? {
         switch self {
@@ -20,6 +22,8 @@ enum PostcardRepoError: LocalizedError {
         case .outOfStock: return "This postcard is out of stock."
         case .notEnoughHoney: return "Not enough honey."
         case .cannotBuyOwnListing: return "You cannot buy your own postcard."
+        case .forbidden: return "You don't have access to this action."
+        case .invalidOrderState: return "Order is not in a shippable state."
         }
     }
 }
@@ -249,6 +253,118 @@ final class FirebasePostcardRepository {
         return orderRef.documentID
     }
 
+    func fetchShippingRecipients(postcardId: String) async throws -> [PostcardShippingRecipient] {
+        guard let sellerId = Auth.auth().currentUser?.uid else {
+            throw PostcardRepoError.notSignedIn
+        }
+
+        let query = db.collection("postcardOrders")
+            .whereField("postcardId", isEqualTo: postcardId)
+            .limit(to: 100)
+
+        let snap: QuerySnapshot
+        do {
+            snap = try await query.getDocuments(source: .server)
+        } catch {
+            snap = try await query.getDocuments(source: .default)
+        }
+
+        let candidates = snap.documents.compactMap { doc -> (String, [String: Any])? in
+            let data = doc.data()
+            let statusRaw = data["status"] as? String ?? ""
+            let orderSellerId = data["sellerId"] as? String ?? ""
+            guard orderSellerId == sellerId, statusRaw == PostcardOrderStatus.awaitingSellerSend.rawValue else {
+                return nil
+            }
+            return (doc.documentID, data)
+        }
+
+        if candidates.isEmpty { return [] }
+
+        let buyerIds = Array(Set(candidates.compactMap { $0.1["buyerId"] as? String }).filter { !$0.isEmpty })
+        var buyerFriendCodes: [String: String] = [:]
+
+        if !buyerIds.isEmpty {
+            // Firestore "in" supports up to 10 IDs per query.
+            for chunk in buyerIds.chunked(into: 10) {
+                let usersSnap = try await db.collection("users")
+                    .whereField(FieldPath.documentID(), in: chunk)
+                    .getDocuments(source: .server)
+                for userDoc in usersSnap.documents {
+                    let code = userDoc.data()["friendCode"] as? String ?? ""
+                    buyerFriendCodes[userDoc.documentID] = code
+                }
+            }
+        }
+
+        return candidates.map { (orderId, data) in
+            let buyerId = data["buyerId"] as? String ?? ""
+            let buyerName = data["buyerName"] as? String ?? "Unknown"
+            return PostcardShippingRecipient(
+                id: orderId,
+                buyerId: buyerId,
+                buyerName: buyerName,
+                buyerFriendCode: buyerFriendCodes[buyerId] ?? ""
+            )
+        }
+        .sorted { $0.buyerName.localizedCaseInsensitiveCompare($1.buyerName) == .orderedAscending }
+    }
+
+    func markPostcardSent(orderId: String) async throws {
+        guard let sellerId = Auth.auth().currentUser?.uid else {
+            throw PostcardRepoError.notSignedIn
+        }
+
+        let orderRef = db.collection("postcardOrders").document(orderId)
+        let nowDate = Date()
+        let now = Timestamp(date: nowDate)
+
+        _ = try await db.runTransaction { tx, errorPointer in
+            let orderSnap: DocumentSnapshot
+            do {
+                orderSnap = try tx.getDocument(orderRef)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+
+            guard let order = orderSnap.data() else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.listingNotFound)
+                return nil
+            }
+
+            let orderSellerId = order["sellerId"] as? String ?? ""
+            guard orderSellerId == sellerId else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.forbidden)
+                return nil
+            }
+
+            let statusRaw = order["status"] as? String ?? ""
+            guard statusRaw == PostcardOrderStatus.awaitingSellerSend.rawValue else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.invalidOrderState)
+                return nil
+            }
+
+            let timeoutMap = order["timeouts"] as? [String: Any] ?? [:]
+            let buyerReminderHours = timeoutMap["buyerReceiveReminderHours"] as? Int ?? self.buyerReceiveReminderHours
+            let buyerAutoHours = timeoutMap["buyerAutoCompleteHours"] as? Int ?? self.buyerAutoCompleteHours
+
+            tx.updateData([
+                "status": PostcardOrderStatus.inTransit.rawValue,
+                "sentAt": now,
+                "buyerReminderAt": Timestamp(
+                    date: nowDate.addingTimeInterval(TimeInterval(max(1, buyerReminderHours) * 3600))
+                ),
+                "buyerAutoCompleteAt": Timestamp(
+                    date: nowDate.addingTimeInterval(TimeInterval(max(1, buyerAutoHours) * 3600))
+                ),
+                "updatedAt": now
+            ], forDocument: orderRef)
+
+            return nil
+        }
+    }
+
     private func decodeListing(_ doc: QueryDocumentSnapshot) -> PostcardListing {
         decodeListing(id: doc.documentID, data: doc.data())
     }
@@ -289,5 +405,20 @@ final class FirebasePostcardRepository {
             code: 400,
             userInfo: [NSLocalizedDescriptionKey: error.errorDescription ?? "Postcard error."]
         )
+    }
+}
+
+private extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        guard size > 0, !isEmpty else { return isEmpty ? [] : [self] }
+        var chunks: [[Element]] = []
+        chunks.reserveCapacity((count + size - 1) / size)
+        var index = 0
+        while index < count {
+            let end = Swift.min(index + size, count)
+            chunks.append(Array(self[index..<end]))
+            index += size
+        }
+        return chunks
     }
 }
