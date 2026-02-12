@@ -26,7 +26,13 @@ struct mushroomHunterApp: App {
                 .environmentObject(session)
                 .onOpenURL { url in
                     // Let GoogleSignIn handle the redirect back into the app
-                    GIDSignIn.sharedInstance.handle(url)
+                    if GIDSignIn.sharedInstance.handle(url) {
+                        return
+                    }
+
+                    if let roomId = RoomInviteLink.parseRoomId(from: url) {
+                        NotificationCenter.default.post(name: .didOpenRoomFromPush, object: roomId)
+                    }
                 }
         }
     }

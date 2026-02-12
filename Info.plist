@@ -12,6 +12,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.googleusercontent.apps.748328266255-g8lg3rgnlnq77bi14r1i3r3ihrll8jdr</string>
+				<string>honeyhub</string>
 			</array>
 		</dict>
 	</array>

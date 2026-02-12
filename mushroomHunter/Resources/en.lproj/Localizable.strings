@@ -150,7 +150,7 @@
 "room_attendees_header" = "Attendees";
 "room_no_attendees_title" = "No attendees";
 "room_no_attendees_description" = "There are no attendees to select.";
-"room_bid_honey_format" = "🍯 %d";
+"room_bid_honey_format" = "%d";
 "room_claim_rewards_title" = "Mushroom Raid Done";
 "room_load_error_title" = "Unable to load room";
 "room_attendee_count_format" = "👤 %d/%d";
@@ -170,6 +170,7 @@
 "room_sort_stars" = "Stars (High → Low)";
 "room_sort_joined" = "Joined (Old → New)";
 "room_edit_room_accessibility" = "Edit Room";
+"room_share_accessibility" = "Share room invite";
 "room_join_room_accessibility" = "Join Room";
 "room_edit_bid_accessibility" = "Edit Deposit";
 "room_kick" = "Kick";
@@ -184,6 +185,11 @@
 "room_reject_alert_message" = "%@ rejected the confirmation. Resend or give up?";
 "room_reject_resend" = "Resend";
 "room_reject_giveup" = "Give up";
+"room_invite_title" = "Room Invite";
+"room_invite_hint" = "Share this QR code for \"%@\".";
+"room_invite_share_button" = "Share Link";
+"room_invite_copy_button" = "Copy Link";
+"room_invite_link_unavailable" = "Invite link unavailable. Please try again.";
 "room_error_enter_bid" = "Please enter a deposit before joining.";
 "room_error_min_deposit" = "Please deposit at least %d 🍯.";
 "room_error_not_enough_honey" = "Not enough honey. You have %d 🍯.";

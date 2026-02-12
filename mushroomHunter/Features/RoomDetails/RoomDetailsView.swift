@@ -7,6 +7,8 @@
 
 import SwiftUI
 import UIKit
+import CoreImage
+import CoreImage.CIFilterBuiltins
 
 struct RoomDetailsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -46,6 +48,7 @@ struct RoomDetailsView: View {
     @State private var showRejectResolveAlert: Bool = false
     @State private var rejectAttendeeId: String = ""
     @State private var rejectAttendeeName: String = ""
+    @State private var showInviteSheet: Bool = false
 
     /// ✅ New initializer: pass VM from caller (BrowseView already does this)
     init(vm: RoomDetailsViewModel, onRoomClosed: (() -> Void)? = nil) {
@@ -406,6 +409,22 @@ struct RoomDetailsView: View {
                 }
             }
         }
+        .sheet(isPresented: $showInviteSheet) {
+            if let room = vm.room {
+                RoomInviteSheet(
+                    roomTitle: room.title,
+                    inviteURL: RoomInviteLink.makeURL(roomId: room.id),
+                    onCopyInviteLink: { link in
+                        UIPasteboard.general.string = link
+                        showCopyToast = true
+                        Task {
+                            try? await Task.sleep(nanoseconds: 900_000_000)
+                            showCopyToast = false
+                        }
+                    }
+                )
+            }
+        }
         // If your SessionStore changes login state, VM will refresh role
         // You can trigger this from outside later if needed.
     }
@@ -542,6 +561,19 @@ struct RoomDetailsView: View {
         ToolbarItem(placement: .topBarTrailing) {
             if vm.isLoading {
                 ProgressView()
+            }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            if vm.role == .host, vm.room != nil {
+                Button {
+                    showInviteSheet = true
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.headline)
+                }
+                .accessibilityLabel(LocalizedStringKey("room_share_accessibility"))
+                .disabled(vm.isLoading)
+
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -718,6 +750,103 @@ struct RoomDetailsView: View {
     }
 }
 
+private struct RoomInviteSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let roomTitle: String
+    let inviteURL: URL?
+    let onCopyInviteLink: (String) -> Void
+
+    private let qrContext = CIContext()
+    private let qrFilter = CIFilter.qrCodeGenerator()
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                Text(String(format: NSLocalizedString("room_invite_hint", comment: ""), roomTitle))
+                    .font(.subheadline)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+
+                if let link = inviteURL?.absoluteString,
+                   let qr = qrImage(from: link) {
+                    Image(uiImage: qr)
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 260, maxHeight: 260)
+                        .padding(12)
+                        .background(.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(.quaternary, lineWidth: 1)
+                        )
+
+                    Text(link)
+                        .font(.footnote.monospaced())
+                        .multilineTextAlignment(.center)
+                        .textSelection(.enabled)
+                        .padding(.horizontal)
+
+                    HStack(spacing: 12) {
+                        ShareLink(item: link) {
+                            Label(LocalizedStringKey("room_invite_share_button"), systemImage: "square.and.arrow.up")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button {
+                            onCopyInviteLink(link)
+                        } label: {
+                            Label(LocalizedStringKey("room_invite_copy_button"), systemImage: "doc.on.doc")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .padding(.horizontal)
+                } else {
+                    ContentUnavailableView(
+                        LocalizedStringKey("room_load_error_title"),
+                        systemImage: "qrcode",
+                        description: Text(LocalizedStringKey("room_invite_link_unavailable"))
+                    )
+                }
+
+                Spacer()
+            }
+            .padding(.top, 20)
+            .navigationTitle(LocalizedStringKey("room_invite_title"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(LocalizedStringKey("common_done")) {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private func qrImage(from string: String) -> UIImage? {
+        let data = Data(string.utf8)
+        qrFilter.setValue(data, forKey: "inputMessage")
+        qrFilter.setValue("M", forKey: "inputCorrectionLevel")
+
+        guard let outputImage = qrFilter.outputImage else { return nil }
+        let outputSize = outputImage.extent.size
+        guard outputSize.width > 0, outputSize.height > 0 else { return nil }
+
+        let targetSize: CGFloat = 260
+        let scaleX = targetSize / outputSize.width
+        let scaleY = targetSize / outputSize.height
+        let transformedImage = outputImage.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
+        guard let cgImage = qrContext.createCGImage(transformedImage, from: transformedImage.extent) else { return nil }
+
+        return UIImage(cgImage: cgImage)
+    }
+}
+
 // MARK: - Attendee Row
 
 private struct AttendeeRow: View {
@@ -782,10 +911,16 @@ private struct AttendeeRow: View {
                 Spacer()
 
                 if !isHostAttendee {
-                    Text(String(format: NSLocalizedString("room_bid_honey_format", comment: ""), attendee.depositHoney))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+                    HStack(spacing: 4) {
+                        Image("HoneyIcon")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 14, height: 14)
+                        Text(String(format: NSLocalizedString("room_bid_honey_format", comment: ""), attendee.depositHoney))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
                 }
 
                 Label("\(attendee.stars)", systemImage: "star.fill")

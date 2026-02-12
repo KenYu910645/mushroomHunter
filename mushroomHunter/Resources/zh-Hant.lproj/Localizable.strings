@@ -148,7 +148,7 @@
 "room_attendees_header" = "參加者";
 "room_no_attendees_title" = "沒有參加者";
 "room_no_attendees_description" = "目前沒有可選擇的參加者。";
-"room_bid_honey_format" = "🍯 %d";
+"room_bid_honey_format" = "%d";
 "room_claim_rewards_title" = "領取獎勵";
 "room_load_error_title" = "無法載入房間";
 "room_attendee_count_format" = "參加者：%d/%d";
@@ -168,6 +168,7 @@
 "room_sort_stars" = "星數（高 → 低）";
 "room_sort_joined" = "加入時間（舊 → 新）";
 "room_edit_room_accessibility" = "編輯房間";
+"room_share_accessibility" = "分享房間邀請";
 "room_join_room_accessibility" = "加入房間";
 "room_edit_bid_accessibility" = "編輯押金";
 "room_kick" = "踢除";
@@ -182,6 +183,11 @@
 "room_reject_alert_message" = "%@ 已拒絕確認。要重新送出或放棄？";
 "room_reject_resend" = "重新送出";
 "room_reject_giveup" = "放棄";
+"room_invite_title" = "房間邀請";
+"room_invite_hint" = "分享此「%@」的 QR Code 邀請他人加入。";
+"room_invite_share_button" = "分享連結";
+"room_invite_copy_button" = "複製連結";
+"room_invite_link_unavailable" = "暫時無法產生邀請連結，請稍後再試。";
 "room_error_enter_bid" = "加入前請輸入押金。";
 "room_error_min_deposit" = "請至少存入 %d 🍯。";
 "room_error_not_enough_honey" = "蜂蜜不足。你目前有 %d 🍯。";

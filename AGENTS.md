@@ -8,6 +8,7 @@ HoneyHub (bundle `com.kenyu.mushroomHunter`) is an iOS app for Pikmin Bloom play
 Core flows:
 - Browse open mushroom rooms, see target details, join with a honey deposit, and coordinate via room details.
 - Host a room with target color/attribute/size, manage attendees, and close or finish a raid.
+- Hosts can open a share sheet in room details to show a QR code and share a room invite link (`honeyhub://room/{roomId}`) for installed-app users.
 - Maintain a user profile (display name, friend code, stars/reputation).
 - Browse/search postcards and upload postcard images to Firebase Storage.
 
@@ -104,3 +105,23 @@ Fields:
 ### Firebase Storage
 - Path: `postcards/{ownerId}/{uuid}.jpg` where `ownerId` is the uploader uid or `anonymous`.
 - Image is uploaded with `image/jpeg` metadata and the download URL is stored in `postcards.imageUrl`.
+
+### Cloud Functions (Push Notifications)
+- Function: `sendRaidConfirmationPush` in `functions/index.js`.
+- Trigger: Firestore document update on `rooms/{roomId}/attendees/{attendeeUid}`.
+- Condition: send only when attendee `status` transitions into `WaitingConfirmation` (not on repeated updates while already `WaitingConfirmation`).
+- Target token source: `users/{attendeeUid}.fcmToken`.
+- Payload includes:
+  - Notification title/body for immediate phone alert.
+  - Data keys `type = raid_confirmation`, `roomId`, and `room_id` for app routing.
+- Function: `notifyHostRaidConfirmationResult` in `functions/index.js`.
+- Trigger: Firestore document update on `rooms/{roomId}/attendees/{attendeeUid}`.
+- Condition: send only when attendee `status` transitions from `WaitingConfirmation` to either:
+  - `Ready` (attendee accepted confirmation): push host that attendee confirmed and host earned `fixedRaidCost` honey.
+  - `Rejected` (attendee rejected confirmation): push host to resolve the issue in room details.
+- Host resolution:
+  - Find host uid from `rooms/{roomId}/attendees` where `status = Host`.
+  - Read host token from `users/{hostUid}.fcmToken`.
+- Payload includes room routing keys `roomId` and `room_id`, and type:
+  - `raid_confirmation_accepted`
+  - `raid_confirmation_rejected`
