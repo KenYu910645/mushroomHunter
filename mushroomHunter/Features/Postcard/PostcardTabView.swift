@@ -4,6 +4,9 @@ import PhotosUI
 private let postcardMaxPriceHoney: Int = 1_000_000_000
 private let postcardMaxStock: Int = 1_000_000
 private let postcardMaxDetailChars: Int = 100
+private let postcardMaxTitleChars: Int = 20
+private let postcardMaxProvinceChars: Int = 20
+private let postcardSnapshotSize: CGFloat = 180
 
 private func clampedNumericText(_ value: String, max: Int) -> String {
     let digits = value.filter { $0.isNumber }
@@ -17,6 +20,10 @@ private func clampedNumericText(_ value: String, max: Int) -> String {
         return maxText
     }
     return digits
+}
+
+private func clampedText(_ value: String, max: Int) -> String {
+    String(value.prefix(max))
 }
 
 // MARK: - Root Tab
@@ -65,6 +72,7 @@ struct PostcardBrowseView: View {
     @StateObject private var vm = PostcardBrowseViewModel()
     @State private var showSearchAlert: Bool = false
     @Environment(\.colorScheme) private var scheme
+    private let cardColumnSpacing: CGFloat = 8
     let refreshToken: Int
     let onRegister: () -> Void
 
@@ -85,8 +93,9 @@ struct PostcardBrowseView: View {
                         NavigationLink {
                             PostcardDetailView(listing: listing)
                         } label: {
-                            PostcardCardView(listing: listing, cardWidth: cardWidth)
+                            PostcardCardView(listing: listing)
                         }
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                         .buttonStyle(.plain)
                         .contentShape(RoundedRectangle(cornerRadius: 12))
                     }
@@ -138,13 +147,10 @@ struct PostcardBrowseView: View {
     }
 
     private var gridColumns: [GridItem] {
-        [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
-    }
-
-    // 2-column layout: horizontal padding(16 + 16) + inter-item spacing(12)
-    private var cardWidth: CGFloat {
-        let screenWidth = UIScreen.main.bounds.width
-        return max(120, (screenWidth - 44) / 2.0)
+        [
+            GridItem(.flexible(minimum: 0, maximum: .infinity), spacing: cardColumnSpacing, alignment: .top),
+            GridItem(.flexible(minimum: 0, maximum: .infinity), spacing: cardColumnSpacing, alignment: .top)
+        ]
     }
 
     private var headerBar: some View {
@@ -218,20 +224,16 @@ struct PostcardBrowseView: View {
 
 private struct PostcardCardView: View {
     let listing: PostcardListing
-    let cardWidth: CGFloat
     @Environment(\.colorScheme) private var scheme
-    private let imageAspectRatio: CGFloat = 4.0 / 3.0
 
-    private var imageHeight: CGFloat {
-        cardWidth / imageAspectRatio
-    }
+    private let imageAspectRatio: CGFloat = 1.0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.secondarySystemBackground))
-                    .frame(height: imageHeight)
+                    .fill(Color.white)
+                    .aspectRatio(imageAspectRatio, contentMode: .fit)
 
                 if let urlString = listing.imageUrl, let url = URL(string: urlString) {
                     AsyncImage(url: url) { phase in
@@ -252,15 +254,16 @@ private struct PostcardCardView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .frame(height: imageHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .aspectRatio(imageAspectRatio, contentMode: .fill)
+                    .frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 } else {
                     Image(systemName: "photo")
                         .font(.title)
                         .foregroundStyle(.secondary)
                 }
             }
-            .frame(height: imageHeight)
+            .frame(maxWidth: .infinity)
 
             Text(listing.title)
                 .font(.headline)
@@ -269,13 +272,21 @@ private struct PostcardCardView: View {
             HStack(spacing: 6) {
                 Image(systemName: "mappin.and.ellipse")
                 Text(listing.location.shortLabel)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
             .font(.caption)
             .foregroundStyle(.secondary)
 
             HStack {
-                Text(String(format: NSLocalizedString("postcard_price_honey_format", comment: ""), listing.priceHoney))
-                    .font(.subheadline)
+                HStack(spacing: 4) {
+                    Text("\(listing.priceHoney)")
+                        .font(.subheadline)
+                    Image("HoneyIcon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 14, height: 14)
+                }
                 Spacer()
                 Text(String(format: NSLocalizedString("postcard_stock_format", comment: ""), listing.stock))
                     .font(.caption)
@@ -288,7 +299,8 @@ private struct PostcardCardView: View {
                 .fill(Theme.cardBackground(for: scheme))
                 .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
         )
-        .frame(width: cardWidth, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
         .contentShape(RoundedRectangle(cornerRadius: 12))
     }
 }
@@ -390,8 +402,6 @@ struct PostcardDetailView: View {
                     .foregroundStyle(.secondary)
 
                     HStack {
-                        Text(LocalizedStringKey("postcard_price_label"))
-                        Spacer()
                         HStack(spacing: 4) {
                             Text("\(currentListing.priceHoney)")
                                 .fontWeight(.semibold)
@@ -401,13 +411,10 @@ struct PostcardDetailView: View {
                                 .scaledToFit()
                                 .frame(width: 18, height: 18)
                         }
-                    }
-
-                    HStack {
-                        Text(LocalizedStringKey("postcard_stock_label"))
                         Spacer()
-                        Text(String(format: NSLocalizedString("postcard_stock_plain_format", comment: ""), currentListing.stock))
+                        Text(String(format: NSLocalizedString("postcard_stock_format", comment: ""), currentListing.stock))
                             .fontWeight(.semibold)
+                            .monospacedDigit()
                     }
 
                     if !currentListing.location.detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -715,13 +722,13 @@ struct PostcardEditView: View {
                         ZStack {
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color(.secondarySystemBackground))
-                                .frame(height: 160)
+                                .frame(width: postcardSnapshotSize, height: postcardSnapshotSize)
 
                             if let uiImage = selectedImage {
                                 Image(uiImage: uiImage)
                                     .resizable()
                                     .scaledToFill()
-                                    .frame(height: 160)
+                                    .frame(width: postcardSnapshotSize, height: postcardSnapshotSize)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                             } else if let urlString = listing.imageUrl,
                                       let url = URL(string: urlString) {
@@ -743,7 +750,7 @@ struct PostcardEditView: View {
                                             .foregroundStyle(.secondary)
                                     }
                                 }
-                                .frame(height: 160)
+                                .frame(width: postcardSnapshotSize, height: postcardSnapshotSize)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                             } else {
                                 VStack(spacing: 6) {
@@ -757,6 +764,7 @@ struct PostcardEditView: View {
                             }
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .center)
 
                     if let err = uploadError {
                         Text(err)
@@ -899,6 +907,14 @@ struct PostcardEditView: View {
                 detail = String(newValue.prefix(postcardMaxDetailChars))
             }
         }
+        .onChange(of: title) { _, newValue in
+            let clamped = clampedText(newValue, max: postcardMaxTitleChars)
+            if clamped != newValue { title = clamped }
+        }
+        .onChange(of: province) { _, newValue in
+            let clamped = clampedText(newValue, max: postcardMaxProvinceChars)
+            if clamped != newValue { province = clamped }
+        }
     }
 
     private func loadSelectedPhoto(_ item: PhotosPickerItem) async {
@@ -906,12 +922,13 @@ struct PostcardEditView: View {
         do {
             if let data = try await item.loadTransferable(type: Data.self),
                let image = UIImage(data: data) {
-                selectedImage = image
+                selectedImage = try uploader.cropSnapshotImage(image)
             } else {
                 uploadError = NSLocalizedString("postcard_upload_load_error", comment: "")
             }
         } catch {
-            uploadError = error.localizedDescription
+            selectedImage = nil
+            uploadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
@@ -947,8 +964,11 @@ struct PostcardEditView: View {
         do {
             var newImageUrl: String? = nil
             if let image = selectedImage {
-                guard let data = uploader.prepareUploadJPEGData(from: image, maxLongEdge: 640) else {
-                    presentError(NSLocalizedString("postcard_upload_process_error", comment: ""))
+                let data: Data
+                do {
+                    data = try uploader.prepareUploadJPEGData(from: image)
+                } catch {
+                    presentError((error as? LocalizedError)?.errorDescription ?? NSLocalizedString("postcard_upload_process_error", comment: ""))
                     return
                 }
                 let uploaded = try await uploader.uploadPostcardImage(data: data, ownerId: listing.sellerId)
@@ -1032,13 +1052,13 @@ struct PostcardRegisterView: View {
                         ZStack {
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color(.secondarySystemBackground))
-                                .frame(height: 160)
+                                .frame(width: postcardSnapshotSize, height: postcardSnapshotSize)
 
                             if let uiImage = selectedImage {
                                 Image(uiImage: uiImage)
                                     .resizable()
                                     .scaledToFill()
-                                    .frame(height: 160)
+                                    .frame(width: postcardSnapshotSize, height: postcardSnapshotSize)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                             } else {
                                 VStack(spacing: 6) {
@@ -1052,6 +1072,7 @@ struct PostcardRegisterView: View {
                             }
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .center)
 
                     if isUploading {
                         ProgressView(LocalizedStringKey("postcard_uploading"))
@@ -1177,6 +1198,14 @@ struct PostcardRegisterView: View {
                 detail = String(newValue.prefix(postcardMaxDetailChars))
             }
         }
+        .onChange(of: title) { _, newValue in
+            let clamped = clampedText(newValue, max: postcardMaxTitleChars)
+            if clamped != newValue { title = clamped }
+        }
+        .onChange(of: province) { _, newValue in
+            let clamped = clampedText(newValue, max: postcardMaxProvinceChars)
+            if clamped != newValue { province = clamped }
+        }
         .alert(LocalizedStringKey("common_error"), isPresented: $showErrorAlert) {
             Button(LocalizedStringKey("common_ok")) {}
         } message: {
@@ -1189,12 +1218,13 @@ struct PostcardRegisterView: View {
         do {
             if let data = try await item.loadTransferable(type: Data.self),
                let image = UIImage(data: data) {
-                selectedImage = image
+                selectedImage = try uploader.cropSnapshotImage(image)
             } else {
                 uploadError = NSLocalizedString("postcard_upload_load_error", comment: "")
             }
         } catch {
-            uploadError = error.localizedDescription
+            selectedImage = nil
+            uploadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
@@ -1232,8 +1262,11 @@ struct PostcardRegisterView: View {
             presentError(NSLocalizedString("postcard_upload_select_error", comment: ""))
             return
         }
-        guard let data = uploader.prepareUploadJPEGData(from: image, maxLongEdge: 640) else {
-            presentError(NSLocalizedString("postcard_upload_process_error", comment: ""))
+        let data: Data
+        do {
+            data = try uploader.prepareUploadJPEGData(from: image)
+        } catch {
+            presentError((error as? LocalizedError)?.errorDescription ?? NSLocalizedString("postcard_upload_process_error", comment: ""))
             return
         }
 
