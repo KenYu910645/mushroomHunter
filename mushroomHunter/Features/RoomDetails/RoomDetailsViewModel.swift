@@ -155,10 +155,20 @@ final class RoomDetailsViewModel: ObservableObject {
         room?.attendees.first(where: { $0.id == attendeeId })
     }
 
-    func resolveRejectedConfirmation(attendeeId: String) async {
+    func resendRejectedConfirmation(attendeeId: String) async {
         guard let room else { return }
         do {
-            try await actions.resolveRejectedConfirmation(roomId: room.id, attendeeUid: attendeeId)
+            try await actions.resendRejectedConfirmation(roomId: room.id, attendeeUid: attendeeId)
+            await load()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func giveUpRejectedConfirmation(attendeeId: String) async {
+        guard let room else { return }
+        do {
+            try await actions.giveUpRejectedConfirmation(roomId: room.id, attendeeUid: attendeeId)
             await load()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

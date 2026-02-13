@@ -8,6 +8,9 @@ HoneyHub (bundle `com.kenyu.mushroomHunter`) is an iOS app for Pikmin Bloom play
 Core flows:
 - Browse open mushroom rooms, see target details, join with a honey deposit, and coordinate via room details.
 - Host a room with target color/attribute/size, manage attendees, and close or finish a raid.
+- In host reject-resolution alert:
+  - `Resend` sets attendee status back to `WaitingConfirmation` and re-triggers confirmation push notification.
+  - `Give Up` sets attendee status back to `Ready`.
 - Hosts can open a share sheet in room details to show a QR code and share a room invite link (`honeyhub://room/{roomId}`) for installed-app users.
 - Maintain a user profile (display name, friend code, stars/reputation).
 - Profile settings includes:

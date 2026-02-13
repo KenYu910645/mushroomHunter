@@ -336,7 +336,7 @@ final class FirebaseRoomActionsRepository {
             do { roomSnap = try tx.getDocument(roomRef) }
             catch { errPtr?.pointee = error as NSError; return nil }
 
-            guard let room = roomSnap.data() else {
+            guard roomSnap.data() != nil else {
                 errPtr?.pointee = RoomActionError.roomNotFound as NSError
                 return nil
             }
@@ -569,8 +569,8 @@ final class FirebaseRoomActionsRepository {
         }
     }
 
-    // MARK: - Resolve rejected (host only)
-    func resolveRejectedConfirmation(roomId: String, attendeeUid: String) async throws {
+    // MARK: - Rejected confirmation handling (host only)
+    func resendRejectedConfirmation(roomId: String, attendeeUid: String) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
         let roomRef = db.collection("rooms").document(roomId)
@@ -598,7 +598,48 @@ final class FirebaseRoomActionsRepository {
             }
 
             tx.updateData([
+                "status": AttendeeStatus.waitingConfirmation.rawValue,
+                "attendeeRatedHost": false,
+                "hostRatedAttendee": false,
+                "needsHostRating": false,
+                "updatedAt": now
+            ], forDocument: attendeeRef)
+
+            return nil
+        }
+    }
+
+    func giveUpRejectedConfirmation(roomId: String, attendeeUid: String) async throws {
+        guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
+
+        let roomRef = db.collection("rooms").document(roomId)
+        let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
+        let now = Timestamp(date: Date())
+
+        try await db.runTransaction { tx, errPtr -> Any? in
+            let roomSnap: DocumentSnapshot
+            do { roomSnap = try tx.getDocument(roomRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+
+            guard roomSnap.data() != nil else {
+                errPtr?.pointee = RoomActionError.roomNotFound as NSError
+                return nil
+            }
+
+            let hostSelfRef = roomRef.collection("attendees").document(uid)
+            let hostSelfSnap: DocumentSnapshot
+            do { hostSelfSnap = try tx.getDocument(hostSelfRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+            let status = hostSelfSnap.data()?["status"] as? String ?? ""
+            guard status == AttendeeStatus.host.rawValue else {
+                errPtr?.pointee = RoomActionError.notHost as NSError
+                return nil
+            }
+
+            tx.updateData([
                 "status": AttendeeStatus.ready.rawValue,
+                "attendeeRatedHost": false,
+                "hostRatedAttendee": false,
                 "needsHostRating": false,
                 "updatedAt": now
             ], forDocument: attendeeRef)

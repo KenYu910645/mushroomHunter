@@ -284,10 +284,15 @@ struct RoomDetailsView: View {
             Button(LocalizedStringKey("room_reject_resend"), role: .cancel) {
                 let id = rejectAttendeeId
                 Task {
-                    await vm.resolveRejectedConfirmation(attendeeId: id)
+                    await vm.resendRejectedConfirmation(attendeeId: id)
                 }
             }
-            Button(LocalizedStringKey("room_reject_giveup")) {}
+            Button(LocalizedStringKey("room_reject_giveup")) {
+                let id = rejectAttendeeId
+                Task {
+                    await vm.giveUpRejectedConfirmation(attendeeId: id)
+                }
+            }
         } message: {
             Text(String(format: NSLocalizedString("room_reject_alert_message", comment: ""), rejectAttendeeName, rejectAttendeeName))
         }
