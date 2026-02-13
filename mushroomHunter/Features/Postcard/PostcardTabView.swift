@@ -316,6 +316,11 @@ struct PostcardDetailView: View {
     @State private var showBuyErrorAlert: Bool = false
     @State private var buyErrorMessage: String = ""
     @State private var showShippingSheet: Bool = false
+    @State private var buyerOrder: PostcardBuyerOrder?
+    @State private var showReceiveConfirmAlert: Bool = false
+    @State private var showNotReceivedAlert: Bool = false
+    @State private var showReceiveSuccessAlert: Bool = false
+    @State private var receiveSuccessMessage: String = ""
     @State private var sellerFriendCode: String = ""
     @State private var showCopyToast: Bool = false
     @Environment(\.colorScheme) private var scheme
@@ -332,6 +337,16 @@ struct PostcardDetailView: View {
     private var isSeller: Bool {
         guard let uid = session.authUid else { return false }
         return uid == currentListing.sellerId
+    }
+
+    private var canConfirmReceive: Bool {
+        guard let order = buyerOrder else { return false }
+        return order.status == .inTransit || order.status == .awaitingBuyerDecision
+    }
+
+    private var hasPendingBuyerOrder: Bool {
+        guard let order = buyerOrder else { return false }
+        return order.status == .awaitingSellerSend || canConfirmReceive
     }
 
     var body: some View {
@@ -424,7 +439,35 @@ struct PostcardDetailView: View {
                     }
                 }
 
-                if !isSeller {
+                if !isSeller && canConfirmReceive {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(LocalizedStringKey("postcard_receive_prompt"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        HStack(spacing: 10) {
+                            Button {
+                                showNotReceivedAlert = true
+                            } label: {
+                                Text(LocalizedStringKey("postcard_receive_no_button"))
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button {
+                                showReceiveConfirmAlert = true
+                            } label: {
+                                Text(LocalizedStringKey("postcard_receive_yes_button"))
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                    }
+                } else if !isSeller && hasPendingBuyerOrder {
+                    Text(LocalizedStringKey("postcard_order_pending_message"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else if !isSeller {
                     Button {
                         showBuyConfirm = true
                     } label: {
@@ -477,6 +520,26 @@ struct PostcardDetailView: View {
         } message: {
             Text(LocalizedStringKey("postcard_buy_success_message"))
         }
+        .alert(LocalizedStringKey("postcard_receive_confirm_title"), isPresented: $showReceiveConfirmAlert) {
+            Button(LocalizedStringKey("common_confirm")) {
+                Task { await confirmReceive() }
+            }
+            Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
+        } message: {
+            Text(LocalizedStringKey("postcard_receive_confirm_message"))
+        }
+        .alert(LocalizedStringKey("postcard_receive_wait_title"), isPresented: $showNotReceivedAlert) {
+            Button(LocalizedStringKey("common_ok")) {
+                Task { await markNotYetReceived() }
+            }
+        } message: {
+            Text(LocalizedStringKey("postcard_receive_wait_message"))
+        }
+        .alert(LocalizedStringKey("postcard_receive_success_title"), isPresented: $showReceiveSuccessAlert) {
+            Button(LocalizedStringKey("common_ok")) {}
+        } message: {
+            Text(receiveSuccessMessage)
+        }
         .alert(LocalizedStringKey("common_error"), isPresented: $showBuyErrorAlert) {
             Button(LocalizedStringKey("common_ok")) {}
         } message: {
@@ -520,6 +583,11 @@ struct PostcardDetailView: View {
             if let refreshed = try await repo.fetchPostcard(postcardId: currentListing.id) {
                 currentListing = refreshed
                 sellerFriendCode = try await repo.fetchUserFriendCode(userId: refreshed.sellerId)
+                if !isSeller {
+                    buyerOrder = try await repo.fetchLatestBuyerOrder(postcardId: refreshed.id)
+                } else {
+                    buyerOrder = nil
+                }
             } else {
                 dismiss()
             }
@@ -575,6 +643,31 @@ struct PostcardDetailView: View {
             showBuyErrorAlert = true
         }
     }
+
+    private func confirmReceive() async {
+        guard let order = buyerOrder else { return }
+        do {
+            try await repo.confirmPostcardReceived(orderId: order.id)
+            await session.refreshProfileFromBackend()
+            await refreshListing()
+            receiveSuccessMessage = NSLocalizedString("postcard_receive_success_message", comment: "")
+            showReceiveSuccessAlert = true
+        } catch {
+            buyErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            showBuyErrorAlert = true
+        }
+    }
+
+    private func markNotYetReceived() async {
+        guard let order = buyerOrder else { return }
+        do {
+            try await repo.markPostcardNotYetReceived(orderId: order.id)
+            await refreshListing()
+        } catch {
+            buyErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            showBuyErrorAlert = true
+        }
+    }
 }
 
 struct PostcardShippingView: View {
@@ -585,6 +678,7 @@ struct PostcardShippingView: View {
     @State private var isLoading: Bool = false
     @State private var isSendingOrderId: String? = nil
     @State private var errorMessage: String?
+    @State private var showShipSuccessAlert: Bool = false
     private let repo = FirebasePostcardRepository()
 
     var body: some View {
@@ -649,6 +743,11 @@ struct PostcardShippingView: View {
         .refreshable {
             await loadRecipients()
         }
+        .alert(LocalizedStringKey("postcard_shipping_sent_title"), isPresented: $showShipSuccessAlert) {
+            Button(LocalizedStringKey("common_ok")) {}
+        } message: {
+            Text(LocalizedStringKey("postcard_shipping_sent_message"))
+        }
     }
 
     private func loadRecipients() async {
@@ -671,6 +770,7 @@ struct PostcardShippingView: View {
         do {
             try await repo.markPostcardSent(orderId: recipient.id)
             recipients.removeAll { $0.id == recipient.id }
+            showShipSuccessAlert = true
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }

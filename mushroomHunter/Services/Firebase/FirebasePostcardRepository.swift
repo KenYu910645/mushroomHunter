@@ -49,6 +49,59 @@ final class FirebasePostcardRepository {
         return snap.documents.map(decodeListing)
     }
 
+    func fetchMyListings(userId: String, limit: Int = 50) async throws -> [PostcardListing] {
+        let q = db.collection("postcards")
+            .whereField("sellerId", isEqualTo: userId)
+            .order(by: "createdAt", descending: true)
+            .limit(to: limit)
+
+        let snap: QuerySnapshot
+        do {
+            snap = try await q.getDocuments(source: .server)
+        } catch {
+            snap = try await q.getDocuments(source: .default)
+        }
+        return snap.documents.map(decodeListing)
+    }
+
+    func fetchMyOrderedPostcards(userId: String, limit: Int = 50) async throws -> [PostcardListing] {
+        let q = db.collection("postcardOrders")
+            .whereField("buyerId", isEqualTo: userId)
+            .order(by: "createdAt", descending: true)
+            .limit(to: limit)
+
+        let orderSnap: QuerySnapshot
+        do {
+            orderSnap = try await q.getDocuments(source: .server)
+        } catch {
+            orderSnap = try await q.getDocuments(source: .default)
+        }
+
+        let orderedPostcardIds = orderSnap.documents.compactMap { doc -> String? in
+            let id = (doc.data()["postcardId"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return id.isEmpty ? nil : id
+        }
+        if orderedPostcardIds.isEmpty { return [] }
+
+        let uniqueIds = Array(Set(orderedPostcardIds))
+        var listingById: [String: PostcardListing] = [:]
+
+        for chunk in uniqueIds.chunked(into: 10) {
+            let listingSnap: QuerySnapshot
+            let query = db.collection("postcards").whereField(FieldPath.documentID(), in: chunk)
+            do {
+                listingSnap = try await query.getDocuments(source: .server)
+            } catch {
+                listingSnap = try await query.getDocuments(source: .default)
+            }
+            for doc in listingSnap.documents {
+                listingById[doc.documentID] = decodeListing(doc)
+            }
+        }
+
+        return orderedPostcardIds.compactMap { listingById[$0] }
+    }
+
     func searchByToken(_ token: String, limit: Int = 50) async throws -> [PostcardListing] {
         let q = db.collection("postcards")
             .whereField("searchTokens", arrayContains: token)
@@ -382,8 +435,176 @@ final class FirebasePostcardRepository {
         }
     }
 
+    func fetchLatestBuyerOrder(postcardId: String) async throws -> PostcardBuyerOrder? {
+        guard let buyerId = Auth.auth().currentUser?.uid else {
+            throw PostcardRepoError.notSignedIn
+        }
+
+        let query = db.collection("postcardOrders")
+            .whereField("buyerId", isEqualTo: buyerId)
+            .whereField("postcardId", isEqualTo: postcardId)
+            .limit(to: 50)
+
+        let snap: QuerySnapshot
+        do {
+            snap = try await query.getDocuments(source: .server)
+        } catch {
+            snap = try await query.getDocuments(source: .default)
+        }
+
+        let orders = snap.documents.compactMap(decodeBuyerOrder)
+            .filter { $0.status != .completed && $0.status != .cancelled }
+            .sorted { $0.createdAt > $1.createdAt }
+
+        return orders.first
+    }
+
+    func confirmPostcardReceived(orderId: String) async throws {
+        guard let buyerId = Auth.auth().currentUser?.uid else {
+            throw PostcardRepoError.notSignedIn
+        }
+
+        let orderRef = db.collection("postcardOrders").document(orderId)
+        let buyerRef = db.collection("users").document(buyerId)
+        let now = Timestamp(date: Date())
+
+        _ = try await db.runTransaction { tx, errorPointer in
+            let orderSnap: DocumentSnapshot
+            do {
+                orderSnap = try tx.getDocument(orderRef)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+
+            guard let order = orderSnap.data() else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.listingNotFound)
+                return nil
+            }
+
+            let orderBuyerId = order["buyerId"] as? String ?? ""
+            guard orderBuyerId == buyerId else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.forbidden)
+                return nil
+            }
+
+            let statusRaw = order["status"] as? String ?? ""
+            guard statusRaw == PostcardOrderStatus.inTransit.rawValue ||
+                statusRaw == PostcardOrderStatus.awaitingBuyerDecision.rawValue else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.invalidOrderState)
+                return nil
+            }
+
+            let sellerId = order["sellerId"] as? String ?? ""
+            let holdHoney = order["holdHoney"] as? Int ?? 0
+            guard !sellerId.isEmpty, holdHoney > 0 else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.invalidListing)
+                return nil
+            }
+
+            let sellerRef = self.db.collection("users").document(sellerId)
+            let sellerSnap: DocumentSnapshot
+            do {
+                sellerSnap = try tx.getDocument(sellerRef)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+
+            let sellerHoney = sellerSnap.data()?["honey"] as? Int ?? 0
+            tx.setData([
+                "honey": sellerHoney + holdHoney,
+                "updatedAt": now,
+            ], forDocument: sellerRef, merge: true)
+
+            tx.updateData([
+                "status": PostcardOrderStatus.completed.rawValue,
+                "updatedAt": now,
+                "completedAt": now,
+            ], forDocument: orderRef)
+
+            tx.setData([
+                "updatedAt": now,
+            ], forDocument: buyerRef, merge: true)
+
+            return nil
+        }
+    }
+
+    func markPostcardNotYetReceived(orderId: String) async throws {
+        guard let buyerId = Auth.auth().currentUser?.uid else {
+            throw PostcardRepoError.notSignedIn
+        }
+
+        let orderRef = db.collection("postcardOrders").document(orderId)
+        let nowDate = Date()
+        let now = Timestamp(date: nowDate)
+
+        _ = try await db.runTransaction { tx, errorPointer in
+            let orderSnap: DocumentSnapshot
+            do {
+                orderSnap = try tx.getDocument(orderRef)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+
+            guard let order = orderSnap.data() else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.listingNotFound)
+                return nil
+            }
+
+            let orderBuyerId = order["buyerId"] as? String ?? ""
+            guard orderBuyerId == buyerId else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.forbidden)
+                return nil
+            }
+
+            let statusRaw = order["status"] as? String ?? ""
+            guard statusRaw == PostcardOrderStatus.inTransit.rawValue ||
+                statusRaw == PostcardOrderStatus.awaitingBuyerDecision.rawValue else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.invalidOrderState)
+                return nil
+            }
+
+            let timeoutMap = order["timeouts"] as? [String: Any] ?? [:]
+            let buyerReminderHours = timeoutMap["buyerReceiveReminderHours"] as? Int ?? self.buyerReceiveReminderHours
+            let buyerAutoHours = timeoutMap["buyerAutoCompleteHours"] as? Int ?? self.buyerAutoCompleteHours
+
+            tx.updateData([
+                "status": PostcardOrderStatus.awaitingBuyerDecision.rawValue,
+                "buyerReminderAt": Timestamp(
+                    date: nowDate.addingTimeInterval(TimeInterval(max(1, buyerReminderHours) * 3600))
+                ),
+                "buyerAutoCompleteAt": Timestamp(
+                    date: nowDate.addingTimeInterval(TimeInterval(max(1, buyerAutoHours) * 3600))
+                ),
+                "updatedAt": now,
+            ], forDocument: orderRef)
+
+            return nil
+        }
+    }
+
     private func decodeListing(_ doc: QueryDocumentSnapshot) -> PostcardListing {
         decodeListing(id: doc.documentID, data: doc.data())
+    }
+
+    private func decodeBuyerOrder(_ doc: QueryDocumentSnapshot) -> PostcardBuyerOrder? {
+        let data = doc.data()
+        let postcardId = data["postcardId"] as? String ?? ""
+        let statusRaw = data["status"] as? String ?? ""
+        guard let status = PostcardOrderStatus(rawValue: statusRaw) else { return nil }
+
+        let holdHoney = data["holdHoney"] as? Int ?? 0
+        let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date.distantPast
+        return PostcardBuyerOrder(
+            id: doc.documentID,
+            postcardId: postcardId,
+            status: status,
+            holdHoney: holdHoney,
+            createdAt: createdAt
+        )
     }
 
     private func decodeListing(id: String, data: [String: Any]) -> PostcardListing {

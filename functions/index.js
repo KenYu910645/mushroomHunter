@@ -1,5 +1,5 @@
 const {setGlobalOptions} = require("firebase-functions/v2");
-const {onDocumentUpdated} = require("firebase-functions/v2/firestore");
+const {onDocumentCreated, onDocumentUpdated} = require("firebase-functions/v2/firestore");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 
@@ -200,7 +200,7 @@ exports.sendPostcardShippedPush = onDocumentUpdated(
         await sendPushToUser(buyerUid, {
           notification: {
             title: "Postcard Sent",
-            body: `${sellerName} marked "${postcardTitle}" as sent. Please wait for delivery.`,
+            body: `${sellerName} marked "${postcardTitle}" as sent. Please check delivery and confirm receipt in app.`,
           },
           data: {
             type: "postcard_shipped",
@@ -213,6 +213,103 @@ exports.sendPostcardShippedPush = onDocumentUpdated(
         logger.error("Failed to send postcard shipped push", {
           orderId,
           buyerUid,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+);
+
+exports.sendPostcardOrderCreatedPush = onDocumentCreated(
+    {
+      document: "postcardOrders/{orderId}",
+      region: "us-central1",
+    },
+    async (event) => {
+      const orderData = event.data?.data();
+      if (!orderData) return;
+
+      const status = (orderData.status || "").toString();
+      if (status !== "AwaitingSellerSend") {
+        return;
+      }
+
+      const orderId = event.params.orderId;
+      const sellerUid = (orderData.sellerId || "").toString();
+      if (!sellerUid) {
+        logger.warn("Missing sellerId for postcard order-created push", {orderId});
+        return;
+      }
+
+      const buyerName = (orderData.buyerName || "A buyer").toString();
+      const postcardTitle = (orderData.postcardTitle || "postcard").toString();
+
+      try {
+        await sendPushToUser(sellerUid, {
+          notification: {
+            title: "New Postcard Order",
+            body: `${buyerName} ordered "${postcardTitle}". Open postcard detail to process shipping.`,
+          },
+          data: {
+            type: "postcard_order_created",
+            orderId,
+            postcardId: (orderData.postcardId || "").toString(),
+          },
+        }, {orderId, sellerUid});
+        logger.info("Postcard order-created push sent", {orderId, sellerUid});
+      } catch (error) {
+        logger.error("Failed to send postcard order-created push", {
+          orderId,
+          sellerUid,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+);
+
+exports.notifySellerPostcardCompleted = onDocumentUpdated(
+    {
+      document: "postcardOrders/{orderId}",
+      region: "us-central1",
+    },
+    async (event) => {
+      const beforeData = event.data?.before?.data();
+      const afterData = event.data?.after?.data();
+      if (!beforeData || !afterData) return;
+
+      const oldStatus = (beforeData.status || "").toString();
+      const newStatus = (afterData.status || "").toString();
+      if (oldStatus === "Completed" || newStatus !== "Completed") {
+        return;
+      }
+
+      const orderId = event.params.orderId;
+      const sellerUid = (afterData.sellerId || "").toString();
+      if (!sellerUid) {
+        logger.warn("Missing sellerId for postcard completed push", {orderId});
+        return;
+      }
+
+      const buyerName = (afterData.buyerName || "Buyer").toString();
+      const holdHoney = Number(afterData.holdHoney || 0);
+
+      try {
+        await sendPushToUser(sellerUid, {
+          notification: {
+            title: "Order Completed",
+            body: `${buyerName} confirmed receipt. ${holdHoney} honey has been transferred to you.`,
+          },
+          data: {
+            type: "postcard_order_completed",
+            orderId,
+            postcardId: (afterData.postcardId || "").toString(),
+            honey: String(holdHoney),
+          },
+        }, {orderId, sellerUid});
+        logger.info("Postcard completed push sent", {orderId, sellerUid});
+      } catch (error) {
+        logger.error("Failed to send postcard completed push", {
+          orderId,
+          sellerUid,
           error: error instanceof Error ? error.message : String(error),
         });
       }

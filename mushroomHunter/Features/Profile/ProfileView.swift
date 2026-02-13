@@ -29,9 +29,17 @@ struct ProfileView: View {
     @State private var isJoinedLoading: Bool = false
     @State private var joinedErrorMessage: String? = nil
     @State private var joinedRooms: [JoinedRoomSummary] = []
+    @State private var isOnShelfLoading: Bool = false
+    @State private var onShelfErrorMessage: String? = nil
+    @State private var onShelfPostcards: [PostcardListing] = []
+    @State private var isOrderedLoading: Bool = false
+    @State private var orderedErrorMessage: String? = nil
+    @State private var orderedPostcards: [PostcardListing] = []
+    @State private var selectedPostcard: PostcardListing? = nil
     @State private var showSettingsSheet: Bool = false
 
     private let hostRepo = FirebaseProfileHostRepository()
+    private let postcardRepo = FirebasePostcardRepository()
 
     // Host rooms (MVP: mock; later: load from Firestore)
     //@State private var hostedRooms: [HostedRoomStub] = []
@@ -243,6 +251,26 @@ struct ProfileView: View {
                 } header: {
                     Text(LocalizedStringKey("profile_mushroom_section"))
                 }
+
+                Section {
+                    OnShelfPostcardsSection(
+                        postcards: onShelfPostcards,
+                        isLoading: isOnShelfLoading,
+                        errorMessage: onShelfErrorMessage,
+                        onSelectPostcard: { selectedPostcard = $0 }
+                    )
+                    .equatable()
+
+                    OrderedPostcardsSection(
+                        postcards: orderedPostcards,
+                        isLoading: isOrderedLoading,
+                        errorMessage: orderedErrorMessage,
+                        onSelectPostcard: { selectedPostcard = $0 }
+                    )
+                    .equatable()
+                } header: {
+                    Text(LocalizedStringKey("profile_postcard_section"))
+                }
                 // MARK: Sign out
                 Section {
                     Button(role: .destructive) {
@@ -255,6 +283,9 @@ struct ProfileView: View {
                 }
             }
             .navigationTitle(LocalizedStringKey("profile_title"))
+            .navigationDestination(item: $selectedPostcard) { postcard in
+                PostcardDetailView(listing: postcard)
+            }
             .scrollContentBackground(.hidden)
             .background(Theme.backgroundGradient(for: scheme))
             .toolbar {
@@ -271,11 +302,15 @@ struct ProfileView: View {
                 await session.refreshProfileFromBackend()
                 await loadJoinedRooms()
                 await loadHostedRooms()
+                await loadOnShelfPostcards()
+                await loadOrderedPostcards()
             }
             .refreshable {
                 await session.refreshProfileFromBackend()
                 await loadJoinedRooms()
                 await loadHostedRooms()
+                await loadOnShelfPostcards()
+                await loadOrderedPostcards()
             }
         }
         .sheet(isPresented: $showSettingsSheet) {
@@ -347,6 +382,40 @@ struct ProfileView: View {
         } catch {
             print("❌ loadJoinedRooms error:", error)
             joinedErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func loadOnShelfPostcards() async {
+        guard let uid = session.authUid, !uid.isEmpty else { return }
+
+        isOnShelfLoading = true
+        onShelfErrorMessage = nil
+        defer { isOnShelfLoading = false }
+
+        do {
+            onShelfPostcards = try await postcardRepo.fetchMyListings(userId: uid, limit: 50)
+        } catch is CancellationError {
+            return
+        } catch {
+            print("❌ loadOnShelfPostcards error:", error)
+            onShelfErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func loadOrderedPostcards() async {
+        guard let uid = session.authUid, !uid.isEmpty else { return }
+
+        isOrderedLoading = true
+        orderedErrorMessage = nil
+        defer { isOrderedLoading = false }
+
+        do {
+            orderedPostcards = try await postcardRepo.fetchMyOrderedPostcards(userId: uid, limit: 50)
+        } catch is CancellationError {
+            return
+        } catch {
+            print("❌ loadOrderedPostcards error:", error)
+            orderedErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
@@ -568,6 +637,132 @@ private struct HostedRoomsSection: View, Equatable {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+private struct OnShelfPostcardsSection: View, Equatable {
+    let postcards: [PostcardListing]
+    let isLoading: Bool
+    let errorMessage: String?
+    let onSelectPostcard: (PostcardListing) -> Void
+
+    static func == (lhs: OnShelfPostcardsSection, rhs: OnShelfPostcardsSection) -> Bool {
+        lhs.postcards == rhs.postcards
+            && lhs.isLoading == rhs.isLoading
+            && lhs.errorMessage == rhs.errorMessage
+    }
+
+    var body: some View {
+        Group {
+            Text(LocalizedStringKey("profile_postcard_onshelf_section"))
+                .font(.subheadline.weight(.semibold))
+
+            if let err = errorMessage {
+                Text(err)
+                    .foregroundStyle(.red)
+            }
+
+            if isLoading && postcards.isEmpty {
+                HStack {
+                    ProgressView()
+                    Text(LocalizedStringKey("profile_loading_onshelf_postcards"))
+                        .foregroundStyle(.secondary)
+                }
+            } else if postcards.isEmpty {
+                ContentUnavailableView(
+                    LocalizedStringKey("profile_onshelf_empty_title"),
+                    systemImage: "shippingbox"
+                )
+                .listRowBackground(Color.clear)
+            } else {
+                ForEach(postcards) { postcard in
+                    Button {
+                        onSelectPostcard(postcard)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(postcard.title)
+                                .font(.headline)
+                                .lineLimit(1)
+
+                            HStack {
+                                Text(postcard.location.shortLabel)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(String(format: NSLocalizedString("postcard_stock_format", comment: ""), postcard.stock))
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
+
+private struct OrderedPostcardsSection: View, Equatable {
+    let postcards: [PostcardListing]
+    let isLoading: Bool
+    let errorMessage: String?
+    let onSelectPostcard: (PostcardListing) -> Void
+
+    static func == (lhs: OrderedPostcardsSection, rhs: OrderedPostcardsSection) -> Bool {
+        lhs.postcards == rhs.postcards
+            && lhs.isLoading == rhs.isLoading
+            && lhs.errorMessage == rhs.errorMessage
+    }
+
+    var body: some View {
+        Group {
+            Text(LocalizedStringKey("profile_postcard_ordered_section"))
+                .font(.subheadline.weight(.semibold))
+
+            if let err = errorMessage {
+                Text(err)
+                    .foregroundStyle(.red)
+            }
+
+            if isLoading && postcards.isEmpty {
+                HStack {
+                    ProgressView()
+                    Text(LocalizedStringKey("profile_loading_ordered_postcards"))
+                        .foregroundStyle(.secondary)
+                }
+            } else if postcards.isEmpty {
+                ContentUnavailableView(
+                    LocalizedStringKey("profile_ordered_empty_title"),
+                    systemImage: "cart"
+                )
+                .listRowBackground(Color.clear)
+            } else {
+                ForEach(postcards) { postcard in
+                    Button {
+                        onSelectPostcard(postcard)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(postcard.title)
+                                .font(.headline)
+                                .lineLimit(1)
+
+                            HStack(spacing: 4) {
+                                Text("\(postcard.priceHoney)")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                                Image("HoneyIcon")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 12, height: 12)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }

@@ -1,6 +1,6 @@
 import Foundation
 
-struct PostcardLocation: Equatable {
+struct PostcardLocation: Equatable, Hashable {
     var country: String
     var province: String
     var detail: String
@@ -24,7 +24,7 @@ struct PostcardLocation: Equatable {
     }
 }
 
-struct PostcardListing: Identifiable, Equatable {
+struct PostcardListing: Identifiable, Equatable, Hashable {
     let id: String
     let sellerId: String
     let title: String
@@ -63,4 +63,12 @@ struct PostcardShippingRecipient: Identifiable, Equatable {
     let buyerId: String
     let buyerName: String
     let buyerFriendCode: String
+}
+
+struct PostcardBuyerOrder: Identifiable, Equatable {
+    let id: String
+    let postcardId: String
+    let status: PostcardOrderStatus
+    let holdHoney: Int
+    let createdAt: Date
 }
