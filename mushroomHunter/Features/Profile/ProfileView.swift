@@ -889,20 +889,33 @@ private struct OnShelfPostcardsSection: View, Equatable {
                     Button {
                         onSelectPostcard(postcard)
                     } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(postcard.title)
-                                .font(.headline)
-                                .lineLimit(1)
+                        HStack(alignment: .top, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(postcard.title)
+                                    .font(.headline)
+                                    .lineLimit(1)
 
-                            HStack {
                                 Text(postcard.location.shortLabel)
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
-                                Spacer()
-                                Text(String(format: NSLocalizedString("postcard_stock_format", comment: ""), postcard.stock))
+                            }
+                            Spacer(minLength: 8)
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 4) {
+                                    Text("\(postcard.priceHoney)")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                        .monospacedDigit()
+                                    Image("HoneyIcon")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 12, height: 12)
+                                }
+                                Text("x\(postcard.stock)")
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
+                                    .monospacedDigit()
                             }
                         }
                     }
@@ -952,20 +965,33 @@ private struct OrderedPostcardsSection: View, Equatable {
                     Button {
                         onSelectPostcard(postcard)
                     } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(postcard.title)
-                                .font(.headline)
-                                .lineLimit(1)
+                        HStack(alignment: .top, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(postcard.title)
+                                    .font(.headline)
+                                    .lineLimit(1)
 
-                            HStack(spacing: 4) {
-                                Text("\(postcard.priceHoney)")
+                                Text(postcard.location.shortLabel)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            Spacer(minLength: 8)
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 4) {
+                                    Text("\(postcard.priceHoney)")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                        .monospacedDigit()
+                                    Image("HoneyIcon")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 12, height: 12)
+                                }
+                                Text("x\(postcard.stock)")
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                                     .monospacedDigit()
-                                Image("HoneyIcon")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 12, height: 12)
                             }
                         }
                     }
