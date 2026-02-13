@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
 
 struct ProfileView: View {
     @EnvironmentObject private var session: SessionStore
@@ -37,9 +39,13 @@ struct ProfileView: View {
     @State private var orderedPostcards: [PostcardListing] = []
     @State private var selectedPostcard: PostcardListing? = nil
     @State private var showSettingsSheet: Bool = false
+    @State private var showFeedbackSheet: Bool = false
+    @State private var showFeedbackSubmittedAlert: Bool = false
+    @State private var pendingOpenFeedbackFromSettings: Bool = false
 
     private let hostRepo = FirebaseProfileHostRepository()
     private let postcardRepo = FirebasePostcardRepository()
+    private let feedbackRepo = FirebaseFeedbackRepository()
 
     // Host rooms (MVP: mock; later: load from Firestore)
     //@State private var hostedRooms: [HostedRoomStub] = []
@@ -278,8 +284,6 @@ struct ProfileView: View {
                     } label: {
                         Text(LocalizedStringKey("profile_sign_out"))
                     }
-                } footer: {
-                    Text(LocalizedStringKey("profile_footer_note"))
                 }
             }
             .navigationTitle(LocalizedStringKey("profile_title"))
@@ -313,12 +317,34 @@ struct ProfileView: View {
                 await loadOrderedPostcards()
             }
         }
-        .sheet(isPresented: $showSettingsSheet) {
+        .sheet(isPresented: $showSettingsSheet, onDismiss: {
+            if pendingOpenFeedbackFromSettings {
+                pendingOpenFeedbackFromSettings = false
+                showFeedbackSheet = true
+            }
+        }) {
             NavigationStack {
                 List {
-                    Text(LocalizedStringKey("settings_language_managed"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    Section {
+                        Button {
+                            pendingOpenFeedbackFromSettings = true
+                            showSettingsSheet = false
+                        } label: {
+                            Label(LocalizedStringKey("settings_feedback_button"), systemImage: "envelope")
+                        }
+
+                        NavigationLink {
+                            AboutView()
+                        } label: {
+                            Label(LocalizedStringKey("settings_about_button"), systemImage: "info.circle")
+                        }
+                    }
+
+                    Section {
+                        Text(LocalizedStringKey("settings_language_managed"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .navigationTitle(LocalizedStringKey("settings_title"))
                 .toolbar {
@@ -331,6 +357,28 @@ struct ProfileView: View {
                     }
                 }
             }
+        }
+        .sheet(isPresented: $showFeedbackSheet) {
+            FeedbackComposeSheet { draft in
+                let uid = session.authUid
+                let displayName = session.displayName
+                let friendCode = session.friendCode
+                try await feedbackRepo.submitFeedback(
+                    userId: uid,
+                    displayName: displayName,
+                    friendCode: friendCode,
+                    subject: draft.subject,
+                    message: draft.body
+                )
+                await MainActor.run {
+                    showFeedbackSubmittedAlert = true
+                }
+            }
+        }
+        .alert(LocalizedStringKey("feedback_submit_success_title"), isPresented: $showFeedbackSubmittedAlert) {
+            Button(LocalizedStringKey("common_done")) { }
+        } message: {
+            Text(LocalizedStringKey("feedback_submit_success_message"))
         }
         .onAppear {
             draftName = session.displayName
@@ -517,6 +565,165 @@ private struct SelectAllTextField: UIViewRepresentable {
         func textFieldDidEndEditing(_ textField: UITextField) {
             isFirstResponder = false
         }
+    }
+}
+
+private struct FeedbackMailDraft {
+    let subject: String
+    let body: String
+}
+
+private struct FeedbackComposeSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var subject: String = ""
+    @State private var messageText: String = ""
+    @State private var isSubmitting: Bool = false
+    @State private var submissionError: String? = nil
+    @State private var showSubmissionErrorAlert: Bool = false
+
+    let onSend: (FeedbackMailDraft) async throws -> Void
+
+    private var trimmedBody: String {
+        messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var bodyView: some View {
+        Form {
+            Section {
+                TextField(LocalizedStringKey("feedback_subject_placeholder"), text: $subject)
+                TextEditor(text: $messageText)
+                    .frame(minHeight: 180)
+            } header: {
+                Text(LocalizedStringKey("feedback_message_label"))
+            }
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            bodyView
+                .navigationTitle(LocalizedStringKey("feedback_title"))
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button(LocalizedStringKey("common_cancel")) {
+                            dismiss()
+                        }
+                        .disabled(isSubmitting)
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(LocalizedStringKey("feedback_send_button")) {
+                            let fallback = NSLocalizedString("feedback_subject_default", comment: "")
+                            let finalSubject = subject.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                ? fallback
+                                : subject.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let draft = FeedbackMailDraft(subject: finalSubject, body: trimmedBody)
+                            Task {
+                                isSubmitting = true
+                                do {
+                                    try await onSend(draft)
+                                    dismiss()
+                                } catch {
+                                    submissionError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                                    showSubmissionErrorAlert = true
+                                }
+                                isSubmitting = false
+                            }
+                        }
+                        .disabled(trimmedBody.isEmpty || isSubmitting)
+                    }
+                }
+                .overlay {
+                    if isSubmitting {
+                        ZStack {
+                            Color.black.opacity(0.12)
+                            ProgressView()
+                        }
+                        .ignoresSafeArea()
+                    }
+                }
+                .alert(LocalizedStringKey("feedback_submit_failed_title"), isPresented: $showSubmissionErrorAlert) {
+                    Button(LocalizedStringKey("common_done")) { }
+                } message: {
+                    Text(submissionError ?? NSLocalizedString("feedback_submit_failed_message", comment: ""))
+                }
+        }
+    }
+}
+
+enum FeedbackRepoError: LocalizedError {
+    case emptyMessage
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyMessage:
+            return NSLocalizedString("feedback_submit_failed_message", comment: "")
+        }
+    }
+}
+
+private final class FirebaseFeedbackRepository {
+    private let db = Firestore.firestore()
+
+    func submitFeedback(
+        userId: String?,
+        displayName: String,
+        friendCode: String,
+        subject: String,
+        message: String
+    ) async throws {
+        let explicitUserId = userId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let authUserId = Auth.auth().currentUser?.uid ?? ""
+        let resolvedUserId = explicitUserId.isEmpty ? authUserId : explicitUserId
+
+        let cleanSubject = subject.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanMessage = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard cleanMessage.isEmpty == false else { throw FeedbackRepoError.emptyMessage }
+
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+        let bundleId = Bundle.main.bundleIdentifier ?? ""
+
+        try await db.collection("feedbackSubmissions").addDocument(data: [
+            "userId": resolvedUserId,
+            "displayName": displayName.trimmingCharacters(in: .whitespacesAndNewlines),
+            "friendCode": friendCode.trimmingCharacters(in: .whitespacesAndNewlines),
+            "subject": cleanSubject,
+            "message": cleanMessage,
+            "appVersion": version,
+            "buildNumber": build,
+            "bundleId": bundleId,
+            "localeIdentifier": Locale.current.identifier,
+            "platform": "iOS",
+            "createdAt": Timestamp(date: Date())
+        ])
+    }
+}
+
+private struct AboutView: View {
+    var body: some View {
+        List {
+            Section {
+                Text(LocalizedStringKey("about_intro"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                LabeledContent(LocalizedStringKey("about_phone_label")) {
+                    Link("+886 930200769", destination: URL(string: "tel://886930200769")!)
+                }
+
+                LabeledContent(LocalizedStringKey("about_email_label")) {
+                    Link("kenyu910645@gmail.com", destination: URL(string: "mailto:kenyu910645@gmail.com")!)
+                }
+
+                LabeledContent(LocalizedStringKey("about_website_label")) {
+                    Link("kenyu910645.github.io", destination: URL(string: "https://kenyu910645.github.io/")!)
+                }
+            }
+        }
+        .navigationTitle(LocalizedStringKey("about_title"))
     }
 }
 

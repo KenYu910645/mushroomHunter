@@ -2,12 +2,69 @@ const {setGlobalOptions} = require("firebase-functions/v2");
 const {onDocumentCreated, onDocumentUpdated} = require("firebase-functions/v2/firestore");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
+const nodemailer = require("nodemailer");
 
 setGlobalOptions({maxInstances: 10});
 
 admin.initializeApp();
 const db = admin.firestore();
 const messaging = admin.messaging();
+let cachedMailer = null;
+
+function getMailer() {
+  if (cachedMailer) return cachedMailer;
+
+  const host = (process.env.SMTP_HOST || "").trim();
+  const portRaw = (process.env.SMTP_PORT || "587").trim();
+  const user = (process.env.SMTP_USER || "").trim();
+  const pass = (process.env.SMTP_PASS || "").trim();
+  const secure = (process.env.SMTP_SECURE || "false").toLowerCase() === "true";
+
+  if (!host || !user || !pass) {
+    return null;
+  }
+
+  const port = Number(portRaw);
+  cachedMailer = nodemailer.createTransport({
+    host,
+    port: Number.isFinite(port) ? port : 587,
+    secure,
+    auth: {user, pass},
+  });
+  return cachedMailer;
+}
+
+function stringifyValue(value, fallback = "-") {
+  if (value === null || value === undefined) return fallback;
+  const text = String(value).trim();
+  return text ? text : fallback;
+}
+
+function feedbackEmailSubject(subject) {
+  const clean = stringifyValue(subject, "HoneyHub Feedback");
+  return `[HoneyHub Feedback] ${clean}`;
+}
+
+function feedbackEmailText(feedbackId, data) {
+  return [
+    "HoneyHub feedback received",
+    "",
+    `Feedback ID: ${feedbackId}`,
+    `User ID: ${stringifyValue(data.userId)}`,
+    `Display Name: ${stringifyValue(data.displayName)}`,
+    `Friend Code: ${stringifyValue(data.friendCode)}`,
+    `Locale: ${stringifyValue(data.localeIdentifier)}`,
+    `Platform: ${stringifyValue(data.platform)}`,
+    `App Version: ${stringifyValue(data.appVersion)}`,
+    `Build Number: ${stringifyValue(data.buildNumber)}`,
+    "",
+    "Subject:",
+    stringifyValue(data.subject, "HoneyHub Feedback"),
+    "",
+    "Message:",
+    stringifyValue(data.message),
+  ].join("\n");
+}
 
 async function sendPushToUser(uid, message, context) {
   const userSnap = await db.collection("users").doc(uid).get();
@@ -310,6 +367,56 @@ exports.notifySellerPostcardCompleted = onDocumentUpdated(
         logger.error("Failed to send postcard completed push", {
           orderId,
           sellerUid,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+);
+
+exports.sendFeedbackNotificationEmail = onDocumentCreated(
+    {
+      document: "feedbackSubmissions/{feedbackId}",
+      region: "us-central1",
+    },
+    async (event) => {
+      const data = event.data?.data();
+      if (!data) return;
+
+      const feedbackId = event.params.feedbackId;
+      const to = (process.env.FEEDBACK_TO || "kenyu910645@gmail.com").trim();
+      const from = (process.env.FEEDBACK_FROM || process.env.SMTP_USER || "").trim();
+      const mailer = getMailer();
+
+      if (!mailer) {
+        logger.error("Feedback email skipped: SMTP env vars missing", {
+          feedbackId,
+          hasHost: Boolean((process.env.SMTP_HOST || "").trim()),
+          hasUser: Boolean((process.env.SMTP_USER || "").trim()),
+          hasPass: Boolean((process.env.SMTP_PASS || "").trim()),
+        });
+        return;
+      }
+      if (!from) {
+        logger.error("Feedback email skipped: sender not configured", {feedbackId});
+        return;
+      }
+
+      const subject = feedbackEmailSubject(data.subject);
+      const text = feedbackEmailText(feedbackId, data);
+
+      try {
+        await mailer.sendMail({
+          from,
+          to,
+          subject,
+          text,
+          replyTo: from,
+        });
+        logger.info("Feedback email sent", {feedbackId, to});
+      } catch (error) {
+        logger.error("Failed to send feedback email", {
+          feedbackId,
+          to,
           error: error instanceof Error ? error.message : String(error),
         });
       }

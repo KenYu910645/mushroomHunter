@@ -10,6 +10,9 @@ Core flows:
 - Host a room with target color/attribute/size, manage attendees, and close or finish a raid.
 - Hosts can open a share sheet in room details to show a QR code and share a room invite link (`honeyhub://room/{roomId}`) for installed-app users.
 - Maintain a user profile (display name, friend code, stars/reputation).
+- Profile settings includes:
+  - `Feedback` action opens an in-app feedback compose sheet (subject/message), and submits to Firestore `feedbackSubmissions` (no direct email sending).
+  - `About` page with contact info (mobile, email, personal website).
 - Browse/search postcards and upload postcard images to Firebase Storage.
 - Postcard register success dismisses the sheet and refreshes browse; postcard browse/detail pull-to-refresh fetch latest Firestore data.
 - Seller can open a shipping sheet from postcard detail, see waiting buyers, and mark each order as sent.
@@ -170,6 +173,21 @@ Notes:
 - Buyer "not received yet" keeps honey on hold and sets status to `AwaitingBuyerDecision`.
 - Buyer confirmation transitions status to `Completed` and transfers `holdHoney` to seller `users/{sellerId}.honey`.
 
+#### `feedbackSubmissions/{feedbackId}`
+User feedback submitted from profile settings.
+Fields:
+- `userId` (String): sender uid (resolved from `SessionStore.authUid`, fallback to `Auth.auth().currentUser?.uid`).
+- `displayName` (String): sender display name snapshot.
+- `friendCode` (String): sender friend code snapshot.
+- `subject` (String): feedback subject (fallback defaults to `HoneyHub Feedback`).
+- `message` (String): feedback message body.
+- `appVersion` (String): app short version.
+- `buildNumber` (String): app build number.
+- `bundleId` (String): app bundle identifier.
+- `localeIdentifier` (String): current device locale id.
+- `platform` (String): client platform (`iOS`).
+- `createdAt` (Timestamp): feedback creation time.
+
 ### Firebase Storage
 - Path: `postcards/{ownerId}/{uuid}.jpg` where `ownerId` is the authenticated uploader uid.
 - Image is uploaded with `image/jpeg` metadata and the download URL is stored in `postcards.imageUrl`.
@@ -216,6 +234,12 @@ Notes:
 - Payload includes:
   - Notification title/body that buyer confirmed receipt and honey transfer completed.
   - Data keys `type = postcard_order_completed`, `orderId`, `postcardId`, and `honey`.
+- Function: `sendFeedbackNotificationEmail` in `functions/index.js`.
+- Trigger: Firestore document create on `feedbackSubmissions/{feedbackId}`.
+- Condition: send for each new feedback submission.
+- Delivery: SMTP email to `FEEDBACK_TO` (defaults to `kenyu910645@gmail.com`) using env vars:
+  - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, optional `SMTP_SECURE`, optional `FEEDBACK_FROM`.
+- Email body includes feedback id, user/profile metadata, app version/build, subject, and message.
 
 ### Confirmation stars flow
 - Attendee flow: after attendee accepts raid confirmation and pays host (`depositHoney -= fixedRaidCost`, host `honey += fixedRaidCost`), attendee can give host `1`, `2`, or `3` stars.

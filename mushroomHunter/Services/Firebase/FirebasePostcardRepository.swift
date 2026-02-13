@@ -78,6 +78,11 @@ final class FirebasePostcardRepository {
         }
 
         let orderedPostcardIds = orderSnap.documents.compactMap { doc -> String? in
+            let statusRaw = (doc.data()["status"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if statusRaw == PostcardOrderStatus.completed.rawValue ||
+                statusRaw == PostcardOrderStatus.cancelled.rawValue {
+                return nil
+            }
             let id = (doc.data()["postcardId"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             return id.isEmpty ? nil : id
         }

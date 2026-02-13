@@ -281,15 +281,15 @@ struct RoomDetailsView: View {
             Text(LocalizedStringKey("room_claim_sent_message"))
         }
         .alert(LocalizedStringKey("room_reject_alert_title"), isPresented: $showRejectResolveAlert) {
-            Button(LocalizedStringKey("room_reject_resolve")) {
+            Button(LocalizedStringKey("room_reject_resend"), role: .cancel) {
                 let id = rejectAttendeeId
                 Task {
                     await vm.resolveRejectedConfirmation(attendeeId: id)
                 }
             }
-            Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
+            Button(LocalizedStringKey("room_reject_giveup")) {}
         } message: {
-            Text(String(format: NSLocalizedString("room_reject_alert_message", comment: ""), rejectAttendeeName))
+            Text(String(format: NSLocalizedString("room_reject_alert_message", comment: ""), rejectAttendeeName, rejectAttendeeName))
         }
         .sheet(isPresented: $showJoinSheet) {
             NavigationStack {
