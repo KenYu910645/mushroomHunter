@@ -893,7 +893,7 @@ private struct RoomInviteSheet: View {
                         .resizable()
                         .scaledToFit()
                         .frame(maxWidth: 260, maxHeight: 260)
-                        .padding(12)
+                        .padding(6)
                         .background(.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)

@@ -5,6 +5,8 @@ import UIKit
 enum PostcardImageUploadError: LocalizedError {
     case unauthenticated
     case missingDownloadURL
+    case cropOutOfBounds
+    case imageEncodeFailed
 
     var errorDescription: String? {
         switch self {
@@ -12,20 +14,44 @@ enum PostcardImageUploadError: LocalizedError {
             return "Please sign in before uploading a postcard image."
         case .missingDownloadURL:
             return "Image uploaded, but failed to get a public download URL."
+        case .cropOutOfBounds:
+            return "Image is too small for postcard crop area. Please select another image."
+        case .imageEncodeFailed:
+            return "Failed to process image."
         }
     }
 }
 
 final class FirebasePostcardImageUploader {
     private let storage = Storage.storage()
+    // Fixed crop rectangle requested by product requirement.
+    private let requiredCropRect = CGRect(x: 20, y: 20, width: 645, height: 635)
+
+    func cropSnapshotImage(_ image: UIImage) throws -> UIImage {
+        let normalized = normalizedImage(image)
+        guard let cgImage = normalized.cgImage else {
+            throw PostcardImageUploadError.imageEncodeFailed
+        }
+
+        let imageRect = CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height)
+        guard imageRect.contains(requiredCropRect) else {
+            throw PostcardImageUploadError.cropOutOfBounds
+        }
+
+        guard let cropped = cgImage.cropping(to: requiredCropRect) else {
+            throw PostcardImageUploadError.imageEncodeFailed
+        }
+        return UIImage(cgImage: cropped)
+    }
 
     func prepareUploadJPEGData(
         from image: UIImage,
-        maxLongEdge: CGFloat = 640,
         compressionQuality: CGFloat = 0.82
-    ) -> Data? {
-        let normalized = resizedImageIfNeeded(image, maxLongEdge: maxLongEdge)
-        return normalized.jpegData(compressionQuality: compressionQuality)
+    ) throws -> Data {
+        guard let data = image.jpegData(compressionQuality: compressionQuality) else {
+            throw PostcardImageUploadError.imageEncodeFailed
+        }
+        return data
     }
 
     func uploadPostcardImage(data: Data, ownerId: String?) async throws -> URL {
@@ -55,18 +81,10 @@ final class FirebasePostcardImageUploader {
         throw PostcardImageUploadError.missingDownloadURL
     }
 
-    private func resizedImageIfNeeded(_ image: UIImage, maxLongEdge: CGFloat) -> UIImage {
-        let pixelWidth = image.size.width * image.scale
-        let pixelHeight = image.size.height * image.scale
-        let longEdge = max(pixelWidth, pixelHeight)
-        guard longEdge > maxLongEdge, longEdge > 0 else { return image }
-
-        let scaleRatio = maxLongEdge / longEdge
-        let targetSize = CGSize(
-            width: max(1, floor(pixelWidth * scaleRatio)),
-            height: max(1, floor(pixelHeight * scaleRatio))
-        )
-
+    private func normalizedImage(_ image: UIImage) -> UIImage {
+        let pixelWidth = max(1, Int(image.size.width * image.scale))
+        let pixelHeight = max(1, Int(image.size.height * image.scale))
+        let targetSize = CGSize(width: pixelWidth, height: pixelHeight)
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
         format.opaque = true
