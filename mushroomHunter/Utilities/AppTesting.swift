@@ -28,7 +28,6 @@ enum AppTesting {
             joinedPlayers: 1,
             maxPlayers: 10,
             hostName: "Host Tester",
-            hostStars: 3,
             location: "US New York",
             expiresAt: nil
         )

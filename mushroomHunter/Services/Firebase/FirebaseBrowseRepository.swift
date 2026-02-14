@@ -18,19 +18,8 @@ struct RoomListing: Identifiable, Hashable {
     var joinedPlayers: Int
     let maxPlayers: Int  // store from backend (default 10)
     var hostName: String?
-    var hostStars: Int
     var location: String
     var expiresAt: Date? // optional for future
-}
-
-enum BrowseRepoError: LocalizedError {
-    case decodeFailed(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .decodeFailed(let msg): return msg
-        }
-    }
 }
 
 final class FirebaseBrowseRepository {
@@ -71,8 +60,7 @@ final class FirebaseBrowseRepository {
                 targetSize: targetSize,
                 joinedPlayers: joined,
                 maxPlayers: maxPlayers,
-                hostName: nil,
-                hostStars: 0,
+                hostName: data["hostName"] as? String,
                 location: data["location"] as? String ?? "",
                 expiresAt: (data["expiresAt"] as? Timestamp)?.dateValue()
             )

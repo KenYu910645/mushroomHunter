@@ -50,13 +50,19 @@ final class FirebaseRoomActionsRepository {
     }
 
     private func countActiveJoinedRooms(uid: String) async throws -> Int {
-        let attendeeSnap = try await db.collectionGroup("attendees")
+        let byUidField = try await db.collectionGroup("attendees")
             .whereField("uid", isEqualTo: uid)
             .getDocuments()
-
+        let byDocumentID = try await db.collectionGroup("attendees")
+            .whereField(FieldPath.documentID(), isEqualTo: uid)
+            .getDocuments()
+        let attendeeDocs = byUidField.documents + byDocumentID.documents
+        var seenRoomPaths: Set<String> = []
         var count = 0
-        for doc in attendeeSnap.documents {
+        for doc in attendeeDocs {
             guard let roomRef = doc.reference.parent.parent else { continue }
+            if seenRoomPaths.contains(roomRef.path) { continue }
+            seenRoomPaths.insert(roomRef.path)
             let roomSnap = try await roomRef.getDocument()
             if roomSnap.exists {
                 count += 1
@@ -150,6 +156,7 @@ final class FirebaseRoomActionsRepository {
 
             // 3) Write attendee
             tx.setData([
+                "uid": uid,
                 "name": userName,
                 "friendCode": friendCode,
                 "stars": stars,

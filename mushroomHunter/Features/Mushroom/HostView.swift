@@ -68,7 +68,6 @@ final class HostViewModel: ObservableObject {
         seed(from: room)
     }
 
-    var hostNameRemaining: Int { Self.hostNameMaxChars - hostName.count }
     var otherCharCount: Int { Self.charCount(otherMessage) }
 
     var isEditMode: Bool {
@@ -325,21 +324,9 @@ struct HostView: View {
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
-
-//                    HStack {
-//                        Text("Remaining")
-//                            .foregroundStyle(.secondary)
-//                        Spacer()
-//                        Text("\(max(vm.hostNameRemaining, 0))")
-//                            .foregroundColor(vm.hostNameRemaining >= 0 ? .secondary : .red)
-//                            .monospacedDigit()
-//                    }
                 } header: {
                     Text(LocalizedStringKey("host_room_name_header"))
                 }
-//                } footer: {
-//                    Text(LocalizedStringKey("host_room_name_footer"))
-//                }
 
                 // Mushroom properties
                 Section(LocalizedStringKey("host_target_section")) {
@@ -428,9 +415,6 @@ struct HostView: View {
                 } header: {
                     Text(LocalizedStringKey("host_description_header"))
                 }
-//                footer: {
-//                    Text(LocalizedStringKey("host_description_footer"))
-//                }
 
                 Section {
                     Stepper(value: $vm.fixedRaidCost, in: 1...10_000, step: 1) {

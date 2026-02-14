@@ -32,6 +32,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Mushroom/BrowseView.swift`
 - `mushroomHunter/Features/Mushroom/HostView.swift`
 - `mushroomHunter/Features/Mushroom/RoomDetailsView.swift`
+- `mushroomHunter/Features/Mushroom/RoomDetailsSubViews.swift`
 - `mushroomHunter/Features/Mushroom/RoomDetailsViewModel.swift`
 - `mushroomHunter/Features/Mushroom/RoomDetailsModels.swift`
 - `mushroomHunter/Services/Firebase/FirebaseBrowseRepository.swift`

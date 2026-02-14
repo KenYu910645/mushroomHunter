@@ -58,6 +58,8 @@ final class FirebaseHostRepository {
 
         let data: [String: Any] = [
             "title": req.title,
+            "hostName": hostName,
+            "hostStars": hostStars,
             "targetColor": req.targetColor,
             "targetAttribute": req.targetAttribute,
             "targetSize": req.targetSize,
@@ -73,6 +75,7 @@ final class FirebaseHostRepository {
 
         let hostAttendeeRef = ref.collection("attendees").document(uid)
         let attendeeData: [String: Any] = [
+            "uid": uid,
             "name": hostName,
             "friendCode": req.hostFriendCode,
             "stars": hostStars,
@@ -101,11 +104,18 @@ final class FirebaseHostRepository {
     }
 
     func updateRoom(roomId: String, req: FirestoreRoomCreateRequest) async throws {
-        guard Auth.auth().currentUser?.uid != nil else {
+        guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }
 
         let ref = db.collection("rooms").document(roomId)
+        let hostRef = ref.collection("attendees").document(uid)
+        let hostSnap = try await hostRef.getDocument()
+        let hostStatus = hostSnap.data()?["status"] as? String
+        guard hostStatus == AttendeeStatus.host.rawValue else {
+            throw NSError(domain: "Room", code: 403, userInfo: [NSLocalizedDescriptionKey: "Only host can edit this room"])
+        }
+
         let now = Timestamp(date: Date())
 
         let data: [String: Any] = [

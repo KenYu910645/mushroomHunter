@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import Combine
 
 // MARK: - Core types
 
@@ -18,72 +17,6 @@ enum RoomRole: Equatable {
     case host
     case attendee
     case viewer
-}
-
-/// UI capabilities derived from role + room state.
-struct RoomCapabilities: Equatable {
-    let canJoin: Bool
-    let canLeave: Bool
-    let canEditRoom: Bool
-    let canKickAttendees: Bool
-    let canUpdateBid: Bool
-
-    /// All disabled (use when room is nil / loading / unknown state)
-    static let none = RoomCapabilities(
-        canJoin: false,
-        canLeave: false,
-        canEditRoom: false,
-        canKickAttendees: false,
-        canUpdateBid: false
-    )
-
-    /// Optional convenience initializer (defaults to false)
-    init(
-        canJoin: Bool = false,
-        canLeave: Bool = false,
-        canEditRoom: Bool = false,
-        canKickAttendees: Bool = false,
-        canUpdateBid: Bool = false
-    ) {
-        self.canJoin = canJoin
-        self.canLeave = canLeave
-        self.canEditRoom = canEditRoom
-        self.canKickAttendees = canKickAttendees
-        self.canUpdateBid = canUpdateBid
-    }
-
-    static func derive(role: RoomRole, room: RoomDetail) -> RoomCapabilities {
-        let isFull = (room.attendees.count >= room.maxPlayers)
-
-        switch role {
-        case .host:
-            return .init(
-                canJoin: false,
-                canLeave: false,
-                canEditRoom: true,
-                canKickAttendees: true,
-                canUpdateBid: false
-            )
-
-        case .attendee:
-            return .init(
-                canJoin: false,
-                canLeave: true,
-                canEditRoom: false,
-                canKickAttendees: false,
-                canUpdateBid: true
-            )
-
-        case .viewer:
-            return .init(
-                canJoin: !isFull,
-                canLeave: false,
-                canEditRoom: false,
-                canKickAttendees: false,
-                canUpdateBid: false
-            )
-        }
-    }
 }
 
 // MARK: - Room data
@@ -180,27 +113,6 @@ enum AttendeeStatus: String, CaseIterable, Codable {
 // MARK: - Utilities
 
 extension RoomDetail {
-    /// Convenience: compute role from current uid.
-    func role(forUid uid: String?) -> RoomRole {
-        guard let uid else { return .viewer }
-        if uid == hostId { return .host }
-        if attendees.contains(where: { $0.id == uid }) { return .attendee }
-        return .viewer
-    }
-
-    var hostFriendCodeFormatted: String {
-        let digits = hostFriendCode.filter { $0.isNumber }
-        guard !digits.isEmpty else { return "—" }
-        var parts: [String] = []
-        var i = digits.startIndex
-        while i < digits.endIndex {
-            let end = digits.index(i, offsetBy: 4, limitedBy: digits.endIndex) ?? digits.endIndex
-            parts.append(String(digits[i..<end]))
-            i = end
-        }
-        return parts.joined(separator: " ")
-    }
-
     var hostAttendee: RoomAttendee? {
         attendees.first(where: { $0.status == .host })
     }
@@ -211,14 +123,6 @@ extension RoomDetail {
 
     var hostName: String {
         hostAttendee?.name ?? "Host"
-    }
-
-    var hostStars: Int {
-        hostAttendee?.stars ?? 0
-    }
-
-    var hostFriendCode: String {
-        hostAttendee?.friendCode ?? ""
     }
 }
 

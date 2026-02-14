@@ -44,11 +44,8 @@ final class RoomDetailsViewModel: ObservableObject {
     @Published var showJoinLimitAlert: Bool = false
     @Published var joinLimitMessage: String = ""
     
-    // Derived: role + capabilities
+    // Derived role
     @Published private(set) var role: RoomRole = .viewer
-    @Published private(set) var capabilities: RoomCapabilities = .init(
-        canJoin: false, canLeave: false, canEditRoom: false, canKickAttendees: false, canUpdateBid: false
-    )
     
     // Dependencies
     private let roomId: String
@@ -63,7 +60,7 @@ final class RoomDetailsViewModel: ObservableObject {
         self.session = session
         if AppTesting.useMockRooms, roomId == AppTesting.fixtureRoomId {
             self.room = AppTesting.fixtureRoom(includeCurrentUser: false)
-            recomputeRoleAndCapabilities()
+            recomputeRole()
             recomputeConfirmationStates()
             sortAttendees(by: attendeeSort)
         }
@@ -79,7 +76,7 @@ final class RoomDetailsViewModel: ObservableObject {
         if AppTesting.useMockRooms, roomId == AppTesting.fixtureRoomId {
             let includeCurrentUser = false
             self.room = AppTesting.fixtureRoom(includeCurrentUser: includeCurrentUser)
-            recomputeRoleAndCapabilities()
+            recomputeRole()
             recomputeConfirmationStates()
             sortAttendees(by: attendeeSort)
             return
@@ -93,7 +90,7 @@ final class RoomDetailsViewModel: ObservableObject {
             merged.attendees = attendees
             self.room = merged
             
-            recomputeRoleAndCapabilities()
+            recomputeRole()
             recomputeConfirmationStates()
             sortAttendees(by: attendeeSort)
         } catch {
@@ -138,9 +135,9 @@ final class RoomDetailsViewModel: ObservableObject {
         }
     }
     
-    func refreshRoleState() {
-        // Call this if session changes (login, profile name updated, etc.)
-        recomputeRoleAndCapabilities()
+    var canJoin: Bool {
+        guard let room else { return false }
+        return role == .viewer && room.attendees.count < room.maxPlayers
     }
 
     func isWaitingConfirmation(attendeeId: String) -> Bool {
@@ -175,7 +172,7 @@ final class RoomDetailsViewModel: ObservableObject {
         }
     }
     
-    // MARK: Actions (stubbed, later map to Firestore transactions)
+    // MARK: Actions
     
     /// Viewer -> Attendee
     func join(initialDeposit: Honey) async {
@@ -197,7 +194,7 @@ final class RoomDetailsViewModel: ObservableObject {
 
             _ = session.spendHoney(trimmedDeposit)
             self.room = AppTesting.fixtureRoom(includeCurrentUser: true)
-            recomputeRoleAndCapabilities()
+            recomputeRole()
             recomputeConfirmationStates()
             sortAttendees(by: attendeeSort)
             return
@@ -406,10 +403,9 @@ final class RoomDetailsViewModel: ObservableObject {
     }
     
     // MARK: Private helpers
-    private func recomputeRoleAndCapabilities() {
+    private func recomputeRole() {
         guard let room else {
             role = .viewer
-            capabilities = .none
             return
         }
         
@@ -422,8 +418,6 @@ final class RoomDetailsViewModel: ObservableObject {
         } else {
             role = .viewer
         }
-        
-        capabilities = .derive(role: role, room: room)
     }
 
     private func recomputeConfirmationStates() {

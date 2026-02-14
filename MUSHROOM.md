@@ -4,7 +4,8 @@
 - `mushroomHunter/Features/Mushroom/BrowseView.swift`: mushroom room list UI and room entry points.
 - `mushroomHunter/Features/Mushroom/HostView.swift`: host room create/edit UI and form validation.
 - `mushroomHunter/Features/Mushroom/RoomDetailsView.swift`: room details UI, attendee actions, finish flow, invite share sheet.
-- `mushroomHunter/Features/Mushroom/RoomDetailsViewModel.swift`: room details state, role/capability logic, and action orchestration.
+- `mushroomHunter/Features/Mushroom/RoomDetailsSubViews.swift`: extracted room-details subviews (attendee row, invite sheet/QR).
+- `mushroomHunter/Features/Mushroom/RoomDetailsViewModel.swift`: room details state, role/join gating logic, and action orchestration.
 - `mushroomHunter/Features/Mushroom/RoomDetailsModels.swift`: room/attendee data models and status enums.
 - `mushroomHunter/Services/Firebase/FirebaseBrowseRepository.swift`: Firestore reads for browsing open rooms.
 - `mushroomHunter/Services/Firebase/FirebaseHostRepository.swift`: Firestore writes for host room lifecycle (create/update/close).
@@ -72,6 +73,8 @@ Fields:
 - `location` (String): short location label. Set on create/update. Typically, consist of country, city
 - `description` (String): description. Set on create/update.
 - `fixedRaidCost` (Int): minimum honey deposit for joining. Set on create/update.
+- `hostName` (String): host display name snapshot for quick browse rendering/search.
+- `hostStars` (Int): host stars snapshot for quick browse rendering/search.
 - `maxPlayers` (Int): max attendees (default 10). Set on create.
 - `joinedCount` (Int): number of active attendees. Incremented on join, decremented on leave/kick/close. Host is counted as an attendee.
 - `createdAt` (Timestamp): set on create.
@@ -85,6 +88,7 @@ Notes:
 Attendee entries for a room. Written in join/leave/deposit flows.
 Fields:
 - `name` (String): attendee display name. Set on join.
+- `uid` (String): attendee uid snapshot used by collection-group membership checks.
 - `friendCode` (String): attendee friend code. Set on join.
 - `stars` (Int): attendee stars. Set on join.
 - `depositHoney` (Int): current deposit. Set on join; updated on deposit change and raid settlement.

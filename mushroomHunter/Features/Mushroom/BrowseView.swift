@@ -51,13 +51,10 @@ final class BrowseViewModel: ObservableObject {
         }
     }
 
-    @Published var joinErrorMessage: String? = nil
-
     func join(_ listing: RoomListing, deposit: Honey) async {
         if AppTesting.useMockRooms {
             guard deposit > 0 else {
                 let msg = NSLocalizedString("browse_error_enter_bid", comment: "")
-                self.joinErrorMessage = msg
                 self.errorMessage = msg
                 return
             }
@@ -68,13 +65,11 @@ final class BrowseViewModel: ObservableObject {
         let trimmedDeposit = max(0, deposit)
         guard trimmedDeposit > 0 else {
             let msg = NSLocalizedString("browse_error_enter_bid", comment: "")
-            self.joinErrorMessage = msg
             self.errorMessage = msg
             return
         }
         guard session.canAffordHoney(trimmedDeposit) else {
             let msg = String(format: NSLocalizedString("browse_error_not_enough_honey", comment: ""), session.honey)
-            self.joinErrorMessage = msg
             self.errorMessage = msg
             return
         }
@@ -104,7 +99,6 @@ final class BrowseViewModel: ObservableObject {
                 self.showJoinLimitAlert = true
             } else {
                 let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-                self.joinErrorMessage = message
                 self.errorMessage = message
             }
         }
