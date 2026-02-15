@@ -2,7 +2,9 @@
 
 ## Related Files
 - `mushroomHunter/Features/Profile/ProfileView.swift`: profile UI, settings, feedback compose, about page, and user-owned content sections.
+- `mushroomHunter/Features/Profile/ProfileTextField.swift`: reusable `UITextField` bridge used by profile edit/create screens (select-all on focus, keyboard/input configuration).
 - `mushroomHunter/Services/Firebase/FirebaseProfileHostRepository.swift`: Firestore queries for hosted/joined mushroom rooms shown in profile.
+- `mushroomHunter/Services/Firebase/FirebaseFeedbackRepository.swift`: writes in-app feedback submissions to Firestore `feedbackSubmissions`.
 - `mushroomHunter/Services/Firebase/FirebasePostcardRepository.swift`: Firestore queries for on-shelf and ordered postcards shown in profile.
 - `mushroomHunter/Session/SessionStore.swift`: profile state storage and sync (display name, friend code, stars, honey, limits, tokens).
 - `functions/index.js`: server-side email trigger for profile feedback submissions.

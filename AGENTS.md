@@ -58,7 +58,9 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 
 ### PROFILE (`PROFILE.md`)
 - `mushroomHunter/Features/Profile/ProfileView.swift`
+- `mushroomHunter/Features/Profile/ProfileTextField.swift`
 - `mushroomHunter/Services/Firebase/FirebaseProfileHostRepository.swift`
+- `mushroomHunter/Services/Firebase/FirebaseFeedbackRepository.swift`
 - `mushroomHunter/Session/SessionStore.swift` (profile fields, user sync, honey/stars sync)
 - Cloud Functions in `functions/index.js`:
   - `sendFeedbackNotificationEmail`

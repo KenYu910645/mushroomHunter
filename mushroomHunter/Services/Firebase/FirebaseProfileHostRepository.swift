@@ -34,18 +34,18 @@ final class FirebaseProfileHostRepository {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }
 
-        let attendeeSnap = try await db.collectionGroup("attendees")
-            .whereField("status", isEqualTo: AttendeeStatus.host.rawValue)
-            .getDocuments()
+        let attendeeDocs = try await fetchAttendeeDocs(
+            uid: uid,
+            statusFilter: .equal(AttendeeStatus.host.rawValue)
+        )
+        let roomMap = try await fetchRoomDataMap(roomIds: attendeeDocs.compactMap { $0.reference.parent.parent?.documentID })
 
         var results: [HostedRoomSummary] = []
-        results.reserveCapacity(attendeeSnap.documents.count)
+        results.reserveCapacity(attendeeDocs.count)
 
-        for doc in attendeeSnap.documents {
-            guard doc.documentID == uid else { continue }
+        for doc in attendeeDocs {
             guard let roomRef = doc.reference.parent.parent else { continue }
-            let roomSnap = try await roomRef.getDocument()
-            guard let d = roomSnap.data() else { continue }
+            guard let d = roomMap[roomRef.documentID] else { continue }
 
             results.append(
                 HostedRoomSummary(
@@ -69,22 +69,22 @@ final class FirebaseProfileHostRepository {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }
 
-        let attendeeSnap = try await db.collectionGroup("attendees")
-            .whereField("status", in: [
+        let attendeeDocs = try await fetchAttendeeDocs(
+            uid: uid,
+            statusFilter: .inList([
                 AttendeeStatus.ready.rawValue,
                 AttendeeStatus.waitingConfirmation.rawValue,
                 AttendeeStatus.rejected.rawValue
             ])
-            .getDocuments()
+        )
+        let roomMap = try await fetchRoomDataMap(roomIds: attendeeDocs.compactMap { $0.reference.parent.parent?.documentID })
 
         var results: [JoinedRoomSummary] = []
-        results.reserveCapacity(attendeeSnap.documents.count)
+        results.reserveCapacity(attendeeDocs.count)
 
-        for doc in attendeeSnap.documents {
-            guard doc.documentID == uid else { continue }
+        for doc in attendeeDocs {
             guard let roomRef = doc.reference.parent.parent else { continue }
-            let roomSnap = try await roomRef.getDocument()
-            guard let data = roomSnap.data() else { continue }
+            guard let data = roomMap[roomRef.documentID] else { continue }
 
             let depositHoney = doc.data()["depositHoney"] as? Int ?? 0
             results.append(
@@ -103,5 +103,82 @@ final class FirebaseProfileHostRepository {
             .sorted { ($0.updatedAt ?? .distantPast) > ($1.updatedAt ?? .distantPast) }
             .prefix(limit)
             .map { $0 }
+    }
+
+    private enum StatusFilter {
+        case equal(String)
+        case inList([String])
+    }
+
+    private func fetchAttendeeDocs(
+        uid: String,
+        statusFilter: StatusFilter
+    ) async throws -> [QueryDocumentSnapshot] {
+        let attendeeGroup = db.collectionGroup("attendees")
+        let byUidQuery = applyStatusFilter(
+            to: attendeeGroup.whereField("uid", isEqualTo: uid),
+            statusFilter: statusFilter
+        )
+        let byStatusQuery = applyStatusFilter(to: attendeeGroup, statusFilter: statusFilter)
+
+        async let byUidSnap = fetchDocuments(query: byUidQuery)
+        async let byStatusSnap = fetchDocuments(query: byStatusQuery)
+        let (uidDocs, statusDocs) = try await (byUidSnap, byStatusSnap)
+        let legacyDocs = statusDocs.filter { $0.documentID == uid }
+
+        var merged: [String: QueryDocumentSnapshot] = [:]
+        merged.reserveCapacity(uidDocs.count + legacyDocs.count)
+        for doc in uidDocs + legacyDocs {
+            merged[doc.reference.path] = doc
+        }
+
+        return Array(merged.values)
+    }
+
+    private func applyStatusFilter(to query: Query, statusFilter: StatusFilter) -> Query {
+        switch statusFilter {
+        case .equal(let status):
+            return query.whereField("status", isEqualTo: status)
+        case .inList(let statuses):
+            return query.whereField("status", in: statuses)
+        }
+    }
+
+    private func fetchRoomDataMap(roomIds: [String]) async throws -> [String: [String: Any]] {
+        let uniqueRoomIds = Array(Set(roomIds.filter { !$0.isEmpty }))
+        guard !uniqueRoomIds.isEmpty else { return [:] }
+
+        var roomDataMap: [String: [String: Any]] = [:]
+        for chunk in uniqueRoomIds.chunked(into: 10) {
+            let query = db.collection("rooms").whereField(FieldPath.documentID(), in: chunk)
+            let snap = try await fetchDocuments(query: query)
+            for doc in snap {
+                roomDataMap[doc.documentID] = doc.data()
+            }
+        }
+        return roomDataMap
+    }
+
+    private func fetchDocuments(query: Query) async throws -> [QueryDocumentSnapshot] {
+        do {
+            return try await query.getDocuments(source: .server).documents
+        } catch {
+            return try await query.getDocuments(source: .default).documents
+        }
+    }
+}
+
+private extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        guard size > 0, !isEmpty else { return isEmpty ? [] : [self] }
+        var chunks: [[Element]] = []
+        chunks.reserveCapacity((count + size - 1) / size)
+        var index = 0
+        while index < count {
+            let end = Swift.min(index + size, count)
+            chunks.append(Array(self[index..<end]))
+            index += size
+        }
+        return chunks
     }
 }

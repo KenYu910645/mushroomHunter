@@ -6,8 +6,6 @@
 //
 
 import SwiftUI
-import FirebaseAuth
-import FirebaseFirestore
 
 struct ProfileView: View {
     @EnvironmentObject private var session: SessionStore
@@ -47,9 +45,6 @@ struct ProfileView: View {
     private let postcardRepo = FirebasePostcardRepository()
     private let feedbackRepo = FirebaseFeedbackRepository()
 
-    // Host rooms (MVP: mock; later: load from Firestore)
-    //@State private var hostedRooms: [HostedRoomStub] = []
-
     var body: some View {
         NavigationStack {
             Form {
@@ -62,7 +57,7 @@ struct ProfileView: View {
                             Text(LocalizedStringKey("profile_name"))
                             Spacer()
                             if isEditingName {
-                                SelectAllTextField(
+                                ProfileSelectAllTextField(
                                     placeholderKey: "profile_name_placeholder",
                                     text: $draftName,
                                     isFirstResponder: $nameFieldFocused
@@ -122,7 +117,7 @@ struct ProfileView: View {
                             Spacer()
 
                             if isEditingFriendCode {
-                                SelectAllTextField(
+                                ProfileSelectAllTextField(
                                     placeholderKey: "profile_friend_code_placeholder",
                                     text: $draftFriendCode,
                                     isFirstResponder: $friendCodeFieldFocused,
@@ -303,18 +298,10 @@ struct ProfileView: View {
                 }
             }
             .task {
-                await session.refreshProfileFromBackend()
-                await loadJoinedRooms()
-                await loadHostedRooms()
-                await loadOnShelfPostcards()
-                await loadOrderedPostcards()
+                await refreshAllProfileData()
             }
             .refreshable {
-                await session.refreshProfileFromBackend()
-                await loadJoinedRooms()
-                await loadHostedRooms()
-                await loadOnShelfPostcards()
-                await loadOrderedPostcards()
+                await refreshAllProfileData()
             }
         }
         .sheet(isPresented: $showSettingsSheet, onDismiss: {
@@ -384,7 +371,6 @@ struct ProfileView: View {
             draftName = session.displayName
             draftFriendCode = session.friendCode
             friendCodeError = nil
-            Task { await session.refreshProfileFromBackend() }
         }
     }
 
@@ -395,6 +381,15 @@ struct ProfileView: View {
         if code.count != 12 { return NSLocalizedString("profile_friend_code_error_length", comment: "") }
         if code.allSatisfy({ $0.isNumber }) == false { return NSLocalizedString("profile_friend_code_error_digits", comment: "") }
         return nil
+    }
+
+    private func refreshAllProfileData() async {
+        await session.refreshProfileFromBackend()
+        async let joinedRoomsLoad = loadJoinedRooms()
+        async let hostedRoomsLoad = loadHostedRooms()
+        async let onShelfLoad = loadOnShelfPostcards()
+        async let orderedLoad = loadOrderedPostcards()
+        _ = await (joinedRoomsLoad, hostedRoomsLoad, onShelfLoad, orderedLoad)
     }
 
     private func loadHostedRooms() async {
@@ -481,93 +476,6 @@ struct ProfileView: View {
 
 }
 
-private func localizedRoomStatus(_ status: String) -> LocalizedStringKey {
-    let lower = status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    return lower == "open" ? "common_open" : "common_closed"
-}
-
-// MARK: - Host room stub (MVP)
-
-private struct HostedRoomStub: Identifiable {
-    let id: String
-    let roomId: String
-    let title: String
-}
-
-// MARK: - Joined/Hosted Sections (Equatable for smoother typing)
-
-private struct SelectAllTextField: UIViewRepresentable {
-    let placeholderKey: String
-    @Binding var text: String
-    @Binding var isFirstResponder: Bool
-    var keyboardType: UIKeyboardType = .default
-    var textContentType: UITextContentType? = .name
-    var autocapitalization: UITextAutocapitalizationType = .words
-    var autocorrection: UITextAutocorrectionType = .no
-    var onChange: ((String) -> Void)? = nil
-
-    func makeUIView(context: Context) -> UITextField {
-        let tf = UITextField()
-        tf.borderStyle = .none
-        tf.textAlignment = .right
-        tf.autocorrectionType = autocorrection
-        tf.autocapitalizationType = autocapitalization
-        tf.textContentType = textContentType
-        tf.keyboardType = keyboardType
-        tf.placeholder = NSLocalizedString(placeholderKey, comment: "")
-        tf.addTarget(context.coordinator, action: #selector(Coordinator.textChanged), for: .editingChanged)
-        tf.delegate = context.coordinator
-        return tf
-    }
-
-    func updateUIView(_ uiView: UITextField, context: Context) {
-        if uiView.text != text {
-            uiView.text = text
-        }
-        if isFirstResponder, !uiView.isFirstResponder {
-            uiView.becomeFirstResponder()
-            DispatchQueue.main.async {
-                uiView.selectAll(nil)
-            }
-        } else if !isFirstResponder, uiView.isFirstResponder {
-            uiView.resignFirstResponder()
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, isFirstResponder: $isFirstResponder, onChange: onChange)
-    }
-
-    final class Coordinator: NSObject, UITextFieldDelegate {
-        @Binding var text: String
-        @Binding var isFirstResponder: Bool
-        let onChange: ((String) -> Void)?
-
-        init(text: Binding<String>, isFirstResponder: Binding<Bool>, onChange: ((String) -> Void)?) {
-            _text = text
-            _isFirstResponder = isFirstResponder
-            self.onChange = onChange
-        }
-
-        @objc func textChanged(_ sender: UITextField) {
-            let value = sender.text ?? ""
-            text = value
-            onChange?(value)
-        }
-
-        func textFieldDidBeginEditing(_ textField: UITextField) {
-            isFirstResponder = true
-            DispatchQueue.main.async {
-                textField.selectAll(nil)
-            }
-        }
-
-        func textFieldDidEndEditing(_ textField: UITextField) {
-            isFirstResponder = false
-        }
-    }
-}
-
 private struct FeedbackMailDraft {
     let subject: String
     let body: String
@@ -651,55 +559,6 @@ private struct FeedbackComposeSheet: View {
     }
 }
 
-enum FeedbackRepoError: LocalizedError {
-    case emptyMessage
-
-    var errorDescription: String? {
-        switch self {
-        case .emptyMessage:
-            return NSLocalizedString("feedback_submit_failed_message", comment: "")
-        }
-    }
-}
-
-private final class FirebaseFeedbackRepository {
-    private let db = Firestore.firestore()
-
-    func submitFeedback(
-        userId: String?,
-        displayName: String,
-        friendCode: String,
-        subject: String,
-        message: String
-    ) async throws {
-        let explicitUserId = userId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let authUserId = Auth.auth().currentUser?.uid ?? ""
-        let resolvedUserId = explicitUserId.isEmpty ? authUserId : explicitUserId
-
-        let cleanSubject = subject.trimmingCharacters(in: .whitespacesAndNewlines)
-        let cleanMessage = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard cleanMessage.isEmpty == false else { throw FeedbackRepoError.emptyMessage }
-
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
-        let bundleId = Bundle.main.bundleIdentifier ?? ""
-
-        try await db.collection("feedbackSubmissions").addDocument(data: [
-            "userId": resolvedUserId,
-            "displayName": displayName.trimmingCharacters(in: .whitespacesAndNewlines),
-            "friendCode": friendCode.trimmingCharacters(in: .whitespacesAndNewlines),
-            "subject": cleanSubject,
-            "message": cleanMessage,
-            "appVersion": version,
-            "buildNumber": build,
-            "bundleId": bundleId,
-            "localeIdentifier": Locale.current.identifier,
-            "platform": "iOS",
-            "createdAt": Timestamp(date: Date())
-        ])
-    }
-}
-
 private struct AboutView: View {
     var body: some View {
         List {
@@ -757,7 +616,6 @@ private struct JoinedRoomsSection: View, Equatable {
                 ContentUnavailableView(
                     LocalizedStringKey("profile_joined_empty_title"),
                     systemImage: "person.2"
-//                    description: Text(LocalizedStringKey("profile_joined_empty_description"))
                 )
                 .listRowBackground(Color.clear)
             } else {
@@ -821,7 +679,6 @@ private struct HostedRoomsSection: View, Equatable {
                 ContentUnavailableView(
                     LocalizedStringKey("profile_hosted_empty_title"),
                     systemImage: "house"
-//                    description: Text(LocalizedStringKey("profile_hosted_empty_description"))
                 )
                 .listRowBackground(Color.clear)
             } else {
@@ -999,15 +856,5 @@ private struct OrderedPostcardsSection: View, Equatable {
                 }
             }
         }
-    }
-}
-
-private extension ProfileView {
-    static func mockHostedRooms(for name: String) -> [HostedRoomStub] {
-        // Just 2 sample rooms. Replace with Firestore later.
-        [
-            .init(id: "h1", roomId: "room_ken_001", title: "\(name)’s Fire Hunt"),
-            .init(id: "h2", roomId: "room_ken_002", title: "\(name)’s Water Squad")
-        ]
     }
 }
