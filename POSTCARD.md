@@ -104,3 +104,7 @@ Notes:
 - Seller shipping action transitions status from `AwaitingSellerSend` -> `InTransit` and updates `sentAt`, `buyerReminderAt`, and `buyerAutoCompleteAt`.
 - Buyer "not received yet" keeps honey on hold and sets status to `AwaitingBuyerDecision`.
 - Buyer confirmation transitions status to `Completed` and transfers `holdHoney` to seller `users/{sellerId}.honey`.
+- Profile ordered-postcards view loads only active buyer orders (`AwaitingSellerSend`, `InTransit`, `AwaitingBuyerDecision`) to avoid history-heavy truncation.
+- Buyer latest-order lookup fetches all matching buyer/postcard orders and picks the newest active one by `createdAt`.
+- Shipping recipients are fetched with server-side filters on `postcardId`, `sellerId`, and `status = AwaitingSellerSend`.
+- Register/edit upload flow performs best-effort cleanup of newly uploaded image blobs if subsequent Firestore write fails.

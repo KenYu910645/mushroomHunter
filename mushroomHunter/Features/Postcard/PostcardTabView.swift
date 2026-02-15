@@ -1061,6 +1061,7 @@ struct PostcardEditView: View {
         isSaving = true
         defer { isSaving = false }
 
+        var uploadedImageURL: URL? = nil
         do {
             var newImageUrl: String? = nil
             if let image = selectedImage {
@@ -1072,6 +1073,7 @@ struct PostcardEditView: View {
                     return
                 }
                 let uploaded = try await uploader.uploadPostcardImage(data: data, ownerId: listing.sellerId)
+                uploadedImageURL = uploaded
                 newImageUrl = uploaded.absoluteString
             }
 
@@ -1090,6 +1092,9 @@ struct PostcardEditView: View {
             )
             dismiss()
         } catch {
+            if let uploadedImageURL {
+                await uploader.deleteUploadedImage(at: uploadedImageURL)
+            }
             presentError((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
         }
     }
@@ -1373,9 +1378,11 @@ struct PostcardRegisterView: View {
         isUploading = true
         defer { isUploading = false }
 
+        var imageUrl: URL? = nil
         do {
-            let imageUrl = try await uploader.uploadPostcardImage(data: data, ownerId: session.authUid)
-            uploadedImageUrl = imageUrl
+            let uploaded = try await uploader.uploadPostcardImage(data: data, ownerId: session.authUid)
+            imageUrl = uploaded
+            uploadedImageUrl = uploaded
 
             try await repo.createPostcard(
                 title: cleanTitle,
@@ -1388,12 +1395,15 @@ struct PostcardRegisterView: View {
                 stock: stock,
                 sellerId: session.authUid ?? "",
                 sellerName: session.displayName.isEmpty ? "Unknown" : session.displayName,
-                imageUrl: imageUrl.absoluteString
+                imageUrl: uploaded.absoluteString
             )
 
             resetForm()
             onSubmitted()
         } catch {
+            if let imageUrl {
+                await uploader.deleteUploadedImage(at: imageUrl)
+            }
             let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             presentError(message)
         }

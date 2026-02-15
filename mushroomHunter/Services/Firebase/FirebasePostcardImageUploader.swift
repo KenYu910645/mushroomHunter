@@ -81,6 +81,14 @@ final class FirebasePostcardImageUploader {
         throw PostcardImageUploadError.missingDownloadURL
     }
 
+    func deleteUploadedImage(at url: URL) async {
+        do {
+            try await storage.reference(forURL: url.absoluteString).delete()
+        } catch {
+            // Best effort cleanup only.
+        }
+    }
+
     private func normalizedImage(_ image: UIImage) -> UIImage {
         let pixelWidth = max(1, Int(image.size.width * image.scale))
         let pixelHeight = max(1, Int(image.size.height * image.scale))

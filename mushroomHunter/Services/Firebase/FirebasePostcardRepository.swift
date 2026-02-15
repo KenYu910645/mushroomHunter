@@ -3,7 +3,6 @@ import FirebaseAuth
 import FirebaseFirestore
 
 enum PostcardRepoError: LocalizedError {
-    case decodeFailed(String)
     case notSignedIn
     case listingNotFound
     case invalidListing
@@ -15,7 +14,6 @@ enum PostcardRepoError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .decodeFailed(let msg): return msg
         case .notSignedIn: return "Please sign in first."
         case .listingNotFound: return "Postcard listing not found."
         case .invalidListing: return "Postcard listing is invalid."
@@ -65,27 +63,26 @@ final class FirebasePostcardRepository {
     }
 
     func fetchMyOrderedPostcards(userId: String, limit: Int = 50) async throws -> [PostcardListing] {
-        let q = db.collection("postcardOrders")
-            .whereField("buyerId", isEqualTo: userId)
-            .order(by: "createdAt", descending: true)
-            .limit(to: limit)
-
-        let orderSnap: QuerySnapshot
-        do {
-            orderSnap = try await q.getDocuments(source: .server)
-        } catch {
-            orderSnap = try await q.getDocuments(source: .default)
+        let activeStatuses: [PostcardOrderStatus] = [.awaitingSellerSend, .inTransit, .awaitingBuyerDecision]
+        var orderDocs: [QueryDocumentSnapshot] = []
+        for status in activeStatuses {
+            let query = db.collection("postcardOrders")
+                .whereField("buyerId", isEqualTo: userId)
+                .whereField("status", isEqualTo: status.rawValue)
+            orderDocs += try await fetchDocuments(query: query)
         }
 
-        let orderedPostcardIds = orderSnap.documents.compactMap { doc -> String? in
-            let statusRaw = (doc.data()["status"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            if statusRaw == PostcardOrderStatus.completed.rawValue ||
-                statusRaw == PostcardOrderStatus.cancelled.rawValue {
-                return nil
+        let orderedPostcardIds = orderDocs
+            .sorted { lhs, rhs in
+                let lhsDate = (lhs.data()["createdAt"] as? Timestamp)?.dateValue() ?? .distantPast
+                let rhsDate = (rhs.data()["createdAt"] as? Timestamp)?.dateValue() ?? .distantPast
+                return lhsDate > rhsDate
             }
-            let id = (doc.data()["postcardId"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            return id.isEmpty ? nil : id
-        }
+            .prefix(limit)
+            .compactMap { doc -> String? in
+                let id = (doc.data()["postcardId"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                return id.isEmpty ? nil : id
+            }
         if orderedPostcardIds.isEmpty { return [] }
 
         let uniqueIds = Array(Set(orderedPostcardIds))
@@ -335,23 +332,11 @@ final class FirebasePostcardRepository {
 
         let query = db.collection("postcardOrders")
             .whereField("postcardId", isEqualTo: postcardId)
-            .limit(to: 100)
+            .whereField("sellerId", isEqualTo: sellerId)
+            .whereField("status", isEqualTo: PostcardOrderStatus.awaitingSellerSend.rawValue)
 
-        let snap: QuerySnapshot
-        do {
-            snap = try await query.getDocuments(source: .server)
-        } catch {
-            snap = try await query.getDocuments(source: .default)
-        }
-
-        let candidates = snap.documents.compactMap { doc -> (String, [String: Any])? in
-            let data = doc.data()
-            let statusRaw = data["status"] as? String ?? ""
-            let orderSellerId = data["sellerId"] as? String ?? ""
-            guard orderSellerId == sellerId, statusRaw == PostcardOrderStatus.awaitingSellerSend.rawValue else {
-                return nil
-            }
-            return (doc.documentID, data)
+        let candidates = try await fetchDocuments(query: query).map { doc in
+            (doc.documentID, doc.data())
         }
 
         if candidates.isEmpty { return [] }
@@ -448,16 +433,9 @@ final class FirebasePostcardRepository {
         let query = db.collection("postcardOrders")
             .whereField("buyerId", isEqualTo: buyerId)
             .whereField("postcardId", isEqualTo: postcardId)
-            .limit(to: 50)
+        let docs = try await fetchDocuments(query: query)
 
-        let snap: QuerySnapshot
-        do {
-            snap = try await query.getDocuments(source: .server)
-        } catch {
-            snap = try await query.getDocuments(source: .default)
-        }
-
-        let orders = snap.documents.compactMap(decodeBuyerOrder)
+        let orders = docs.compactMap(decodeBuyerOrder)
             .filter { $0.status != .completed && $0.status != .cancelled }
             .sorted { $0.createdAt > $1.createdAt }
 
@@ -648,6 +626,14 @@ final class FirebasePostcardRepository {
             code: 400,
             userInfo: [NSLocalizedDescriptionKey: error.errorDescription ?? "Postcard error."]
         )
+    }
+
+    private func fetchDocuments(query: Query) async throws -> [QueryDocumentSnapshot] {
+        do {
+            return try await query.getDocuments(source: .server).documents
+        } catch {
+            return try await query.getDocuments(source: .default).documents
+        }
     }
 }
 
