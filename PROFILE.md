@@ -2,7 +2,8 @@
 
 ## Related Files
 - `mushroomHunter/Features/Profile/ProfileView.swift`: profile UI, settings, feedback compose, about page, and user-owned content sections.
-- `mushroomHunter/Features/Profile/ProfileTextField.swift`: reusable `UITextField` bridge used by profile edit/create screens (select-all on focus, keyboard/input configuration).
+- `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared `UITextField` bridge used by profile edit/create and mushroom host forms (select-all on focus, keyboard/input configuration).
+- `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared `UITextView` bridge used by multiline fields (select-all on focus).
 - `mushroomHunter/Services/Firebase/ProfileHostRepo.swift`: Firestore queries for hosted/joined mushroom rooms shown in profile.
 - `mushroomHunter/Services/Firebase/FeedbackRepo.swift`: writes in-app feedback submissions to Firestore `feedbackSubmissions`.
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`: Firestore queries for on-shelf and ordered postcards shown in profile.
@@ -25,6 +26,7 @@
 - Settings includes:
   - `Feedback`: opens in-app compose sheet (subject/message) and submits to Firestore `feedbackSubmissions`.
   - `About`: shows contact information (phone, email, website).
+- Feedback compose subject and message both auto-select existing text on focus.
 
 ## Cloud Functions (Profile Use Cases)
 - `sendFeedbackNotificationEmail`

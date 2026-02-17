@@ -4,10 +4,12 @@
 - `mushroomHunter/Features/Mushroom/RoomBrowseView.swift`: mushroom room list UI and room entry points, with inline documentation for browse state, filters, and join flow.
 - `mushroomHunter/Features/Mushroom/RoomHostView.swift`: host room create/edit UI and form validation.
 - `mushroomHunter/Features/Mushroom/RoomDetailsView.swift`: room details UI, attendee actions, finish flow, invite share sheet.
-- `mushroomHunter/Features/Mushroom/RoomDetailsSubViews.swift`: extracted room-details subviews (attendee row, invite sheet/QR).
+- `mushroomHunter/Features/Mushroom/RoomDetailsSubViews.swift`: extracted room-details subviews (attendee row, invite sheet/QR) and shared invite QR sheet used by postcard detail.
 - `mushroomHunter/Features/Mushroom/RoomDetailsViewModel.swift`: room details state, role/join gating logic, and action orchestration.
 - `mushroomHunter/Features/Mushroom/RoomDetailsModels.swift`: room/attendee data models and status enums.
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens.
+- `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by host/profile/profile-create forms.
+- `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared auto-select text editor wrapper used by host description input.
 - `mushroomHunter/Services/Firebase/RoomBrowseRepo.swift`: Firestore reads for browsing open rooms.
 - `mushroomHunter/Services/Firebase/RoomHostRepo.swift`: Firestore writes for host room lifecycle (create/update/close).
 - `mushroomHunter/Services/Firebase/RoomDetailsRepo.swift`: Firestore reads for a single room and attendee list.
@@ -18,6 +20,7 @@
 
 ## Feature Coverage
 - Host can create and manage a room with title/location/description/fixed raid cost (no target mushroom selectors in create/edit UI).
+- Host create/edit description is prefilled with localized default `host_default_description` (`Welcome! Let's play!`) when empty.
 - Host can manage attendees (kick, close room, finish raid/claim cycle).
 - Host reject-resolution alert behavior:
   - `Resend`: sets attendee status back to `WaitingConfirmation` and triggers confirmation push again.

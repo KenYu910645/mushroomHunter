@@ -3,6 +3,7 @@
 ## Related Files
 - `mushroomHunter/Features/Profile/LoginView.swift`: sign-in UI for Apple and Google login entry points.
 - `mushroomHunter/Features/Profile/CreateProfileView.swift`: first-time profile completion form (name + 12-digit friend code).
+- `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by the create-profile form fields.
 - `mushroomHunter/Session/SessionStore.swift`: authentication, auth state handling, and profile-complete persistence/sync.
 - `mushroomHunter/App/ContentView.swift`: app root routing between login, create-profile, and main tabs.
 - `mushroomHunter/App/mushroomHunterApp.swift`: app bootstrap and URL/open handling for auth and deep links.

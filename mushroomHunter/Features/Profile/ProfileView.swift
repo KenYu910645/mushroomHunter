@@ -69,10 +69,11 @@ struct ProfileView: View {
                             Text(LocalizedStringKey("profile_name"))
                             Spacer()
                             if isEditingName {
-                                ProfileSelectAllTextField(
+                                SelectAllTextField(
                                     placeholderKey: "profile_name_placeholder",
                                     text: $draftName,
-                                    isFirstResponder: $nameFieldFocused
+                                    isFirstResponder: $nameFieldFocused,
+                                    textAlignment: .right
                                 )
                                 .frame(height: 22)
                                 .multilineTextAlignment(.trailing)
@@ -129,14 +130,15 @@ struct ProfileView: View {
                             Spacer()
 
                             if isEditingFriendCode {
-                                ProfileSelectAllTextField(
+                                SelectAllTextField(
                                     placeholderKey: "profile_friend_code_placeholder",
                                     text: $draftFriendCode,
                                     isFirstResponder: $friendCodeFieldFocused,
                                     keyboardType: .numberPad,
                                     textContentType: .oneTimeCode,
                                     autocapitalization: .none,
-                                    autocorrection: .no
+                                    autocorrection: .no,
+                                    textAlignment: .right
                                 ) { newValue in
                                     let digitsOnly = newValue.filter { $0.isNumber }
                                     if digitsOnly != newValue {
@@ -323,11 +325,6 @@ struct ProfileView: View {
                         }
                     }
 
-                    Section {
-                        Text(LocalizedStringKey("settings_language_managed"))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
                 }
                 .navigationTitle(LocalizedStringKey("settings_title"))
                 .toolbar {
@@ -480,7 +477,9 @@ private struct FeedbackMailDraft {
 private struct FeedbackComposeSheet: View {
     @Environment(\.dismiss) private var dismiss // State or dependency property.
     @State private var subject: String = "" // State or dependency property.
+    @State private var subjectFieldFocused: Bool = false // State or dependency property.
     @State private var messageText: String = "" // State or dependency property.
+    @State private var messageFieldFocused: Bool = false // State or dependency property.
     @State private var isSubmitting: Bool = false // State or dependency property.
     @State private var submissionError: String? = nil // State or dependency property.
     @State private var showSubmissionErrorAlert: Bool = false // State or dependency property.
@@ -493,8 +492,20 @@ private struct FeedbackComposeSheet: View {
     var bodyView: some View {
         Form {
             Section {
-                TextField(LocalizedStringKey("feedback_subject_placeholder"), text: $subject)
-                TextEditor(text: $messageText)
+                SelectAllTextField(
+                    placeholderKey: "feedback_subject_placeholder",
+                    text: $subject,
+                    isFirstResponder: $subjectFieldFocused,
+                    textAlignment: .left
+                )
+                .frame(height: 22)
+                SelectAllTextEditor(
+                    text: $messageText,
+                    isFirstResponder: $messageFieldFocused,
+                    autocapitalization: .sentences,
+                    autocorrection: .yes
+                )
+                .padding(.horizontal, 2)
                     .frame(minHeight: 180)
             } header: {
                 Text(LocalizedStringKey("feedback_message_label"))

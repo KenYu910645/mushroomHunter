@@ -28,12 +28,13 @@ struct CreateProfileView: View {
                         HStack {
                             Text(LocalizedStringKey("profile_name"))
                             Spacer()
-                            ProfileSelectAllTextField(
+                            SelectAllTextField(
                                 placeholderKey: "profile_name_placeholder",
                                 text: $name,
                                 isFirstResponder: $nameFieldFocused,
                                 textContentType: .name,
-                                autocapitalization: .words
+                                autocapitalization: .words,
+                                textAlignment: .right
                             )
                             .frame(height: 22)
                             .multilineTextAlignment(.trailing)
@@ -55,14 +56,15 @@ struct CreateProfileView: View {
                         HStack {
                             Text(LocalizedStringKey("profile_friend_code"))
                             Spacer()
-                            ProfileSelectAllTextField(
+                            SelectAllTextField(
                                 placeholderKey: "profile_friend_code_placeholder",
                                 text: $friendCode,
                                 isFirstResponder: $friendCodeFieldFocused,
                                 keyboardType: .numberPad,
                                 textContentType: .oneTimeCode,
                                 autocapitalization: .none,
-                                autocorrection: .no
+                                autocorrection: .no,
+                                textAlignment: .right
                             ) { newValue in
                                 let digitsOnly = newValue.filter { $0.isNumber }
                                 if digitsOnly != newValue {

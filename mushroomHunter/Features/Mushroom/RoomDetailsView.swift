@@ -640,7 +640,7 @@ struct RoomDetailsView: View {
                 Button {
                     editingRoom = room
                 } label: {
-                    Image(systemName: "ellipsis")
+                    Image(systemName: "pencil")
                         .font(.headline)
                 }
                 .accessibilityLabel(LocalizedStringKey("room_edit_room_accessibility"))

@@ -13,10 +13,14 @@ import UIKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
 
-struct RoomInviteSheet: View {
+struct InviteShareSheet: View {
     @Environment(\.dismiss) private var dismiss // State or dependency property.
-    let roomTitle: String
+    let titleKey: LocalizedStringKey
+    let hintText: String
     let inviteURL: URL?
+    let shareButtonKey: LocalizedStringKey
+    let copyButtonKey: LocalizedStringKey
+    let unavailableDescriptionKey: LocalizedStringKey
     let onCopyInviteLink: (String) -> Void
 
     private let qrContext = CIContext()
@@ -25,7 +29,7 @@ struct RoomInviteSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
-                Text(String(format: NSLocalizedString("room_invite_hint", comment: ""), roomTitle))
+                Text(hintText)
                     .font(.subheadline)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
@@ -53,7 +57,7 @@ struct RoomInviteSheet: View {
 
                     HStack(spacing: 12) {
                         ShareLink(item: link) {
-                            Label(LocalizedStringKey("room_invite_share_button"), systemImage: "square.and.arrow.up")
+                            Label(shareButtonKey, systemImage: "square.and.arrow.up")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
@@ -61,7 +65,7 @@ struct RoomInviteSheet: View {
                         Button {
                             onCopyInviteLink(link)
                         } label: {
-                            Label(LocalizedStringKey("room_invite_copy_button"), systemImage: "doc.on.doc")
+                            Label(copyButtonKey, systemImage: "doc.on.doc")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
@@ -71,14 +75,14 @@ struct RoomInviteSheet: View {
                     ContentUnavailableView(
                         LocalizedStringKey("room_load_error_title"),
                         systemImage: "qrcode",
-                        description: Text(LocalizedStringKey("room_invite_link_unavailable"))
+                        description: Text(unavailableDescriptionKey)
                     )
                 }
 
                 Spacer()
             }
             .padding(.top, 20)
-            .navigationTitle(LocalizedStringKey("room_invite_title"))
+            .navigationTitle(titleKey)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -106,6 +110,24 @@ struct RoomInviteSheet: View {
         guard let cgImage = qrContext.createCGImage(transformedImage, from: transformedImage.extent) else { return nil }
 
         return UIImage(cgImage: cgImage)
+    }
+}
+
+struct RoomInviteSheet: View {
+    let roomTitle: String
+    let inviteURL: URL?
+    let onCopyInviteLink: (String) -> Void
+
+    var body: some View {
+        InviteShareSheet(
+            titleKey: LocalizedStringKey("room_invite_title"),
+            hintText: String(format: NSLocalizedString("room_invite_hint", comment: ""), roomTitle),
+            inviteURL: inviteURL,
+            shareButtonKey: LocalizedStringKey("room_invite_share_button"),
+            copyButtonKey: LocalizedStringKey("room_invite_copy_button"),
+            unavailableDescriptionKey: LocalizedStringKey("room_invite_link_unavailable"),
+            onCopyInviteLink: onCopyInviteLink
+        )
     }
 }
 

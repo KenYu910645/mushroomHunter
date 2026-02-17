@@ -34,6 +34,11 @@ struct mushroomHunterApp: App {
 
                     if let roomId = RoomInviteLink.parseRoomId(from: url) {
                         NotificationCenter.default.post(name: .didOpenRoomFromPush, object: roomId)
+                        return
+                    }
+
+                    if let postcardId = PostcardInviteLink.parsePostcardId(from: url) {
+                        NotificationCenter.default.post(name: .didOpenPostcardFromLink, object: postcardId)
                     }
                 }
         }

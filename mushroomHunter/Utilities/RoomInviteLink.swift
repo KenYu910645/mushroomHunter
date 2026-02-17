@@ -48,3 +48,42 @@ enum RoomInviteLink {
         return trimmed
     }
 }
+
+enum PostcardInviteLink {
+    private static let customScheme = "honeyhub"
+    private static let postcardHost = "postcard"
+    private static let webHost = "mushroomhunter-3a937.web.app"
+
+    static func makeURL(postcardId: String) -> URL? {
+        guard !postcardId.isEmpty else { return nil }
+        var components = URLComponents()
+        components.scheme = customScheme
+        components.host = postcardHost
+        components.path = "/\(postcardId)"
+        return components.url
+    }
+
+    static func parsePostcardId(from url: URL) -> String? {
+        if url.scheme?.lowercased() == customScheme, url.host?.lowercased() == postcardHost {
+            return postcardId(fromPath: url.path)
+        }
+
+        if url.host?.lowercased() == webHost {
+            return postcardIdFromWebPath(url.path)
+        }
+
+        return nil
+    }
+
+    private static func postcardIdFromWebPath(_ path: String) -> String? {
+        let parts = path.split(separator: "/").map(String.init)
+        guard parts.count >= 2, parts[0] == "p" else { return nil }
+        return parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func postcardId(fromPath path: String) -> String? {
+        let trimmed = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !trimmed.isEmpty else { return nil }
+        return trimmed
+    }
+}

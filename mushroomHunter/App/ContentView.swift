@@ -15,7 +15,7 @@ import Combine
 
 struct ContentView: View {
     @EnvironmentObject private var session: SessionStore // State or dependency property.
-    @State private var pendingRoomId: String? = nil // State or dependency property.
+    @State private var pendingRoute: DeepLinkRoute? = nil // State or dependency property.
     var body: some View {
         ZStack {
             ThemedBackground()
@@ -33,14 +33,21 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .didOpenRoomFromPush)) { notif in
             guard let roomId = notif.object as? String else { return }
-            pendingRoomId = roomId
+            pendingRoute = .room(id: roomId)
         }
-        .sheet(item: Binding(
-            get: { pendingRoomId.map { RoomLink(id: $0) } },
-            set: { pendingRoomId = $0?.id }
-        )) { link in
-            RoomDetailsView(vm: RoomDetailsViewModel(roomId: link.id, session: session))
-                .environmentObject(session)
+        .onReceive(NotificationCenter.default.publisher(for: .didOpenPostcardFromLink)) { notif in
+            guard let postcardId = notif.object as? String else { return }
+            pendingRoute = .postcard(id: postcardId)
+        }
+        .sheet(item: $pendingRoute) { route in
+            switch route {
+            case .room(let id):
+                RoomDetailsView(vm: RoomDetailsViewModel(roomId: id, session: session))
+                    .environmentObject(session)
+            case .postcard(let id):
+                PostcardLinkDestinationView(postcardId: id)
+                    .environmentObject(session)
+            }
         }
         .onAppear {
             if AppTesting.isUITesting {
@@ -56,8 +63,63 @@ struct ContentView: View {
     }
 }
 
-private struct RoomLink: Identifiable {
-    let id: String
+private enum DeepLinkRoute: Identifiable {
+    case room(id: String)
+    case postcard(id: String)
+
+    var id: String {
+        switch self {
+        case .room(let id):
+            return "room:\(id)"
+        case .postcard(let id):
+            return "postcard:\(id)"
+        }
+    }
+}
+
+private struct PostcardLinkDestinationView: View {
+    let postcardId: String
+
+    @Environment(\.dismiss) private var dismiss // State or dependency property.
+    @State private var listing: PostcardListing? // State or dependency property.
+    @State private var isLoading: Bool = false // State or dependency property.
+    private let repo = FirebasePostcardRepository()
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let listing {
+                    PostcardDetailView(listing: listing)
+                } else if isLoading {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ContentUnavailableView(
+                        LocalizedStringKey("postcard_link_unavailable_title"),
+                        systemImage: "qrcode",
+                        description: Text(LocalizedStringKey("postcard_link_unavailable_message"))
+                    )
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(LocalizedStringKey("common_close")) {
+                        dismiss()
+                    }
+                }
+            }
+            .task {
+                await loadPostcard()
+            }
+        }
+    }
+
+    private func loadPostcard() async {
+        guard !postcardId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        isLoading = true
+        defer { isLoading = false }
+        listing = try? await repo.fetchPostcard(postcardId: postcardId)
+    }
 }
 
 // MARK: - Tabs

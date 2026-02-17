@@ -32,10 +32,12 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Mushroom/RoomBrowseView.swift`
 - `mushroomHunter/Features/Mushroom/RoomHostView.swift`
 - `mushroomHunter/Features/Mushroom/RoomDetailsView.swift`
-- `mushroomHunter/Features/Mushroom/RoomDetailsSubViews.swift`
+- `mushroomHunter/Features/Mushroom/RoomDetailsSubViews.swift` (room subviews + shared invite QR sheet used by room/postcard)
 - `mushroomHunter/Features/Mushroom/RoomDetailsViewModel.swift`
 - `mushroomHunter/Features/Mushroom/RoomDetailsModels.swift`
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift` (shared browse header with honey/search/create actions)
+- `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by host/profile/profile-create forms)
+- `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by multiline inputs)
 - `mushroomHunter/Services/Firebase/RoomBrowseRepo.swift`
 - `mushroomHunter/Services/Firebase/RoomHostRepo.swift`
 - `mushroomHunter/Services/Firebase/RoomDetailsRepo.swift`
@@ -50,9 +52,15 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Postcard/PostcardTabView.swift`
 - `mushroomHunter/Features/Postcard/PostcardBrowseViewModel.swift`
 - `mushroomHunter/Features/Postcard/PostcardModels.swift`
+- `mushroomHunter/App/mushroomHunterApp.swift` (postcard invite deep-link routing)
+- `mushroomHunter/App/ContentView.swift` (postcard invite deep-link presentation)
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift` (shared browse header with honey/search/create actions)
+- `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by postcard/profile/mushroom forms)
+- `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by postcard description fields)
+- `mushroomHunter/Features/Mushroom/RoomDetailsSubViews.swift` (shared invite QR sheet used by postcard seller share flow)
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`
 - `mushroomHunter/Services/Firebase/FirebasePostcardImageUploader.swift`
+- `mushroomHunter/Utilities/RoomInviteLink.swift` (postcard invite link generation/parsing)
 - `mushroomHunter/Utilities/SearchTokens.swift`
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed postcard caps, list limits, and timeout windows)
 - Cloud Functions in `functions/index.js`:
@@ -62,7 +70,8 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 
 ### PROFILE (`PROFILE.md`)
 - `mushroomHunter/Features/Profile/ProfileView.swift`
-- `mushroomHunter/Features/Profile/ProfileTextField.swift`
+- `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by profile edit/create)
+- `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by profile feedback message)
 - `mushroomHunter/Services/Firebase/ProfileHostRepo.swift`
 - `mushroomHunter/Services/Firebase/FeedbackRepo.swift`
 - `mushroomHunter/Session/SessionStore.swift` (profile fields, user sync, honey/stars sync)
@@ -73,6 +82,8 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 ### SIGNIN (`SIGNIN.md`)
 - `mushroomHunter/Features/Profile/LoginView.swift`
 - `mushroomHunter/Features/Profile/CreateProfileView.swift`
+- `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used in create-profile form)
+- `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper for multiline form inputs)
 - `mushroomHunter/Session/SessionStore.swift` (Apple/Google auth + profile completion)
 - `mushroomHunter/App/ContentView.swift` (auth/profile-complete routing)
 - `mushroomHunter/App/mushroomHunterApp.swift` (URL routing bootstrap)

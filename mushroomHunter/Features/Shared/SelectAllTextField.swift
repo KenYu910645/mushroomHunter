@@ -1,17 +1,17 @@
 //
-//  ProfileTextField.swift
+//  SelectAllTextField.swift
 //  mushroomHunter
 //
 //  Purpose:
-//  - Provides reusable UIKit-backed text field wrappers for Profile forms.
+//  - Provides a shared UIKit-backed text field wrapper that auto-selects text on focus.
 //
 //  Defined in this file:
-//  - ProfileSelectAllTextField and coordinator bridge logic.
+//  - SelectAllTextField and coordinator bridge logic.
 //
 import SwiftUI
 import UIKit
 
-struct ProfileSelectAllTextField: UIViewRepresentable {
+struct SelectAllTextField: UIViewRepresentable {
     let placeholderKey: String
     @Binding var text: String // State or dependency property.
     @Binding var isFirstResponder: Bool // State or dependency property.
@@ -19,12 +19,13 @@ struct ProfileSelectAllTextField: UIViewRepresentable {
     var textContentType: UITextContentType? = .name
     var autocapitalization: UITextAutocapitalizationType = .words
     var autocorrection: UITextAutocorrectionType = .no
+    var textAlignment: NSTextAlignment = .left
     var onChange: ((String) -> Void)? = nil
 
     func makeUIView(context: Context) -> UITextField { // Handles makeUIView flow.
         let tf = UITextField()
         tf.borderStyle = .none
-        tf.textAlignment = .right
+        tf.textAlignment = textAlignment
         tf.autocorrectionType = autocorrection
         tf.autocapitalizationType = autocapitalization
         tf.textContentType = textContentType

@@ -36,7 +36,7 @@ final class HostViewModel: ObservableObject {
     @Published var hostName: String = NSLocalizedString("host_room_default_name", comment: "") // State or dependency property.
     @Published var countryCode: String = Locale.current.region?.identifier ?? AppConfig.Mushroom.defaultHostCountryCode // State or dependency property.
     @Published var city: String = NSLocalizedString("host_city_default", comment: "") // State or dependency property.
-    @Published var otherMessage: String = "" // State or dependency property.
+    @Published var otherMessage: String = NSLocalizedString("host_default_description", comment: "") // State or dependency property.
     @Published var fixedRaidCost: Int = AppConfig.Mushroom.defaultFixedRaidCost // State or dependency property.
     // UI State
     @Published var showSuccessAlert: Bool = false // State or dependency property.
@@ -180,7 +180,7 @@ final class HostViewModel: ObservableObject {
         hostName = NSLocalizedString("host_room_default_name", comment: "")
         countryCode = Locale.current.region?.identifier ?? AppConfig.Mushroom.defaultHostCountryCode
         city = NSLocalizedString("host_city_default", comment: "")
-        otherMessage = ""
+        otherMessage = NSLocalizedString("host_default_description", comment: "")
         fixedRaidCost = AppConfig.Mushroom.defaultFixedRaidCost
         errorMessage = nil
         successRoomId = nil
@@ -198,7 +198,10 @@ final class HostViewModel: ObservableObject {
             countryCode = Locale.current.region?.identifier ?? AppConfig.Mushroom.defaultHostCountryCode
             city = room.location
         }
-        otherMessage = room.description
+        let trimmedDescription = room.description.trimmingCharacters(in: .whitespacesAndNewlines)
+        otherMessage = trimmedDescription.isEmpty
+            ? NSLocalizedString("host_default_description", comment: "")
+            : room.description
         fixedRaidCost = room.fixedRaidCost
     }
 
@@ -283,6 +286,7 @@ struct RoomHostView: View {
     private let onCloseRoom: (() -> Void)?
     @State private var isNameFirstResponder: Bool = false // State or dependency property.
     @State private var isAreaFirstResponder: Bool = false // State or dependency property.
+    @State private var isDescriptionFirstResponder: Bool = false // State or dependency property.
     init(vm: HostViewModel, onCloseRoom: (() -> Void)? = nil) { // Initializes this type.
         _vm = StateObject(wrappedValue: vm)
         self.onCloseRoom = onCloseRoom
@@ -371,7 +375,13 @@ struct RoomHostView: View {
 
                 // Other message (100 chars max)
                 Section {
-                    TextEditor(text: $vm.otherMessage)
+                    SelectAllTextEditor(
+                        text: $vm.otherMessage,
+                        isFirstResponder: $isDescriptionFirstResponder,
+                        autocapitalization: .sentences,
+                        autocorrection: .yes
+                    )
+                        .padding(.horizontal, 2)
                         .frame(minHeight: 140)
                         .onChange(of: vm.otherMessage) { _, _ in vm.enforceLimits() }
                         .accessibilityIdentifier("host_message_editor")
@@ -488,77 +498,4 @@ struct RoomHostView: View {
         }
     }
 
-}
-
-private struct SelectAllTextField: UIViewRepresentable {
-    let placeholderKey: String
-    @Binding var text: String // State or dependency property.
-    @Binding var isFirstResponder: Bool // State or dependency property.
-    var keyboardType: UIKeyboardType = .default
-    var textContentType: UITextContentType? = .name
-    var autocapitalization: UITextAutocapitalizationType = .words
-    var autocorrection: UITextAutocorrectionType = .no
-    var textAlignment: NSTextAlignment = .left
-    var onChange: ((String) -> Void)? = nil
-
-    func makeUIView(context: Context) -> UITextField { // Handles makeUIView flow.
-        let tf = UITextField()
-        tf.borderStyle = .none
-        tf.textAlignment = textAlignment
-        tf.autocorrectionType = autocorrection
-        tf.autocapitalizationType = autocapitalization
-        tf.textContentType = textContentType
-        tf.keyboardType = keyboardType
-        tf.placeholder = NSLocalizedString(placeholderKey, comment: "")
-        tf.addTarget(context.coordinator, action: #selector(Coordinator.textChanged), for: .editingChanged)
-        tf.delegate = context.coordinator
-        return tf
-    }
-
-    func updateUIView(_ uiView: UITextField, context: Context) { // Handles updateUIView flow.
-        if uiView.text != text {
-            uiView.text = text
-        }
-        if isFirstResponder, !uiView.isFirstResponder {
-            uiView.becomeFirstResponder()
-            DispatchQueue.main.async {
-                uiView.selectAll(nil)
-            }
-        } else if !isFirstResponder, uiView.isFirstResponder {
-            uiView.resignFirstResponder()
-        }
-    }
-
-    func makeCoordinator() -> Coordinator { // Handles makeCoordinator flow.
-        Coordinator(text: $text, isFirstResponder: $isFirstResponder, onChange: onChange)
-    }
-
-    final class Coordinator: NSObject, UITextFieldDelegate {
-        @Binding var text: String // State or dependency property.
-        @Binding var isFirstResponder: Bool // State or dependency property.
-        let onChange: ((String) -> Void)?
-
-        init(text: Binding<String>, isFirstResponder: Binding<Bool>, onChange: ((String) -> Void)?) { // Initializes this type.
-            _text = text
-            _isFirstResponder = isFirstResponder
-            self.onChange = onChange
-        }
-
-        @objc func textChanged(_ sender: UITextField) {
-            let value = sender.text ?? ""
-            text = value
-            onChange?(value)
-        }
-
-        func textFieldDidBeginEditing(_ textField: UITextField) { // Handles textFieldDidBeginEditing flow.
-            isFirstResponder = true
-            DispatchQueue.main.async {
-                textField.selectAll(nil)
-            }
-        }
-
-        func textFieldDidEndEditing(_ textField: UITextField) { // Handles textFieldDidEndEditing flow.
-            isFirstResponder = false
-        }
-    }
 }

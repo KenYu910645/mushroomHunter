@@ -63,6 +63,7 @@
 "host_required_message" = "Please fill in the room name and area before creating the room.";
 "host_words_label" = "Characters";
 "host_description_header" = "Other Description";
+"host_default_description" = "Welcome! Let's play!";
 "host_description_footer" = "Max 100 characters. Use it for extra notes like time window, expectations, or friend code.";
 "host_min_bid_label" = "Honey";
 "host_min_bid_header" = "Mushroom Raid Payment";
@@ -106,6 +107,7 @@
 "postcard_register_accessibility" = "Register postcard";
 "postcard_edit_accessibility" = "Edit postcard";
 "postcard_shipping_accessibility" = "Ship postcard";
+"postcard_share_accessibility" = "Share postcard invite";
 "postcard_country" = "Country";
 "postcard_province" = "State/City";
 "postcard_sort" = "Sort";
@@ -138,6 +140,13 @@
 "postcard_receive_wait_title" = "Still In Transit";
 "postcard_receive_wait_message" = "Shipping can take a while. Please check again later. Honey remains on hold until you confirm receipt.";
 "postcard_order_pending_message" = "Your order is in progress. Wait for seller shipping or confirm receipt after delivery.";
+"postcard_invite_title" = "Postcard Invite";
+"postcard_invite_hint" = "Share this QR code for \"%@\".";
+"postcard_invite_share_button" = "Share Link";
+"postcard_invite_copy_button" = "Copy Link";
+"postcard_invite_link_unavailable" = "Invite link unavailable. Please try again.";
+"postcard_link_unavailable_title" = "Unable to load postcard";
+"postcard_link_unavailable_message" = "This postcard is unavailable or removed.";
 "postcard_snapshot_section" = "Snapshot";
 "postcard_snapshot_hint" = "Upload postcard snapshot";
 "postcard_select_photo_button" = "Select Photo";
@@ -148,11 +157,16 @@
 "postcard_upload_process_error" = "Failed to process image.";
 "postcard_info_section" = "Info";
 "postcard_title_field" = "Title";
+"postcard_default_title" = "Postcard";
 "postcard_price_field" = "Selling Price";
+"postcard_default_price" = "1";
 "postcard_country_field" = "Country";
 "postcard_province_field" = "Province";
+"postcard_default_province" = "Somewhere";
 "postcard_detail_field" = "Description";
+"postcard_detail_placeholder" = "I found this postcard in the forest...";
 "postcard_stock_field" = "Stock";
+"postcard_default_stock" = "1";
 "postcard_submit_button" = "Submit Postcard";
 "postcard_edit_title" = "Edit Postcard";
 "postcard_remove_button" = "Remove from Market";

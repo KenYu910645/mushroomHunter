@@ -144,8 +144,9 @@ struct RoomBrowseView: View {
     @State private var showHostSheet: Bool = false // Controls host-room sheet presentation.
     @State private var pendingJoinListing: RoomListing? = nil // Selected listing for join prompt context.
     @State private var bidText: String = "" // Join prompt text input (digits only).
-    @State private var showJoinAlert: Bool = false // Controls join prompt alert.
     @State private var showSearchAlert: Bool = false // Controls search prompt alert.
+    @State private var bidFieldFocused: Bool = false // State or dependency property.
+    @State private var searchFieldFocused: Bool = false // State or dependency property.
     @Environment(\.colorScheme) private var scheme // Used for themed background.
 
     init(session: SessionStore) { // Initializes this type.
@@ -156,7 +157,7 @@ struct RoomBrowseView: View {
     /// Main browse screen composition:
     /// - list/skeleton content
     /// - host-room sheet
-    /// - join/search alerts
+    /// - join/search sheets
     var body: some View {
         NavigationStack {
             content
@@ -175,34 +176,99 @@ struct RoomBrowseView: View {
             RoomHostView(vm: HostViewModel(session: session))
                 .environmentObject(session)
         }
-        .alert(LocalizedStringKey("browse_join_room_title"), isPresented: $showJoinAlert, presenting: pendingJoinListing) { listing in
-            TextField(LocalizedStringKey("browse_join_bid_placeholder"), text: $bidText)
-                .keyboardType(.numberPad)
-                .onChange(of: bidText) { _, newValue in
-                    let filtered = newValue.filter { $0.isNumber }
-                    if filtered != newValue { bidText = filtered }
+        .sheet(item: $pendingJoinListing) { listing in
+            NavigationStack {
+                Form {
+                    Section {
+                        SelectAllTextField(
+                            placeholderKey: "browse_join_bid_placeholder",
+                            text: $bidText,
+                            isFirstResponder: $bidFieldFocused,
+                            keyboardType: .numberPad,
+                            textContentType: .none,
+                            autocapitalization: .none,
+                            autocorrection: .no,
+                            textAlignment: .right
+                        ) { newValue in
+                            let filtered = newValue.filter { $0.isNumber }
+                            if filtered != newValue { bidText = filtered }
+                        }
+                        .frame(height: 22)
+                    } header: {
+                        Text(LocalizedStringKey("browse_join_room_title"))
+                    } footer: {
+                        Text(String(format: NSLocalizedString("browse_join_message", comment: ""), session.honey))
+                    }
+
+                    Section {
+                        Button(LocalizedStringKey("common_join")) {
+                            let bid = parseBid(bidText)
+                            pendingJoinListing = nil
+                            Task { await vm.join(listing, deposit: bid) }
+                        }
+                    }
                 }
-
-            Button(LocalizedStringKey("common_join")) {
-                let bid = parseBid(bidText)
-                Task { await vm.join(listing, deposit: bid) }
+                .navigationTitle(LocalizedStringKey("browse_join_room_title"))
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button(LocalizedStringKey("common_cancel")) {
+                            pendingJoinListing = nil
+                        }
+                    }
+                }
+                .onAppear {
+                    bidFieldFocused = true
+                }
+                .onDisappear {
+                    bidFieldFocused = false
+                }
             }
-
-            Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
-        } message: { _ in
-            Text(String(format: NSLocalizedString("browse_join_message", comment: ""), session.honey))
         }
         .alert(LocalizedStringKey("room_join_limit_title"), isPresented: $vm.showJoinLimitAlert) {
             Button(LocalizedStringKey("common_ok")) {}
         } message: {
             Text(vm.joinLimitMessage)
         }
-        .alert(LocalizedStringKey("browse_search_title"), isPresented: $showSearchAlert) {
-            TextField(LocalizedStringKey("browse_search_placeholder"), text: $vm.query)
-            Button(LocalizedStringKey("common_clear")) { vm.query = "" }
-            Button(LocalizedStringKey("common_done")) {}
-        } message: {
-            Text(LocalizedStringKey("browse_search_message"))
+        .sheet(isPresented: $showSearchAlert) {
+            NavigationStack {
+                Form {
+                    Section {
+                        SelectAllTextField(
+                            placeholderKey: "browse_search_placeholder",
+                            text: $vm.query,
+                            isFirstResponder: $searchFieldFocused,
+                            textContentType: .none,
+                            autocapitalization: .none,
+                            autocorrection: .no,
+                            textAlignment: .left
+                        )
+                        .frame(height: 22)
+                    } header: {
+                        Text(LocalizedStringKey("browse_search_title"))
+                    } footer: {
+                        Text(LocalizedStringKey("browse_search_message"))
+                    }
+
+                    Section {
+                        Button(LocalizedStringKey("common_clear")) { vm.query = "" }
+                        Button(LocalizedStringKey("common_done")) { showSearchAlert = false }
+                    }
+                }
+                .navigationTitle(LocalizedStringKey("browse_search_title"))
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button(LocalizedStringKey("common_close")) {
+                            showSearchAlert = false
+                        }
+                    }
+                }
+                .onAppear {
+                    searchFieldFocused = true
+                }
+                .onDisappear {
+                    searchFieldFocused = false
+                }
+            }
         }
     }
     
@@ -256,7 +322,6 @@ struct RoomBrowseView: View {
                                 Button {
                                     pendingJoinListing = listing
                                     bidText = "\(max(AppConfig.Mushroom.minFixedRaidCost, listing.joinedPlayers > 0 ? AppConfig.Mushroom.defaultFixedRaidCost : AppConfig.Mushroom.minFixedRaidCost))"
-                                    showJoinAlert = true
                                 } label: {
                                     Text(LocalizedStringKey("common_join"))
                                 }

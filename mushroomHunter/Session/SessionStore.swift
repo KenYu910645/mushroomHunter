@@ -549,6 +549,7 @@ final class SessionStore: ObservableObject {
 extension Notification.Name {
     static let didReceiveFcmToken = Notification.Name("mh.didReceiveFcmToken")
     static let didOpenRoomFromPush = Notification.Name("mh.didOpenRoomFromPush")
+    static let didOpenPostcardFromLink = Notification.Name("mh.didOpenPostcardFromLink")
 }
 
 // MARK: - Apple Sign-In helpers

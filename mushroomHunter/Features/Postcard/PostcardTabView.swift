@@ -80,6 +80,7 @@ struct PostcardBrowseView: View {
     @EnvironmentObject private var session: SessionStore // State or dependency property.
     @StateObject private var vm = PostcardBrowseViewModel() // State or dependency property.
     @State private var showSearchAlert: Bool = false // State or dependency property.
+    @State private var searchFieldFocused: Bool = false // State or dependency property.
     @Environment(\.colorScheme) private var scheme // State or dependency property.
     private let cardColumnSpacing: CGFloat = 8
     let refreshToken: Int
@@ -128,12 +129,46 @@ struct PostcardBrowseView: View {
                 ProgressView("Loading postcards…")
             }
         }
-        .alert(LocalizedStringKey("postcard_search_title"), isPresented: $showSearchAlert) {
-            TextField(LocalizedStringKey("postcard_search_placeholder"), text: $vm.query)
-            Button(LocalizedStringKey("common_clear")) { vm.query = "" }
-            Button(LocalizedStringKey("common_done")) {}
-        } message: {
-            Text(LocalizedStringKey("postcard_search_message"))
+        .sheet(isPresented: $showSearchAlert) {
+            NavigationStack {
+                Form {
+                    Section {
+                        SelectAllTextField(
+                            placeholderKey: "postcard_search_placeholder",
+                            text: $vm.query,
+                            isFirstResponder: $searchFieldFocused,
+                            textContentType: .none,
+                            autocapitalization: .none,
+                            autocorrection: .no,
+                            textAlignment: .left
+                        )
+                        .frame(height: 22)
+                    } header: {
+                        Text(LocalizedStringKey("postcard_search_title"))
+                    } footer: {
+                        Text(LocalizedStringKey("postcard_search_message"))
+                    }
+
+                    Section {
+                        Button(LocalizedStringKey("common_clear")) { vm.query = "" }
+                        Button(LocalizedStringKey("common_done")) { showSearchAlert = false }
+                    }
+                }
+                .navigationTitle(LocalizedStringKey("postcard_search_title"))
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button(LocalizedStringKey("common_close")) {
+                            showSearchAlert = false
+                        }
+                    }
+                }
+                .onAppear {
+                    searchFieldFocused = true
+                }
+                .onDisappear {
+                    searchFieldFocused = false
+                }
+            }
         }
         .onChange(of: vm.query) { _, _ in
             vm.scheduleSearch()
@@ -263,6 +298,7 @@ private struct PostcardCardView: View {
 struct PostcardDetailView: View {
     @State private var showBuyConfirm: Bool = false // State or dependency property.
     @State private var showEditSheet: Bool = false // State or dependency property.
+    @State private var showInviteSheet: Bool = false // State or dependency property.
     @State private var currentListing: PostcardListing // State or dependency property.
     @State private var isBuying: Bool = false // State or dependency property.
     @State private var showBuySuccessAlert: Bool = false // State or dependency property.
@@ -444,6 +480,14 @@ struct PostcardDetailView: View {
             if isSeller {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
+                        showInviteSheet = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityLabel(LocalizedStringKey("postcard_share_accessibility"))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
                         showEditSheet = true
                     } label: {
                         Image(systemName: "pencil")
@@ -518,6 +562,17 @@ struct PostcardDetailView: View {
                 PostcardShippingView(postcard: currentListing)
             }
         }
+        .sheet(isPresented: $showInviteSheet) {
+            InviteShareSheet(
+                titleKey: LocalizedStringKey("postcard_invite_title"),
+                hintText: String(format: NSLocalizedString("postcard_invite_hint", comment: ""), currentListing.title),
+                inviteURL: PostcardInviteLink.makeURL(postcardId: currentListing.id),
+                shareButtonKey: LocalizedStringKey("postcard_invite_share_button"),
+                copyButtonKey: LocalizedStringKey("postcard_invite_copy_button"),
+                unavailableDescriptionKey: LocalizedStringKey("postcard_invite_link_unavailable"),
+                onCopyInviteLink: copyInviteLink
+            )
+        }
         .overlay(alignment: .top) {
             if showCopyToast {
                 Text(LocalizedStringKey("common_copied"))
@@ -568,6 +623,16 @@ struct PostcardDetailView: View {
         let digits = raw.filter { $0.isNumber }
         guard !digits.isEmpty else { return }
         UIPasteboard.general.string = digits
+        showCopiedToast()
+    }
+
+    private func copyInviteLink(_ link: String) {
+        guard !link.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        UIPasteboard.general.string = link
+        showCopiedToast()
+    }
+
+    private func showCopiedToast() {
         withAnimation(.easeInOut(duration: 0.2)) {
             showCopyToast = true
         }
@@ -742,6 +807,11 @@ struct PostcardEditView: View {
     @State private var province: String // State or dependency property.
     @State private var detail: String // State or dependency property.
     @State private var stockText: String // State or dependency property.
+    @State private var titleFieldFocused: Bool = false // State or dependency property.
+    @State private var priceFieldFocused: Bool = false // State or dependency property.
+    @State private var provinceFieldFocused: Bool = false // State or dependency property.
+    @State private var stockFieldFocused: Bool = false // State or dependency property.
+    @State private var detailFieldFocused: Bool = false // State or dependency property.
     @State private var selectedItem: PhotosPickerItem? = nil // State or dependency property.
     @State private var selectedImage: UIImage? = nil // State or dependency property.
     @State private var isSaving: Bool = false // State or dependency property.
@@ -755,12 +825,18 @@ struct PostcardEditView: View {
     init(listing: PostcardListing, onDeleted: @escaping () -> Void) { // Initializes this type.
         self.listing = listing
         self.onDeleted = onDeleted
-        _title = State(initialValue: listing.title)
-        _priceText = State(initialValue: "\(listing.priceHoney)")
+        _title = State(initialValue: listing.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? NSLocalizedString("postcard_default_title", comment: "")
+            : listing.title)
+        _priceText = State(initialValue: "\(max(10, listing.priceHoney))")
         _countryCode = State(initialValue: HostViewModel.countryCode(forName: listing.location.country) ?? "TW")
-        _province = State(initialValue: listing.location.province)
-        _detail = State(initialValue: listing.location.detail)
-        _stockText = State(initialValue: "\(listing.stock)")
+        _province = State(initialValue: listing.location.province.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? NSLocalizedString("postcard_default_province", comment: "")
+            : listing.location.province)
+        _detail = State(initialValue: listing.location.detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? NSLocalizedString("postcard_detail_placeholder", comment: "")
+            : listing.location.detail)
+        _stockText = State(initialValue: "\(max(1, listing.stock))")
     }
 
     private var countryName: String {
@@ -831,21 +907,37 @@ struct PostcardEditView: View {
                 HStack(spacing: 12) {
                     Text(LocalizedStringKey("postcard_title_field"))
                     Spacer()
-                    TextField("Postcard", text: $title)
-                        .multilineTextAlignment(.trailing)
-                        .textInputAutocapitalization(.words)
+                    SelectAllTextField(
+                        placeholderKey: "postcard_default_title",
+                        text: $title,
+                        isFirstResponder: $titleFieldFocused,
+                        textContentType: .none,
+                        autocapitalization: .words,
+                        autocorrection: .yes,
+                        textAlignment: .right
+                    )
+                    .frame(height: 22)
+                    .multilineTextAlignment(.trailing)
                 }
 
                 HStack(spacing: 12) {
                     Text(LocalizedStringKey("postcard_price_field"))
                     Spacer()
-                    TextField("10", text: $priceText)
-                        .multilineTextAlignment(.trailing)
-                        .keyboardType(.numberPad)
-                        .onChange(of: priceText) { _, newValue in
-                            let clamped = clampedNumericText(newValue, max: postcardMaxPriceHoney)
-                            if clamped != newValue { priceText = clamped }
-                        }
+                    SelectAllTextField(
+                        placeholderKey: "postcard_default_price",
+                        text: $priceText,
+                        isFirstResponder: $priceFieldFocused,
+                        keyboardType: .numberPad,
+                        textContentType: .none,
+                        autocapitalization: .none,
+                        autocorrection: .no,
+                        textAlignment: .right
+                    ) { newValue in
+                        let clamped = clampedNumericText(newValue, max: postcardMaxPriceHoney)
+                        if clamped != newValue { priceText = clamped }
+                    }
+                    .frame(height: 22)
+                    .multilineTextAlignment(.trailing)
                 }
 
                 HStack(spacing: 12) {
@@ -863,20 +955,37 @@ struct PostcardEditView: View {
                 HStack(spacing: 12) {
                     Text(LocalizedStringKey("postcard_province_field"))
                     Spacer()
-                    TextField("somewhere", text: $province)
-                        .multilineTextAlignment(.trailing)
+                    SelectAllTextField(
+                        placeholderKey: "postcard_default_province",
+                        text: $province,
+                        isFirstResponder: $provinceFieldFocused,
+                        textContentType: .addressCity,
+                        autocapitalization: .words,
+                        autocorrection: .yes,
+                        textAlignment: .right
+                    )
+                    .frame(height: 22)
+                    .multilineTextAlignment(.trailing)
                 }
 
                 HStack(spacing: 12) {
                     Text(LocalizedStringKey("postcard_stock_field"))
                     Spacer()
-                    TextField("1", text: $stockText)
-                        .multilineTextAlignment(.trailing)
-                        .keyboardType(.numberPad)
-                        .onChange(of: stockText) { _, newValue in
-                            let clamped = clampedNumericText(newValue, max: postcardMaxStock)
-                            if clamped != newValue { stockText = clamped }
-                        }
+                    SelectAllTextField(
+                        placeholderKey: "postcard_default_stock",
+                        text: $stockText,
+                        isFirstResponder: $stockFieldFocused,
+                        keyboardType: .numberPad,
+                        textContentType: .none,
+                        autocapitalization: .none,
+                        autocorrection: .no,
+                        textAlignment: .right
+                    ) { newValue in
+                        let clamped = clampedNumericText(newValue, max: postcardMaxStock)
+                        if clamped != newValue { stockText = clamped }
+                    }
+                    .frame(height: 22)
+                    .multilineTextAlignment(.trailing)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -889,15 +998,10 @@ struct PostcardEditView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .fill(Color(.secondarySystemBackground))
 
-                        if detail.isEmpty {
-                            Text("I found this postcard in the forest...")
-                                .foregroundStyle(.secondary)
-                                .padding(.top, 8)
-                                .padding(.leading, 6)
-                        }
-
-                        TextEditor(text: $detail)
-                            .scrollContentBackground(.hidden)
+                        SelectAllTextEditor(
+                            text: $detail,
+                            isFirstResponder: $detailFieldFocused
+                        )
                             .padding(.horizontal, 2)
                             .frame(minHeight: 110)
                     }
@@ -1076,12 +1180,17 @@ struct PostcardEditView: View {
 struct PostcardRegisterView: View {
     @EnvironmentObject private var session: SessionStore // State or dependency property.
     @Environment(\.colorScheme) private var scheme // State or dependency property.
-    @State private var title: String = "" // State or dependency property.
-    @State private var priceText: String = "" // State or dependency property.
+    @State private var title: String // State or dependency property.
+    @State private var priceText: String // State or dependency property.
     @State private var countryCode: String = "TW" // State or dependency property.
-    @State private var province: String = "" // State or dependency property.
-    @State private var detail: String = "" // State or dependency property.
-    @State private var stockText: String = "" // State or dependency property.
+    @State private var province: String // State or dependency property.
+    @State private var detail: String // State or dependency property.
+    @State private var stockText: String // State or dependency property.
+    @State private var titleFieldFocused: Bool = false // State or dependency property.
+    @State private var priceFieldFocused: Bool = false // State or dependency property.
+    @State private var provinceFieldFocused: Bool = false // State or dependency property.
+    @State private var stockFieldFocused: Bool = false // State or dependency property.
+    @State private var detailFieldFocused: Bool = false // State or dependency property.
     @State private var showErrorAlert: Bool = false // State or dependency property.
     @State private var errorAlertMessage: String = "" // State or dependency property.
     @State private var selectedItem: PhotosPickerItem? = nil // State or dependency property.
@@ -1095,6 +1204,11 @@ struct PostcardRegisterView: View {
 
     init(onSubmitted: @escaping () -> Void = {}) {
         self.onSubmitted = onSubmitted
+        _title = State(initialValue: NSLocalizedString("postcard_default_title", comment: ""))
+        _priceText = State(initialValue: "10")
+        _province = State(initialValue: NSLocalizedString("postcard_default_province", comment: ""))
+        _detail = State(initialValue: NSLocalizedString("postcard_detail_placeholder", comment: ""))
+        _stockText = State(initialValue: "1")
     }
 
     private var countryName: String {
@@ -1154,21 +1268,37 @@ struct PostcardRegisterView: View {
                 HStack(spacing: 12) {
                     Text(LocalizedStringKey("postcard_title_field"))
                     Spacer()
-                    TextField("Postcard", text: $title)
-                        .multilineTextAlignment(.trailing)
-                        .textInputAutocapitalization(.words)
+                    SelectAllTextField(
+                        placeholderKey: "postcard_default_title",
+                        text: $title,
+                        isFirstResponder: $titleFieldFocused,
+                        textContentType: .none,
+                        autocapitalization: .words,
+                        autocorrection: .yes,
+                        textAlignment: .right
+                    )
+                    .frame(height: 22)
+                    .multilineTextAlignment(.trailing)
                 }
 
                 HStack(spacing: 12) {
                     Text(LocalizedStringKey("postcard_price_field"))
                     Spacer()
-                    TextField("10", text: $priceText)
-                        .multilineTextAlignment(.trailing)
-                        .keyboardType(.numberPad)
-                        .onChange(of: priceText) { _, newValue in
-                            let clamped = clampedNumericText(newValue, max: postcardMaxPriceHoney)
-                            if clamped != newValue { priceText = clamped }
-                        }
+                    SelectAllTextField(
+                        placeholderKey: "postcard_default_price",
+                        text: $priceText,
+                        isFirstResponder: $priceFieldFocused,
+                        keyboardType: .numberPad,
+                        textContentType: .none,
+                        autocapitalization: .none,
+                        autocorrection: .no,
+                        textAlignment: .right
+                    ) { newValue in
+                        let clamped = clampedNumericText(newValue, max: postcardMaxPriceHoney)
+                        if clamped != newValue { priceText = clamped }
+                    }
+                    .frame(height: 22)
+                    .multilineTextAlignment(.trailing)
                 }
 
                 HStack(spacing: 12) {
@@ -1186,20 +1316,37 @@ struct PostcardRegisterView: View {
                 HStack(spacing: 12) {
                     Text(LocalizedStringKey("postcard_province_field"))
                     Spacer()
-                    TextField("somewhere", text: $province)
-                        .multilineTextAlignment(.trailing)
+                    SelectAllTextField(
+                        placeholderKey: "postcard_default_province",
+                        text: $province,
+                        isFirstResponder: $provinceFieldFocused,
+                        textContentType: .addressCity,
+                        autocapitalization: .words,
+                        autocorrection: .yes,
+                        textAlignment: .right
+                    )
+                    .frame(height: 22)
+                    .multilineTextAlignment(.trailing)
                 }
 
                 HStack(spacing: 12) {
                     Text(LocalizedStringKey("postcard_stock_field"))
                     Spacer()
-                    TextField("1", text: $stockText)
-                        .multilineTextAlignment(.trailing)
-                        .keyboardType(.numberPad)
-                        .onChange(of: stockText) { _, newValue in
-                            let clamped = clampedNumericText(newValue, max: postcardMaxStock)
-                            if clamped != newValue { stockText = clamped }
-                        }
+                    SelectAllTextField(
+                        placeholderKey: "postcard_default_stock",
+                        text: $stockText,
+                        isFirstResponder: $stockFieldFocused,
+                        keyboardType: .numberPad,
+                        textContentType: .none,
+                        autocapitalization: .none,
+                        autocorrection: .no,
+                        textAlignment: .right
+                    ) { newValue in
+                        let clamped = clampedNumericText(newValue, max: postcardMaxStock)
+                        if clamped != newValue { stockText = clamped }
+                    }
+                    .frame(height: 22)
+                    .multilineTextAlignment(.trailing)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -1212,15 +1359,10 @@ struct PostcardRegisterView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .fill(Color(.secondarySystemBackground))
 
-                        if detail.isEmpty {
-                            Text("I found this postcard in the forest...")
-                                .foregroundStyle(.secondary)
-                                .padding(.top, 8)
-                                .padding(.leading, 6)
-                        }
-
-                        TextEditor(text: $detail)
-                            .scrollContentBackground(.hidden)
+                        SelectAllTextEditor(
+                            text: $detail,
+                            isFirstResponder: $detailFieldFocused
+                        )
                             .padding(.horizontal, 2)
                             .frame(minHeight: 110)
                     }
@@ -1368,12 +1510,12 @@ struct PostcardRegisterView: View {
     }
 
     private func resetForm() {
-        title = ""
-        priceText = ""
+        title = NSLocalizedString("postcard_default_title", comment: "")
+        priceText = "10"
         countryCode = "TW"
-        province = ""
-        detail = ""
-        stockText = ""
+        province = NSLocalizedString("postcard_default_province", comment: "")
+        detail = NSLocalizedString("postcard_detail_placeholder", comment: "")
+        stockText = "1"
         selectedItem = nil
         selectedImage = nil
         uploadedImageUrl = nil
