@@ -141,7 +141,7 @@
 "postcard_receive_wait_message" = "Shipping can take a while. Please check again later. Honey remains on hold until you confirm receipt.";
 "postcard_order_pending_message" = "Your order is in progress. Wait for seller shipping or confirm receipt after delivery.";
 "postcard_invite_title" = "Postcard Invite";
-"postcard_invite_hint" = "Share this QR code for \"%@\".";
+"postcard_invite_hint" = "Share this QR code to other players\"%@\".";
 "postcard_invite_share_button" = "Share Link";
 "postcard_invite_copy_button" = "Copy Link";
 "postcard_invite_link_unavailable" = "Invite link unavailable. Please try again.";
@@ -233,7 +233,7 @@
 "room_reject_resend" = "Resend";
 "room_reject_giveup" = "Give up";
 "room_invite_title" = "Room Invite";
-"room_invite_hint" = "Share this QR code for \"%@\".";
+"room_invite_hint" = "Share this QR code to other player to invite them in \"%@\".";
 "room_invite_share_button" = "Share Link";
 "room_invite_copy_button" = "Copy Link";
 "room_invite_link_unavailable" = "Invite link unavailable. Please try again.";

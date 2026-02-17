@@ -141,6 +141,9 @@ Commit message format:
 - Keep changes minimal and focused.
 - Do not reformat unrelated files.
 - If behavior changes, include app test guidance in handoff.
+- After you understand the requirement, please scan through the code first, to check whehther these is code can be re-use(leverage exist function/struct/... etc) to help you write code.
+- All files need to contain header comment
+- All function/strcture/variable need to have comment
 
 ## Automated Testing
 - UI test target: `HoneyHubUITests`
