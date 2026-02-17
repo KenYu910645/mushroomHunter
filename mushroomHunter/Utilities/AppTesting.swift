@@ -1,3 +1,13 @@
+//
+//  AppTesting.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Provides app-wide flags and fixtures used by UI testing mode.
+//
+//  Defined in this file:
+//  - AppTesting argument checks and mock-data helpers.
+//
 import Foundation
 
 enum AppTesting {
@@ -26,7 +36,7 @@ enum AppTesting {
             targetAttribute: "Fire",
             targetSize: "Normal",
             joinedPlayers: 1,
-            maxPlayers: 10,
+            maxPlayers: AppConfig.Mushroom.defaultMaxPlayersPerRoom,
             hostName: "Host Tester",
             location: "US New York",
             expiresAt: nil
@@ -40,7 +50,7 @@ enum AppTesting {
                 name: "Host Tester",
                 friendCode: "123456789012",
                 stars: 3,
-                depositHoney: 10,
+                depositHoney: AppConfig.Mushroom.defaultFixedRaidCost,
                 joinedAt: Date().addingTimeInterval(-300),
                 status: .host,
                 needsHostRating: false
@@ -68,10 +78,10 @@ enum AppTesting {
             location: "US New York",
             description: "Fixture room for UI automation.",
             targetMushroom: MushroomTarget(color: .Red, attribute: .Fire, size: .Normal),
-            fixedRaidCost: 10,
+            fixedRaidCost: AppConfig.Mushroom.defaultFixedRaidCost,
             lastSuccessfulRaidAt: Date().addingTimeInterval(-3600),
             attendees: attendees,
-            maxPlayers: 10
+            maxPlayers: AppConfig.Mushroom.defaultMaxPlayersPerRoom
         )
     }
 }

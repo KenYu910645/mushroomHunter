@@ -1,3 +1,13 @@
+//
+//  RoomInviteLink.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Builds and parses room invite URLs for deep-link/share workflows.
+//
+//  Defined in this file:
+//  - RoomInviteLink URL creation and extraction helpers.
+//
 import Foundation
 
 enum RoomInviteLink {

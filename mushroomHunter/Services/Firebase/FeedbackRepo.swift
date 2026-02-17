@@ -1,3 +1,13 @@
+//
+//  FeedbackRepo.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Contains Firestore write operations for in-app feedback submissions.
+//
+//  Defined in this file:
+//  - FeedbackRepo error definitions and submit helpers.
+//
 import Foundation
 import FirebaseAuth
 import FirebaseFirestore

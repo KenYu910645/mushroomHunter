@@ -1,10 +1,13 @@
 //
-//  FirebaseProfileHostRepository.swift
+//  ProfileHostRepo.swift
 //  mushroomHunter
 //
-//  Created by Ken on 6/2/2026.
+//  Purpose:
+//  - Contains Firestore queries for profile-hosted and profile-joined rooms.
 //
-
+//  Defined in this file:
+//  - ProfileHostRepo summaries and profile room aggregation methods.
+//
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
@@ -29,7 +32,7 @@ struct JoinedRoomSummary: Identifiable, Hashable {
 final class FirebaseProfileHostRepository {
     private let db = Firestore.firestore()
 
-    func fetchMyHostedRooms(limit: Int = 50) async throws -> [HostedRoomSummary] {
+    func fetchMyHostedRooms(limit: Int = AppConfig.Mushroom.profileListFetchLimit) async throws -> [HostedRoomSummary] { // Handles fetchMyHostedRooms flow.
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }
@@ -52,7 +55,7 @@ final class FirebaseProfileHostRepository {
                     id: roomRef.documentID,
                     title: (d["title"] as? String) ?? "Untitled Room",
                     joinedCount: (d["joinedCount"] as? Int) ?? 0,
-                    maxPlayers: (d["maxPlayers"] as? Int) ?? 10,
+                    maxPlayers: (d["maxPlayers"] as? Int) ?? AppConfig.Mushroom.defaultMaxPlayersPerRoom,
                     createdAt: (d["createdAt"] as? Timestamp)?.dateValue()
                 )
             )
@@ -64,7 +67,7 @@ final class FirebaseProfileHostRepository {
             .map { $0 }
     }
 
-    func fetchMyJoinedRooms(limit: Int = 50) async throws -> [JoinedRoomSummary] {
+    func fetchMyJoinedRooms(limit: Int = AppConfig.Mushroom.profileListFetchLimit) async throws -> [JoinedRoomSummary] { // Handles fetchMyJoinedRooms flow.
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }
@@ -92,7 +95,7 @@ final class FirebaseProfileHostRepository {
                     id: roomRef.documentID,
                     title: (data["title"] as? String) ?? "Untitled Room",
                     joinedCount: (data["joinedCount"] as? Int) ?? 0,
-                    maxPlayers: (data["maxPlayers"] as? Int) ?? 10,
+                    maxPlayers: (data["maxPlayers"] as? Int) ?? AppConfig.Mushroom.defaultMaxPlayersPerRoom,
                     depositHoney: depositHoney,
                     updatedAt: (data["updatedAt"] as? Timestamp)?.dateValue()
                 )
@@ -169,7 +172,7 @@ final class FirebaseProfileHostRepository {
 }
 
 private extension Array {
-    func chunked(into size: Int) -> [[Element]] {
+    func chunked(into size: Int) -> [[Element]] { // Handles chunked flow.
         guard size > 0, !isEmpty else { return isEmpty ? [] : [self] }
         var chunks: [[Element]] = []
         chunks.reserveCapacity((count + size - 1) / size)

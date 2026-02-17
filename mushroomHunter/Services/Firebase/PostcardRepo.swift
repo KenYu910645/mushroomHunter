@@ -1,3 +1,13 @@
+//
+//  PostcardRepo.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Contains Firestore-backed data access for Postcard listing/order flows.
+//
+//  Defined in this file:
+//  - Postcard repository errors, query methods, and order state updates.
+//
 import Foundation
 import FirebaseAuth
 import FirebaseFirestore
@@ -28,12 +38,12 @@ enum PostcardRepoError: LocalizedError {
 
 final class FirebasePostcardRepository {
     private let db = Firestore.firestore()
-    private let sellerSendReminderHours = 24
-    private let sellerSendDeadlineHours = 24
-    private let buyerReceiveReminderHours = 24
-    private let buyerAutoCompleteHours = 72
+    private let sellerSendReminderHours = AppConfig.Postcard.sellerSendReminderHours
+    private let sellerSendDeadlineHours = AppConfig.Postcard.sellerSendDeadlineHours
+    private let buyerReceiveReminderHours = AppConfig.Postcard.buyerReceiveReminderHours
+    private let buyerAutoCompleteHours = AppConfig.Postcard.buyerAutoCompleteHours
 
-    func fetchRecent(limit: Int = 50) async throws -> [PostcardListing] {
+    func fetchRecent(limit: Int = AppConfig.Postcard.browseListFetchLimit) async throws -> [PostcardListing] { // Handles fetchRecent flow.
         let q = db.collection("postcards")
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
@@ -47,7 +57,7 @@ final class FirebasePostcardRepository {
         return snap.documents.map(decodeListing)
     }
 
-    func fetchMyListings(userId: String, limit: Int = 50) async throws -> [PostcardListing] {
+    func fetchMyListings(userId: String, limit: Int = AppConfig.Postcard.profileListFetchLimit) async throws -> [PostcardListing] { // Handles fetchMyListings flow.
         let q = db.collection("postcards")
             .whereField("sellerId", isEqualTo: userId)
             .order(by: "createdAt", descending: true)
@@ -62,7 +72,7 @@ final class FirebasePostcardRepository {
         return snap.documents.map(decodeListing)
     }
 
-    func fetchMyOrderedPostcards(userId: String, limit: Int = 50) async throws -> [PostcardListing] {
+    func fetchMyOrderedPostcards(userId: String, limit: Int = AppConfig.Postcard.profileListFetchLimit) async throws -> [PostcardListing] { // Handles fetchMyOrderedPostcards flow.
         let activeStatuses: [PostcardOrderStatus] = [.awaitingSellerSend, .inTransit, .awaitingBuyerDecision]
         var orderDocs: [QueryDocumentSnapshot] = []
         for status in activeStatuses {
@@ -104,7 +114,7 @@ final class FirebasePostcardRepository {
         return orderedPostcardIds.compactMap { listingById[$0] }
     }
 
-    func searchByToken(_ token: String, limit: Int = 50) async throws -> [PostcardListing] {
+    func searchByToken(_ token: String, limit: Int = AppConfig.Postcard.browseListFetchLimit) async throws -> [PostcardListing] { // Handles searchByToken flow.
         let q = db.collection("postcards")
             .whereField("searchTokens", arrayContains: token)
             .order(by: "createdAt", descending: true)
@@ -119,7 +129,7 @@ final class FirebasePostcardRepository {
         return snap.documents.map(decodeListing)
     }
 
-    func fetchPostcard(postcardId: String) async throws -> PostcardListing? {
+    func fetchPostcard(postcardId: String) async throws -> PostcardListing? { // Handles fetchPostcard flow.
         let ref = db.collection("postcards").document(postcardId)
         let snap: DocumentSnapshot
         do {
@@ -132,7 +142,7 @@ final class FirebasePostcardRepository {
         return decodeListing(id: snap.documentID, data: data)
     }
 
-    func fetchUserFriendCode(userId: String) async throws -> String {
+    func fetchUserFriendCode(userId: String) async throws -> String { // Handles fetchUserFriendCode flow.
         let ref = db.collection("users").document(userId)
         let snap: DocumentSnapshot
         do {
@@ -217,12 +227,12 @@ final class FirebasePostcardRepository {
         try await db.collection("postcards").document(postcardId).setData(payload, merge: true)
     }
 
-    func deletePostcard(postcardId: String) async throws {
+    func deletePostcard(postcardId: String) async throws { // Handles deletePostcard flow.
         try await db.collection("postcards").document(postcardId).delete()
     }
 
     @discardableResult
-    func buyPostcard(postcardId: String) async throws -> String {
+    func buyPostcard(postcardId: String) async throws -> String { // Handles buyPostcard flow.
         guard let buyerId = Auth.auth().currentUser?.uid else {
             throw PostcardRepoError.notSignedIn
         }
@@ -325,7 +335,7 @@ final class FirebasePostcardRepository {
         return orderRef.documentID
     }
 
-    func fetchShippingRecipients(postcardId: String) async throws -> [PostcardShippingRecipient] {
+    func fetchShippingRecipients(postcardId: String) async throws -> [PostcardShippingRecipient] { // Handles fetchShippingRecipients flow.
         guard let sellerId = Auth.auth().currentUser?.uid else {
             throw PostcardRepoError.notSignedIn
         }
@@ -370,7 +380,7 @@ final class FirebasePostcardRepository {
         .sorted { $0.buyerName.localizedCaseInsensitiveCompare($1.buyerName) == .orderedAscending }
     }
 
-    func markPostcardSent(orderId: String) async throws {
+    func markPostcardSent(orderId: String) async throws { // Handles markPostcardSent flow.
         guard let sellerId = Auth.auth().currentUser?.uid else {
             throw PostcardRepoError.notSignedIn
         }
@@ -425,7 +435,7 @@ final class FirebasePostcardRepository {
         }
     }
 
-    func fetchLatestBuyerOrder(postcardId: String) async throws -> PostcardBuyerOrder? {
+    func fetchLatestBuyerOrder(postcardId: String) async throws -> PostcardBuyerOrder? { // Handles fetchLatestBuyerOrder flow.
         guard let buyerId = Auth.auth().currentUser?.uid else {
             throw PostcardRepoError.notSignedIn
         }
@@ -442,7 +452,7 @@ final class FirebasePostcardRepository {
         return orders.first
     }
 
-    func confirmPostcardReceived(orderId: String) async throws {
+    func confirmPostcardReceived(orderId: String) async throws { // Handles confirmPostcardReceived flow.
         guard let buyerId = Auth.auth().currentUser?.uid else {
             throw PostcardRepoError.notSignedIn
         }
@@ -514,7 +524,7 @@ final class FirebasePostcardRepository {
         }
     }
 
-    func markPostcardNotYetReceived(orderId: String) async throws {
+    func markPostcardNotYetReceived(orderId: String) async throws { // Handles markPostcardNotYetReceived flow.
         guard let buyerId = Auth.auth().currentUser?.uid else {
             throw PostcardRepoError.notSignedIn
         }
@@ -638,7 +648,7 @@ final class FirebasePostcardRepository {
 }
 
 private extension Array {
-    func chunked(into size: Int) -> [[Element]] {
+    func chunked(into size: Int) -> [[Element]] { // Handles chunked flow.
         guard size > 0, !isEmpty else { return isEmpty ? [] : [self] }
         var chunks: [[Element]] = []
         chunks.reserveCapacity((count + size - 1) / size)

@@ -1,19 +1,19 @@
 //
-//  FirebaseHostRepository.swift
+//  RoomHostRepo.swift
 //  mushroomHunter
 //
-//  Created by Ken on 4/2/2026.
+//  Purpose:
+//  - Contains Firestore create/update operations for hosted room lifecycle.
 //
-
+//  Defined in this file:
+//  - Room host request models and Firebase room host repository methods.
+//
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
 
 struct FirestoreRoomCreateRequest {
     let title: String
-    let targetColor: String
-    let targetAttribute: String
-    let targetSize: String
     let location: String
     let description: String
     let hostFriendCode: String
@@ -33,10 +33,10 @@ enum HostRoomError: LocalizedError {
 
 final class FirebaseHostRepository {
     private let db = Firestore.firestore()
-    private let defaultMaxHostRooms = 1
-    private let defaultMaxJoinRooms = 3
+    private let defaultMaxHostRooms = AppConfig.Mushroom.defaultHostRoomLimit
+    private let defaultMaxJoinRooms = AppConfig.Mushroom.defaultJoinRoomLimit
 
-    func createRoom(req: FirestoreRoomCreateRequest, hostName: String, hostStars: Int) async throws -> String {
+    func createRoom(req: FirestoreRoomCreateRequest, hostName: String, hostStars: Int) async throws -> String { // Handles createRoom flow.
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }
@@ -60,13 +60,10 @@ final class FirebaseHostRepository {
             "title": req.title,
             "hostName": hostName,
             "hostStars": hostStars,
-            "targetColor": req.targetColor,
-            "targetAttribute": req.targetAttribute,
-            "targetSize": req.targetSize,
             "location": req.location,
             "description": req.description,
-            "fixedRaidCost": max(1, req.fixedRaidCost),
-            "maxPlayers": 10,
+            "fixedRaidCost": max(AppConfig.Mushroom.minFixedRaidCost, req.fixedRaidCost),
+            "maxPlayers": AppConfig.Mushroom.defaultMaxPlayersPerRoom,
             "joinedCount": 1,
             "createdAt": now,
             "updatedAt": now
@@ -103,7 +100,7 @@ final class FirebaseHostRepository {
         return ref.documentID
     }
 
-    func updateRoom(roomId: String, req: FirestoreRoomCreateRequest) async throws {
+    func updateRoom(roomId: String, req: FirestoreRoomCreateRequest) async throws { // Handles updateRoom flow.
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }
@@ -120,12 +117,9 @@ final class FirebaseHostRepository {
 
         let data: [String: Any] = [
             "title": req.title,
-            "targetColor": req.targetColor,
-            "targetAttribute": req.targetAttribute,
-            "targetSize": req.targetSize,
             "location": req.location,
             "description": req.description,
-            "fixedRaidCost": max(1, req.fixedRaidCost),
+            "fixedRaidCost": max(AppConfig.Mushroom.minFixedRaidCost, req.fixedRaidCost),
             "updatedAt": now
         ]
 

@@ -2,9 +2,12 @@
 //  RoomDetailsModels.swift
 //  mushroomHunter
 //
-//  Created by Ken on 4/2/2026.
+//  Purpose:
+//  - Declares shared Mushroom room domain models and supporting enums.
 //
-
+//  Defined in this file:
+//  - RoomDetail, RoomAttendee, status enums, and related value types.
+//
 import Foundation
 
 // MARK: - Core types
@@ -143,7 +146,7 @@ extension RoomAttendee {
 
 extension Optional where Wrapped == Date {
     /// For UI: "24h ago", "10m ago", "2d ago", or "—"
-    func relativeShortString(now: Date = Date()) -> String {
+    func relativeShortString(now: Date = Date()) -> String { // Handles relativeShortString flow.
         guard let date = self else { return "—" }
         let seconds = Int(now.timeIntervalSince(date))
         if seconds < 0 { return "—" }

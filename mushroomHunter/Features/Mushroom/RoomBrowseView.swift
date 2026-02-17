@@ -1,3 +1,13 @@
+//
+//  RoomBrowseView.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Implements the Mushroom tab browse screen, filtering, and join flow.
+//
+//  Defined in this file:
+//  - BrowseViewModel, RoomBrowseView, and row rendering helpers.
+//
 import SwiftUI
 import Combine
 import FirebaseFirestore
@@ -6,28 +16,25 @@ import FirebaseFirestore
 
 @MainActor
 final class BrowseViewModel: ObservableObject {
-    @Published var listings: [RoomListing] = []
-    @Published var isLoading: Bool = false
-    @Published var errorMessage: String? = nil
-    @Published var showJoinLimitAlert: Bool = false
-    @Published var joinLimitMessage: String = ""
+    @Published var listings: [RoomListing] = [] // Raw room data fetched from backend/mock source.
+    @Published var isLoading: Bool = false // True while fetching listings or executing a join action.
+    @Published var errorMessage: String? = nil // User-facing fetch/join error text shown in list section.
+    @Published var showJoinLimitAlert: Bool = false // Controls presentation of "max joined rooms reached" alert.
+    @Published var joinLimitMessage: String = "" // Message body shown in join-limit alert.
 
-    @Published var query: String = ""
-    @Published var selectedMushroomType: String = "All"
-    @Published var showOnlyAvailable: Bool = true
+    @Published var query: String = "" // Free-text query used by local filter.
+    @Published var showOnlyAvailable: Bool = true // When true, hide rooms that are already full.
 
-    // Keep consistent with your backend values (attribute strings)
-    let mushroomTypes: [String] = ["All", "Normal", "Fire", "Water", "Crystal", "Electric", "Poisonous"]
+    private let repo = FirebaseBrowseRepository() // Read-only room list source.
+    private let actions = FirebaseRoomActionsRepository() // Join action source (writes attendee/honey-related data).
+    private unowned let session: SessionStore // Shared session state (honey, profile fields, limits).
 
-    private let repo = FirebaseBrowseRepository()
-    private let actions = FirebaseRoomActionsRepository()
-    private unowned let session: SessionStore
-
-    init(session: SessionStore) {
+    init(session: SessionStore) { // Initializes this type.
         self.session = session
     }
 
-    func fetchListings() async {
+    /// Fetches latest open room listings from backend (or fixture in UI-test mode).
+    func fetchListings() async { // Handles fetchListings flow.
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -38,8 +45,8 @@ final class BrowseViewModel: ObservableObject {
         }
 
         do {
-            let docs = try await withTimeout(seconds: 10) {
-                try await self.repo.fetchOpenListings(limit: 50)
+            let docs = try await withTimeout(seconds: AppConfig.Network.requestTimeoutSeconds) {
+                try await self.repo.fetchOpenListings(limit: AppConfig.Mushroom.browseListFetchLimit)
             }
             self.listings = docs
         } catch is CancellationError {
@@ -51,7 +58,16 @@ final class BrowseViewModel: ObservableObject {
         }
     }
 
-    func join(_ listing: RoomListing, deposit: Honey) async {
+    /// Attempts to join a room with user-entered honey deposit.
+    ///
+    /// Validation done here:
+    /// - Deposit must be positive.
+    /// - User must have enough honey balance.
+    ///
+    /// Side effects:
+    /// - On success, spends honey locally and refreshes listing counts.
+    /// - On max-join-limit error, surfaces dedicated alert state.
+    func join(_ listing: RoomListing, deposit: Honey) async { // Handles join flow.
         if AppTesting.useMockRooms {
             guard deposit > 0 else {
                 let msg = NSLocalizedString("browse_error_enter_bid", comment: "")
@@ -77,7 +93,7 @@ final class BrowseViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         do {
-            try await withTimeout(seconds: 10) {
+            try await withTimeout(seconds: AppConfig.Network.requestTimeoutSeconds) {
                 let balanceAfter = max(0, self.session.honey - trimmedDeposit)
                 try await self.actions.joinRoom(
                     roomId: listing.id,
@@ -104,16 +120,17 @@ final class BrowseViewModel: ObservableObject {
         }
     }
 
+    /// Derived list shown by UI after applying:
+    /// - availability filter
+    /// - text search (title/host name)
     var filteredListings: [RoomListing] {
         listings.filter { listing in
             if showOnlyAvailable && listing.joinedPlayers >= listing.maxPlayers { return false }
-            if selectedMushroomType != "All" && listing.mushroomType != selectedMushroomType { return false }
 
             let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
             if q.isEmpty { return true }
             let qq = q.lowercased()
             return listing.title.lowercased().contains(qq)
-                || listing.mushroomType.lowercased().contains(qq)
                 || (listing.hostName ?? "").lowercased().contains(qq)
         }
     }
@@ -121,34 +138,41 @@ final class BrowseViewModel: ObservableObject {
 
 // MARK: - View
 
-struct BrowseView: View {
-    private let session: SessionStore
-    @StateObject private var vm: BrowseViewModel
-    @State private var showHostSheet: Bool = false
-    @State private var pendingJoinListing: RoomListing? = nil
-    @State private var bidText: String = ""
-    @State private var showJoinAlert: Bool = false
-    @State private var showSearchAlert: Bool = false
-    @Environment(\.colorScheme) private var scheme
+struct RoomBrowseView: View {
+    private let session: SessionStore // Session object passed from tab root (honey/profile refresh + child view models).
+    @StateObject private var vm: BrowseViewModel // Owns loading/filter/join state for this screen.
+    @State private var showHostSheet: Bool = false // Controls host-room sheet presentation.
+    @State private var pendingJoinListing: RoomListing? = nil // Selected listing for join prompt context.
+    @State private var bidText: String = "" // Join prompt text input (digits only).
+    @State private var showJoinAlert: Bool = false // Controls join prompt alert.
+    @State private var showSearchAlert: Bool = false // Controls search prompt alert.
+    @Environment(\.colorScheme) private var scheme // Used for themed background.
 
-    init(session: SessionStore) {
+    init(session: SessionStore) { // Initializes this type.
         self.session = session
         _vm = StateObject(wrappedValue: BrowseViewModel(session: session))
     }
     
+    /// Main browse screen composition:
+    /// - list/skeleton content
+    /// - host-room sheet
+    /// - join/search alerts
     var body: some View {
         NavigationStack {
             content
                 .navigationTitle(LocalizedStringKey("browse_title"))
                 .onAppear {
+                    // Keep honey/profile fields fresh when entering tab.
                     if !AppTesting.isUITesting {
                         Task { await session.refreshProfileFromBackend() }
                     }
+                    // Always refresh list when screen appears.
                     Task { await vm.fetchListings() }
                 }
         }
         .sheet(isPresented: $showHostSheet) {
-            HostView(vm: HostViewModel(session: session))
+            // Opens room creation flow from browse header.
+            RoomHostView(vm: HostViewModel(session: session))
                 .environmentObject(session)
         }
         .alert(LocalizedStringKey("browse_join_room_title"), isPresented: $showJoinAlert, presenting: pendingJoinListing) { listing in
@@ -182,6 +206,9 @@ struct BrowseView: View {
         }
     }
     
+    /// Main content body with two states:
+    /// - full-screen loading indicator when no data yet
+    /// - room list with header actions and pull-to-refresh
     @ViewBuilder
     private var content: some View {
         if vm.isLoading && vm.listings.isEmpty {
@@ -189,58 +216,28 @@ struct BrowseView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Theme.backgroundGradient(for: scheme))
         } else {
-            List {
-                Section(
-                    header: HStack {
-                        HStack(spacing: 6) {
-                            Image("HoneyIcon")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 20, height: 20)
-                            Text("\(session.honey)")
-                                .font(.subheadline.weight(.semibold))
-                        }
+            VStack(spacing: 12) {
+                BrowseViewTopActionBar(
+                    honey: session.honey,
+                    onSearch: { showSearchAlert = true },
+                    onCreate: { showHostSheet = true },
+                    searchAccessibilityLabel: "browse_search_accessibility",
+                    createAccessibilityLabel: "browse_create_accessibility",
+                    searchButtonIdentifier: "browse_search_button",
+                    createButtonIdentifier: "browse_create_button"
+                )
+                .padding(.horizontal)
+                .padding(.top, 8)
 
-                        Spacer()
-
-                        HStack(spacing: 12) {
-                            Button {
-                                showSearchAlert = true
-                            } label: {
-                                Image(systemName: "magnifyingglass")
-                            }
-                            .accessibilityLabel(LocalizedStringKey("browse_search_accessibility"))
-                            .accessibilityIdentifier("browse_search_button")
-
-                            Button {
-                                showHostSheet = true
-                            } label: {
-                                Image(systemName: "plus.circle.fill")
-                            }
-                            .accessibilityLabel(LocalizedStringKey("browse_create_accessibility"))
-                            .accessibilityIdentifier("browse_create_button")
-
-                            Menu {
-                                Picker(LocalizedStringKey("browse_mushroom_type"), selection: $vm.selectedMushroomType) {
-                                    ForEach(vm.mushroomTypes, id: \.self) { t in
-                                        Text(localizedMushroomType(t)).tag(t)
-                                    }
-                                }
-
-                                Toggle(LocalizedStringKey("browse_only_available"), isOn: $vm.showOnlyAvailable)
-                            } label: {
-                                Image(systemName: "line.3.horizontal.decrease.circle")
-                            }
-                        }
-                    }
-                    .padding(.top, 4)
-                    .padding(.bottom, 8)
-                ) {
+                List {
                     if let err = vm.errorMessage {
                         Text(err)
                             .foregroundStyle(.red)
                     }
 
+                    // Each row provides:
+                    // - navigation to details
+                    // - mock-only quick join button for UI testing
                     ForEach(vm.filteredListings) { listing in
                         HStack(alignment: .top, spacing: 12) {
                             NavigationLink {
@@ -258,7 +255,7 @@ struct BrowseView: View {
                             if AppTesting.useMockRooms {
                                 Button {
                                     pendingJoinListing = listing
-                                    bidText = "\(max(1, listing.joinedPlayers > 0 ? 10 : 1))"
+                                    bidText = "\(max(AppConfig.Mushroom.minFixedRaidCost, listing.joinedPlayers > 0 ? AppConfig.Mushroom.defaultFixedRaidCost : AppConfig.Mushroom.minFixedRaidCost))"
                                     showJoinAlert = true
                                 } label: {
                                     Text(LocalizedStringKey("common_join"))
@@ -269,7 +266,7 @@ struct BrowseView: View {
                         }
                         .padding(.vertical, 4)
                     }
-                    
+
                     if vm.filteredListings.isEmpty {
                         ContentUnavailableView(
                             LocalizedStringKey("browse_empty_title"),
@@ -278,40 +275,33 @@ struct BrowseView: View {
                         .listRowBackground(Color.clear)
                     }
                 }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+                .refreshable {
+                    await vm.fetchListings()
+                }
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
             .background(Theme.backgroundGradient(for: scheme))
-            .refreshable {
-                await vm.fetchListings()
-            }
         }
     }
     
     // MARK: - Row UI
-        private struct RoomRowContent: View {
-        let listing: RoomListing
+    private struct RoomRowContent: View {
+        let listing: RoomListing // Source listing displayed in this row.
         
-        private var displayedJoined: Int {
+        private var displayedJoined: Int { // Normalized joined count used for safer UI display.
             min(listing.maxPlayers, max(0, listing.joinedPlayers))
         }
 
-        var isFull: Bool { displayedJoined >= listing.maxPlayers }
+        var isFull: Bool { displayedJoined >= listing.maxPlayers } // True when room is at/over capacity.
         
-        private var targetSummary: String {
-            let color = formatTargetValue(listing.targetColor, allLabelKey: "target_color")
-            let attribute = formatTargetValue(listing.targetAttribute, allLabelKey: "target_attribute")
-            let size = formatTargetValue(listing.targetSize, allLabelKey: "target_size")
-            return "\(color)/\(attribute)/\(size)"
-        }
-
-        // Compute "expires in" minutes if expiresAt exists
-        private var expiresInMinutes: Int? {
+        private var expiresInMinutes: Int? { // Remaining minutes until expiry, clamped to non-negative.
             guard let expiresAt = listing.expiresAt else { return nil }
             let delta = Int(expiresAt.timeIntervalSinceNow / 60.0)
             return max(delta, 0)
         }
         
+        /// Row layout shown in browse list.
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top) {
@@ -338,12 +328,6 @@ struct BrowseView: View {
                         }
 
                         HStack(spacing: 8) {
-                            Text(targetSummary)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        HStack(spacing: 8) {
                             if let mins = expiresInMinutes {
                                 Text(String(format: NSLocalizedString("browse_expires_format", comment: ""), mins))
                                     .font(.subheadline)
@@ -357,31 +341,12 @@ struct BrowseView: View {
             }
         }
 
-        private func formatTargetValue(_ value: String, allLabelKey: String) -> String {
-            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-            let allLabel = NSLocalizedString(allLabelKey, comment: "")
-            if trimmed.isEmpty { return String(format: NSLocalizedString("target_all_format", comment: ""), allLabel) }
-            let lower = trimmed.lowercased()
-            if lower == "all" || lower == "any" { return String(format: NSLocalizedString("target_all_format", comment: ""), allLabel) }
-            return trimmed.capitalized
-        }
     }
 
+    /// Parses numeric bid text into honey amount.
     private func parseBid(_ text: String) -> Honey {
         let digits = text.filter { $0.isNumber }
         return Int(digits) ?? 0
     }
 
-    private func localizedMushroomType(_ type: String) -> LocalizedStringKey {
-        switch type {
-        case "All": return "mushroom_type_all"
-        case "Normal": return "mushroom_type_normal"
-        case "Fire": return "mushroom_type_fire"
-        case "Water": return "mushroom_type_water"
-        case "Crystal": return "mushroom_type_crystal"
-        case "Electric": return "mushroom_type_electric"
-        case "Poisonous": return "mushroom_type_poisonous"
-        default: return LocalizedStringKey(type)
-        }
-    }
 }

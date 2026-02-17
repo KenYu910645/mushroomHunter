@@ -1,3 +1,13 @@
+//
+//  RoomHostView.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Implements the room host/create-edit screen in Mushroom feature.
+//
+//  Defined in this file:
+//  - HostViewModel and RoomHostView form logic and validation.
+//
 import SwiftUI
 import Combine
 
@@ -23,26 +33,21 @@ final class HostViewModel: ObservableObject {
     let mode: Mode
 
     // Inputs
-    @Published var hostName: String = NSLocalizedString("host_room_default_name", comment: "")
-    @Published var color: MushroomColor = .All
-    @Published var attribute: MushroomAttribute = .All
-    @Published var size: MushroomSize = .All
-    @Published var countryCode: String = Locale.current.region?.identifier ?? "US"
-    @Published var city: String = NSLocalizedString("host_city_default", comment: "")
-    @Published var otherMessage: String = ""
-    @Published var fixedRaidCost: Int = 10
-
+    @Published var hostName: String = NSLocalizedString("host_room_default_name", comment: "") // State or dependency property.
+    @Published var countryCode: String = Locale.current.region?.identifier ?? AppConfig.Mushroom.defaultHostCountryCode // State or dependency property.
+    @Published var city: String = NSLocalizedString("host_city_default", comment: "") // State or dependency property.
+    @Published var otherMessage: String = "" // State or dependency property.
+    @Published var fixedRaidCost: Int = AppConfig.Mushroom.defaultFixedRaidCost // State or dependency property.
     // UI State
-    @Published var showSuccessAlert: Bool = false
-    @Published var successRoomId: String? = nil
-    @Published var errorMessage: String? = nil
-    @Published var isSubmitting: Bool = false
-    @Published var showLimitAlert: Bool = false
-    @Published var limitAlertMessage: String = ""
-    @Published var showNameError: Bool = false
-    @Published var showAreaError: Bool = false
-    @Published var showRequiredAlert: Bool = false
-
+    @Published var showSuccessAlert: Bool = false // State or dependency property.
+    @Published var successRoomId: String? = nil // State or dependency property.
+    @Published var errorMessage: String? = nil // State or dependency property.
+    @Published var isSubmitting: Bool = false // State or dependency property.
+    @Published var showLimitAlert: Bool = false // State or dependency property.
+    @Published var limitAlertMessage: String = "" // State or dependency property.
+    @Published var showNameError: Bool = false // State or dependency property.
+    @Published var showAreaError: Bool = false // State or dependency property.
+    @Published var showRequiredAlert: Bool = false // State or dependency property.
     // Limits
     static let hostNameMaxChars = 30
     static let otherMaxChars = 100
@@ -55,13 +60,13 @@ final class HostViewModel: ObservableObject {
         return items.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }()
 
-    init(session: SessionStore, repo: FirebaseHostRepository = FirebaseHostRepository()) {
+    init(session: SessionStore, repo: FirebaseHostRepository = FirebaseHostRepository()) { // Initializes this type.
         self.session = session
         self.repo = repo
         self.mode = .create
     }
 
-    init(session: SessionStore, room: RoomDetail, repo: FirebaseHostRepository = FirebaseHostRepository()) {
+    init(session: SessionStore, room: RoomDetail, repo: FirebaseHostRepository = FirebaseHostRepository()) { // Initializes this type.
         self.session = session
         self.repo = repo
         self.mode = .edit(roomId: room.id)
@@ -107,7 +112,7 @@ final class HostViewModel: ObservableObject {
         return nameOK && locOK && msgOK && !isSubmitting
     }
 
-    func enforceLimits() {
+    func enforceLimits() { // Handles enforceLimits flow.
         if hostName.count > Self.hostNameMaxChars {
             hostName = String(hostName.prefix(Self.hostNameMaxChars))
         }
@@ -116,7 +121,7 @@ final class HostViewModel: ObservableObject {
         }
     }
 
-    func submit() async {
+    func submit() async { // Handles submit flow.
         guard validateRequired() else {
             showRequiredAlert = true
             return
@@ -135,9 +140,6 @@ final class HostViewModel: ObservableObject {
         do {
         let req = FirestoreRoomCreateRequest(
             title: hostName,
-            targetColor: color.rawValue,
-            targetAttribute: attribute.rawValue,
-            targetSize: size.rawValue,
             location: locationString,
             description: otherMessage,
             hostFriendCode: session.friendCode,
@@ -174,15 +176,12 @@ final class HostViewModel: ObservableObject {
         }
     }
 
-    func reset() {
+    func reset() { // Handles reset flow.
         hostName = NSLocalizedString("host_room_default_name", comment: "")
-        color = .All
-        attribute = .All
-        size = .All
-        countryCode = Locale.current.region?.identifier ?? "US"
+        countryCode = Locale.current.region?.identifier ?? AppConfig.Mushroom.defaultHostCountryCode
         city = NSLocalizedString("host_city_default", comment: "")
         otherMessage = ""
-        fixedRaidCost = 10
+        fixedRaidCost = AppConfig.Mushroom.defaultFixedRaidCost
         errorMessage = nil
         successRoomId = nil
         showSuccessAlert = false
@@ -192,14 +191,11 @@ final class HostViewModel: ObservableObject {
 
     private func seed(from room: RoomDetail) {
         hostName = room.title
-        color = room.targetMushroom.color
-        attribute = room.targetMushroom.attribute
-        size = room.targetMushroom.size
         if let parsed = parseLocation(room.location) {
             countryCode = parsed.countryCode
             city = parsed.city
         } else {
-            countryCode = Locale.current.region?.identifier ?? "US"
+            countryCode = Locale.current.region?.identifier ?? AppConfig.Mushroom.defaultHostCountryCode
             city = room.location
         }
         otherMessage = room.description
@@ -268,7 +264,7 @@ final class HostViewModel: ObservableObject {
 
     // MARK: Validation
     @discardableResult
-    func validateRequired() -> Bool {
+    func validateRequired() -> Bool { // Handles validateRequired flow.
         let nameOK = !hostName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let areaOK = !city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         showNameError = !nameOK
@@ -279,16 +275,15 @@ final class HostViewModel: ObservableObject {
 
 // MARK: - View
 
-struct HostView: View {
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var session: SessionStore
-    @Environment(\.colorScheme) private var scheme
-    @StateObject private var vm: HostViewModel
+struct RoomHostView: View {
+    @Environment(\.dismiss) private var dismiss // State or dependency property.
+    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @Environment(\.colorScheme) private var scheme // State or dependency property.
+    @StateObject private var vm: HostViewModel // State or dependency property.
     private let onCloseRoom: (() -> Void)?
-    @State private var isNameFirstResponder: Bool = false
-    @State private var isAreaFirstResponder: Bool = false
-
-    init(vm: HostViewModel, onCloseRoom: (() -> Void)? = nil) {
+    @State private var isNameFirstResponder: Bool = false // State or dependency property.
+    @State private var isAreaFirstResponder: Bool = false // State or dependency property.
+    init(vm: HostViewModel, onCloseRoom: (() -> Void)? = nil) { // Initializes this type.
         _vm = StateObject(wrappedValue: vm)
         self.onCloseRoom = onCloseRoom
     }
@@ -326,27 +321,6 @@ struct HostView: View {
                     }
                 } header: {
                     Text(LocalizedStringKey("host_room_name_header"))
-                }
-
-                // Mushroom properties
-                Section(LocalizedStringKey("host_target_section")) {
-                    Picker(LocalizedStringKey("host_color_label"), selection: $vm.color) {
-                        ForEach(MushroomColor.allCases, id: \.self) { c in
-                            Text(localizedColor(c)).tag(c)
-                        }
-                    }
-
-                    Picker(LocalizedStringKey("host_attribute_label"), selection: $vm.attribute) {
-                        ForEach(MushroomAttribute.allCases, id: \.self) { a in
-                            Text(localizedAttribute(a)).tag(a)
-                        }
-                    }
-
-                    Picker(LocalizedStringKey("host_size_label"), selection: $vm.size) {
-                        ForEach(MushroomSize.allCases, id: \.self) { s in
-                            Text(localizedSize(s)).tag(s)
-                        }
-                    }
                 }
 
                 // Location
@@ -393,8 +367,6 @@ struct HostView: View {
                     }
                 } header: {
                     Text(LocalizedStringKey("host_location_header"))
-                } footer: {
-                    Text(LocalizedStringKey("host_location_footer"))
                 }
 
                 // Other message (100 chars max)
@@ -417,7 +389,11 @@ struct HostView: View {
                 }
 
                 Section {
-                    Stepper(value: $vm.fixedRaidCost, in: 1...10_000, step: 1) {
+                    Stepper(
+                        value: $vm.fixedRaidCost,
+                        in: AppConfig.Mushroom.minFixedRaidCost...AppConfig.Mushroom.maxFixedRaidCost,
+                        step: 1
+                    ) {
                         HStack {
                             Text(LocalizedStringKey("host_min_bid_label"))
                             Spacer()
@@ -512,45 +488,12 @@ struct HostView: View {
         }
     }
 
-    private func localizedColor(_ color: MushroomColor) -> LocalizedStringKey {
-        switch color {
-        case .All: return "mushroom_color_all"
-        case .Red: return "mushroom_color_red"
-        case .Yellow: return "mushroom_color_yellow"
-        case .Blue: return "mushroom_color_blue"
-        case .Purple: return "mushroom_color_purple"
-        case .White: return "mushroom_color_white"
-        case .Gray: return "mushroom_color_gray"
-        case .Pink: return "mushroom_color_pink"
-        }
-    }
-
-    private func localizedAttribute(_ attribute: MushroomAttribute) -> LocalizedStringKey {
-        switch attribute {
-        case .All: return "mushroom_attr_all"
-        case .Normal: return "mushroom_attr_normal"
-        case .Fire: return "mushroom_attr_fire"
-        case .Water: return "mushroom_attr_water"
-        case .Crystal: return "mushroom_attr_crystal"
-        case .Electric: return "mushroom_attr_electric"
-        case .Poisonous: return "mushroom_attr_poisonous"
-        }
-    }
-
-    private func localizedSize(_ size: MushroomSize) -> LocalizedStringKey {
-        switch size {
-        case .All: return "mushroom_size_all"
-        case .Small: return "mushroom_size_small"
-        case .Normal: return "mushroom_size_normal"
-        case .Magnificent: return "mushroom_size_magnificent"
-        }
-    }
 }
 
 private struct SelectAllTextField: UIViewRepresentable {
     let placeholderKey: String
-    @Binding var text: String
-    @Binding var isFirstResponder: Bool
+    @Binding var text: String // State or dependency property.
+    @Binding var isFirstResponder: Bool // State or dependency property.
     var keyboardType: UIKeyboardType = .default
     var textContentType: UITextContentType? = .name
     var autocapitalization: UITextAutocapitalizationType = .words
@@ -558,7 +501,7 @@ private struct SelectAllTextField: UIViewRepresentable {
     var textAlignment: NSTextAlignment = .left
     var onChange: ((String) -> Void)? = nil
 
-    func makeUIView(context: Context) -> UITextField {
+    func makeUIView(context: Context) -> UITextField { // Handles makeUIView flow.
         let tf = UITextField()
         tf.borderStyle = .none
         tf.textAlignment = textAlignment
@@ -572,7 +515,7 @@ private struct SelectAllTextField: UIViewRepresentable {
         return tf
     }
 
-    func updateUIView(_ uiView: UITextField, context: Context) {
+    func updateUIView(_ uiView: UITextField, context: Context) { // Handles updateUIView flow.
         if uiView.text != text {
             uiView.text = text
         }
@@ -586,16 +529,16 @@ private struct SelectAllTextField: UIViewRepresentable {
         }
     }
 
-    func makeCoordinator() -> Coordinator {
+    func makeCoordinator() -> Coordinator { // Handles makeCoordinator flow.
         Coordinator(text: $text, isFirstResponder: $isFirstResponder, onChange: onChange)
     }
 
     final class Coordinator: NSObject, UITextFieldDelegate {
-        @Binding var text: String
-        @Binding var isFirstResponder: Bool
+        @Binding var text: String // State or dependency property.
+        @Binding var isFirstResponder: Bool // State or dependency property.
         let onChange: ((String) -> Void)?
 
-        init(text: Binding<String>, isFirstResponder: Binding<Bool>, onChange: ((String) -> Void)?) {
+        init(text: Binding<String>, isFirstResponder: Binding<Bool>, onChange: ((String) -> Void)?) { // Initializes this type.
             _text = text
             _isFirstResponder = isFirstResponder
             self.onChange = onChange
@@ -607,14 +550,14 @@ private struct SelectAllTextField: UIViewRepresentable {
             onChange?(value)
         }
 
-        func textFieldDidBeginEditing(_ textField: UITextField) {
+        func textFieldDidBeginEditing(_ textField: UITextField) { // Handles textFieldDidBeginEditing flow.
             isFirstResponder = true
             DispatchQueue.main.async {
                 textField.selectAll(nil)
             }
         }
 
-        func textFieldDidEndEditing(_ textField: UITextField) {
+        func textFieldDidEndEditing(_ textField: UITextField) { // Handles textFieldDidEndEditing flow.
             isFirstResponder = false
         }
     }

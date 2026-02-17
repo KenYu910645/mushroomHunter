@@ -4,9 +4,11 @@
 - `mushroomHunter/Features/Postcard/PostcardTabView.swift`: postcard browse/detail/register/edit/shipping UI flow.
 - `mushroomHunter/Features/Postcard/PostcardBrowseViewModel.swift`: browse filtering, sorting, and refresh state logic.
 - `mushroomHunter/Features/Postcard/PostcardModels.swift`: postcard listing/order/location models and status enums.
-- `mushroomHunter/Services/Firebase/FirebasePostcardRepository.swift`: Firestore operations for listings, orders, shipping, and receipt confirmation.
+- `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens.
+- `mushroomHunter/Services/Firebase/PostcardRepo.swift`: Firestore operations for listings, orders, shipping, and receipt confirmation.
 - `mushroomHunter/Services/Firebase/FirebasePostcardImageUploader.swift`: image crop/encode/upload to Firebase Storage.
 - `mushroomHunter/Utilities/SearchTokens.swift`: normalized token generation for postcard search fields.
+- `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed postcard settings (price/stock/text caps, fetch limits, order timeout windows).
 - `functions/index.js`: server-side push triggers for postcard order/shipping/completion events.
 
 ## Feature Coverage

@@ -55,7 +55,7 @@
 "host_location_header" = "Location";
 "host_location_footer" = "Type a rough location. Avoid full addresses for privacy.";
 "host_country_label" = "Country";
-"host_area_label" = "City/State";
+"host_area_label" = "City";
 "host_city_placeholder" = "City / suburb / province";
 "host_city_default" = "Somewhere";
 "host_field_required" = "This field is required.";
@@ -264,7 +264,7 @@
 "profile_stars" = "Stars";
 "profile_honey" = "Honey";
 "profile_community_section" = "Community";
-"profile_community_footer" = "Earn more honey by hosting mushroom room or selling postcard";
+"profile_community_footer" = "Stars are reputation points that players award to each other after mushroom raids";
 "profile_loading_joined" = "Loading joined rooms…";
 "profile_joined_empty_title" = "No Joined Room";
 "profile_joined_empty_description" = "Rooms you joined will appear here.";

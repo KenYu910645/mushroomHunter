@@ -2,17 +2,19 @@
 //  LoginView.swift
 //  mushroomHunter
 //
-//  Created by Ken on 2/2/2026.
+//  Purpose:
+//  - Implements the sign-in screen and auth entry actions.
 //
-
+//  Defined in this file:
+//  - LoginView layout and sign-in trigger handlers.
+//
 import SwiftUI
 import UIKit
 import AuthenticationServices
 
 struct LoginView: View {
-    @EnvironmentObject private var session: SessionStore
-    @Environment(\.colorScheme) private var scheme
-
+    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @Environment(\.colorScheme) private var scheme // State or dependency property.
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {

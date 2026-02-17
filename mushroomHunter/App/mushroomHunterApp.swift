@@ -2,9 +2,12 @@
 //  mushroomHunterApp.swift
 //  mushroomHunter
 //
-//  Created by Ken on 2/2/2026.
+//  Purpose:
+//  - Defines application startup, Firebase setup, and app delegate wiring.
 //
-
+//  Defined in this file:
+//  - mushroomHunterApp entry point and AppDelegate notification handling.
+//
 import SwiftUI
 import FirebaseCore
 import GoogleSignIn
@@ -14,9 +17,8 @@ import UserNotifications
 @main
 struct mushroomHunterApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @StateObject private var session = SessionStore()
-
-    init() {
+    @StateObject private var session = SessionStore() // State or dependency property.
+    init() { // Initializes this type.
         FirebaseApp.configure()
     }
 
@@ -55,11 +57,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         return true
     }
 
-    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) { // Handles application flow.
         Messaging.messaging().apnsToken = deviceToken
     }
 
-    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) { // Handles messaging flow.
         guard let token = fcmToken else { return }
         NotificationCenter.default.post(name: .didReceiveFcmToken, object: token)
     }

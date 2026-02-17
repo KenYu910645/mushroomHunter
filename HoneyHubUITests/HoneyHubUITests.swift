@@ -1,3 +1,13 @@
+//
+//  HoneyHubUITests.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Contains end-to-end UI coverage for the main user flows.
+//
+//  Defined in this file:
+//  - HoneyHubUITests test cases and launch helpers.
+//
 import XCTest
 
 final class HoneyHubUITests: XCTestCase {
@@ -6,7 +16,7 @@ final class HoneyHubUITests: XCTestCase {
     }
 
     @MainActor
-    func testHostFlowCanOpenAndFillRequiredFields() throws {
+    func testHostFlowCanOpenAndFillRequiredFields() throws { // Handles testHostFlowCanOpenAndFillRequiredFields flow.
         let app = XCUIApplication()
         app.launchArguments += ["--ui-testing", "--mock-rooms"]
         app.launch()
@@ -29,7 +39,7 @@ final class HoneyHubUITests: XCTestCase {
     }
 
     @MainActor
-    func testJoinFlowCanOpenRoomAndJoinFixture() throws {
+    func testJoinFlowCanOpenRoomAndJoinFixture() throws { // Handles testJoinFlowCanOpenRoomAndJoinFixture flow.
         let app = XCUIApplication()
         app.launchArguments += ["--ui-testing", "--mock-rooms"]
         app.launch()

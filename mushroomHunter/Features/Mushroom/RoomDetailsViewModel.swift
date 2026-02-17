@@ -2,10 +2,12 @@
 //  RoomDetailsViewModel.swift
 //  mushroomHunter
 //
-//  Created by Ken on 4/2/2026.
+//  Purpose:
+//  - Owns room details screen state, loading, and room action orchestration.
 //
-
-
+//  Defined in this file:
+//  - RoomDetailsViewModel async data flow and action handlers.
+//
 import SwiftUI
 import Combine
 
@@ -15,14 +17,13 @@ import Combine
 final class RoomDetailsViewModel: ObservableObject {
     
     // UI state
-    @Published private(set) var room: RoomDetail?
-    @Published private(set) var isLoading: Bool = false
-    @Published var errorMessage: String? = nil
-    @Published private(set) var pendingConfirmationAttendeeIds: Set<String> = []
-    @Published private(set) var rejectedConfirmationAttendeeIds: Set<String> = []
-    @Published private(set) var pendingConfirmationForCurrentUser: Bool = false
-    @Published private(set) var hostPendingRatingAttendeeIds: Set<String> = []
-    
+    @Published private(set) var room: RoomDetail? // State or dependency property.
+    @Published private(set) var isLoading: Bool = false // State or dependency property.
+    @Published var errorMessage: String? = nil // State or dependency property.
+    @Published private(set) var pendingConfirmationAttendeeIds: Set<String> = [] // State or dependency property.
+    @Published private(set) var rejectedConfirmationAttendeeIds: Set<String> = [] // State or dependency property.
+    @Published private(set) var pendingConfirmationForCurrentUser: Bool = false // State or dependency property.
+    @Published private(set) var hostPendingRatingAttendeeIds: Set<String> = [] // State or dependency property.    
     // Sorting / presentation
     enum AttendeeSort: String, CaseIterable, Identifiable {
         case depositHighToLow = "Deposit (High → Low)"
@@ -40,13 +41,11 @@ final class RoomDetailsViewModel: ObservableObject {
         }
     }
     
-    @Published var attendeeSort: AttendeeSort = .depositHighToLow
-    @Published var showJoinLimitAlert: Bool = false
-    @Published var joinLimitMessage: String = ""
-    
+    @Published var attendeeSort: AttendeeSort = .depositHighToLow // State or dependency property.
+    @Published var showJoinLimitAlert: Bool = false // State or dependency property.
+    @Published var joinLimitMessage: String = "" // State or dependency property.    
     // Derived role
-    @Published private(set) var role: RoomRole = .viewer
-    
+    @Published private(set) var role: RoomRole = .viewer // State or dependency property.    
     // Dependencies
     private let roomId: String
     private unowned let session: SessionStore
@@ -55,7 +54,7 @@ final class RoomDetailsViewModel: ObservableObject {
     
     // MARK: Init
     
-    init(roomId: String, session: SessionStore) {
+    init(roomId: String, session: SessionStore) { // Initializes this type.
         self.roomId = roomId
         self.session = session
         if AppTesting.useMockRooms, roomId == AppTesting.fixtureRoomId {
@@ -68,7 +67,7 @@ final class RoomDetailsViewModel: ObservableObject {
     
     // MARK: Public API
     
-    func load() async {
+    func load() async { // Handles load flow.
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -100,7 +99,7 @@ final class RoomDetailsViewModel: ObservableObject {
     }
 
     @discardableResult
-    func respondToRaidConfirmation(accept: Bool) async -> Bool {
+    func respondToRaidConfirmation(accept: Bool) async -> Bool { // Handles respondToRaidConfirmation flow.
         guard let uid = session.authUid else { return false }
         do {
             try await actions.respondToRaidConfirmation(roomId: roomId, attendeeUid: uid, accept: accept)
@@ -113,7 +112,7 @@ final class RoomDetailsViewModel: ObservableObject {
         }
     }
 
-    func rateHost(stars: Int) async {
+    func rateHost(stars: Int) async { // Handles rateHost flow.
         guard let room, let uid = session.authUid else { return }
         do {
             try await actions.rateHostAfterConfirmation(roomId: room.id, attendeeUid: uid, stars: stars)
@@ -124,7 +123,7 @@ final class RoomDetailsViewModel: ObservableObject {
         }
     }
 
-    func rateAttendee(attendeeId: String, stars: Int) async {
+    func rateAttendee(attendeeId: String, stars: Int) async { // Handles rateAttendee flow.
         guard let room else { return }
         do {
             try await actions.rateAttendeeAfterConfirmation(roomId: room.id, attendeeUid: attendeeId, stars: stars)
@@ -140,19 +139,19 @@ final class RoomDetailsViewModel: ObservableObject {
         return role == .viewer && room.attendees.count < room.maxPlayers
     }
 
-    func isWaitingConfirmation(attendeeId: String) -> Bool {
+    func isWaitingConfirmation(attendeeId: String) -> Bool { // Handles isWaitingConfirmation flow.
         pendingConfirmationAttendeeIds.contains(attendeeId)
     }
 
-    func isRejectedConfirmation(attendeeId: String) -> Bool {
+    func isRejectedConfirmation(attendeeId: String) -> Bool { // Handles isRejectedConfirmation flow.
         rejectedConfirmationAttendeeIds.contains(attendeeId)
     }
 
-    func attendeeById(_ attendeeId: String) -> RoomAttendee? {
+    func attendeeById(_ attendeeId: String) -> RoomAttendee? { // Handles attendeeById flow.
         room?.attendees.first(where: { $0.id == attendeeId })
     }
 
-    func resendRejectedConfirmation(attendeeId: String) async {
+    func resendRejectedConfirmation(attendeeId: String) async { // Handles resendRejectedConfirmation flow.
         guard let room else { return }
         do {
             try await actions.resendRejectedConfirmation(roomId: room.id, attendeeUid: attendeeId)
@@ -162,7 +161,7 @@ final class RoomDetailsViewModel: ObservableObject {
         }
     }
 
-    func giveUpRejectedConfirmation(attendeeId: String) async {
+    func giveUpRejectedConfirmation(attendeeId: String) async { // Handles giveUpRejectedConfirmation flow.
         guard let room else { return }
         do {
             try await actions.giveUpRejectedConfirmation(roomId: room.id, attendeeUid: attendeeId)
@@ -175,7 +174,7 @@ final class RoomDetailsViewModel: ObservableObject {
     // MARK: Actions
     
     /// Viewer -> Attendee
-    func join(initialDeposit: Honey) async {
+    func join(initialDeposit: Honey) async { // Handles join flow.
         guard let room else { return }
         isLoading = true
         errorMessage = nil
@@ -183,7 +182,7 @@ final class RoomDetailsViewModel: ObservableObject {
 
         if AppTesting.useMockRooms, room.id == AppTesting.fixtureRoomId {
             let trimmedDeposit = max(0, initialDeposit)
-            guard trimmedDeposit >= max(1, room.fixedRaidCost) else {
+            guard trimmedDeposit >= max(AppConfig.Mushroom.minFixedRaidCost, room.fixedRaidCost) else {
                 errorMessage = String(format: NSLocalizedString("room_error_min_deposit", comment: ""), room.fixedRaidCost)
                 return
             }
@@ -202,7 +201,7 @@ final class RoomDetailsViewModel: ObservableObject {
         
         do {
             let trimmedDeposit = max(0, initialDeposit)
-            let minimum = max(1, room.fixedRaidCost)
+            let minimum = max(AppConfig.Mushroom.minFixedRaidCost, room.fixedRaidCost)
             guard trimmedDeposit >= minimum else {
                 errorMessage = String(format: NSLocalizedString("room_error_min_deposit", comment: ""), minimum)
                 return
@@ -237,7 +236,7 @@ final class RoomDetailsViewModel: ObservableObject {
         }
     }
     
-    func leave() async {
+    func leave() async { // Handles leave flow.
         guard let room else { return }
         isLoading = true
         errorMessage = nil
@@ -258,7 +257,7 @@ final class RoomDetailsViewModel: ObservableObject {
     }
     
     /// Attendee updates their deposit
-    func updateDeposit(to deposit: Honey) async {
+    func updateDeposit(to deposit: Honey) async { // Handles updateDeposit flow.
         guard let room else { return }
         isLoading = true
         errorMessage = nil
@@ -266,7 +265,7 @@ final class RoomDetailsViewModel: ObservableObject {
         
         do {
             let newDeposit = max(0, deposit)
-            let minimum = max(1, room.fixedRaidCost)
+            let minimum = max(AppConfig.Mushroom.minFixedRaidCost, room.fixedRaidCost)
             guard newDeposit >= minimum else {
                 errorMessage = String(format: NSLocalizedString("room_error_min_deposit", comment: ""), minimum)
                 return
@@ -304,7 +303,7 @@ final class RoomDetailsViewModel: ObservableObject {
     }
     
     /// Host kicks an attendee
-    func kick(attendeeId: String) async {
+    func kick(attendeeId: String) async { // Handles kick flow.
         guard let room else { return }
         isLoading = true
         errorMessage = nil
@@ -320,7 +319,7 @@ final class RoomDetailsViewModel: ObservableObject {
         }
     }
     
-    func closeRoom() async {
+    func closeRoom() async { // Handles closeRoom flow.
         guard let room else { return }
         isLoading = true
         errorMessage = nil
@@ -336,7 +335,7 @@ final class RoomDetailsViewModel: ObservableObject {
         }
     }
 
-    func finishRaid(attendeeIds: [String]) async {
+    func finishRaid(attendeeIds: [String]) async { // Handles finishRaid flow.
         guard let room else { return }
         isLoading = true
         errorMessage = nil
@@ -355,7 +354,7 @@ final class RoomDetailsViewModel: ObservableObject {
         }
     }
     
-    func sortAttendees(by mode: AttendeeSort) {
+    func sortAttendees(by mode: AttendeeSort) { // Handles sortAttendees flow.
         guard var room else { return }
         
         attendeeSort = mode
@@ -396,7 +395,7 @@ final class RoomDetailsViewModel: ObservableObject {
         session.authUid
     }
 
-    func currentUserDepositHoney() -> Honey? {
+    func currentUserDepositHoney() -> Honey? { // Handles currentUserDepositHoney flow.
         guard let room, let uid = session.authUid else { return nil }
         guard uid != room.hostId else { return nil }
         return room.attendees.first(where: { $0.id == uid })?.depositHoney

@@ -2,57 +2,57 @@
 //  RoomDetailsView.swift
 //  mushroomHunter
 //
-//  Created by Ken on 4/2/2026.
+//  Purpose:
+//  - Renders the Mushroom room details screen and user actions UI.
 //
-
+//  Defined in this file:
+//  - RoomDetailsView layout and presentation/alert flow glue.
+//
 import SwiftUI
 import UIKit
 
 struct RoomDetailsView: View {
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var session: SessionStore
-    @Environment(\.colorScheme) private var scheme
-
+    @Environment(\.dismiss) private var dismiss // State or dependency property.
+    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @Environment(\.colorScheme) private var scheme // State or dependency property.
     let onRoomClosed: (() -> Void)?
 
-    @StateObject private var vm: RoomDetailsViewModel
-
-    @State private var editingRoom: RoomDetail? = nil
-    @State private var showJoinSheet: Bool = false
-    @State private var joinDepositAmount: Int = 0
-    @State private var showDepositSheet: Bool = false
-    @State private var updateDepositAmount: Int = 0
-    @State private var showJoinConfirmAlert: Bool = false
-    @State private var showNotEnoughHoneyAlert: Bool = false
-    @State private var showJoinSuccessAlert: Bool = false
-    @State private var showUpdateDepositSuccessAlert: Bool = false
-    @State private var joinSuccessRoomName: String = ""
-    @State private var joinSuccessHoney: Int = 0
-    @State private var updateDepositOldAmount: Int = 0
-    @State private var updateDepositNewAmount: Int = 0
-    @State private var showLeaveConfirmAlert: Bool = false
-    @State private var leaveRoomName: String = ""
-    @State private var showClaimConfirmAlert: Bool = false
-    @State private var showClaimSentAlert: Bool = false
-    @State private var showCopyToast: Bool = false
-    @State private var showFinishSheet: Bool = false
-    @State private var finishSelection: Set<String> = []
-    @State private var showRaidConfirmAlert: Bool = false
-    @State private var showNextRoundAlert: Bool = false
-    @State private var showRaidThanksAlert: Bool = false
-    @State private var raidThanksHoney: Int = 0
-    @State private var showAttendeeRateHostAlert: Bool = false
-    @State private var showNextRoundAfterRating: Bool = false
-    @State private var showHostRateAttendeeAlert: Bool = false
-    @State private var hostRateAttendeeId: String = ""
-    @State private var hostRateAttendeeName: String = ""
-    @State private var showRejectResolveAlert: Bool = false
-    @State private var rejectAttendeeId: String = ""
-    @State private var rejectAttendeeName: String = ""
-    @State private var showInviteSheet: Bool = false
-
-    /// ✅ New initializer: pass VM from caller (BrowseView already does this)
-    init(vm: RoomDetailsViewModel, onRoomClosed: (() -> Void)? = nil) {
+    @StateObject private var vm: RoomDetailsViewModel // State or dependency property.
+    @State private var editingRoom: RoomDetail? = nil // State or dependency property.
+    @State private var showJoinSheet: Bool = false // State or dependency property.
+    @State private var joinDepositAmount: Int = 0 // State or dependency property.
+    @State private var showDepositSheet: Bool = false // State or dependency property.
+    @State private var updateDepositAmount: Int = 0 // State or dependency property.
+    @State private var showJoinConfirmAlert: Bool = false // State or dependency property.
+    @State private var showNotEnoughHoneyAlert: Bool = false // State or dependency property.
+    @State private var showJoinSuccessAlert: Bool = false // State or dependency property.
+    @State private var showUpdateDepositSuccessAlert: Bool = false // State or dependency property.
+    @State private var joinSuccessRoomName: String = "" // State or dependency property.
+    @State private var joinSuccessHoney: Int = 0 // State or dependency property.
+    @State private var updateDepositOldAmount: Int = 0 // State or dependency property.
+    @State private var updateDepositNewAmount: Int = 0 // State or dependency property.
+    @State private var showLeaveConfirmAlert: Bool = false // State or dependency property.
+    @State private var leaveRoomName: String = "" // State or dependency property.
+    @State private var showClaimConfirmAlert: Bool = false // State or dependency property.
+    @State private var showClaimSentAlert: Bool = false // State or dependency property.
+    @State private var showCopyToast: Bool = false // State or dependency property.
+    @State private var showFinishSheet: Bool = false // State or dependency property.
+    @State private var finishSelection: Set<String> = [] // State or dependency property.
+    @State private var showRaidConfirmAlert: Bool = false // State or dependency property.
+    @State private var showNextRoundAlert: Bool = false // State or dependency property.
+    @State private var showRaidThanksAlert: Bool = false // State or dependency property.
+    @State private var raidThanksHoney: Int = 0 // State or dependency property.
+    @State private var showAttendeeRateHostAlert: Bool = false // State or dependency property.
+    @State private var showNextRoundAfterRating: Bool = false // State or dependency property.
+    @State private var showHostRateAttendeeAlert: Bool = false // State or dependency property.
+    @State private var hostRateAttendeeId: String = "" // State or dependency property.
+    @State private var hostRateAttendeeName: String = "" // State or dependency property.
+    @State private var showRejectResolveAlert: Bool = false // State or dependency property.
+    @State private var rejectAttendeeId: String = "" // State or dependency property.
+    @State private var rejectAttendeeName: String = "" // State or dependency property.
+    @State private var showInviteSheet: Bool = false // State or dependency property.
+    /// ✅ New initializer: pass VM from caller (RoomBrowseView already does this)
+    init(vm: RoomDetailsViewModel, onRoomClosed: (() -> Void)? = nil) { // Initializes this type.
         _vm = StateObject(wrappedValue: vm)
         self.onRoomClosed = onRoomClosed
     }
@@ -78,7 +78,7 @@ struct RoomDetailsView: View {
         .sheet(item: $editingRoom, onDismiss: {
             Task { await vm.load() }
         }) { room in
-            HostView(
+            RoomHostView(
                 vm: HostViewModel(session: session, room: room),
                 onCloseRoom: {
                     Task {
@@ -558,12 +558,6 @@ struct RoomDetailsView: View {
                 }
 
                 HStack(spacing: 10) {
-                    Text(String(format: NSLocalizedString("room_target_mushroom_format", comment: ""), mushroomSummary(room.targetMushroom)))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack(spacing: 10) {
                     Text(String(format: NSLocalizedString("room_last_successful_raid_format", comment: ""), room.lastSuccessfulRaidAt.relativeShortString()))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -745,13 +739,6 @@ struct RoomDetailsView: View {
         }
     }
 
-    private func mushroomSummary(_ t: MushroomTarget) -> String {
-        let color = localizedColor(t.color)
-        let attribute = localizedAttribute(t.attribute)
-        let size = localizedSize(t.size)
-        return "\(color) / \(attribute) / \(size)"
-    }
-
     private func claimConfirmMessage() -> String {
         guard let room = vm.room else {
             return NSLocalizedString("room_claim_confirm_message", comment: "")
@@ -763,40 +750,6 @@ struct RoomDetailsView: View {
             return NSLocalizedString("room_claim_confirm_message", comment: "")
         }
         return String(format: NSLocalizedString("room_claim_confirm_message_with_list", comment: ""), list)
-    }
-
-    private func localizedColor(_ color: MushroomColor) -> String {
-        switch color {
-        case .All: return NSLocalizedString("mushroom_color_all", comment: "")
-        case .Red: return NSLocalizedString("mushroom_color_red", comment: "")
-        case .Yellow: return NSLocalizedString("mushroom_color_yellow", comment: "")
-        case .Blue: return NSLocalizedString("mushroom_color_blue", comment: "")
-        case .Purple: return NSLocalizedString("mushroom_color_purple", comment: "")
-        case .White: return NSLocalizedString("mushroom_color_white", comment: "")
-        case .Gray: return NSLocalizedString("mushroom_color_gray", comment: "")
-        case .Pink: return NSLocalizedString("mushroom_color_pink", comment: "")
-        }
-    }
-
-    private func localizedAttribute(_ attribute: MushroomAttribute) -> String {
-        switch attribute {
-        case .All: return NSLocalizedString("mushroom_attr_all", comment: "")
-        case .Normal: return NSLocalizedString("mushroom_attr_normal", comment: "")
-        case .Fire: return NSLocalizedString("mushroom_attr_fire", comment: "")
-        case .Water: return NSLocalizedString("mushroom_attr_water", comment: "")
-        case .Crystal: return NSLocalizedString("mushroom_attr_crystal", comment: "")
-        case .Electric: return NSLocalizedString("mushroom_attr_electric", comment: "")
-        case .Poisonous: return NSLocalizedString("mushroom_attr_poisonous", comment: "")
-        }
-    }
-
-    private func localizedSize(_ size: MushroomSize) -> String {
-        switch size {
-        case .All: return NSLocalizedString("mushroom_size_all", comment: "")
-        case .Small: return NSLocalizedString("mushroom_size_small", comment: "")
-        case .Normal: return NSLocalizedString("mushroom_size_normal", comment: "")
-        case .Magnificent: return NSLocalizedString("mushroom_size_magnificent", comment: "")
-        }
     }
 
     private func presentNextHostRatingAlertIfNeeded(excluding attendeeId: String? = nil) {

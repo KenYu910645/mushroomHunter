@@ -2,9 +2,12 @@
 //  AsyncTimeout.swift
 //  mushroomHunter
 //
-//  Created by Ken on 2/2/2026.
+//  Purpose:
+//  - Provides timeout wrappers for async operations used across features.
 //
-
+//  Defined in this file:
+//  - TimeoutError and withTimeout helper implementations.
+//
 import Foundation
 
 enum TimeoutError: LocalizedError {

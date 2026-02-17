@@ -1,12 +1,22 @@
+//
+//  PostcardTabView.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Implements the full Postcard tab UI, flows, and interaction states.
+//
+//  Defined in this file:
+//  - Postcard tab subviews, forms, sheets, and action presentation logic.
+//
 import SwiftUI
 import PhotosUI
 
-private let postcardMaxPriceHoney: Int = 1_000_000_000
-private let postcardMaxStock: Int = 1_000_000
-private let postcardMaxDetailChars: Int = 100
-private let postcardMaxTitleChars: Int = 20
-private let postcardMaxProvinceChars: Int = 20
-private let postcardSnapshotSize: CGFloat = 180
+private let postcardMaxPriceHoney: Int = AppConfig.Postcard.maxPriceHoney
+private let postcardMaxStock: Int = AppConfig.Postcard.maxStock
+private let postcardMaxDetailChars: Int = AppConfig.Postcard.maxDetailChars
+private let postcardMaxTitleChars: Int = AppConfig.Postcard.maxTitleChars
+private let postcardMaxProvinceChars: Int = AppConfig.Postcard.maxProvinceChars
+private let postcardSnapshotSize: CGFloat = AppConfig.Postcard.snapshotSize
 
 private func clampedNumericText(_ value: String, max: Int) -> String {
     let digits = value.filter { $0.isNumber }
@@ -29,10 +39,9 @@ private func clampedText(_ value: String, max: Int) -> String {
 // MARK: - Root Tab
 
 struct PostcardTabView: View {
-    @State private var showRegisterSheet: Bool = false
-    @State private var browseRefreshToken: Int = 0
-    @Environment(\.colorScheme) private var scheme
-
+    @State private var showRegisterSheet: Bool = false // State or dependency property.
+    @State private var browseRefreshToken: Int = 0 // State or dependency property.
+    @Environment(\.colorScheme) private var scheme // State or dependency property.
     var body: some View {
         NavigationStack {
             VStack(spacing: 12) {
@@ -68,10 +77,10 @@ struct PostcardTabView: View {
 // MARK: - Browse
 
 struct PostcardBrowseView: View {
-    @EnvironmentObject private var session: SessionStore
-    @StateObject private var vm = PostcardBrowseViewModel()
-    @State private var showSearchAlert: Bool = false
-    @Environment(\.colorScheme) private var scheme
+    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @StateObject private var vm = PostcardBrowseViewModel() // State or dependency property.
+    @State private var showSearchAlert: Bool = false // State or dependency property.
+    @Environment(\.colorScheme) private var scheme // State or dependency property.
     private let cardColumnSpacing: CGFloat = 8
     let refreshToken: Int
     let onRegister: () -> Void
@@ -154,78 +163,22 @@ struct PostcardBrowseView: View {
     }
 
     private var headerBar: some View {
-        HStack {
-            HStack(spacing: 6) {
-                Image("HoneyIcon")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 20, height: 20)
-                Text("\(session.honey)")
-                    .font(.subheadline.weight(.semibold))
-            }
-
-            Spacer()
-
-            HStack(spacing: 12) {
-                Button {
-                    showSearchAlert = true
-                } label: {
-                    Image(systemName: "magnifyingglass")
-                }
-                .accessibilityLabel(LocalizedStringKey("postcard_search_accessibility"))
-
-                Button {
-                    onRegister()
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                }
-                .accessibilityLabel(LocalizedStringKey("postcard_register_accessibility"))
-
-                Menu {
-                    Section {
-                        Picker(LocalizedStringKey("postcard_country"), selection: $vm.selectedCountry) {
-                            Text(LocalizedStringKey("common_all")).tag("All")
-                            ForEach(vm.availableCountries, id: \.self) { country in
-                                Text(country).tag(country)
-                            }
-                        }
-                    } header: {
-                        Text(LocalizedStringKey("postcard_country"))
-                    }
-                    Section {
-                        Picker(LocalizedStringKey("postcard_province"), selection: $vm.selectedProvince) {
-                            Text(LocalizedStringKey("common_all")).tag("All")
-                            ForEach(vm.availableProvinces, id: \.self) { province in
-                                Text(province).tag(province)
-                            }
-                        }
-                    } header: {
-                        Text(LocalizedStringKey("postcard_province"))
-                    }
-                    Section {
-                        Picker(LocalizedStringKey("postcard_sort"), selection: $vm.sortOrder) {
-                            ForEach(PostcardSortOrder.allCases) { option in
-                                Text(LocalizedStringKey(option.localizedKey))
-                                    .tag(option)
-                            }
-                        }
-                    } header: {
-                        Text(LocalizedStringKey("postcard_sort"))
-                    }
-                } label: {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
-                }
-                .accessibilityLabel(LocalizedStringKey("common_filters"))
-            }
-        }
+        BrowseViewTopActionBar(
+            honey: session.honey,
+            onSearch: { showSearchAlert = true },
+            onCreate: { onRegister() },
+            searchAccessibilityLabel: "postcard_search_accessibility",
+            createAccessibilityLabel: "postcard_register_accessibility",
+            searchButtonIdentifier: nil,
+            createButtonIdentifier: nil
+        )
         .padding(.horizontal)
     }
 }
 
 private struct PostcardCardView: View {
     let listing: PostcardListing
-    @Environment(\.colorScheme) private var scheme
-
+    @Environment(\.colorScheme) private var scheme // State or dependency property.
     private let imageAspectRatio: CGFloat = 1.0
 
     var body: some View {
@@ -308,29 +261,29 @@ private struct PostcardCardView: View {
 // MARK: - Detail
 
 struct PostcardDetailView: View {
-    @State private var showBuyConfirm: Bool = false
-    @State private var showEditSheet: Bool = false
-    @State private var currentListing: PostcardListing
-    @State private var isBuying: Bool = false
-    @State private var showBuySuccessAlert: Bool = false
-    @State private var showBuyErrorAlert: Bool = false
-    @State private var buyErrorMessage: String = ""
-    @State private var showShippingSheet: Bool = false
-    @State private var buyerOrder: PostcardBuyerOrder?
-    @State private var showReceiveConfirmAlert: Bool = false
-    @State private var showNotReceivedAlert: Bool = false
-    @State private var showReceiveSuccessAlert: Bool = false
-    @State private var receiveSuccessMessage: String = ""
-    @State private var sellerFriendCode: String = ""
-    @State private var showCopyToast: Bool = false
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var session: SessionStore
+    @State private var showBuyConfirm: Bool = false // State or dependency property.
+    @State private var showEditSheet: Bool = false // State or dependency property.
+    @State private var currentListing: PostcardListing // State or dependency property.
+    @State private var isBuying: Bool = false // State or dependency property.
+    @State private var showBuySuccessAlert: Bool = false // State or dependency property.
+    @State private var showBuyErrorAlert: Bool = false // State or dependency property.
+    @State private var buyErrorMessage: String = "" // State or dependency property.
+    @State private var showShippingSheet: Bool = false // State or dependency property.
+    @State private var buyerOrder: PostcardBuyerOrder? // State or dependency property.
+    @State private var showReceiveConfirmAlert: Bool = false // State or dependency property.
+    @State private var showNotReceivedAlert: Bool = false // State or dependency property.
+    @State private var showReceiveSuccessAlert: Bool = false // State or dependency property.
+    @State private var receiveSuccessMessage: String = "" // State or dependency property.
+    @State private var sellerFriendCode: String = "" // State or dependency property.
+    @State private var showCopyToast: Bool = false // State or dependency property.
+    @Environment(\.colorScheme) private var scheme // State or dependency property.
+    @Environment(\.dismiss) private var dismiss // State or dependency property.
+    @EnvironmentObject private var session: SessionStore // State or dependency property.
     private let repo = FirebasePostcardRepository()
     private let imageAspectRatio: CGFloat = 4.0 / 3.0
     private let detailImageMaxWidth: CGFloat = 300
 
-    init(listing: PostcardListing) {
+    init(listing: PostcardListing) { // Initializes this type.
         _currentListing = State(initialValue: listing)
     }
 
@@ -673,12 +626,12 @@ struct PostcardDetailView: View {
 struct PostcardShippingView: View {
     let postcard: PostcardListing
 
-    @Environment(\.dismiss) private var dismiss
-    @State private var recipients: [PostcardShippingRecipient] = []
-    @State private var isLoading: Bool = false
-    @State private var isSendingOrderId: String? = nil
-    @State private var errorMessage: String?
-    @State private var showShipSuccessAlert: Bool = false
+    @Environment(\.dismiss) private var dismiss // State or dependency property.
+    @State private var recipients: [PostcardShippingRecipient] = [] // State or dependency property.
+    @State private var isLoading: Bool = false // State or dependency property.
+    @State private var isSendingOrderId: String? = nil // State or dependency property.
+    @State private var errorMessage: String? // State or dependency property.
+    @State private var showShipSuccessAlert: Bool = false // State or dependency property.
     private let repo = FirebasePostcardRepository()
 
     var body: some View {
@@ -781,25 +734,25 @@ struct PostcardEditView: View {
     let listing: PostcardListing
     let onDeleted: () -> Void
 
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var scheme
-    @State private var title: String
-    @State private var priceText: String
-    @State private var countryCode: String
-    @State private var province: String
-    @State private var detail: String
-    @State private var stockText: String
-    @State private var selectedItem: PhotosPickerItem? = nil
-    @State private var selectedImage: UIImage? = nil
-    @State private var isSaving: Bool = false
-    @State private var showErrorAlert: Bool = false
-    @State private var errorMessage: String = ""
-    @State private var showDeleteConfirm: Bool = false
-    @State private var uploadError: String? = nil
+    @Environment(\.dismiss) private var dismiss // State or dependency property.
+    @Environment(\.colorScheme) private var scheme // State or dependency property.
+    @State private var title: String // State or dependency property.
+    @State private var priceText: String // State or dependency property.
+    @State private var countryCode: String // State or dependency property.
+    @State private var province: String // State or dependency property.
+    @State private var detail: String // State or dependency property.
+    @State private var stockText: String // State or dependency property.
+    @State private var selectedItem: PhotosPickerItem? = nil // State or dependency property.
+    @State private var selectedImage: UIImage? = nil // State or dependency property.
+    @State private var isSaving: Bool = false // State or dependency property.
+    @State private var showErrorAlert: Bool = false // State or dependency property.
+    @State private var errorMessage: String = "" // State or dependency property.
+    @State private var showDeleteConfirm: Bool = false // State or dependency property.
+    @State private var uploadError: String? = nil // State or dependency property.
     private let repo = FirebasePostcardRepository()
     private let uploader = FirebasePostcardImageUploader()
 
-    init(listing: PostcardListing, onDeleted: @escaping () -> Void) {
+    init(listing: PostcardListing, onDeleted: @escaping () -> Void) { // Initializes this type.
         self.listing = listing
         self.onDeleted = onDeleted
         _title = State(initialValue: listing.title)
@@ -1121,22 +1074,21 @@ struct PostcardEditView: View {
 // MARK: - Register
 
 struct PostcardRegisterView: View {
-    @EnvironmentObject private var session: SessionStore
-    @Environment(\.colorScheme) private var scheme
-    @State private var title: String = ""
-    @State private var priceText: String = ""
-    @State private var countryCode: String = "TW"
-    @State private var province: String = ""
-    @State private var detail: String = ""
-    @State private var stockText: String = ""
-    @State private var showErrorAlert: Bool = false
-    @State private var errorAlertMessage: String = ""
-    @State private var selectedItem: PhotosPickerItem? = nil
-    @State private var selectedImage: UIImage? = nil
-    @State private var isUploading: Bool = false
-    @State private var uploadError: String? = nil
-    @State private var uploadedImageUrl: URL? = nil
-
+    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @Environment(\.colorScheme) private var scheme // State or dependency property.
+    @State private var title: String = "" // State or dependency property.
+    @State private var priceText: String = "" // State or dependency property.
+    @State private var countryCode: String = "TW" // State or dependency property.
+    @State private var province: String = "" // State or dependency property.
+    @State private var detail: String = "" // State or dependency property.
+    @State private var stockText: String = "" // State or dependency property.
+    @State private var showErrorAlert: Bool = false // State or dependency property.
+    @State private var errorAlertMessage: String = "" // State or dependency property.
+    @State private var selectedItem: PhotosPickerItem? = nil // State or dependency property.
+    @State private var selectedImage: UIImage? = nil // State or dependency property.
+    @State private var isUploading: Bool = false // State or dependency property.
+    @State private var uploadError: String? = nil // State or dependency property.
+    @State private var uploadedImageUrl: URL? = nil // State or dependency property.
     private let uploader = FirebasePostcardImageUploader()
     private let repo = FirebasePostcardRepository()
     let onSubmitted: () -> Void

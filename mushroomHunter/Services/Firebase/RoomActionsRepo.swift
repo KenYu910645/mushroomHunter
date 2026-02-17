@@ -1,10 +1,13 @@
 //
-//  FirebaseRoomActionsRepository.swift
+//  RoomActionsRepo.swift
 //  mushroomHunter
 //
-//  Created by Ken on 6/2/2026.
+//  Purpose:
+//  - Contains transactional room actions such as join/leave/confirm/rating.
 //
-
+//  Defined in this file:
+//  - RoomActionError and FirebaseRoomActionsRepository action methods.
+//
 import Foundation
 import FirebaseAuth
 import FirebaseFirestore
@@ -41,8 +44,8 @@ enum RoomActionError: LocalizedError {
 
 final class FirebaseRoomActionsRepository {
     private let db = Firestore.firestore()
-    private let defaultMaxHostRooms = 1
-    private let defaultMaxJoinRooms = 3
+    private let defaultMaxHostRooms = AppConfig.Mushroom.defaultHostRoomLimit
+    private let defaultMaxJoinRooms = AppConfig.Mushroom.defaultJoinRoomLimit
 
     private func fetchMaxJoinRooms(uid: String) async throws -> Int {
         let userSnap = try await db.collection("users").document(uid).getDocument()
@@ -104,14 +107,14 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
-            let maxPlayers = room["maxPlayers"] as? Int ?? 10
+            let maxPlayers = room["maxPlayers"] as? Int ?? AppConfig.Mushroom.defaultMaxPlayersPerRoom
             let joinedCount = room["joinedCount"] as? Int ?? 0
             if joinedCount >= maxPlayers {
                 errPtr?.pointee = RoomActionError.roomFull as NSError
                 return nil
             }
 
-            let fixedRaidCost = (room["fixedRaidCost"] as? Int) ?? 10
+            let fixedRaidCost = (room["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
 
             // 2) Check attendee doc doesn't already exist
             let attendeeSnap: DocumentSnapshot
@@ -145,7 +148,7 @@ final class FirebaseRoomActionsRepository {
             }
 
             let deposit = max(0, initialDepositHoney)
-            if deposit < max(1, fixedRaidCost) {
+            if deposit < max(AppConfig.Mushroom.minFixedRaidCost, fixedRaidCost) {
                 errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
                 return nil
             }
@@ -183,7 +186,7 @@ final class FirebaseRoomActionsRepository {
     }
 
     // MARK: - Update deposit (attendee only)
-    func updateDeposit(roomId: String, depositHoney: Int, attendeeHoney: Int) async throws {
+    func updateDeposit(roomId: String, depositHoney: Int, attendeeHoney: Int) async throws { // Handles updateDeposit flow.
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
         let roomRef = db.collection("rooms").document(roomId)
@@ -208,8 +211,8 @@ final class FirebaseRoomActionsRepository {
             let roomSnap: DocumentSnapshot
             do { roomSnap = try tx.getDocument(roomRef) }
             catch { errPtr?.pointee = error as NSError; return nil }
-            let fixedRaidCost = (roomSnap.data()?["fixedRaidCost"] as? Int) ?? 10
-            if newDeposit < max(1, fixedRaidCost) {
+            let fixedRaidCost = (roomSnap.data()?["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
+            if newDeposit < max(AppConfig.Mushroom.minFixedRaidCost, fixedRaidCost) {
                 errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
                 return nil
             }
@@ -257,7 +260,7 @@ final class FirebaseRoomActionsRepository {
     }
 
     // MARK: - Leave (transaction)
-    func leaveRoom(roomId: String, attendeeHoney: Int) async throws {
+    func leaveRoom(roomId: String, attendeeHoney: Int) async throws { // Handles leaveRoom flow.
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
         let roomRef = db.collection("rooms").document(roomId)
@@ -329,7 +332,7 @@ final class FirebaseRoomActionsRepository {
     }
 
     // MARK: - Kick (host only, transaction)
-    func kickAttendee(roomId: String, attendeeUid: String) async throws {
+    func kickAttendee(roomId: String, attendeeUid: String) async throws { // Handles kickAttendee flow.
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
         let roomRef = db.collection("rooms").document(roomId)
@@ -393,7 +396,7 @@ final class FirebaseRoomActionsRepository {
     }
 
     // MARK: - Close room (host only)
-    func closeRoom(roomId: String) async throws {
+    func closeRoom(roomId: String) async throws { // Handles closeRoom flow.
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
         let roomRef = db.collection("rooms").document(roomId)
@@ -437,7 +440,7 @@ final class FirebaseRoomActionsRepository {
     }
 
     // MARK: - Finish raid (host only)
-    func finishRaid(roomId: String, attendeeUids: [String]) async throws {
+    func finishRaid(roomId: String, attendeeUids: [String]) async throws { // Handles finishRaid flow.
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
         guard !attendeeUids.isEmpty else { return }
 
@@ -464,7 +467,7 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
-            let raidCost = (room["fixedRaidCost"] as? Int) ?? 10
+            let raidCost = (room["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
 
             var attendeeDocs: [(ref: DocumentReference, data: [String: Any])] = []
             attendeeDocs.reserveCapacity(attendeeUids.count)
@@ -505,7 +508,7 @@ final class FirebaseRoomActionsRepository {
     }
 
     // MARK: - Confirm raid (attendee only)
-    func respondToRaidConfirmation(roomId: String, attendeeUid: String, accept: Bool) async throws {
+    func respondToRaidConfirmation(roomId: String, attendeeUid: String, accept: Bool) async throws { // Handles respondToRaidConfirmation flow.
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
         guard uid == attendeeUid else { throw RoomActionError.notInRoom }
 
@@ -532,7 +535,7 @@ final class FirebaseRoomActionsRepository {
                 return nil
             }
 
-            let raidCostHoney = (room["fixedRaidCost"] as? Int) ?? 10
+            let raidCostHoney = (room["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
             let hostRef = self.db.collection("users").document(hostUid)
 
             let hostSnap: DocumentSnapshot
@@ -577,7 +580,7 @@ final class FirebaseRoomActionsRepository {
     }
 
     // MARK: - Rejected confirmation handling (host only)
-    func resendRejectedConfirmation(roomId: String, attendeeUid: String) async throws {
+    func resendRejectedConfirmation(roomId: String, attendeeUid: String) async throws { // Handles resendRejectedConfirmation flow.
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
         let roomRef = db.collection("rooms").document(roomId)
@@ -616,7 +619,7 @@ final class FirebaseRoomActionsRepository {
         }
     }
 
-    func giveUpRejectedConfirmation(roomId: String, attendeeUid: String) async throws {
+    func giveUpRejectedConfirmation(roomId: String, attendeeUid: String) async throws { // Handles giveUpRejectedConfirmation flow.
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
         let roomRef = db.collection("rooms").document(roomId)
@@ -656,7 +659,7 @@ final class FirebaseRoomActionsRepository {
     }
 
     // MARK: - Stars (attendee -> host)
-    func rateHostAfterConfirmation(roomId: String, attendeeUid: String, stars: Int) async throws {
+    func rateHostAfterConfirmation(roomId: String, attendeeUid: String, stars: Int) async throws { // Handles rateHostAfterConfirmation flow.
         guard (1...3).contains(stars) else { throw RoomActionError.invalidStars }
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
         guard uid == attendeeUid else { throw RoomActionError.notInRoom }
@@ -723,7 +726,7 @@ final class FirebaseRoomActionsRepository {
     }
 
     // MARK: - Stars (host -> attendee)
-    func rateAttendeeAfterConfirmation(roomId: String, attendeeUid: String, stars: Int) async throws {
+    func rateAttendeeAfterConfirmation(roomId: String, attendeeUid: String, stars: Int) async throws { // Handles rateAttendeeAfterConfirmation flow.
         guard (1...3).contains(stars) else { throw RoomActionError.invalidStars }
         guard let hostUid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 

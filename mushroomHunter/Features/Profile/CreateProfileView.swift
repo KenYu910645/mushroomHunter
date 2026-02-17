@@ -1,17 +1,25 @@
+//
+//  CreateProfileView.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Implements first-time profile creation UI and validation behavior.
+//
+//  Defined in this file:
+//  - CreateProfileView form state, validation, and submit actions.
+//
 import SwiftUI
 
 struct CreateProfileView: View {
-    @EnvironmentObject private var session: SessionStore
-    @State private var name: String = ""
-    @State private var friendCode: String = ""
-    @State private var nameError: String? = nil
-    @State private var friendCodeError: String? = nil
-    @State private var showValidationAlert: Bool = false
-    @State private var isSubmitting: Bool = false
-
-    @State private var nameFieldFocused: Bool = false
-    @State private var friendCodeFieldFocused: Bool = false
-
+    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @State private var name: String = "" // State or dependency property.
+    @State private var friendCode: String = "" // State or dependency property.
+    @State private var nameError: String? = nil // State or dependency property.
+    @State private var friendCodeError: String? = nil // State or dependency property.
+    @State private var showValidationAlert: Bool = false // State or dependency property.
+    @State private var isSubmitting: Bool = false // State or dependency property.
+    @State private var nameFieldFocused: Bool = false // State or dependency property.
+    @State private var friendCodeFieldFocused: Bool = false // State or dependency property.
     var body: some View {
         NavigationStack {
             Form {
@@ -60,8 +68,8 @@ struct CreateProfileView: View {
                                 if digitsOnly != newValue {
                                     friendCode = digitsOnly
                                 }
-                                if friendCode.count > 12 {
-                                    friendCode = String(friendCode.prefix(12))
+                                if friendCode.count > AppConfig.Profile.friendCodeDigits {
+                                    friendCode = String(friendCode.prefix(AppConfig.Profile.friendCodeDigits))
                                 }
                                 friendCodeError = validateFriendCode(friendCode)
                             }
@@ -137,7 +145,7 @@ struct CreateProfileView: View {
 
     private func validateFriendCode(_ code: String) -> String? {
         if code.isEmpty { return NSLocalizedString("profile_friend_code_error_required", comment: "") }
-        if code.count != 12 { return NSLocalizedString("profile_friend_code_error_length", comment: "") }
+        if code.count != AppConfig.Profile.friendCodeDigits { return NSLocalizedString("profile_friend_code_error_length", comment: "") }
         if code.allSatisfy({ $0.isNumber }) == false { return NSLocalizedString("profile_friend_code_error_digits", comment: "") }
         return nil
     }

@@ -1,3 +1,13 @@
+//
+//  SessionStore.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Owns authenticated user session state and profile/auth synchronization.
+//
+//  Defined in this file:
+//  - SessionStore published state, auth flows, and profile persistence helpers.
+//
 import Foundation
 import FirebaseAuth
 import FirebaseCore
@@ -10,20 +20,18 @@ import CryptoKit
 
 @MainActor
 final class SessionStore: ObservableObject {
-    @Published var isLoggedIn: Bool = false
-    @Published var displayName: String = ""
+    @Published var isLoggedIn: Bool = false // State or dependency property.
+    @Published var displayName: String = "" // State or dependency property.
     @Published var friendCode: String = ""          // ✅ NEW
     @Published var stars: Int = 0   // ⭐ Community reputation
-    @Published var honey: Int = 0
-    @Published var maxHostRoom: Int = 1
-    @Published var maxJoinRoom: Int = 3
-    @Published var authUid: String? = nil
-    @Published var fcmToken: String? = nil
-    @Published var isProfileComplete: Bool = false
-
-    @Published var isLoading: Bool = false
-    @Published var errorMessage: String? = nil
-
+    @Published var honey: Int = 0 // State or dependency property.
+    @Published var maxHostRoom: Int = AppConfig.Mushroom.defaultHostRoomLimit // State or dependency property.
+    @Published var maxJoinRoom: Int = AppConfig.Mushroom.defaultJoinRoomLimit // State or dependency property.
+    @Published var authUid: String? = nil // State or dependency property.
+    @Published var fcmToken: String? = nil // State or dependency property.
+    @Published var isProfileComplete: Bool = false // State or dependency property.
+    @Published var isLoading: Bool = false // State or dependency property.
+    @Published var errorMessage: String? = nil // State or dependency property.
     private var authHandle: AuthStateDidChangeListenerHandle?
     private var currentAppleNonce: String?
 
@@ -36,7 +44,7 @@ final class SessionStore: ObservableObject {
     private let kMaxHostRoom = "mh.maxHostRoom"
     private let kMaxJoinRoom = "mh.maxJoinRoom"
 
-    init() {
+    init() { // Initializes this type.
         // Default local profile before login; will be replaced after auth
         resetToDefaults()
         fcmToken = UserDefaults.standard.string(forKey: kFcmToken)
@@ -80,7 +88,7 @@ final class SessionStore: ObservableObject {
 
     // MARK: - Profile updates (used by ProfileView)
 
-    func updateDisplayName(_ newName: String) {
+    func updateDisplayName(_ newName: String) { // Handles updateDisplayName flow.
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         displayName = trimmed
@@ -102,7 +110,7 @@ final class SessionStore: ObservableObject {
         Task { await syncHostedRoomProfile(displayName: trimmed) }
     }
 
-    func updateFriendCode(_ code: String) {
+    func updateFriendCode(_ code: String) { // Handles updateFriendCode flow.
         friendCode = code
         if let uid = authUid {
             UserDefaults.standard.set(code, forKey: scopedKey(kFriendCode, uid: uid))
@@ -120,10 +128,10 @@ final class SessionStore: ObservableObject {
         Task { await syncHostedRoomProfile(friendCode: code) }
     }
 
-    func completeProfile(name: String, friendCode: String) async {
+    func completeProfile(name: String, friendCode: String) async { // Handles completeProfile flow.
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let digits = friendCode.filter { $0.isNumber }
-        guard !trimmedName.isEmpty, digits.count == 12 else { return }
+        guard !trimmedName.isEmpty, digits.count == AppConfig.Profile.friendCodeDigits else { return }
 
         displayName = trimmedName
         self.friendCode = digits
@@ -143,7 +151,7 @@ final class SessionStore: ObservableObject {
         await ensureUserProfile()
     }
 
-    func updateStars(_ newValue: Int) {
+    func updateStars(_ newValue: Int) { // Handles updateStars flow.
         stars = max(0, newValue)
         if let uid = authUid {
             UserDefaults.standard.set(stars, forKey: scopedKey(kStars, uid: uid))
@@ -152,13 +160,13 @@ final class SessionStore: ObservableObject {
         Task { await syncHostedRoomProfile(stars: stars) }
     }
 
-    func canAffordHoney(_ amount: Int) -> Bool {
+    func canAffordHoney(_ amount: Int) -> Bool { // Handles canAffordHoney flow.
         guard amount >= 0 else { return false }
         return honey >= amount
     }
 
     @discardableResult
-    func spendHoney(_ amount: Int) -> Bool {
+    func spendHoney(_ amount: Int) -> Bool { // Handles spendHoney flow.
         guard amount >= 0, honey >= amount else { return false }
         honey -= amount
         if let uid = authUid {
@@ -167,7 +175,7 @@ final class SessionStore: ObservableObject {
         return true
     }
 
-    func addHoney(_ amount: Int) {
+    func addHoney(_ amount: Int) { // Handles addHoney flow.
         guard amount > 0 else { return }
         honey += amount
         if let uid = authUid {
@@ -176,7 +184,7 @@ final class SessionStore: ObservableObject {
         Task { await syncProfileFields(["honey": honey]) }
     }
 
-    func updateFcmToken(_ token: String) {
+    func updateFcmToken(_ token: String) { // Handles updateFcmToken flow.
         fcmToken = token
         UserDefaults.standard.set(token, forKey: kFcmToken)
         Task {
@@ -280,7 +288,7 @@ final class SessionStore: ObservableObject {
 
     // MARK: - Backend sync
 
-    func refreshProfileFromBackend() async {
+    func refreshProfileFromBackend() async { // Handles refreshProfileFromBackend flow.
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         do {
@@ -318,12 +326,12 @@ final class SessionStore: ObservableObject {
             }
 
             if let maxHostValue = data["maxHostRoom"] as? Int {
-                maxHostRoom = max(1, maxHostValue)
+                maxHostRoom = max(AppConfig.Mushroom.defaultHostRoomLimit, maxHostValue)
                 if let uid = authUid {
                     UserDefaults.standard.set(maxHostRoom, forKey: scopedKey(kMaxHostRoom, uid: uid))
                 }
             } else {
-                maxHostRoom = 1
+                maxHostRoom = AppConfig.Mushroom.defaultHostRoomLimit
                 if let uid = authUid {
                     UserDefaults.standard.set(maxHostRoom, forKey: scopedKey(kMaxHostRoom, uid: uid))
                 }
@@ -331,12 +339,12 @@ final class SessionStore: ObservableObject {
             }
 
             if let maxJoinValue = data["maxJoinRoom"] as? Int {
-                maxJoinRoom = max(1, maxJoinValue)
+                maxJoinRoom = max(AppConfig.Mushroom.defaultJoinRoomLimit, maxJoinValue)
                 if let uid = authUid {
                     UserDefaults.standard.set(maxJoinRoom, forKey: scopedKey(kMaxJoinRoom, uid: uid))
                 }
             } else {
-                maxJoinRoom = 3
+                maxJoinRoom = AppConfig.Mushroom.defaultJoinRoomLimit
                 if let uid = authUid {
                     UserDefaults.standard.set(maxJoinRoom, forKey: scopedKey(kMaxJoinRoom, uid: uid))
                 }
@@ -376,8 +384,8 @@ final class SessionStore: ObservableObject {
         friendCode = ""
         stars = 0
         honey = 100
-        maxHostRoom = 1
-        maxJoinRoom = 3
+        maxHostRoom = AppConfig.Mushroom.defaultHostRoomLimit
+        maxJoinRoom = AppConfig.Mushroom.defaultJoinRoomLimit
         isProfileComplete = false
     }
 
@@ -411,15 +419,15 @@ final class SessionStore: ObservableObject {
         }
 
         if UserDefaults.standard.object(forKey: scopedKey(kMaxHostRoom, uid: uid)) != nil {
-            maxHostRoom = max(1, UserDefaults.standard.integer(forKey: scopedKey(kMaxHostRoom, uid: uid)))
+            maxHostRoom = max(AppConfig.Mushroom.defaultHostRoomLimit, UserDefaults.standard.integer(forKey: scopedKey(kMaxHostRoom, uid: uid)))
         } else {
-            maxHostRoom = 1
+            maxHostRoom = AppConfig.Mushroom.defaultHostRoomLimit
         }
 
         if UserDefaults.standard.object(forKey: scopedKey(kMaxJoinRoom, uid: uid)) != nil {
-            maxJoinRoom = max(1, UserDefaults.standard.integer(forKey: scopedKey(kMaxJoinRoom, uid: uid)))
+            maxJoinRoom = max(AppConfig.Mushroom.defaultJoinRoomLimit, UserDefaults.standard.integer(forKey: scopedKey(kMaxJoinRoom, uid: uid)))
         } else {
-            maxJoinRoom = 3
+            maxJoinRoom = AppConfig.Mushroom.defaultJoinRoomLimit
         }
 
         let nameOK = !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -429,7 +437,7 @@ final class SessionStore: ObservableObject {
     
     // MARK: - Auth
 
-    func signOut() {
+    func signOut() { // Handles signOut flow.
         isLoading = true
         defer { isLoading = false }
         do {
@@ -443,7 +451,7 @@ final class SessionStore: ObservableObject {
     }
 
     /// Google Sign-In then Firebase Auth
-    func signInWithGoogle(presenting viewController: UIViewController) async {
+    func signInWithGoogle(presenting viewController: UIViewController) async { // Handles signInWithGoogle flow.
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -483,7 +491,7 @@ final class SessionStore: ObservableObject {
 
     // MARK: - Apple Sign-In then Firebase Auth
 
-    func configureAppleRequest(_ request: ASAuthorizationAppleIDRequest) {
+    func configureAppleRequest(_ request: ASAuthorizationAppleIDRequest) { // Handles configureAppleRequest flow.
         errorMessage = nil
         let nonce = randomNonceString()
         currentAppleNonce = nonce
@@ -491,7 +499,7 @@ final class SessionStore: ObservableObject {
         request.nonce = sha256(nonce)
     }
 
-    func handleAppleCompletion(_ result: Result<ASAuthorization, Error>) async {
+    func handleAppleCompletion(_ result: Result<ASAuthorization, Error>) async { // Handles handleAppleCompletion flow.
         isLoading = true
         defer { isLoading = false }
 

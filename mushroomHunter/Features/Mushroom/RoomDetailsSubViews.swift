@@ -1,11 +1,20 @@
+//
+//  RoomDetailsSubViews.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Provides reusable Mushroom room-detail subviews and UI helpers.
+//
+//  Defined in this file:
+//  - Invite sheet, QR rendering helpers, and small supporting views.
+//
 import SwiftUI
 import UIKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
 
 struct RoomInviteSheet: View {
-    @Environment(\.dismiss) private var dismiss
-
+    @Environment(\.dismiss) private var dismiss // State or dependency property.
     let roomTitle: String
     let inviteURL: URL?
     let onCopyInviteLink: (String) -> Void

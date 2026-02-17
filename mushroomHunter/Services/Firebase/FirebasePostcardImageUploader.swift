@@ -1,3 +1,13 @@
+//
+//  FirebasePostcardImageUploader.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Handles postcard image preprocessing and Firebase Storage uploads.
+//
+//  Defined in this file:
+//  - Image uploader errors and upload/crop helper methods.
+//
 import Foundation
 import FirebaseStorage
 import UIKit
@@ -27,7 +37,7 @@ final class FirebasePostcardImageUploader {
     // Fixed crop rectangle requested by product requirement.
     private let requiredCropRect = CGRect(x: 20, y: 20, width: 645, height: 635)
 
-    func cropSnapshotImage(_ image: UIImage) throws -> UIImage {
+    func cropSnapshotImage(_ image: UIImage) throws -> UIImage { // Handles cropSnapshotImage flow.
         let normalized = normalizedImage(image)
         guard let cgImage = normalized.cgImage else {
             throw PostcardImageUploadError.imageEncodeFailed
@@ -54,7 +64,7 @@ final class FirebasePostcardImageUploader {
         return data
     }
 
-    func uploadPostcardImage(data: Data, ownerId: String?) async throws -> URL {
+    func uploadPostcardImage(data: Data, ownerId: String?) async throws -> URL { // Handles uploadPostcardImage flow.
         guard let owner = ownerId?.trimmingCharacters(in: .whitespacesAndNewlines),
               !owner.isEmpty else {
             throw PostcardImageUploadError.unauthenticated
@@ -81,7 +91,7 @@ final class FirebasePostcardImageUploader {
         throw PostcardImageUploadError.missingDownloadURL
     }
 
-    func deleteUploadedImage(at url: URL) async {
+    func deleteUploadedImage(at url: URL) async { // Handles deleteUploadedImage flow.
         do {
             try await storage.reference(forURL: url.absoluteString).delete()
         } catch {

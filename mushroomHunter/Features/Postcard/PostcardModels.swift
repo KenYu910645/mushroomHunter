@@ -1,3 +1,13 @@
+//
+//  PostcardModels.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Declares postcard domain models and formatting utilities.
+//
+//  Defined in this file:
+//  - Postcard listing/order/location value types and helpers.
+//
 import Foundation
 
 struct PostcardLocation: Equatable, Hashable {

@@ -2,55 +2,67 @@
 //  ProfileView.swift
 //  mushroomHunter
 //
-//  Created by Ken on 4/2/2026.
+//  Purpose:
+//  - Implements profile tab UI, editing, settings actions, and related lists.
 //
-
+//  Defined in this file:
+//  - ProfileView sections, form state, and profile-linked data views.
+//
 import SwiftUI
 
 struct ProfileView: View {
-    @EnvironmentObject private var session: SessionStore
-    @Environment(\.colorScheme) private var scheme
-
+    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @Environment(\.colorScheme) private var scheme // State or dependency property.
     // Name editing
-    @State private var isEditingName: Bool = false
-    @State private var draftName: String = ""
-    @State private var nameFieldFocused: Bool = false
-
+    @State private var isEditingName: Bool = false // State or dependency property.
+    @State private var draftName: String = "" // State or dependency property.
+    @State private var nameFieldFocused: Bool = false // State or dependency property.
     // Friend code editing
-    @State private var isEditingFriendCode: Bool = false
-    @State private var draftFriendCode: String = ""
-    @State private var friendCodeError: String? = nil
-    @State private var friendCodeFieldFocused: Bool = false
-
+    @State private var isEditingFriendCode: Bool = false // State or dependency property.
+    @State private var draftFriendCode: String = "" // State or dependency property.
+    @State private var friendCodeError: String? = nil // State or dependency property.
+    @State private var friendCodeFieldFocused: Bool = false // State or dependency property.
     // host room
-    @State private var isHostLoading: Bool = false
-    @State private var hostErrorMessage: String? = nil
-    @State private var hostedRooms: [HostedRoomSummary] = []
-    @State private var isJoinedLoading: Bool = false
-    @State private var joinedErrorMessage: String? = nil
-    @State private var joinedRooms: [JoinedRoomSummary] = []
-    @State private var isOnShelfLoading: Bool = false
-    @State private var onShelfErrorMessage: String? = nil
-    @State private var onShelfPostcards: [PostcardListing] = []
-    @State private var isOrderedLoading: Bool = false
-    @State private var orderedErrorMessage: String? = nil
-    @State private var orderedPostcards: [PostcardListing] = []
-    @State private var selectedPostcard: PostcardListing? = nil
-    @State private var showSettingsSheet: Bool = false
-    @State private var showFeedbackSheet: Bool = false
-    @State private var showFeedbackSubmittedAlert: Bool = false
-    @State private var pendingOpenFeedbackFromSettings: Bool = false
-
+    @State private var isHostLoading: Bool = false // State or dependency property.
+    @State private var hostErrorMessage: String? = nil // State or dependency property.
+    @State private var hostedRooms: [HostedRoomSummary] = [] // State or dependency property.
+    @State private var isJoinedLoading: Bool = false // State or dependency property.
+    @State private var joinedErrorMessage: String? = nil // State or dependency property.
+    @State private var joinedRooms: [JoinedRoomSummary] = [] // State or dependency property.
+    @State private var isOnShelfLoading: Bool = false // State or dependency property.
+    @State private var onShelfErrorMessage: String? = nil // State or dependency property.
+    @State private var onShelfPostcards: [PostcardListing] = [] // State or dependency property.
+    @State private var isOrderedLoading: Bool = false // State or dependency property.
+    @State private var orderedErrorMessage: String? = nil // State or dependency property.
+    @State private var orderedPostcards: [PostcardListing] = [] // State or dependency property.
+    @State private var selectedPostcard: PostcardListing? = nil // State or dependency property.
+    @State private var showSettingsSheet: Bool = false // State or dependency property.
+    @State private var showFeedbackSheet: Bool = false // State or dependency property.
+    @State private var showFeedbackSubmittedAlert: Bool = false // State or dependency property.
+    @State private var pendingOpenFeedbackFromSettings: Bool = false // State or dependency property.
     private let hostRepo = FirebaseProfileHostRepository()
     private let postcardRepo = FirebasePostcardRepository()
     private let feedbackRepo = FirebaseFeedbackRepository()
 
     var body: some View {
         NavigationStack {
-            Form {
+            VStack(spacing: 0) {
+                BrowseViewTopActionBar(
+                    honey: session.honey,
+                    onSearch: nil,
+                    onCreate: nil,
+                    searchAccessibilityLabel: nil,
+                    createAccessibilityLabel: nil,
+                    searchButtonIdentifier: nil,
+                    createButtonIdentifier: nil,
+                    showActions: false
+                )
+                .padding(.horizontal)
+                .padding(.top, 8)
 
-                // MARK: Account
-                Section {
+                Form {
+                    // MARK: Account
+                    Section {
                     // Name row
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
@@ -130,8 +142,8 @@ struct ProfileView: View {
                                     if digitsOnly != newValue {
                                         draftFriendCode = digitsOnly
                                     }
-                                    if draftFriendCode.count > 12 {
-                                        draftFriendCode = String(draftFriendCode.prefix(12))
+                                    if draftFriendCode.count > AppConfig.Profile.friendCodeDigits {
+                                        draftFriendCode = String(draftFriendCode.prefix(AppConfig.Profile.friendCodeDigits))
                                     }
                                     friendCodeError = validateFriendCode(draftFriendCode)
                                 }
@@ -211,23 +223,6 @@ struct ProfileView: View {
                             .font(.headline)
                             .monospacedDigit()
                     }
-
-                    HStack {
-                        HStack(spacing: 6) {
-                            Image("HoneyIcon")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 20, height: 20)
-                            Text(LocalizedStringKey("profile_honey"))
-                        }
-
-                        Spacer()
-
-                        Text("\(session.honey)")
-                            .font(.headline)
-                            .monospacedDigit()
-                    }
-
                 } header: {
                     Text(LocalizedStringKey("profile_community_section"))
                 } footer: {
@@ -278,6 +273,7 @@ struct ProfileView: View {
                         session.signOut()
                     } label: {
                         Text(LocalizedStringKey("profile_sign_out"))
+                    }
                     }
                 }
             }
@@ -378,7 +374,7 @@ struct ProfileView: View {
 
     private func validateFriendCode(_ code: String) -> String? {
         if code.isEmpty { return NSLocalizedString("profile_friend_code_error_required", comment: "") }
-        if code.count != 12 { return NSLocalizedString("profile_friend_code_error_length", comment: "") }
+        if code.count != AppConfig.Profile.friendCodeDigits { return NSLocalizedString("profile_friend_code_error_length", comment: "") }
         if code.allSatisfy({ $0.isNumber }) == false { return NSLocalizedString("profile_friend_code_error_digits", comment: "") }
         return nil
     }
@@ -400,7 +396,7 @@ struct ProfileView: View {
         defer { isHostLoading = false }
 
         do {
-            let rooms = try await hostRepo.fetchMyHostedRooms(limit: 50)
+            let rooms = try await hostRepo.fetchMyHostedRooms(limit: AppConfig.Mushroom.profileListFetchLimit)
             hostedRooms = rooms
         } catch is CancellationError {
             return
@@ -418,7 +414,7 @@ struct ProfileView: View {
         defer { isJoinedLoading = false }
 
         do {
-            let rooms = try await hostRepo.fetchMyJoinedRooms(limit: 50)
+            let rooms = try await hostRepo.fetchMyJoinedRooms(limit: AppConfig.Mushroom.profileListFetchLimit)
             joinedRooms = rooms
         } catch is CancellationError {
             return
@@ -436,7 +432,7 @@ struct ProfileView: View {
         defer { isOnShelfLoading = false }
 
         do {
-            onShelfPostcards = try await postcardRepo.fetchMyListings(userId: uid, limit: 50)
+            onShelfPostcards = try await postcardRepo.fetchMyListings(userId: uid, limit: AppConfig.Postcard.profileListFetchLimit)
         } catch is CancellationError {
             return
         } catch {
@@ -453,7 +449,7 @@ struct ProfileView: View {
         defer { isOrderedLoading = false }
 
         do {
-            orderedPostcards = try await postcardRepo.fetchMyOrderedPostcards(userId: uid, limit: 50)
+            orderedPostcards = try await postcardRepo.fetchMyOrderedPostcards(userId: uid, limit: AppConfig.Postcard.profileListFetchLimit)
         } catch is CancellationError {
             return
         } catch {
@@ -482,14 +478,12 @@ private struct FeedbackMailDraft {
 }
 
 private struct FeedbackComposeSheet: View {
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var subject: String = ""
-    @State private var messageText: String = ""
-    @State private var isSubmitting: Bool = false
-    @State private var submissionError: String? = nil
-    @State private var showSubmissionErrorAlert: Bool = false
-
+    @Environment(\.dismiss) private var dismiss // State or dependency property.
+    @State private var subject: String = "" // State or dependency property.
+    @State private var messageText: String = "" // State or dependency property.
+    @State private var isSubmitting: Bool = false // State or dependency property.
+    @State private var submissionError: String? = nil // State or dependency property.
+    @State private var showSubmissionErrorAlert: Bool = false // State or dependency property.
     let onSend: (FeedbackMailDraft) async throws -> Void
 
     private var trimmedBody: String {
@@ -587,8 +581,7 @@ private struct AboutView: View {
 }
 
 private struct JoinedRoomsSection: View, Equatable {
-    @EnvironmentObject private var session: SessionStore
-
+    @EnvironmentObject private var session: SessionStore // State or dependency property.
     let rooms: [JoinedRoomSummary]
     let isLoading: Bool
     let errorMessage: String?
@@ -649,8 +642,7 @@ private struct JoinedRoomsSection: View, Equatable {
 }
 
 private struct HostedRoomsSection: View, Equatable {
-    @EnvironmentObject private var session: SessionStore
-
+    @EnvironmentObject private var session: SessionStore // State or dependency property.
     let rooms: [HostedRoomSummary]
     let isLoading: Bool
     let errorMessage: String?

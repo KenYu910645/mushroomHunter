@@ -1,3 +1,13 @@
+//
+//  SearchTokens.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Builds normalized search tokens used for indexed text matching.
+//
+//  Defined in this file:
+//  - SearchTokenBuilder normalization and token generation helpers.
+//
 import Foundation
 
 enum SearchTokenBuilder {

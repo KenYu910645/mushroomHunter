@@ -1,17 +1,20 @@
 //
-//  FirebaseRoomDetailsRepository.swift
+//  RoomDetailsRepo.swift
 //  mushroomHunter
 //
-//  Created by Ken on 4/2/2026.
+//  Purpose:
+//  - Contains Firestore reads/mapping for single room details and attendees.
 //
-
+//  Defined in this file:
+//  - FirebaseRoomDetailsRepository fetch methods and data mappers.
+//
 import Foundation
 import FirebaseFirestore
 
 final class FirebaseRoomDetailsRepository {
     private let db = Firestore.firestore()
 
-    func fetchRoom(roomId: String) async throws -> RoomDetail {
+    func fetchRoom(roomId: String) async throws -> RoomDetail { // Handles fetchRoom flow.
         let ref = db.collection("rooms").document(roomId)
         let snap: DocumentSnapshot
         do {
@@ -28,7 +31,7 @@ final class FirebaseRoomDetailsRepository {
         let title = data["title"] as? String ?? "Untitled"
         let location = data["location"] as? String ?? ""
         let description = data["description"] as? String ?? ""
-        let fixedRaidCost = (data["fixedRaidCost"] as? Int) ?? 10
+        let fixedRaidCost = (data["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
 
         // Mushroom target
         let colorRaw = (data["targetColor"] as? String) ?? "All"
@@ -42,7 +45,7 @@ final class FirebaseRoomDetailsRepository {
         )
 
         // Meta
-        let maxPlayers = data["maxPlayers"] as? Int ?? 10
+        let maxPlayers = data["maxPlayers"] as? Int ?? AppConfig.Mushroom.defaultMaxPlayersPerRoom
 
         let lastRaidAt = (data["lastSuccessfulRaidAt"] as? Timestamp)?.dateValue()
 
@@ -60,7 +63,7 @@ final class FirebaseRoomDetailsRepository {
         )
     }
 
-    func fetchAttendees(roomId: String) async throws -> [RoomAttendee] {
+    func fetchAttendees(roomId: String) async throws -> [RoomAttendee] { // Handles fetchAttendees flow.
         // Most useful sort: high deposit first
         // (single-field orderBy in a subcollection does NOT require composite index)
         let query = db.collection("rooms")

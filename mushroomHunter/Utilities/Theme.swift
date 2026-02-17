@@ -1,3 +1,13 @@
+//
+//  Theme.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Defines shared app visual styling values and themed gradients.
+//
+//  Defined in this file:
+//  - Theme color/background utility functions for consistent visuals.
+//
 import SwiftUI
 
 enum Theme {
@@ -36,8 +46,7 @@ enum Theme {
 }
 
 struct ThemedBackground: View {
-    @Environment(\.colorScheme) private var scheme
-
+    @Environment(\.colorScheme) private var scheme // State or dependency property.
     var body: some View {
         Theme.backgroundGradient(for: scheme)
             .ignoresSafeArea()

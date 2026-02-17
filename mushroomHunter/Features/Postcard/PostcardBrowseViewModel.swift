@@ -1,40 +1,48 @@
+//
+//  PostcardBrowseViewModel.swift
+//  mushroomHunter
+//
+//  Purpose:
+//  - Owns postcard browse state, filter/search options, and data loading.
+//
+//  Defined in this file:
+//  - PostcardBrowseViewModel query/filter/sort logic for listings.
+//
 import Foundation
 import SwiftUI
 import Combine
 
 @MainActor
 final class PostcardBrowseViewModel: ObservableObject {
-    @Published var listings: [PostcardListing] = []
-    @Published var isLoading: Bool = false
-    @Published var errorMessage: String? = nil
-
-    @Published var query: String = ""
-    @Published var selectedCountry: String = "All"
-    @Published var selectedProvince: String = "All"
-    @Published var sortOrder: PostcardSortOrder = .newest
-
+    @Published var listings: [PostcardListing] = [] // State or dependency property.
+    @Published var isLoading: Bool = false // State or dependency property.
+    @Published var errorMessage: String? = nil // State or dependency property.
+    @Published var query: String = "" // State or dependency property.
+    @Published var selectedCountry: String = "All" // State or dependency property.
+    @Published var selectedProvince: String = "All" // State or dependency property.
+    @Published var sortOrder: PostcardSortOrder = .newest // State or dependency property.
     private let repo = FirebasePostcardRepository()
     private var searchTask: Task<Void, Never>? = nil
 
-    func loadIfNeeded() async {
+    func loadIfNeeded() async { // Handles loadIfNeeded flow.
         if listings.isEmpty {
             await refresh()
         }
     }
 
-    func refresh() async {
+    func refresh() async { // Handles refresh flow.
         await fetchForQuery(query)
     }
 
-    func scheduleSearch() {
+    func scheduleSearch() { // Handles scheduleSearch flow.
         searchTask?.cancel()
         searchTask = Task {
-            try? await Task.sleep(nanoseconds: 350_000_000)
+            try? await Task.sleep(nanoseconds: AppConfig.Postcard.searchDebounceNanoseconds)
             await fetchForQuery(query)
         }
     }
 
-    func fetchForQuery(_ rawQuery: String) async {
+    func fetchForQuery(_ rawQuery: String) async { // Handles fetchForQuery flow.
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -43,11 +51,11 @@ final class PostcardBrowseViewModel: ObservableObject {
         do {
             let results: [PostcardListing]
             if let first = tokens.first {
-                results = try await withTimeout(seconds: 10) {
+                results = try await withTimeout(seconds: AppConfig.Network.requestTimeoutSeconds) {
                     try await self.repo.searchByToken(first)
                 }
             } else {
-                results = try await withTimeout(seconds: 10) {
+                results = try await withTimeout(seconds: AppConfig.Network.requestTimeoutSeconds) {
                     try await self.repo.fetchRecent()
                 }
             }
@@ -100,7 +108,7 @@ final class PostcardBrowseViewModel: ObservableObject {
         return Array(set).sorted()
     }
 
-    func normalizeProvinceSelection() {
+    func normalizeProvinceSelection() { // Handles normalizeProvinceSelection flow.
         if selectedProvince != "All" && !availableProvinces.contains(selectedProvince) {
             selectedProvince = "All"
         }

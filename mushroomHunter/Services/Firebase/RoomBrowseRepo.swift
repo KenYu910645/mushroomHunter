@@ -1,10 +1,13 @@
 //
-//  FirebaseBrowseRepository.swift
+//  RoomBrowseRepo.swift
 //  mushroomHunter
 //
-//  Created by Ken on 2/2/2026.
+//  Purpose:
+//  - Contains Firestore reads and mapping for Mushroom room browse listings.
 //
-
+//  Defined in this file:
+//  - RoomListing model and Firebase browse query/mapper methods.
+//
 import Foundation
 import FirebaseFirestore
 
@@ -24,7 +27,7 @@ struct RoomListing: Identifiable, Hashable {
 
 final class FirebaseBrowseRepository {
     private let db = Firestore.firestore()
-    func fetchOpenListings(limit: Int = 50) async throws -> [RoomListing] {
+    func fetchOpenListings(limit: Int = AppConfig.Mushroom.browseListFetchLimit) async throws -> [RoomListing] { // Handles fetchOpenListings flow.
         // ✅ Must match your createRoom(): collection is "rooms"
         let q = db.collection("rooms")
             .order(by: "createdAt", descending: true)
@@ -46,7 +49,7 @@ final class FirebaseBrowseRepository {
                 ?? "normal"
 
             let joined = data["joinedCount"] as? Int ?? 0
-            let maxPlayers = data["maxPlayers"] as? Int ?? 10
+            let maxPlayers = data["maxPlayers"] as? Int ?? AppConfig.Mushroom.defaultMaxPlayersPerRoom
             let targetColor = (data["targetColor"] as? String) ?? ""
             let targetAttribute = (data["targetAttribute"] as? String) ?? ""
             let targetSize = (data["targetSize"] as? String) ?? ""

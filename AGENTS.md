@@ -29,17 +29,19 @@ Rule: any code change that affects behavior must update the relevant markdown fi
 This is the source-of-truth feature map. Keep it updated whenever files are added/moved.
 
 ### MUSHROOM (`MUSHROOM.md`)
-- `mushroomHunter/Features/Mushroom/BrowseView.swift`
-- `mushroomHunter/Features/Mushroom/HostView.swift`
+- `mushroomHunter/Features/Mushroom/RoomBrowseView.swift`
+- `mushroomHunter/Features/Mushroom/RoomHostView.swift`
 - `mushroomHunter/Features/Mushroom/RoomDetailsView.swift`
 - `mushroomHunter/Features/Mushroom/RoomDetailsSubViews.swift`
 - `mushroomHunter/Features/Mushroom/RoomDetailsViewModel.swift`
 - `mushroomHunter/Features/Mushroom/RoomDetailsModels.swift`
-- `mushroomHunter/Services/Firebase/FirebaseBrowseRepository.swift`
-- `mushroomHunter/Services/Firebase/FirebaseHostRepository.swift`
-- `mushroomHunter/Services/Firebase/FirebaseRoomDetailsRepository.swift`
-- `mushroomHunter/Services/Firebase/FirebaseRoomActionsRepository.swift`
+- `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift` (shared browse header with honey/search/create actions)
+- `mushroomHunter/Services/Firebase/RoomBrowseRepo.swift`
+- `mushroomHunter/Services/Firebase/RoomHostRepo.swift`
+- `mushroomHunter/Services/Firebase/RoomDetailsRepo.swift`
+- `mushroomHunter/Services/Firebase/RoomActionsRepo.swift`
 - `mushroomHunter/Utilities/RoomInviteLink.swift`
+- `mushroomHunter/Utilities/AppConfig.swift` (owner-managed mushroom defaults, limits, and option sets)
 - Cloud Functions in `functions/index.js`:
   - `sendRaidConfirmationPush`
   - `notifyHostRaidConfirmationResult`
@@ -48,9 +50,11 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Postcard/PostcardTabView.swift`
 - `mushroomHunter/Features/Postcard/PostcardBrowseViewModel.swift`
 - `mushroomHunter/Features/Postcard/PostcardModels.swift`
-- `mushroomHunter/Services/Firebase/FirebasePostcardRepository.swift`
+- `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift` (shared browse header with honey/search/create actions)
+- `mushroomHunter/Services/Firebase/PostcardRepo.swift`
 - `mushroomHunter/Services/Firebase/FirebasePostcardImageUploader.swift`
 - `mushroomHunter/Utilities/SearchTokens.swift`
+- `mushroomHunter/Utilities/AppConfig.swift` (owner-managed postcard caps, list limits, and timeout windows)
 - Cloud Functions in `functions/index.js`:
   - `sendPostcardOrderCreatedPush`
   - `sendPostcardShippedPush`
@@ -59,9 +63,10 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 ### PROFILE (`PROFILE.md`)
 - `mushroomHunter/Features/Profile/ProfileView.swift`
 - `mushroomHunter/Features/Profile/ProfileTextField.swift`
-- `mushroomHunter/Services/Firebase/FirebaseProfileHostRepository.swift`
-- `mushroomHunter/Services/Firebase/FirebaseFeedbackRepository.swift`
+- `mushroomHunter/Services/Firebase/ProfileHostRepo.swift`
+- `mushroomHunter/Services/Firebase/FeedbackRepo.swift`
 - `mushroomHunter/Session/SessionStore.swift` (profile fields, user sync, honey/stars sync)
+- `mushroomHunter/Utilities/AppConfig.swift` (owner-managed profile validation and shared limits)
 - Cloud Functions in `functions/index.js`:
   - `sendFeedbackNotificationEmail`
 

@@ -3,10 +3,11 @@
 ## Related Files
 - `mushroomHunter/Features/Profile/ProfileView.swift`: profile UI, settings, feedback compose, about page, and user-owned content sections.
 - `mushroomHunter/Features/Profile/ProfileTextField.swift`: reusable `UITextField` bridge used by profile edit/create screens (select-all on focus, keyboard/input configuration).
-- `mushroomHunter/Services/Firebase/FirebaseProfileHostRepository.swift`: Firestore queries for hosted/joined mushroom rooms shown in profile.
-- `mushroomHunter/Services/Firebase/FirebaseFeedbackRepository.swift`: writes in-app feedback submissions to Firestore `feedbackSubmissions`.
-- `mushroomHunter/Services/Firebase/FirebasePostcardRepository.swift`: Firestore queries for on-shelf and ordered postcards shown in profile.
+- `mushroomHunter/Services/Firebase/ProfileHostRepo.swift`: Firestore queries for hosted/joined mushroom rooms shown in profile.
+- `mushroomHunter/Services/Firebase/FeedbackRepo.swift`: writes in-app feedback submissions to Firestore `feedbackSubmissions`.
+- `mushroomHunter/Services/Firebase/PostcardRepo.swift`: Firestore queries for on-shelf and ordered postcards shown in profile.
 - `mushroomHunter/Session/SessionStore.swift`: profile state storage and sync (display name, friend code, stars, honey, limits, tokens).
+- `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed profile constraints (friend code length) and shared list limits.
 - `functions/index.js`: server-side email trigger for profile feedback submissions.
 
 ## Feature Coverage
@@ -14,6 +15,8 @@
   - Display name
   - Friend code
   - Stars/reputation (displayed community value)
+- Profile tab top area now uses shared `BrowseViewTopActionBar` in honey-only mode (no search/create actions).
+- Community section no longer includes a separate honey row.
 - Profile tab includes user-related content views:
   - Joined mushroom rooms
   - Hosted mushroom rooms
