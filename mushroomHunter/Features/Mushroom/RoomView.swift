@@ -1,23 +1,23 @@
 //
-//  RoomDetailsView.swift
+//  RoomView.swift
 //  mushroomHunter
 //
 //  Purpose:
 //  - Renders the Mushroom room details screen and user actions UI.
 //
 //  Defined in this file:
-//  - RoomDetailsView layout and presentation/alert flow glue.
+//  - RoomView layout and presentation/alert flow glue.
 //
 import SwiftUI
 import UIKit
 
-struct RoomDetailsView: View {
+struct RoomView: View {
     @Environment(\.dismiss) private var dismiss // State or dependency property.
     @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     @Environment(\.colorScheme) private var scheme // State or dependency property.
     let onRoomClosed: (() -> Void)?
 
-    @StateObject private var vm: RoomDetailsViewModel // State or dependency property.
+    @StateObject private var vm: RoomViewModel // State or dependency property.
     @State private var editingRoom: RoomDetail? = nil // State or dependency property.
     @State private var showJoinSheet: Bool = false // State or dependency property.
     @State private var joinDepositAmount: Int = 0 // State or dependency property.
@@ -52,7 +52,7 @@ struct RoomDetailsView: View {
     @State private var rejectAttendeeName: String = "" // State or dependency property.
     @State private var showInviteSheet: Bool = false // State or dependency property.
     /// ✅ New initializer: pass VM from caller (RoomBrowseView already does this)
-    init(vm: RoomDetailsViewModel, onRoomClosed: (() -> Void)? = nil) { // Initializes this type.
+    init(vm: RoomViewModel, onRoomClosed: (() -> Void)? = nil) { // Initializes this type.
         _vm = StateObject(wrappedValue: vm)
         self.onRoomClosed = onRoomClosed
     }
@@ -78,7 +78,7 @@ struct RoomDetailsView: View {
         .sheet(item: $editingRoom, onDismiss: {
             Task { await vm.load() }
         }) { room in
-            RoomHostView(
+            RoomFormView(
                 vm: HostViewModel(session: session, room: room),
                 onCloseRoom: {
                     Task {
@@ -778,5 +778,132 @@ struct RoomDetailsView: View {
         guard showNextRoundAfterRating else { return }
         showNextRoundAfterRating = false
         showNextRoundAlert = true
+    }
+}
+
+private struct AttendeeRow: View {
+    let attendee: RoomAttendee // Attendee model rendered by this row.
+    let isHostAttendee: Bool // True when this attendee is the room host.
+    let isHostViewing: Bool // True when the current user viewing this screen is host.
+    let isPendingConfirmation: Bool // True when attendee has a pending raid confirmation.
+    let isRejectedConfirmation: Bool // True when attendee raid confirmation was rejected.
+    let onKick: () -> Void // Callback to kick this attendee from the room.
+    let onResolve: () -> Void // Callback to resolve rejected confirmation state.
+    let onCopyFriendCode: (String) -> Void // Callback to copy attendee friend code.
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(attendee.name)
+                    .font(.headline)
+                    .lineLimit(1)
+
+                Spacer()
+
+                HStack(spacing: 6) {
+                    Text(attendee.friendCodeFormatted)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    Button {
+                        onCopyFriendCode(attendee.friendCode)
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(LocalizedStringKey("room_copy_attendee_code_accessibility"))
+                }
+            }
+
+            HStack(spacing: 10) {
+                if isHostAttendee {
+                    Text(LocalizedStringKey("room_status_host"))
+                        .font(.footnote)
+                        .foregroundStyle(.blue)
+                } else {
+                    if isPendingConfirmation {
+                        Text(LocalizedStringKey("room_status_waiting_confirm"))
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                    }
+
+                    if isRejectedConfirmation {
+                        Text(LocalizedStringKey("room_status_rejected"))
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+
+                    if !isPendingConfirmation, !isRejectedConfirmation {
+                        Text(LocalizedStringKey("room_status_ready"))
+                            .font(.footnote)
+                            .foregroundStyle(.green)
+                    }
+                }
+
+                Spacer()
+
+                if !isHostAttendee {
+                    HStack(spacing: 4) {
+                        Image("HoneyIcon")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
+                        Text(String(format: NSLocalizedString("room_bid_honey_format", comment: ""), attendee.depositHoney))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                }
+
+                Label("\(attendee.stars)", systemImage: "star.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                if isHostViewing && !isHostAttendee {
+                    Menu {
+                        Button(role: .destructive) {
+                            onKick()
+                        } label: {
+                            Label(LocalizedStringKey("room_kick"), systemImage: "person.fill.xmark")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title3)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            HStack {
+                Spacer()
+                if isHostViewing, isRejectedConfirmation, !isHostAttendee {
+                    Button(LocalizedStringKey("room_reject_resolve")) {
+                        onResolve()
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.red)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct RoomInviteSheet: View {
+    let roomTitle: String // Title rendered in invite hint text.
+    let inviteURL: URL? // Room invite URL encoded into QR/share actions.
+    let onCopyInviteLink: (String) -> Void // Callback when user copies invite link.
+
+    var body: some View {
+        InviteShareSheet(
+            titleKey: LocalizedStringKey("room_invite_title"),
+            hintText: String(format: NSLocalizedString("room_invite_hint", comment: ""), roomTitle),
+            inviteURL: inviteURL,
+            shareButtonKey: LocalizedStringKey("room_invite_share_button"),
+            copyButtonKey: LocalizedStringKey("room_invite_copy_button"),
+            unavailableDescriptionKey: LocalizedStringKey("room_invite_link_unavailable"),
+            onCopyInviteLink: onCopyInviteLink
+        )
     }
 }

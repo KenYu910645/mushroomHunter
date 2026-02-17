@@ -1,12 +1,12 @@
 //
-//  RoomHostView.swift
+//  RoomFormView.swift
 //  mushroomHunter
 //
 //  Purpose:
 //  - Implements the room host/create-edit screen in Mushroom feature.
 //
 //  Defined in this file:
-//  - HostViewModel and RoomHostView form logic and validation.
+//  - HostViewModel and RoomFormView create/edit form logic and validation.
 //
 import SwiftUI
 import Combine
@@ -33,21 +33,21 @@ final class HostViewModel: ObservableObject {
     let mode: Mode
 
     // Inputs
-    @Published var hostName: String = NSLocalizedString("host_room_default_name", comment: "") // State or dependency property.
-    @Published var countryCode: String = Locale.current.region?.identifier ?? AppConfig.Mushroom.defaultHostCountryCode // State or dependency property.
-    @Published var city: String = NSLocalizedString("host_city_default", comment: "") // State or dependency property.
-    @Published var otherMessage: String = NSLocalizedString("host_default_description", comment: "") // State or dependency property.
-    @Published var fixedRaidCost: Int = AppConfig.Mushroom.defaultFixedRaidCost // State or dependency property.
+    @Published var hostName: String = NSLocalizedString("host_room_default_name", comment: "") // User-entered room title shown in browse/detail screens.
+    @Published var countryCode: String = Locale.current.region?.identifier ?? AppConfig.Mushroom.defaultHostCountryCode // Selected ISO country code for room location.
+    @Published var city: String = NSLocalizedString("host_city_default", comment: "") // User-entered city/area portion of room location.
+    @Published var otherMessage: String = NSLocalizedString("host_default_description", comment: "") // Optional room description displayed to joiners.
+    @Published var fixedRaidCost: Int = AppConfig.Mushroom.defaultFixedRaidCost // Minimum honey deposit required for joining.
     // UI State
-    @Published var showSuccessAlert: Bool = false // State or dependency property.
-    @Published var successRoomId: String? = nil // State or dependency property.
-    @Published var errorMessage: String? = nil // State or dependency property.
-    @Published var isSubmitting: Bool = false // State or dependency property.
-    @Published var showLimitAlert: Bool = false // State or dependency property.
-    @Published var limitAlertMessage: String = "" // State or dependency property.
-    @Published var showNameError: Bool = false // State or dependency property.
-    @Published var showAreaError: Bool = false // State or dependency property.
-    @Published var showRequiredAlert: Bool = false // State or dependency property.
+    @Published var showSuccessAlert: Bool = false // Presents success alert after create/update request finishes.
+    @Published var successRoomId: String? = nil // Stores created/updated room id for downstream actions.
+    @Published var errorMessage: String? = nil // Inline error text shown above submit action.
+    @Published var isSubmitting: Bool = false // Locks inputs and shows progress during submit request.
+    @Published var showLimitAlert: Bool = false // Presents host-limit alert when backend rejects room count.
+    @Published var limitAlertMessage: String = "" // Localized message content displayed in limit alert.
+    @Published var showNameError: Bool = false // Marks room name field as required when empty.
+    @Published var showAreaError: Bool = false // Marks city field as required when empty.
+    @Published var showRequiredAlert: Bool = false // Presents aggregate required-fields alert on invalid submit.
     // Limits
     static let hostNameMaxChars = 30
     static let otherMaxChars = 100
@@ -278,15 +278,15 @@ final class HostViewModel: ObservableObject {
 
 // MARK: - View
 
-struct RoomHostView: View {
-    @Environment(\.dismiss) private var dismiss // State or dependency property.
-    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
-    @Environment(\.colorScheme) private var scheme // State or dependency property.
-    @StateObject private var vm: HostViewModel // State or dependency property.
+struct RoomFormView: View {
+    @Environment(\.dismiss) private var dismiss // Dismiss action for closing the modal form.
+    @EnvironmentObject private var session: UserSessionStore // Shared user session injected from app root.
+    @Environment(\.colorScheme) private var scheme // Color scheme used to pick themed background gradient.
+    @StateObject private var vm: HostViewModel // View model that owns form values and submit state.
     private let onCloseRoom: (() -> Void)?
-    @State private var isNameFirstResponder: Bool = false // State or dependency property.
-    @State private var isAreaFirstResponder: Bool = false // State or dependency property.
-    @State private var isDescriptionFirstResponder: Bool = false // State or dependency property.
+    @State private var isNameFirstResponder: Bool = false // Focus flag for room-name input.
+    @State private var isAreaFirstResponder: Bool = false // Focus flag for city input.
+    @State private var isDescriptionFirstResponder: Bool = false // Focus flag for description editor.
     init(vm: HostViewModel, onCloseRoom: (() -> Void)? = nil) { // Initializes this type.
         _vm = StateObject(wrappedValue: vm)
         self.onCloseRoom = onCloseRoom

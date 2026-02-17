@@ -1,5 +1,5 @@
 //
-//  UserSessionStore+Wallet.swift
+//  UserWallet.swift
 //  mushroomHunter
 //
 //  Purpose:

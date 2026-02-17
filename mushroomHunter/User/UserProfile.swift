@@ -1,5 +1,5 @@
 //
-//  UserSessionStore+Profile.swift
+//  UserProfile.swift
 //  mushroomHunter
 //
 //  Purpose:

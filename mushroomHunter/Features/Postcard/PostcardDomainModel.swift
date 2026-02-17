@@ -1,5 +1,5 @@
 //
-//  PostcardModels.swift
+//  PostcardDomainModel.swift
 //  mushroomHunter
 //
 //  Purpose:

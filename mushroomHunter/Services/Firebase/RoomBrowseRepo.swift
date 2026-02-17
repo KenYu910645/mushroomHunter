@@ -55,7 +55,7 @@ final class FirebaseBrowseRepository {
             let targetSize = (data["targetSize"] as? String) ?? ""
 
             return RoomListing(
-                id: doc.documentID, // ✅ This must be used for RoomDetails route
+                id: doc.documentID, // ✅ This must be used for Room route
                 title: title,
                 mushroomType: mushroomType.capitalized,
                 targetColor: targetColor,

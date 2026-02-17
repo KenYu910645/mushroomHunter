@@ -1,15 +1,21 @@
 # Profile
 
 ## Related Files
-- `mushroomHunter/Features/Profile/ProfileView.swift`: profile UI, settings, feedback compose, about page, and user-owned content sections.
+- `mushroomHunter/Features/Profile/ProfileView.swift`: profile container UI, account/community/sign-out sections, top-right edit-profile sheet entry, settings sheet routing, and feedback success handling.
+- `mushroomHunter/Features/Profile/ProfileFormView.swift`: shared profile form used by profile edit sheet (edit mode) and signin profile completion (create mode).
+- `mushroomHunter/Features/Profile/ProfileMushroom.swift`: joined/hosted mushroom list sections used by profile.
+- `mushroomHunter/Features/Profile/ProfilePostcard.swift`: on-shelf/ordered postcard list sections and shared postcard summary row used by profile.
+- `mushroomHunter/Features/Profile/FeedbackView.swift`: in-app feedback compose view and submission payload model.
+- `mushroomHunter/Features/Profile/AboutView.swift`: settings-linked about page with phone/email/website links.
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared `UITextField` bridge used by profile edit/create and mushroom host forms (select-all on focus, keyboard/input configuration).
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared `UITextView` bridge used by multiline fields (select-all on focus).
 - `mushroomHunter/Services/Firebase/ProfileHostRepo.swift`: Firestore queries for hosted/joined mushroom rooms shown in profile.
 - `mushroomHunter/Services/Firebase/FeedbackRepo.swift`: writes in-app feedback submissions to Firestore `feedbackSubmissions`.
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`: Firestore queries for on-shelf and ordered postcards shown in profile.
-- `mushroomHunter/Session/UserSessionStore+Auth.swift`: shared user session state container.
-- `mushroomHunter/Session/UserSessionStore+Profile.swift`: profile state storage and sync (display name, friend code, limits, tokens).
-- `mushroomHunter/Session/UserSessionStore+Wallet.swift`: stars/honey state helpers.
+- `mushroomHunter/User/UserSessionStore.swift`: shared user session state container.
+- `mushroomHunter/User/UserAuth.swift`: authentication methods for the shared session container.
+- `mushroomHunter/User/UserProfile.swift`: profile state storage and sync (display name, friend code, limits, tokens).
+- `mushroomHunter/User/UserWallet.swift`: stars/honey state helpers.
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed profile constraints (friend code length) and shared list limits.
 - `functions/index.js`: server-side email trigger for profile feedback submissions.
 
@@ -18,6 +24,7 @@
   - Display name
   - Friend code
   - Stars/reputation (displayed community value)
+- Profile identity values are read-only in profile section rows; editing is triggered by the top-right pencil button and presented in a dedicated edit-profile sheet.
 - Profile tab top area now uses shared `BrowseViewTopActionBar` in honey-only mode (no search/create actions).
 - Community section no longer includes a separate honey row.
 - Profile tab includes user-related content views:

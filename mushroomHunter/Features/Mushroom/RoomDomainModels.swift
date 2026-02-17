@@ -1,5 +1,5 @@
 //
-//  RoomDetailsModels.swift
+//  RoomDomainModels.swift
 //  mushroomHunter
 //
 //  Purpose:
@@ -24,7 +24,7 @@ enum RoomRole: Equatable {
 
 // MARK: - Room data
 
-/// The “room” object your RoomDetails screen needs.
+/// The “room” object your Room screen needs.
 /// Keep it UI-friendly; later we can map Firestore docs into this.
 struct RoomDetail: Identifiable, Equatable {
     let id: String

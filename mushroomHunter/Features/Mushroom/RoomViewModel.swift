@@ -1,12 +1,12 @@
 //
-//  RoomDetailsViewModel.swift
+//  RoomViewModel.swift
 //  mushroomHunter
 //
 //  Purpose:
 //  - Owns room details screen state, loading, and room action orchestration.
 //
 //  Defined in this file:
-//  - RoomDetailsViewModel async data flow and action handlers.
+//  - RoomViewModel async data flow and action handlers.
 //
 import SwiftUI
 import Combine
@@ -14,7 +14,7 @@ import Combine
 // MARK: - ViewModel
 
 @MainActor
-final class RoomDetailsViewModel: ObservableObject {
+final class RoomViewModel: ObservableObject {
     
     // UI state
     @Published private(set) var room: RoomDetail? // State or dependency property.

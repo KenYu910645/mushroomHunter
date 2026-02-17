@@ -24,7 +24,7 @@ struct ContentView: View {
                     if session.isProfileComplete || AppTesting.isUITesting {
                         MainTabView()
                     } else {
-                        CreateProfileView()
+                        ProfileFormView(mode: .create)
                     }
                 } else {
                     LoginView()
@@ -42,7 +42,7 @@ struct ContentView: View {
         .sheet(item: $pendingRoute) { route in
             switch route {
             case .room(let id):
-                RoomDetailsView(vm: RoomDetailsViewModel(roomId: id, session: session))
+                RoomView(vm: RoomViewModel(roomId: id, session: session))
                     .environmentObject(session)
             case .postcard(let id):
                 PostcardLinkDestinationView(postcardId: id)
@@ -89,7 +89,7 @@ private struct PostcardLinkDestinationView: View {
         NavigationStack {
             Group {
                 if let listing {
-                    PostcardDetailView(listing: listing)
+                    PostcardView(listing: listing)
                 } else if isLoading {
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -134,7 +134,7 @@ struct MainTabView: View {
                 }
                 .accessibilityIdentifier("tab_browse")
 
-            PostcardTabView()
+            PostcardBrowseView()
                 .tabItem {
                     Label("tab_postcard", systemImage: "mail")
                 }

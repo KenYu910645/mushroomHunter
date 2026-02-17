@@ -1,12 +1,14 @@
 # Mushroom
 
 ## Related Files
-- `mushroomHunter/Features/Mushroom/RoomBrowseView.swift`: mushroom room list UI and room entry points, with inline documentation for browse state, filters, and join flow.
-- `mushroomHunter/Features/Mushroom/RoomHostView.swift`: host room create/edit UI and form validation.
-- `mushroomHunter/Features/Mushroom/RoomDetailsView.swift`: room details UI, attendee actions, finish flow, invite share sheet.
-- `mushroomHunter/Features/Mushroom/RoomDetailsSubViews.swift`: extracted room-details subviews (attendee row, invite sheet/QR) and shared invite QR sheet used by postcard detail.
-- `mushroomHunter/Features/Mushroom/RoomDetailsViewModel.swift`: room details state, role/join gating logic, and action orchestration.
-- `mushroomHunter/Features/Mushroom/RoomDetailsModels.swift`: room/attendee data models and status enums.
+- `mushroomHunter/Features/Mushroom/RoomBrowseView.swift`: mushroom room list UI and room entry points.
+- `mushroomHunter/Features/Mushroom/RoomBrowseViewModel.swift`: browse state, filtering, and join flow orchestration.
+- `mushroomHunter/Features/Mushroom/RoomFormView.swift`: host room create/edit UI and form validation.
+- `mushroomHunter/Features/Mushroom/RoomView.swift`: room details UI, attendee actions, finish flow, invite share sheet.
+- `mushroomHunter/Features/Mushroom/RoomView.swift`: includes room-specific invite sheet wrapper used by room view.
+- `mushroomHunter/Features/Shared/InviteShareSheet.swift`: shared invite QR sheet component used by room and postcard screens.
+- `mushroomHunter/Features/Mushroom/RoomViewModel.swift`: room details state, role/join gating logic, and action orchestration.
+- `mushroomHunter/Features/Mushroom/RoomDomainModels.swift`: room/attendee data models and status enums.
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens.
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by host/profile/profile-create forms.
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared auto-select text editor wrapper used by host description input.
@@ -120,12 +122,13 @@ This guide focuses on:
 ## Source Of Truth
 Main implementation files:
 - `/Users/ken/Desktop/mushroomHunter/mushroomHunter/Services/Firebase/RoomActionsRepo.swift`
-- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/Features/Mushroom/RoomDetailsViewModel.swift`
-- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/Features/Mushroom/RoomDetailsView.swift`
+- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/Features/Mushroom/RoomViewModel.swift`
+- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/Features/Mushroom/RoomView.swift`
 - `/Users/ken/Desktop/mushroomHunter/functions/index.js`
-- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/Session/UserSessionStore+Auth.swift`
-- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/Session/UserSessionStore+Profile.swift`
-- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/Session/UserSessionStore+Wallet.swift`
+- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/User/UserSessionStore.swift`
+- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/User/UserAuth.swift`
+- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/User/UserProfile.swift`
+- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/User/UserWallet.swift`
 - `/Users/ken/Desktop/mushroomHunter/mushroomHunter/App/mushroomHunterApp.swift`
 - `/Users/ken/Desktop/mushroomHunter/mushroomHunter/App/ContentView.swift`
 
@@ -202,7 +205,7 @@ Cloud Function `sendRaidConfirmationPush` triggers on attendee doc update:
 - Payload data includes: `type=raid_confirmation`, `roomId`, `room_id`
 
 ### 4. Attendee Decision
-RoomDetails screen shows confirmation alert when current attendee is `WaitingConfirmation`.
+Room screen shows confirmation alert when current attendee is `WaitingConfirmation`.
 
 If attendee accepts (`accept=true`):
 - Transaction moves honey:
@@ -256,8 +259,8 @@ Host rates attendee:
 Push/deeplink routing path:
 1. iOS receives push (`roomId` or `room_id` in payload)
 2. App posts `Notification.Name.didOpenRoomFromPush`
-3. `ContentView` opens `RoomDetailsView` sheet for that room
-4. `RoomDetailsViewModel.load()` fetches attendee statuses and recomputes pending states
+3. `ContentView` opens `RoomView` sheet for that room
+4. `RoomViewModel.load()` fetches attendee statuses and recomputes pending states
 
 ## Data Mutation Map (Quick Reference)
 - `joinRoom(...)`

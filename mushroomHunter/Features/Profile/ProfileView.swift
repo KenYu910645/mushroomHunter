@@ -3,47 +3,83 @@
 //  mushroomHunter
 //
 //  Purpose:
-//  - Implements profile tab UI, editing, settings actions, and related lists.
-//
-//  Defined in this file:
-//  - ProfileView sections, form state, and profile-linked data views.
+//  - Renders the profile tab and related sheets (profile edit, settings, feedback, about).
+//  - Loads profile-owned mushroom/postcard lists and profile summary information.
 //
 import SwiftUI
 
+/// Profile landing screen that surfaces user identity, reputation, owned rooms, and postcard activity.
 struct ProfileView: View {
-    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
-    @Environment(\.colorScheme) private var scheme // State or dependency property.
-    // Name editing
-    @State private var isEditingName: Bool = false // State or dependency property.
-    @State private var draftName: String = "" // State or dependency property.
-    @State private var nameFieldFocused: Bool = false // State or dependency property.
-    // Friend code editing
-    @State private var isEditingFriendCode: Bool = false // State or dependency property.
-    @State private var draftFriendCode: String = "" // State or dependency property.
-    @State private var friendCodeError: String? = nil // State or dependency property.
-    @State private var friendCodeFieldFocused: Bool = false // State or dependency property.
-    // host room
-    @State private var isHostLoading: Bool = false // State or dependency property.
-    @State private var hostErrorMessage: String? = nil // State or dependency property.
-    @State private var hostedRooms: [HostedRoomSummary] = [] // State or dependency property.
-    @State private var isJoinedLoading: Bool = false // State or dependency property.
-    @State private var joinedErrorMessage: String? = nil // State or dependency property.
-    @State private var joinedRooms: [JoinedRoomSummary] = [] // State or dependency property.
-    @State private var isOnShelfLoading: Bool = false // State or dependency property.
-    @State private var onShelfErrorMessage: String? = nil // State or dependency property.
-    @State private var onShelfPostcards: [PostcardListing] = [] // State or dependency property.
-    @State private var isOrderedLoading: Bool = false // State or dependency property.
-    @State private var orderedErrorMessage: String? = nil // State or dependency property.
-    @State private var orderedPostcards: [PostcardListing] = [] // State or dependency property.
-    @State private var selectedPostcard: PostcardListing? = nil // State or dependency property.
-    @State private var showSettingsSheet: Bool = false // State or dependency property.
-    @State private var showFeedbackSheet: Bool = false // State or dependency property.
-    @State private var showFeedbackSubmittedAlert: Bool = false // State or dependency property.
-    @State private var pendingOpenFeedbackFromSettings: Bool = false // State or dependency property.
+    /// Shared authenticated session state used across tabs.
+    @EnvironmentObject private var session: UserSessionStore
+
+    /// Current color scheme used to keep background styling consistent with app theme.
+    @Environment(\.colorScheme) private var colorScheme
+
+    /// Shows loading indicator for hosted room fetches.
+    @State private var isHostedRoomsLoading: Bool = false
+
+    /// Presents a hosted room fetch failure message.
+    @State private var hostedRoomsErrorMessage: String? = nil
+
+    /// Profile-hosted room list.
+    @State private var hostedRooms: [HostedRoomSummary] = []
+
+    /// Shows loading indicator for joined room fetches.
+    @State private var isJoinedRoomsLoading: Bool = false
+
+    /// Presents a joined room fetch failure message.
+    @State private var joinedRoomsErrorMessage: String? = nil
+
+    /// Profile-joined room list.
+    @State private var joinedRooms: [JoinedRoomSummary] = []
+
+    /// Shows loading indicator for on-shelf postcard fetches.
+    @State private var isOnShelfPostcardsLoading: Bool = false
+
+    /// Presents an on-shelf postcard fetch failure message.
+    @State private var onShelfPostcardsErrorMessage: String? = nil
+
+    /// Postcards currently listed by the user.
+    @State private var onShelfPostcards: [PostcardListing] = []
+
+    /// Shows loading indicator for ordered postcard fetches.
+    @State private var isOrderedPostcardsLoading: Bool = false
+
+    /// Presents an ordered postcard fetch failure message.
+    @State private var orderedPostcardsErrorMessage: String? = nil
+
+    /// Postcards purchased by the user.
+    @State private var orderedPostcards: [PostcardListing] = []
+
+    /// Selected postcard used to push into postcard detail.
+    @State private var selectedPostcard: PostcardListing? = nil
+
+    /// Controls settings sheet presentation.
+    @State private var isSettingsSheetPresented: Bool = false
+
+    /// Controls feedback compose sheet presentation.
+    @State private var isFeedbackSheetPresented: Bool = false
+
+    /// Controls edit-profile sheet presentation.
+    @State private var isEditProfileSheetPresented: Bool = false
+
+    /// Shows success alert after feedback submission.
+    @State private var isFeedbackSubmittedAlertPresented: Bool = false
+
+    /// Defers feedback sheet presentation until settings sheet finishes dismissing.
+    @State private var shouldOpenFeedbackAfterSettingsDismiss: Bool = false
+
+    /// Repository that loads hosted and joined room summaries.
     private let hostRepo = FirebaseProfileHostRepository()
+
+    /// Repository that loads profile postcard lists.
     private let postcardRepo = FirebasePostcardRepository()
+
+    /// Repository that submits feedback payloads.
     private let feedbackRepo = FirebaseFeedbackRepository()
 
+    /// Main profile screen composition and modal routing.
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -61,234 +97,32 @@ struct ProfileView: View {
                 .padding(.top, 8)
 
                 Form {
-                    // MARK: Account
-                    Section {
-                    // Name row
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text(LocalizedStringKey("profile_name"))
-                            Spacer()
-                            if isEditingName {
-                                SelectAllTextField(
-                                    placeholderKey: "profile_name_placeholder",
-                                    text: $draftName,
-                                    isFirstResponder: $nameFieldFocused,
-                                    textAlignment: .right
-                                )
-                                .frame(height: 22)
-                                .multilineTextAlignment(.trailing)
-                            } else {
-                                Text(session.displayName)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            Button {
-                                if !isEditingName {
-                                    isEditingName = true
-                                    draftName = session.displayName
-                                    nameFieldFocused = true
-                                }
-                            } label: {
-                                Image(systemName: "pencil")
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(LocalizedStringKey("profile_edit_name_accessibility"))
-                        }
-
-                        if isEditingName {
-                            Text(LocalizedStringKey("profile_name_hint"))
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-
-                            HStack {
-                                Button(LocalizedStringKey("common_cancel")) {
-                                    draftName = session.displayName
-                                    isEditingName = false
-                                    nameFieldFocused = false
-                                }
-
-                                Spacer()
-
-                                Button(LocalizedStringKey("common_save")) {
-                                    let trimmed = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    guard !trimmed.isEmpty else { return }
-                                    session.updateDisplayName(trimmed)
-                                    isEditingName = false
-                                    nameFieldFocused = false
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .disabled(draftName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            }
-                        }
-                    }
-                    .padding(.vertical, 4)
-
-                    // Friend code row
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text(LocalizedStringKey("profile_friend_code"))
-                            Spacer()
-
-                            if isEditingFriendCode {
-                                SelectAllTextField(
-                                    placeholderKey: "profile_friend_code_placeholder",
-                                    text: $draftFriendCode,
-                                    isFirstResponder: $friendCodeFieldFocused,
-                                    keyboardType: .numberPad,
-                                    textContentType: .oneTimeCode,
-                                    autocapitalization: .none,
-                                    autocorrection: .no,
-                                    textAlignment: .right
-                                ) { newValue in
-                                    let digitsOnly = newValue.filter { $0.isNumber }
-                                    if digitsOnly != newValue {
-                                        draftFriendCode = digitsOnly
-                                    }
-                                    if draftFriendCode.count > AppConfig.Profile.friendCodeDigits {
-                                        draftFriendCode = String(draftFriendCode.prefix(AppConfig.Profile.friendCodeDigits))
-                                    }
-                                    friendCodeError = validateFriendCode(draftFriendCode)
-                                }
-                                .frame(height: 22)
-                                .multilineTextAlignment(.trailing)
-                            } else {
-                                let raw = session.friendCode
-                                Text(raw.isEmpty ? "XXXX XXXX XXXX" : formatFriendCode(raw))
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            Button {
-                                if !isEditingFriendCode {
-                                    isEditingFriendCode = true
-                                    draftFriendCode = session.friendCode.filter { $0.isNumber }
-                                    friendCodeError = validateFriendCode(draftFriendCode)
-                                    friendCodeFieldFocused = true
-                                }
-                            } label: {
-                                Image(systemName: "pencil")
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(LocalizedStringKey("profile_edit_friend_code_accessibility"))
-                        }
-
-                        if isEditingFriendCode {
-                            Text(LocalizedStringKey("profile_friend_code_hint"))
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-
-                            if let err = friendCodeError {
-                                Text(err)
-                                    .font(.footnote)
-                                    .foregroundStyle(.red)
-                            }
-
-                            HStack {
-                                Button(LocalizedStringKey("common_cancel")) {
-                                    draftFriendCode = session.friendCode.filter { $0.isNumber }
-                                    friendCodeError = nil
-                                    isEditingFriendCode = false
-                                    friendCodeFieldFocused = false
-                                }
-
-                                Spacer()
-
-                                Button(LocalizedStringKey("common_save")) {
-                                    if validateFriendCode(draftFriendCode) == nil {
-                                        session.updateFriendCode(draftFriendCode)
-                                        isEditingFriendCode = false
-                                        friendCodeError = nil
-                                        friendCodeFieldFocused = false
-                                    } else {
-                                        friendCodeError = validateFriendCode(draftFriendCode)
-                                    }
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .disabled(validateFriendCode(draftFriendCode) != nil)
-                            }
-                        }
-                    }
-                    .padding(.vertical, 4)
-
-                } header: {
-                    Text(LocalizedStringKey("profile_id_section"))
-                }
-
-                // MARK: - Community
-                Section {
-                    HStack {
-                        Label(LocalizedStringKey("profile_stars"), systemImage: "star.fill")
-                            .foregroundStyle(.yellow)
-
-                        Spacer()
-
-                        Text("\(session.stars)")
-                            .font(.headline)
-                            .monospacedDigit()
-                    }
-                } header: {
-                    Text(LocalizedStringKey("profile_community_section"))
-                } footer: {
-                    Text(LocalizedStringKey("profile_community_footer"))
-                }
-
-                Section {
-                    JoinedRoomsSection(
-                        rooms: joinedRooms,
-                        isLoading: isJoinedLoading,
-                        errorMessage: joinedErrorMessage
-                    )
-                    .equatable()
-
-                    HostedRoomsSection(
-                        rooms: hostedRooms,
-                        isLoading: isHostLoading,
-                        errorMessage: hostErrorMessage,
-                        onRoomClosed: { Task { await loadHostedRooms() } }
-                    )
-                    .equatable()
-                } header: {
-                    Text(LocalizedStringKey("profile_mushroom_section"))
-                }
-
-                Section {
-                    OnShelfPostcardsSection(
-                        postcards: onShelfPostcards,
-                        isLoading: isOnShelfLoading,
-                        errorMessage: onShelfErrorMessage,
-                        onSelectPostcard: { selectedPostcard = $0 }
-                    )
-                    .equatable()
-
-                    OrderedPostcardsSection(
-                        postcards: orderedPostcards,
-                        isLoading: isOrderedLoading,
-                        errorMessage: orderedErrorMessage,
-                        onSelectPostcard: { selectedPostcard = $0 }
-                    )
-                    .equatable()
-                } header: {
-                    Text(LocalizedStringKey("profile_postcard_section"))
-                }
-                // MARK: Sign out
-                Section {
-                    Button(role: .destructive) {
-                        session.signOut()
-                    } label: {
-                        Text(LocalizedStringKey("profile_sign_out"))
-                    }
-                    }
+                    accountSection
+                    communitySection
+                    mushroomSection
+                    postcardSection
+                    signOutSection
                 }
             }
             .navigationTitle(LocalizedStringKey("profile_title"))
             .navigationDestination(item: $selectedPostcard) { postcard in
-                PostcardDetailView(listing: postcard)
+                PostcardView(listing: postcard)
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.backgroundGradient(for: scheme))
+            .background(Theme.backgroundGradient(for: colorScheme))
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
-                        showSettingsSheet = true
+                        isEditProfileSheetPresented = true
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .accessibilityLabel(LocalizedStringKey("edit_profile_title"))
+                }
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        isSettingsSheetPresented = true
                     } label: {
                         Image(systemName: "gearshape")
                     }
@@ -302,562 +136,281 @@ struct ProfileView: View {
                 await refreshAllProfileData()
             }
         }
-        .sheet(isPresented: $showSettingsSheet, onDismiss: {
-            if pendingOpenFeedbackFromSettings {
-                pendingOpenFeedbackFromSettings = false
-                showFeedbackSheet = true
+        .sheet(isPresented: $isSettingsSheetPresented, onDismiss: {
+            if shouldOpenFeedbackAfterSettingsDismiss {
+                shouldOpenFeedbackAfterSettingsDismiss = false
+                isFeedbackSheetPresented = true
             }
         }) {
-            NavigationStack {
-                List {
-                    Section {
-                        Button {
-                            pendingOpenFeedbackFromSettings = true
-                            showSettingsSheet = false
-                        } label: {
-                            Label(LocalizedStringKey("settings_feedback_button"), systemImage: "envelope")
-                        }
-
-                        NavigationLink {
-                            AboutView()
-                        } label: {
-                            Label(LocalizedStringKey("settings_about_button"), systemImage: "info.circle")
-                        }
-                    }
-
-                }
-                .navigationTitle(LocalizedStringKey("settings_title"))
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button {
-                            showSettingsSheet = false
-                        } label: {
-                            Image(systemName: "xmark")
-                        }
-                    }
-                }
-            }
+            settingsSheet
         }
-        .sheet(isPresented: $showFeedbackSheet) {
-            FeedbackComposeSheet { draft in
-                let uid = session.authUid
+        .sheet(isPresented: $isFeedbackSheetPresented) {
+            FeedbackView { draft in
+                let userId = session.authUid
                 let displayName = session.displayName
                 let friendCode = session.friendCode
                 try await feedbackRepo.submitFeedback(
-                    userId: uid,
+                    userId: userId,
                     displayName: displayName,
                     friendCode: friendCode,
                     subject: draft.subject,
                     message: draft.body
                 )
                 await MainActor.run {
-                    showFeedbackSubmittedAlert = true
+                    isFeedbackSubmittedAlertPresented = true
                 }
             }
         }
-        .alert(LocalizedStringKey("feedback_submit_success_title"), isPresented: $showFeedbackSubmittedAlert) {
+        .sheet(isPresented: $isEditProfileSheetPresented) {
+            ProfileFormView(mode: .edit)
+        }
+        .alert(
+            LocalizedStringKey("feedback_submit_success_title"),
+            isPresented: $isFeedbackSubmittedAlertPresented
+        ) {
             Button(LocalizedStringKey("common_done")) { }
         } message: {
             Text(LocalizedStringKey("feedback_submit_success_message"))
         }
-        .onAppear {
-            draftName = session.displayName
-            draftFriendCode = session.friendCode
-            friendCodeError = nil
+    }
+
+    /// Section that displays profile identity values.
+    private var accountSection: some View {
+        Section {
+            HStack {
+                Text(LocalizedStringKey("profile_name"))
+                Spacer()
+                Text(session.displayName)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+
+            HStack {
+                Text(LocalizedStringKey("profile_friend_code"))
+                Spacer()
+                let rawFriendCode = session.friendCode
+                Text(rawFriendCode.isEmpty ? "XXXX XXXX XXXX" : formatFriendCode(rawFriendCode))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+        } header: {
+            Text(LocalizedStringKey("profile_id_section"))
         }
     }
 
-    // MARK: - Validation / Formatting
+    /// Section that shows the stars value accumulated by community activity.
+    private var communitySection: some View {
+        Section {
+            HStack {
+                Label(LocalizedStringKey("profile_stars"), systemImage: "star.fill")
+                    .foregroundStyle(.yellow)
 
-    private func validateFriendCode(_ code: String) -> String? {
-        if code.isEmpty { return NSLocalizedString("profile_friend_code_error_required", comment: "") }
-        if code.count != AppConfig.Profile.friendCodeDigits { return NSLocalizedString("profile_friend_code_error_length", comment: "") }
-        if code.allSatisfy({ $0.isNumber }) == false { return NSLocalizedString("profile_friend_code_error_digits", comment: "") }
-        return nil
+                Spacer()
+
+                Text("\(session.stars)")
+                    .font(.headline)
+                    .monospacedDigit()
+            }
+        } header: {
+            Text(LocalizedStringKey("profile_community_section"))
+        } footer: {
+            Text(LocalizedStringKey("profile_community_footer"))
+        }
     }
 
+    /// Section that displays mushroom rooms the user has joined or hosted.
+    private var mushroomSection: some View {
+        Section {
+            JoinedRoomsSection(
+                rooms: joinedRooms,
+                isLoading: isJoinedRoomsLoading,
+                errorMessage: joinedRoomsErrorMessage
+            )
+            .equatable()
+
+            HostedRoomsSection(
+                rooms: hostedRooms,
+                isLoading: isHostedRoomsLoading,
+                errorMessage: hostedRoomsErrorMessage,
+                onRoomClosed: { Task { await loadHostedRooms() } }
+            )
+            .equatable()
+        } header: {
+            Text(LocalizedStringKey("profile_mushroom_section"))
+        }
+    }
+
+    /// Section that displays postcards listed by the user and ordered by the user.
+    private var postcardSection: some View {
+        Section {
+            OnShelfPostcardsSection(
+                postcards: onShelfPostcards,
+                isLoading: isOnShelfPostcardsLoading,
+                errorMessage: onShelfPostcardsErrorMessage,
+                onSelectPostcard: { selectedPostcard = $0 }
+            )
+            .equatable()
+
+            OrderedPostcardsSection(
+                postcards: orderedPostcards,
+                isLoading: isOrderedPostcardsLoading,
+                errorMessage: orderedPostcardsErrorMessage,
+                onSelectPostcard: { selectedPostcard = $0 }
+            )
+            .equatable()
+        } header: {
+            Text(LocalizedStringKey("profile_postcard_section"))
+        }
+    }
+
+    /// Section that exposes sign-out action.
+    private var signOutSection: some View {
+        Section {
+            Button(role: .destructive) {
+                session.signOut()
+            } label: {
+                Text(LocalizedStringKey("profile_sign_out"))
+            }
+        }
+    }
+
+    /// Settings sheet that routes to feedback and about pages.
+    private var settingsSheet: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Button {
+                        shouldOpenFeedbackAfterSettingsDismiss = true
+                        isSettingsSheetPresented = false
+                    } label: {
+                        Label(LocalizedStringKey("settings_feedback_button"), systemImage: "envelope")
+                    }
+
+                    NavigationLink {
+                        AboutView()
+                    } label: {
+                        Label(LocalizedStringKey("settings_about_button"), systemImage: "info.circle")
+                    }
+                }
+            }
+            .navigationTitle(LocalizedStringKey("settings_title"))
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        isSettingsSheetPresented = false
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                }
+            }
+        }
+    }
+
+    /// Refreshes profile data from backend and loads all profile tab collections in parallel.
     private func refreshAllProfileData() async {
         await session.refreshProfileFromBackend()
-        async let joinedRoomsLoad = loadJoinedRooms()
-        async let hostedRoomsLoad = loadHostedRooms()
-        async let onShelfLoad = loadOnShelfPostcards()
-        async let orderedLoad = loadOrderedPostcards()
-        _ = await (joinedRoomsLoad, hostedRoomsLoad, onShelfLoad, orderedLoad)
+        async let joinedRoomsLoad: Void = loadJoinedRooms()
+        async let hostedRoomsLoad: Void = loadHostedRooms()
+        async let onShelfPostcardsLoad: Void = loadOnShelfPostcards()
+        async let orderedPostcardsLoad: Void = loadOrderedPostcards()
+        _ = await (joinedRoomsLoad, hostedRoomsLoad, onShelfPostcardsLoad, orderedPostcardsLoad)
     }
 
+    /// Loads rooms hosted by the current user and updates local hosted-room state.
     private func loadHostedRooms() async {
         guard session.isLoggedIn else { return }
 
-        isHostLoading = true
-        hostErrorMessage = nil
-        defer { isHostLoading = false }
+        isHostedRoomsLoading = true
+        hostedRoomsErrorMessage = nil
+        defer { isHostedRoomsLoading = false }
 
         do {
-            let rooms = try await hostRepo.fetchMyHostedRooms(limit: AppConfig.Mushroom.profileListFetchLimit)
-            hostedRooms = rooms
+            hostedRooms = try await hostRepo.fetchMyHostedRooms(limit: AppConfig.Mushroom.profileListFetchLimit)
         } catch is CancellationError {
             return
         } catch {
             print("❌ loadHostedRooms error:", error)
-            hostErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            hostedRoomsErrorMessage = resolvedErrorMessage(from: error)
         }
     }
 
+    /// Loads rooms joined by the current user and updates local joined-room state.
     private func loadJoinedRooms() async {
         guard session.isLoggedIn else { return }
 
-        isJoinedLoading = true
-        joinedErrorMessage = nil
-        defer { isJoinedLoading = false }
+        isJoinedRoomsLoading = true
+        joinedRoomsErrorMessage = nil
+        defer { isJoinedRoomsLoading = false }
 
         do {
-            let rooms = try await hostRepo.fetchMyJoinedRooms(limit: AppConfig.Mushroom.profileListFetchLimit)
-            joinedRooms = rooms
+            joinedRooms = try await hostRepo.fetchMyJoinedRooms(limit: AppConfig.Mushroom.profileListFetchLimit)
         } catch is CancellationError {
             return
         } catch {
             print("❌ loadJoinedRooms error:", error)
-            joinedErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            joinedRoomsErrorMessage = resolvedErrorMessage(from: error)
         }
     }
 
+    /// Loads active listings owned by the current user and updates on-shelf postcard state.
     private func loadOnShelfPostcards() async {
-        guard let uid = session.authUid, !uid.isEmpty else { return }
+        guard let userId = session.authUid, userId.isEmpty == false else { return }
 
-        isOnShelfLoading = true
-        onShelfErrorMessage = nil
-        defer { isOnShelfLoading = false }
+        isOnShelfPostcardsLoading = true
+        onShelfPostcardsErrorMessage = nil
+        defer { isOnShelfPostcardsLoading = false }
 
         do {
-            onShelfPostcards = try await postcardRepo.fetchMyListings(userId: uid, limit: AppConfig.Postcard.profileListFetchLimit)
+            onShelfPostcards = try await postcardRepo.fetchMyListings(
+                userId: userId,
+                limit: AppConfig.Postcard.profileListFetchLimit
+            )
         } catch is CancellationError {
             return
         } catch {
             print("❌ loadOnShelfPostcards error:", error)
-            onShelfErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            onShelfPostcardsErrorMessage = resolvedErrorMessage(from: error)
         }
     }
 
+    /// Loads ordered postcards for the current user and updates ordered postcard state.
     private func loadOrderedPostcards() async {
-        guard let uid = session.authUid, !uid.isEmpty else { return }
+        guard let userId = session.authUid, userId.isEmpty == false else { return }
 
-        isOrderedLoading = true
-        orderedErrorMessage = nil
-        defer { isOrderedLoading = false }
+        isOrderedPostcardsLoading = true
+        orderedPostcardsErrorMessage = nil
+        defer { isOrderedPostcardsLoading = false }
 
         do {
-            orderedPostcards = try await postcardRepo.fetchMyOrderedPostcards(userId: uid, limit: AppConfig.Postcard.profileListFetchLimit)
+            orderedPostcards = try await postcardRepo.fetchMyOrderedPostcards(
+                userId: userId,
+                limit: AppConfig.Postcard.profileListFetchLimit
+            )
         } catch is CancellationError {
             return
         } catch {
             print("❌ loadOrderedPostcards error:", error)
-            orderedErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            orderedPostcardsErrorMessage = resolvedErrorMessage(from: error)
         }
     }
 
+    /// Formats raw friend code into grouped chunks for read-only presentation.
     private func formatFriendCode(_ raw: String) -> String {
-        let digits = raw.filter { $0.isNumber }
-        var parts: [String] = []
-        var i = digits.startIndex
-        while i < digits.endIndex {
-            let end = digits.index(i, offsetBy: 4, limitedBy: digits.endIndex) ?? digits.endIndex
-            parts.append(String(digits[i..<end]))
-            i = end
+        let digits = raw.filter(\.isNumber)
+        var chunks: [String] = []
+        var chunkStart = digits.startIndex
+
+        while chunkStart < digits.endIndex {
+            let chunkEnd = digits.index(chunkStart, offsetBy: 4, limitedBy: digits.endIndex) ?? digits.endIndex
+            chunks.append(String(digits[chunkStart..<chunkEnd]))
+            chunkStart = chunkEnd
         }
-        return parts.joined(separator: " ")
+
+        return chunks.joined(separator: " ")
     }
 
-}
-
-private struct FeedbackMailDraft {
-    let subject: String
-    let body: String
-}
-
-private struct FeedbackComposeSheet: View {
-    @Environment(\.dismiss) private var dismiss // State or dependency property.
-    @State private var subject: String = "" // State or dependency property.
-    @State private var subjectFieldFocused: Bool = false // State or dependency property.
-    @State private var messageText: String = "" // State or dependency property.
-    @State private var messageFieldFocused: Bool = false // State or dependency property.
-    @State private var isSubmitting: Bool = false // State or dependency property.
-    @State private var submissionError: String? = nil // State or dependency property.
-    @State private var showSubmissionErrorAlert: Bool = false // State or dependency property.
-    let onSend: (FeedbackMailDraft) async throws -> Void
-
-    private var trimmedBody: String {
-        messageText.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    var bodyView: some View {
-        Form {
-            Section {
-                SelectAllTextField(
-                    placeholderKey: "feedback_subject_placeholder",
-                    text: $subject,
-                    isFirstResponder: $subjectFieldFocused,
-                    textAlignment: .left
-                )
-                .frame(height: 22)
-                SelectAllTextEditor(
-                    text: $messageText,
-                    isFirstResponder: $messageFieldFocused,
-                    autocapitalization: .sentences,
-                    autocorrection: .yes
-                )
-                .padding(.horizontal, 2)
-                    .frame(minHeight: 180)
-            } header: {
-                Text(LocalizedStringKey("feedback_message_label"))
-            }
-        }
-    }
-
-    var body: some View {
-        NavigationStack {
-            bodyView
-                .navigationTitle(LocalizedStringKey("feedback_title"))
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button(LocalizedStringKey("common_cancel")) {
-                            dismiss()
-                        }
-                        .disabled(isSubmitting)
-                    }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(LocalizedStringKey("feedback_send_button")) {
-                            let fallback = NSLocalizedString("feedback_subject_default", comment: "")
-                            let finalSubject = subject.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                ? fallback
-                                : subject.trimmingCharacters(in: .whitespacesAndNewlines)
-                            let draft = FeedbackMailDraft(subject: finalSubject, body: trimmedBody)
-                            Task {
-                                isSubmitting = true
-                                do {
-                                    try await onSend(draft)
-                                    dismiss()
-                                } catch {
-                                    submissionError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-                                    showSubmissionErrorAlert = true
-                                }
-                                isSubmitting = false
-                            }
-                        }
-                        .disabled(trimmedBody.isEmpty || isSubmitting)
-                    }
-                }
-                .overlay {
-                    if isSubmitting {
-                        ZStack {
-                            Color.black.opacity(0.12)
-                            ProgressView()
-                        }
-                        .ignoresSafeArea()
-                    }
-                }
-                .alert(LocalizedStringKey("feedback_submit_failed_title"), isPresented: $showSubmissionErrorAlert) {
-                    Button(LocalizedStringKey("common_done")) { }
-                } message: {
-                    Text(submissionError ?? NSLocalizedString("feedback_submit_failed_message", comment: ""))
-                }
-        }
-    }
-}
-
-private struct AboutView: View {
-    var body: some View {
-        List {
-            Section {
-                Text(LocalizedStringKey("about_intro"))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section {
-                LabeledContent(LocalizedStringKey("about_phone_label")) {
-                    Link("+886 930200769", destination: URL(string: "tel://886930200769")!)
-                }
-
-                LabeledContent(LocalizedStringKey("about_email_label")) {
-                    Link("kenyu910645@gmail.com", destination: URL(string: "mailto:kenyu910645@gmail.com")!)
-                }
-
-                LabeledContent(LocalizedStringKey("about_website_label")) {
-                    Link("kenyu910645.github.io", destination: URL(string: "https://kenyu910645.github.io/")!)
-                }
-            }
-        }
-        .navigationTitle(LocalizedStringKey("about_title"))
-    }
-}
-
-private struct JoinedRoomsSection: View, Equatable {
-    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
-    let rooms: [JoinedRoomSummary]
-    let isLoading: Bool
-    let errorMessage: String?
-
-    static func == (lhs: JoinedRoomsSection, rhs: JoinedRoomsSection) -> Bool {
-        lhs.rooms == rhs.rooms
-            && lhs.isLoading == rhs.isLoading
-            && lhs.errorMessage == rhs.errorMessage
-    }
-
-    var body: some View {
-        Group {
-            if let err = errorMessage {
-                Text(err)
-                    .foregroundStyle(.red)
-            }
-
-            if isLoading && rooms.isEmpty {
-                HStack {
-                    ProgressView()
-                    Text(LocalizedStringKey("profile_loading_joined"))
-                        .foregroundStyle(.secondary)
-                }
-            } else if rooms.isEmpty {
-                ContentUnavailableView(
-                    LocalizedStringKey("profile_joined_empty_title"),
-                    systemImage: "person.2"
-                )
-                .listRowBackground(Color.clear)
-            } else {
-                ForEach(rooms) { r in
-                    NavigationLink {
-                        RoomDetailsView(
-                            vm: RoomDetailsViewModel(roomId: r.id, session: session)
-                        )
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(r.title)
-                                    .font(.headline)
-                                    .lineLimit(1)
-                            }
-
-                            HStack(spacing: 8) {
-                                Text(String(format: NSLocalizedString("profile_players_format", comment: ""), r.joinedCount, r.maxPlayers))
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                                Text(String(format: NSLocalizedString("profile_bid_format", comment: ""), r.depositHoney))
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct HostedRoomsSection: View, Equatable {
-    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
-    let rooms: [HostedRoomSummary]
-    let isLoading: Bool
-    let errorMessage: String?
-    let onRoomClosed: () -> Void
-
-    static func == (lhs: HostedRoomsSection, rhs: HostedRoomsSection) -> Bool {
-        lhs.rooms == rhs.rooms
-            && lhs.isLoading == rhs.isLoading
-            && lhs.errorMessage == rhs.errorMessage
-    }
-
-    var body: some View {
-        Group {
-            if let err = errorMessage {
-                Text(err)
-                    .foregroundStyle(.red)
-            }
-
-            if isLoading && rooms.isEmpty {
-                HStack {
-                    ProgressView()
-                    Text(LocalizedStringKey("profile_loading_hosted"))
-                        .foregroundStyle(.secondary)
-                }
-            } else if rooms.isEmpty {
-                ContentUnavailableView(
-                    LocalizedStringKey("profile_hosted_empty_title"),
-                    systemImage: "house"
-                )
-                .listRowBackground(Color.clear)
-            } else {
-                ForEach(rooms) { r in
-                    NavigationLink {
-                        RoomDetailsView(
-                            vm: RoomDetailsViewModel(roomId: r.id, session: session),
-                            onRoomClosed: onRoomClosed
-                        )
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(r.title)
-                                    .font(.headline)
-                                    .lineLimit(1)
-                            }
-
-                            Text(String(format: NSLocalizedString("profile_players_format", comment: ""), r.joinedCount, r.maxPlayers))
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct OnShelfPostcardsSection: View, Equatable {
-    let postcards: [PostcardListing]
-    let isLoading: Bool
-    let errorMessage: String?
-    let onSelectPostcard: (PostcardListing) -> Void
-
-    static func == (lhs: OnShelfPostcardsSection, rhs: OnShelfPostcardsSection) -> Bool {
-        lhs.postcards == rhs.postcards
-            && lhs.isLoading == rhs.isLoading
-            && lhs.errorMessage == rhs.errorMessage
-    }
-
-    var body: some View {
-        Group {
-            Text(LocalizedStringKey("profile_postcard_onshelf_section"))
-                .font(.subheadline.weight(.semibold))
-
-            if let err = errorMessage {
-                Text(err)
-                    .foregroundStyle(.red)
-            }
-
-            if isLoading && postcards.isEmpty {
-                HStack {
-                    ProgressView()
-                    Text(LocalizedStringKey("profile_loading_onshelf_postcards"))
-                        .foregroundStyle(.secondary)
-                }
-            } else if postcards.isEmpty {
-                ContentUnavailableView(
-                    LocalizedStringKey("profile_onshelf_empty_title"),
-                    systemImage: "shippingbox"
-                )
-                .listRowBackground(Color.clear)
-            } else {
-                ForEach(postcards) { postcard in
-                    Button {
-                        onSelectPostcard(postcard)
-                    } label: {
-                        HStack(alignment: .top, spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(postcard.title)
-                                    .font(.headline)
-                                    .lineLimit(1)
-
-                                Text(postcard.location.shortLabel)
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                            Spacer(minLength: 8)
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(spacing: 4) {
-                                    Text("\(postcard.priceHoney)")
-                                        .font(.footnote)
-                                        .foregroundStyle(.secondary)
-                                        .monospacedDigit()
-                                    Image("HoneyIcon")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 12, height: 12)
-                                }
-                                Text("x\(postcard.stock)")
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                                    .monospacedDigit()
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-}
-
-private struct OrderedPostcardsSection: View, Equatable {
-    let postcards: [PostcardListing]
-    let isLoading: Bool
-    let errorMessage: String?
-    let onSelectPostcard: (PostcardListing) -> Void
-
-    static func == (lhs: OrderedPostcardsSection, rhs: OrderedPostcardsSection) -> Bool {
-        lhs.postcards == rhs.postcards
-            && lhs.isLoading == rhs.isLoading
-            && lhs.errorMessage == rhs.errorMessage
-    }
-
-    var body: some View {
-        Group {
-            Text(LocalizedStringKey("profile_postcard_ordered_section"))
-                .font(.subheadline.weight(.semibold))
-
-            if let err = errorMessage {
-                Text(err)
-                    .foregroundStyle(.red)
-            }
-
-            if isLoading && postcards.isEmpty {
-                HStack {
-                    ProgressView()
-                    Text(LocalizedStringKey("profile_loading_ordered_postcards"))
-                        .foregroundStyle(.secondary)
-                }
-            } else if postcards.isEmpty {
-                ContentUnavailableView(
-                    LocalizedStringKey("profile_ordered_empty_title"),
-                    systemImage: "cart"
-                )
-                .listRowBackground(Color.clear)
-            } else {
-                ForEach(postcards) { postcard in
-                    Button {
-                        onSelectPostcard(postcard)
-                    } label: {
-                        HStack(alignment: .top, spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(postcard.title)
-                                    .font(.headline)
-                                    .lineLimit(1)
-
-                                Text(postcard.location.shortLabel)
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                            Spacer(minLength: 8)
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(spacing: 4) {
-                                    Text("\(postcard.priceHoney)")
-                                        .font(.footnote)
-                                        .foregroundStyle(.secondary)
-                                        .monospacedDigit()
-                                    Image("HoneyIcon")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 12, height: 12)
-                                }
-                                Text("x\(postcard.stock)")
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                                    .monospacedDigit()
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
+    /// Converts an error into the best available user-facing message.
+    private func resolvedErrorMessage(from error: Error) -> String {
+        (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
     }
 }

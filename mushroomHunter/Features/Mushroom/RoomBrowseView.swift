@@ -6,152 +6,26 @@
 //  - Implements the Mushroom tab browse screen, filtering, and join flow.
 //
 //  Defined in this file:
-//  - BrowseViewModel, RoomBrowseView, and row rendering helpers.
+//  - RoomBrowseView and row rendering helpers.
 //
 import SwiftUI
-import Combine
-import FirebaseFirestore
-
-// MARK: - ViewModel
-
-@MainActor
-final class BrowseViewModel: ObservableObject {
-    @Published var listings: [RoomListing] = [] // Raw room data fetched from backend/mock source.
-    @Published var isLoading: Bool = false // True while fetching listings or executing a join action.
-    @Published var errorMessage: String? = nil // User-facing fetch/join error text shown in list section.
-    @Published var showJoinLimitAlert: Bool = false // Controls presentation of "max joined rooms reached" alert.
-    @Published var joinLimitMessage: String = "" // Message body shown in join-limit alert.
-
-    @Published var query: String = "" // Free-text query used by local filter.
-    @Published var showOnlyAvailable: Bool = true // When true, hide rooms that are already full.
-
-    private let repo = FirebaseBrowseRepository() // Read-only room list source.
-    private let actions = FirebaseRoomActionsRepository() // Join action source (writes attendee/honey-related data).
-    private unowned let session: UserSessionStore // Shared session state (honey, profile fields, limits).
-
-    init(session: UserSessionStore) { // Initializes this type.
-        self.session = session
-    }
-
-    /// Fetches latest open room listings from backend (or fixture in UI-test mode).
-    func fetchListings() async { // Handles fetchListings flow.
-        isLoading = true
-        errorMessage = nil
-        defer { isLoading = false }
-
-        if AppTesting.useMockRooms {
-            listings = [AppTesting.fixtureListing()]
-            return
-        }
-
-        do {
-            let docs = try await withTimeout(seconds: AppConfig.Network.requestTimeoutSeconds) {
-                try await self.repo.fetchOpenListings(limit: AppConfig.Mushroom.browseListFetchLimit)
-            }
-            self.listings = docs
-        } catch is CancellationError {
-            // ✅ Normal: user pulled to refresh / view reloaded / task replaced
-            return
-        } catch {
-            print("❌ fetchListings error:", error)
-            self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        }
-    }
-
-    /// Attempts to join a room with user-entered honey deposit.
-    ///
-    /// Validation done here:
-    /// - Deposit must be positive.
-    /// - User must have enough honey balance.
-    ///
-    /// Side effects:
-    /// - On success, spends honey locally and refreshes listing counts.
-    /// - On max-join-limit error, surfaces dedicated alert state.
-    func join(_ listing: RoomListing, deposit: Honey) async { // Handles join flow.
-        if AppTesting.useMockRooms {
-            guard deposit > 0 else {
-                let msg = NSLocalizedString("browse_error_enter_bid", comment: "")
-                self.errorMessage = msg
-                return
-            }
-            _ = session.spendHoney(deposit)
-            return
-        }
-
-        let trimmedDeposit = max(0, deposit)
-        guard trimmedDeposit > 0 else {
-            let msg = NSLocalizedString("browse_error_enter_bid", comment: "")
-            self.errorMessage = msg
-            return
-        }
-        guard session.canAffordHoney(trimmedDeposit) else {
-            let msg = String(format: NSLocalizedString("browse_error_not_enough_honey", comment: ""), session.honey)
-            self.errorMessage = msg
-            return
-        }
-        // Optimistically mark loading to disable UI if needed
-        isLoading = true
-        defer { isLoading = false }
-        do {
-            try await withTimeout(seconds: AppConfig.Network.requestTimeoutSeconds) {
-                let balanceAfter = max(0, self.session.honey - trimmedDeposit)
-                try await self.actions.joinRoom(
-                    roomId: listing.id,
-                    initialDepositHoney: trimmedDeposit,
-                    userName: self.session.displayName,
-                    friendCode: self.session.friendCode,
-                    stars: self.session.stars,
-                    attendeeHoney: balanceAfter
-                )
-            }
-            _ = session.spendHoney(trimmedDeposit)
-            // Optionally refresh listings after joining to update counts
-            await fetchListings()
-        } catch {
-            print("❌ join error:", error)
-            if let actionError = error as? RoomActionError,
-               case .maxJoinRoomsReached = actionError {
-                self.joinLimitMessage = actionError.errorDescription ?? ""
-                self.showJoinLimitAlert = true
-            } else {
-                let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-                self.errorMessage = message
-            }
-        }
-    }
-
-    /// Derived list shown by UI after applying:
-    /// - availability filter
-    /// - text search (title/host name)
-    var filteredListings: [RoomListing] {
-        listings.filter { listing in
-            if showOnlyAvailable && listing.joinedPlayers >= listing.maxPlayers { return false }
-
-            let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-            if q.isEmpty { return true }
-            let qq = q.lowercased()
-            return listing.title.lowercased().contains(qq)
-                || (listing.hostName ?? "").lowercased().contains(qq)
-        }
-    }
-}
 
 // MARK: - View
 
 struct RoomBrowseView: View {
     private let session: UserSessionStore // Session object passed from tab root (honey/profile refresh + child view models).
-    @StateObject private var vm: BrowseViewModel // Owns loading/filter/join state for this screen.
+    @StateObject private var vm: RoomBrowseViewModel // Owns loading/filter/join state for this screen.
     @State private var showHostSheet: Bool = false // Controls host-room sheet presentation.
     @State private var pendingJoinListing: RoomListing? = nil // Selected listing for join prompt context.
     @State private var bidText: String = "" // Join prompt text input (digits only).
     @State private var showSearchAlert: Bool = false // Controls search prompt alert.
-    @State private var bidFieldFocused: Bool = false // State or dependency property.
-    @State private var searchFieldFocused: Bool = false // State or dependency property.
+    @State private var bidFieldFocused: Bool = false // Controls first-responder focus for the bid entry field.
+    @State private var searchFieldFocused: Bool = false // Controls first-responder focus for the search input field.
     @Environment(\.colorScheme) private var scheme // Used for themed background.
 
     init(session: UserSessionStore) { // Initializes this type.
         self.session = session
-        _vm = StateObject(wrappedValue: BrowseViewModel(session: session))
+        _vm = StateObject(wrappedValue: RoomBrowseViewModel(session: session))
     }
     
     /// Main browse screen composition:
@@ -173,7 +47,7 @@ struct RoomBrowseView: View {
         }
         .sheet(isPresented: $showHostSheet) {
             // Opens room creation flow from browse header.
-            RoomHostView(vm: HostViewModel(session: session))
+            RoomFormView(vm: HostViewModel(session: session))
                 .environmentObject(session)
         }
         .sheet(item: $pendingJoinListing) { listing in
@@ -307,8 +181,8 @@ struct RoomBrowseView: View {
                     ForEach(vm.filteredListings) { listing in
                         HStack(alignment: .top, spacing: 12) {
                             NavigationLink {
-                                RoomDetailsView(
-                                    vm: RoomDetailsViewModel(roomId: listing.id, session: session)
+                                RoomView(
+                                    vm: RoomViewModel(roomId: listing.id, session: session)
                                 )
                             } label: {
                                 RoomRowContent(listing: listing)

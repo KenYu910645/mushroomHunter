@@ -30,11 +30,13 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 
 ### MUSHROOM (`MUSHROOM.md`)
 - `mushroomHunter/Features/Mushroom/RoomBrowseView.swift`
-- `mushroomHunter/Features/Mushroom/RoomHostView.swift`
-- `mushroomHunter/Features/Mushroom/RoomDetailsView.swift`
-- `mushroomHunter/Features/Mushroom/RoomDetailsSubViews.swift` (room subviews + shared invite QR sheet used by room/postcard)
-- `mushroomHunter/Features/Mushroom/RoomDetailsViewModel.swift`
-- `mushroomHunter/Features/Mushroom/RoomDetailsModels.swift`
+- `mushroomHunter/Features/Mushroom/RoomBrowseViewModel.swift`
+- `mushroomHunter/Features/Mushroom/RoomFormView.swift`
+- `mushroomHunter/Features/Mushroom/RoomView.swift`
+- `mushroomHunter/Features/Mushroom/RoomView.swift` (contains room-specific invite sheet wrapper for room flow)
+- `mushroomHunter/Features/Shared/InviteShareSheet.swift` (shared invite QR sheet used by room/postcard)
+- `mushroomHunter/Features/Mushroom/RoomViewModel.swift`
+- `mushroomHunter/Features/Mushroom/RoomDomainModels.swift`
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift` (shared browse header with honey/search/create actions)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by host/profile/profile-create forms)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by multiline inputs)
@@ -49,15 +51,18 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
   - `notifyHostRaidConfirmationResult`
 
 ### POSTCARD (`POSTCARD.md`)
-- `mushroomHunter/Features/Postcard/PostcardTabView.swift`
+- `mushroomHunter/Features/Postcard/PostcardBrowseView.swift`
+- `mushroomHunter/Features/Postcard/PostcardView.swift`
+- `mushroomHunter/Features/Postcard/PostcardShippingView.swift`
+- `mushroomHunter/Features/Postcard/PostcardFormView.swift`
 - `mushroomHunter/Features/Postcard/PostcardBrowseViewModel.swift`
-- `mushroomHunter/Features/Postcard/PostcardModels.swift`
+- `mushroomHunter/Features/Postcard/PostcardDomainModel.swift`
 - `mushroomHunter/App/mushroomHunterApp.swift` (postcard invite deep-link routing)
 - `mushroomHunter/App/ContentView.swift` (postcard invite deep-link presentation)
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift` (shared browse header with honey/search/create actions)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by postcard/profile/mushroom forms)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by postcard description fields)
-- `mushroomHunter/Features/Mushroom/RoomDetailsSubViews.swift` (shared invite QR sheet used by postcard seller share flow)
+- `mushroomHunter/Features/Shared/InviteShareSheet.swift` (shared invite QR sheet used by postcard seller share flow)
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`
 - `mushroomHunter/Services/Firebase/FirebasePostcardImageUploader.swift`
 - `mushroomHunter/Utilities/RoomInviteLink.swift` (postcard invite link generation/parsing)
@@ -70,24 +75,31 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 
 ### PROFILE (`PROFILE.md`)
 - `mushroomHunter/Features/Profile/ProfileView.swift`
+- `mushroomHunter/Features/Profile/ProfileFormView.swift` (shared create/edit profile form presented from onboarding and profile edit sheet)
+- `mushroomHunter/Features/Profile/ProfileMushroom.swift` (joined/hosted mushroom section views extracted from profile)
+- `mushroomHunter/Features/Profile/ProfilePostcard.swift` (on-shelf/ordered postcard section views extracted from profile)
+- `mushroomHunter/Features/Profile/FeedbackView.swift` (feedback compose view + submission payload model)
+- `mushroomHunter/Features/Profile/AboutView.swift` (about page contact information view)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by profile edit/create)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by profile feedback message)
 - `mushroomHunter/Services/Firebase/ProfileHostRepo.swift`
 - `mushroomHunter/Services/Firebase/FeedbackRepo.swift`
-- `mushroomHunter/Session/UserSessionStore+Auth.swift` (shared user session state container + auth lifecycle)
-- `mushroomHunter/Session/UserSessionStore+Profile.swift` (profile fields, user sync, token sync)
-- `mushroomHunter/Session/UserSessionStore+Wallet.swift` (honey/stars state helpers)
+- `mushroomHunter/User/UserSessionStore.swift` (shared user session state container + local persistence helpers)
+- `mushroomHunter/User/UserAuth.swift` (auth lifecycle and sign-in/sign-out flows)
+- `mushroomHunter/User/UserProfile.swift` (profile fields, user sync, token sync)
+- `mushroomHunter/User/UserWallet.swift` (honey/stars state helpers)
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed profile validation and shared limits)
 - Cloud Functions in `functions/index.js`:
   - `sendFeedbackNotificationEmail`
 
 ### SIGNIN (`SIGNIN.md`)
 - `mushroomHunter/Features/Profile/LoginView.swift`
-- `mushroomHunter/Features/Profile/CreateProfileView.swift`
+- `mushroomHunter/Features/Profile/ProfileFormView.swift` (shared create/edit profile form, signin flow uses create mode)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used in create-profile form)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper for multiline form inputs)
-- `mushroomHunter/Session/UserSessionStore+Auth.swift` (Apple/Google auth + auth state handling)
-- `mushroomHunter/Session/UserSessionStore+Profile.swift` (profile completion persistence/sync)
+- `mushroomHunter/User/UserSessionStore.swift` (main session state container)
+- `mushroomHunter/User/UserAuth.swift` (Apple/Google auth + auth state handling)
+- `mushroomHunter/User/UserProfile.swift` (profile completion persistence/sync)
 - `mushroomHunter/App/ContentView.swift` (auth/profile-complete routing)
 - `mushroomHunter/App/mushroomHunterApp.swift` (URL routing bootstrap)
 
@@ -147,6 +159,8 @@ Commit message format:
 - After you understand the requirement, please scan through the code first, to check whehther these is code can be re-use(leverage exist function/struct/... etc) to help you write code.
 - All files need to contain header comment
 - All function/strcture/variable need to have comment
+- All comments must be meaningful and explain intent/purpose; placeholder comments are forbidden.
+- Do not use generic placeholders such as `// State or dependency property.` or similar non-informative comments.
 
 ## Automated Testing
 - UI test target: `HoneyHubUITests`

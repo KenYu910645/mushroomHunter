@@ -233,6 +233,8 @@
 "profile_title" = "個人資料";
 "create_profile_title" = "建立個人資料";
 "create_profile_button" = "建立個人資料";
+"edit_profile_title" = "編輯個人資料";
+"edit_profile_button" = "儲存個人資料";
 "create_profile_error_title" = "資料未完成";
 "create_profile_error_message" = "請填寫名稱與好友碼以繼續。";
 "create_profile_name_error_required" = "需要填寫名稱。";

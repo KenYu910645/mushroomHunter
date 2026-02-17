@@ -1,9 +1,12 @@
 # Postcard
 
 ## Related Files
-- `mushroomHunter/Features/Postcard/PostcardTabView.swift`: postcard browse/detail/register/edit/shipping UI flow.
+- `mushroomHunter/Features/Postcard/PostcardBrowseView.swift`: postcard tab root + listing browse/search UI and listing cards.
+- `mushroomHunter/Features/Postcard/PostcardView.swift`: postcard detail screen with buyer/seller actions.
+- `mushroomHunter/Features/Postcard/PostcardShippingView.swift`: seller shipping queue and send confirmation flow.
+- `mushroomHunter/Features/Postcard/PostcardFormView.swift`: consolidated postcard create/edit form implementation.
 - `mushroomHunter/Features/Postcard/PostcardBrowseViewModel.swift`: browse filtering, sorting, and refresh state logic.
-- `mushroomHunter/Features/Postcard/PostcardModels.swift`: postcard listing/order/location models and status enums.
+- `mushroomHunter/Features/Postcard/PostcardDomainModel.swift`: postcard listing/order/location models and status enums.
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens.
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by postcard form inputs.
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared auto-select text editor wrapper used by postcard description inputs.
@@ -14,7 +17,7 @@
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed postcard settings (price/stock/text caps, fetch limits, order timeout windows).
 - `mushroomHunter/App/mushroomHunterApp.swift`: handles postcard deep-link routing from invite links.
 - `mushroomHunter/App/ContentView.swift`: presents postcard detail sheet when a postcard invite link is opened.
-- `mushroomHunter/Features/Mushroom/RoomDetailsSubViews.swift`: shared invite QR sheet component reused by postcard detail.
+- `mushroomHunter/Features/Shared/InviteShareSheet.swift`: shared invite QR sheet component reused by postcard detail.
 - `functions/index.js`: server-side push triggers for postcard order/shipping/completion events.
 
 ## Feature Coverage

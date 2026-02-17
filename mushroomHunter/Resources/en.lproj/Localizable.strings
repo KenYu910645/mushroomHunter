@@ -245,6 +245,8 @@
 "profile_title" = "Profile";
 "create_profile_title" = "Create Profile";
 "create_profile_button" = "Create Profile";
+"edit_profile_title" = "Edit Profile";
+"edit_profile_button" = "Save Profile";
 "create_profile_error_title" = "Missing Info";
 "create_profile_error_message" = "Please fill in your name and friend code to continue.";
 "create_profile_name_error_required" = "Name is required.";

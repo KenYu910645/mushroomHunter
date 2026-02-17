@@ -2,11 +2,12 @@
 
 ## Related Files
 - `mushroomHunter/Features/Profile/LoginView.swift`: sign-in UI for Apple and Google login entry points.
-- `mushroomHunter/Features/Profile/CreateProfileView.swift`: first-time profile completion form (name + 12-digit friend code).
+- `mushroomHunter/Features/Profile/ProfileFormView.swift`: shared profile form; signin flow uses create mode for first-time profile completion (name + 12-digit friend code).
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by the create-profile form fields.
-- `mushroomHunter/Session/UserSessionStore+Auth.swift`: authentication and auth state handling.
-- `mushroomHunter/Session/UserSessionStore+Profile.swift`: profile-complete persistence/sync.
-- `mushroomHunter/App/ContentView.swift`: app root routing between login, create-profile, and main tabs.
+- `mushroomHunter/User/UserSessionStore.swift`: shared user session state container.
+- `mushroomHunter/User/UserAuth.swift`: authentication and auth state handling.
+- `mushroomHunter/User/UserProfile.swift`: profile-complete persistence/sync.
+- `mushroomHunter/App/ContentView.swift`: app root routing between login, profile-form create mode, and main tabs.
 - `mushroomHunter/App/mushroomHunterApp.swift`: app bootstrap and URL/open handling for auth and deep links.
 
 ## Feature Coverage
@@ -15,7 +16,7 @@
   - Google Sign-In
 - Auth state routing:
   - Signed out -> `LoginView`
-  - Signed in but profile incomplete -> `CreateProfileView`
+  - Signed in but profile incomplete -> `ProfileFormView(mode: .create)`
   - Signed in and profile complete -> main tab flow
 - First-time user profile completion:
   - Requires display name and 12-digit friend code
@@ -24,9 +25,10 @@
 
 ## Related Implementation
 - `mushroomHunter/Features/Profile/LoginView.swift`
-- `mushroomHunter/Features/Profile/CreateProfileView.swift`
-- `mushroomHunter/Session/UserSessionStore+Auth.swift`
-- `mushroomHunter/Session/UserSessionStore+Profile.swift`
+- `mushroomHunter/Features/Profile/ProfileFormView.swift`
+- `mushroomHunter/User/UserSessionStore.swift`
+- `mushroomHunter/User/UserAuth.swift`
+- `mushroomHunter/User/UserProfile.swift`
 - `mushroomHunter/App/ContentView.swift`
 
 ## Notes
