@@ -13,7 +13,7 @@ import UIKit
 
 struct RoomDetailsView: View {
     @Environment(\.dismiss) private var dismiss // State or dependency property.
-    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     @Environment(\.colorScheme) private var scheme // State or dependency property.
     let onRoomClosed: (() -> Void)?
 

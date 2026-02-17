@@ -11,7 +11,7 @@
 import SwiftUI
 
 struct ProfileView: View {
-    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     @Environment(\.colorScheme) private var scheme // State or dependency property.
     // Name editing
     @State private var isEditingName: Bool = false // State or dependency property.
@@ -592,7 +592,7 @@ private struct AboutView: View {
 }
 
 private struct JoinedRoomsSection: View, Equatable {
-    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     let rooms: [JoinedRoomSummary]
     let isLoading: Bool
     let errorMessage: String?
@@ -653,7 +653,7 @@ private struct JoinedRoomsSection: View, Equatable {
 }
 
 private struct HostedRoomsSection: View, Equatable {
-    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     let rooms: [HostedRoomSummary]
     let isLoading: Bool
     let errorMessage: String?

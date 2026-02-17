@@ -48,13 +48,13 @@ final class RoomDetailsViewModel: ObservableObject {
     @Published private(set) var role: RoomRole = .viewer // State or dependency property.    
     // Dependencies
     private let roomId: String
-    private unowned let session: SessionStore
+    private unowned let session: UserSessionStore
     private let repo = FirebaseRoomDetailsRepository()
     private let actions = FirebaseRoomActionsRepository()
     
     // MARK: Init
     
-    init(roomId: String, session: SessionStore) { // Initializes this type.
+    init(roomId: String, session: UserSessionStore) { // Initializes this type.
         self.roomId = roomId
         self.session = session
         if AppTesting.useMockRooms, roomId == AppTesting.fixtureRoomId {
@@ -210,7 +210,7 @@ final class RoomDetailsViewModel: ObservableObject {
                 errorMessage = String(format: NSLocalizedString("room_error_not_enough_honey", comment: ""), session.honey)
                 return
             }
-            let friendCode = session.friendCode // digits only, from your SessionStore
+            let friendCode = session.friendCode // digits only, from your UserSessionStore
             let balanceAfter = max(0, session.honey - trimmedDeposit)
             try await actions.joinRoom(
                 roomId: room.id,

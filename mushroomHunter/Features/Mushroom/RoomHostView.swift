@@ -27,7 +27,7 @@ final class HostViewModel: ObservableObject {
     }
 
     // Dependencies
-    private unowned let session: SessionStore
+    private unowned let session: UserSessionStore
     private let repo: FirebaseHostRepository
 
     let mode: Mode
@@ -60,13 +60,13 @@ final class HostViewModel: ObservableObject {
         return items.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }()
 
-    init(session: SessionStore, repo: FirebaseHostRepository = FirebaseHostRepository()) { // Initializes this type.
+    init(session: UserSessionStore, repo: FirebaseHostRepository = FirebaseHostRepository()) { // Initializes this type.
         self.session = session
         self.repo = repo
         self.mode = .create
     }
 
-    init(session: SessionStore, room: RoomDetail, repo: FirebaseHostRepository = FirebaseHostRepository()) { // Initializes this type.
+    init(session: UserSessionStore, room: RoomDetail, repo: FirebaseHostRepository = FirebaseHostRepository()) { // Initializes this type.
         self.session = session
         self.repo = repo
         self.mode = .edit(roomId: room.id)
@@ -280,7 +280,7 @@ final class HostViewModel: ObservableObject {
 
 struct RoomHostView: View {
     @Environment(\.dismiss) private var dismiss // State or dependency property.
-    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     @Environment(\.colorScheme) private var scheme // State or dependency property.
     @StateObject private var vm: HostViewModel // State or dependency property.
     private let onCloseRoom: (() -> Void)?

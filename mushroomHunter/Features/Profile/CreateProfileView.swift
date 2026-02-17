@@ -11,7 +11,7 @@
 import SwiftUI
 
 struct CreateProfileView: View {
-    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     @State private var name: String = "" // State or dependency property.
     @State private var friendCode: String = "" // State or dependency property.
     @State private var nameError: String? = nil // State or dependency property.

@@ -74,7 +74,9 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by profile feedback message)
 - `mushroomHunter/Services/Firebase/ProfileHostRepo.swift`
 - `mushroomHunter/Services/Firebase/FeedbackRepo.swift`
-- `mushroomHunter/Session/SessionStore.swift` (profile fields, user sync, honey/stars sync)
+- `mushroomHunter/Session/UserSessionStore+Auth.swift` (shared user session state container + auth lifecycle)
+- `mushroomHunter/Session/UserSessionStore+Profile.swift` (profile fields, user sync, token sync)
+- `mushroomHunter/Session/UserSessionStore+Wallet.swift` (honey/stars state helpers)
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed profile validation and shared limits)
 - Cloud Functions in `functions/index.js`:
   - `sendFeedbackNotificationEmail`
@@ -84,7 +86,8 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Profile/CreateProfileView.swift`
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used in create-profile form)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper for multiline form inputs)
-- `mushroomHunter/Session/SessionStore.swift` (Apple/Google auth + profile completion)
+- `mushroomHunter/Session/UserSessionStore+Auth.swift` (Apple/Google auth + auth state handling)
+- `mushroomHunter/Session/UserSessionStore+Profile.swift` (profile completion persistence/sync)
 - `mushroomHunter/App/ContentView.swift` (auth/profile-complete routing)
 - `mushroomHunter/App/mushroomHunterApp.swift` (URL routing bootstrap)
 

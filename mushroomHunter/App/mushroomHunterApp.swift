@@ -17,7 +17,7 @@ import UserNotifications
 @main
 struct mushroomHunterApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @StateObject private var session = SessionStore() // State or dependency property.
+    @StateObject private var session = UserSessionStore() // State or dependency property.
     init() { // Initializes this type.
         FirebaseApp.configure()
     }

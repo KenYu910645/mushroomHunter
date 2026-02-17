@@ -7,7 +7,9 @@
 - `mushroomHunter/Services/Firebase/ProfileHostRepo.swift`: Firestore queries for hosted/joined mushroom rooms shown in profile.
 - `mushroomHunter/Services/Firebase/FeedbackRepo.swift`: writes in-app feedback submissions to Firestore `feedbackSubmissions`.
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`: Firestore queries for on-shelf and ordered postcards shown in profile.
-- `mushroomHunter/Session/SessionStore.swift`: profile state storage and sync (display name, friend code, stars, honey, limits, tokens).
+- `mushroomHunter/Session/UserSessionStore+Auth.swift`: shared user session state container.
+- `mushroomHunter/Session/UserSessionStore+Profile.swift`: profile state storage and sync (display name, friend code, limits, tokens).
+- `mushroomHunter/Session/UserSessionStore+Wallet.swift`: stars/honey state helpers.
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed profile constraints (friend code length) and shared list limits.
 - `functions/index.js`: server-side email trigger for profile feedback submissions.
 
@@ -40,7 +42,7 @@
 #### `feedbackSubmissions/{feedbackId}`
 User feedback submitted from profile settings.
 Fields:
-- `userId` (String): sender uid (resolved from `SessionStore.authUid`, fallback to `Auth.auth().currentUser?.uid`).
+- `userId` (String): sender uid (resolved from `UserSessionStore.authUid`, fallback to `Auth.auth().currentUser?.uid`).
 - `displayName` (String): sender display name snapshot.
 - `friendCode` (String): sender friend code snapshot.
 - `subject` (String): feedback subject (fallback defaults to `HoneyHub Feedback`).

@@ -55,7 +55,7 @@
 ### Firestore data structure
 
 #### `users/{uid}`
-User profile and limits. Created/merged in `SessionStore.ensureUserProfile()` and by room actions when a user joins/leaves without a prior profile.
+User profile and limits. Created/merged in `UserSessionStore.ensureUserProfile()` and by room actions when a user joins/leaves without a prior profile.
 Fields:
 - `displayName` (String): user’s in-app name. Updated when profile is saved or synced.
 - `friendCode` (String): 12-digit friend code. Updated when profile is saved or synced.
@@ -123,7 +123,9 @@ Main implementation files:
 - `/Users/ken/Desktop/mushroomHunter/mushroomHunter/Features/Mushroom/RoomDetailsViewModel.swift`
 - `/Users/ken/Desktop/mushroomHunter/mushroomHunter/Features/Mushroom/RoomDetailsView.swift`
 - `/Users/ken/Desktop/mushroomHunter/functions/index.js`
-- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/Session/SessionStore.swift`
+- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/Session/UserSessionStore+Auth.swift`
+- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/Session/UserSessionStore+Profile.swift`
+- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/Session/UserSessionStore+Wallet.swift`
 - `/Users/ken/Desktop/mushroomHunter/mushroomHunter/App/mushroomHunterApp.swift`
 - `/Users/ken/Desktop/mushroomHunter/mushroomHunter/App/ContentView.swift`
 

@@ -27,9 +27,9 @@ final class BrowseViewModel: ObservableObject {
 
     private let repo = FirebaseBrowseRepository() // Read-only room list source.
     private let actions = FirebaseRoomActionsRepository() // Join action source (writes attendee/honey-related data).
-    private unowned let session: SessionStore // Shared session state (honey, profile fields, limits).
+    private unowned let session: UserSessionStore // Shared session state (honey, profile fields, limits).
 
-    init(session: SessionStore) { // Initializes this type.
+    init(session: UserSessionStore) { // Initializes this type.
         self.session = session
     }
 
@@ -139,7 +139,7 @@ final class BrowseViewModel: ObservableObject {
 // MARK: - View
 
 struct RoomBrowseView: View {
-    private let session: SessionStore // Session object passed from tab root (honey/profile refresh + child view models).
+    private let session: UserSessionStore // Session object passed from tab root (honey/profile refresh + child view models).
     @StateObject private var vm: BrowseViewModel // Owns loading/filter/join state for this screen.
     @State private var showHostSheet: Bool = false // Controls host-room sheet presentation.
     @State private var pendingJoinListing: RoomListing? = nil // Selected listing for join prompt context.
@@ -149,7 +149,7 @@ struct RoomBrowseView: View {
     @State private var searchFieldFocused: Bool = false // State or dependency property.
     @Environment(\.colorScheme) private var scheme // Used for themed background.
 
-    init(session: SessionStore) { // Initializes this type.
+    init(session: UserSessionStore) { // Initializes this type.
         self.session = session
         _vm = StateObject(wrappedValue: BrowseViewModel(session: session))
     }

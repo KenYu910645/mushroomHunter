@@ -13,7 +13,7 @@ import UIKit
 import AuthenticationServices
 
 struct LoginView: View {
-    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     @Environment(\.colorScheme) private var scheme // State or dependency property.
     var body: some View {
         NavigationStack {

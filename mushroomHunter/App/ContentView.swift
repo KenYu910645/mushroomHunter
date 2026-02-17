@@ -14,7 +14,7 @@ import Combine
 // MARK: - App Root
 
 struct ContentView: View {
-    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     @State private var pendingRoute: DeepLinkRoute? = nil // State or dependency property.
     var body: some View {
         ZStack {
@@ -125,7 +125,7 @@ private struct PostcardLinkDestinationView: View {
 // MARK: - Tabs
 
 struct MainTabView: View {
-    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     var body: some View {
         TabView {
             RoomBrowseView(session: session)
@@ -153,5 +153,5 @@ struct MainTabView: View {
 
 #Preview {
     ContentView()
-        .environmentObject(SessionStore())
+        .environmentObject(UserSessionStore())
 }

@@ -77,7 +77,7 @@ struct PostcardTabView: View {
 // MARK: - Browse
 
 struct PostcardBrowseView: View {
-    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     @StateObject private var vm = PostcardBrowseViewModel() // State or dependency property.
     @State private var showSearchAlert: Bool = false // State or dependency property.
     @State private var searchFieldFocused: Bool = false // State or dependency property.
@@ -314,7 +314,7 @@ struct PostcardDetailView: View {
     @State private var showCopyToast: Bool = false // State or dependency property.
     @Environment(\.colorScheme) private var scheme // State or dependency property.
     @Environment(\.dismiss) private var dismiss // State or dependency property.
-    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     private let repo = FirebasePostcardRepository()
     private let imageAspectRatio: CGFloat = 4.0 / 3.0
     private let detailImageMaxWidth: CGFloat = 300
@@ -1178,7 +1178,7 @@ struct PostcardEditView: View {
 // MARK: - Register
 
 struct PostcardRegisterView: View {
-    @EnvironmentObject private var session: SessionStore // State or dependency property.
+    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     @Environment(\.colorScheme) private var scheme // State or dependency property.
     @State private var title: String // State or dependency property.
     @State private var priceText: String // State or dependency property.
