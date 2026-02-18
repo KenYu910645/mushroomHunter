@@ -22,6 +22,7 @@ Use and maintain these files when related code changes:
 - `POSTCARD.md`: postcard marketplace, listing/order lifecycle, shipping/receipt behavior.
 - `PROFILE.md`: profile editing, settings, feedback/about, profile-owned content views.
 - `SIGNIN.md`: authentication and first-time onboarding/profile-completion behavior.
+- `TESTCASE.md`: UI test case inventory and covered end-to-end flow scope.
 
 Rule: any code change that affects behavior must update the relevant markdown file(s) above.
 
@@ -184,3 +185,7 @@ xcodebuild -project /Users/ken/Desktop/mushroomHunter/mushroomHunter.xcodeproj \
 ```
 - CI workflow: `/Users/ken/Desktop/mushroomHunter/.github/workflows/ios-ui-tests.yml`
 - UI tests launch app with `--ui-testing --mock-rooms --mock-postcards` (no live Firebase dependency).
+- UI tests can optionally force deep-link entry with:
+  - `--ui-open-room {roomId}`
+  - `--ui-open-postcard {postcardId}`
+- Test case documentation: `/Users/ken/Desktop/mushroomHunter/TESTCASE.md`

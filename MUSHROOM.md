@@ -24,8 +24,16 @@
 ## Feature Coverage
 - Main Mushroom tab icon uses SF Symbol `person.3.fill` to reflect group room coordination.
 - Host can create and manage a room with title/location/description/fixed raid cost (no target mushroom selectors in create/edit UI).
+- Browse search is opened from the top action bar as an inline search field above the room list (no dedicated sheet/alert).
+- Mushroom browse search matches room title and location text (country/city).
+- Mushroom browse search applies local filtering while typing; backend fetch (first page) is refreshed only when user taps `Search`.
+- Inline search field includes an `x` clear button only; pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
+- UI-test mode (`--ui-testing --mock-rooms`) routes host submit flow through mock success without Firestore writes.
 - Host create/edit description is prefilled with localized default `host_default_description` (`Welcome! Let's play!`) when empty.
 - Host can manage attendees (kick, close room, finish raid/claim cycle).
+- UI-test mode supports room deep-link routing via launch arg `--ui-open-room {roomId}` for deterministic room-entry automation.
+- In UI-test mock mode, attendee leave from edit-bid sheet executes directly without confirmation alert to reduce automation flakiness.
+- In UI-test mock mode, room role/deposit checks fall back to fixture user id (`ui-test-user`) when session auth uid is not yet populated.
 - Host reject-resolution alert behavior:
   - `Resend`: sets attendee status back to `WaitingConfirmation` and triggers confirmation push again.
   - `Give Up`: sets attendee status back to `Ready`.

@@ -55,6 +55,21 @@ final class ProfileViewModel: ObservableObject {
 
     /// Reloads profile backend fields and all room/postcard collections in parallel.
     func refreshAllProfileData(session: UserSessionStore) async {
+        if AppTesting.isUITesting {
+            hostedRooms = []
+            joinedRooms = []
+            onShelfPostcards = []
+            orderedPostcards = []
+            hostedRoomsErrorMessage = nil
+            joinedRoomsErrorMessage = nil
+            onShelfPostcardsErrorMessage = nil
+            orderedPostcardsErrorMessage = nil
+            isHostedRoomsLoading = false
+            isJoinedRoomsLoading = false
+            isOnShelfPostcardsLoading = false
+            isOrderedPostcardsLoading = false
+            return
+        }
         await session.refreshProfileFromBackend()
         async let joinedRoomsLoad: Void = loadJoinedRooms(session: session)
         async let hostedRoomsLoad: Void = loadHostedRooms(session: session)
@@ -65,6 +80,7 @@ final class ProfileViewModel: ObservableObject {
 
     /// Loads rooms hosted by the current user.
     func loadHostedRooms(session: UserSessionStore) async {
+        if AppTesting.isUITesting { return }
         guard session.isLoggedIn else { return }
 
         isHostedRoomsLoading = true
@@ -83,6 +99,7 @@ final class ProfileViewModel: ObservableObject {
 
     /// Loads rooms joined by the current user.
     func loadJoinedRooms(session: UserSessionStore) async {
+        if AppTesting.isUITesting { return }
         guard session.isLoggedIn else { return }
 
         isJoinedRoomsLoading = true
@@ -101,6 +118,7 @@ final class ProfileViewModel: ObservableObject {
 
     /// Loads active listings owned by the current user.
     func loadOnShelfPostcards(session: UserSessionStore) async {
+        if AppTesting.isUITesting { return }
         guard let userId = session.authUid, userId.isEmpty == false else { return }
 
         isOnShelfPostcardsLoading = true
@@ -122,6 +140,7 @@ final class ProfileViewModel: ObservableObject {
 
     /// Loads ordered postcards for the current user.
     func loadOrderedPostcards(session: UserSessionStore) async {
+        if AppTesting.isUITesting { return }
         guard let userId = session.authUid, userId.isEmpty == false else { return }
 
         isOrderedPostcardsLoading = true

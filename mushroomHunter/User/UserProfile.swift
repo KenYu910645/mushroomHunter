@@ -42,6 +42,9 @@ extension UserSessionStore {
         persistScopedString(kFriendCode, value: digits)
 
         if isNameChanged || isFriendCodeChanged || isProfileCompletionChanged {
+            if AppTesting.isUITesting {
+                return true
+            }
             await syncProfileFields([
                 "displayName": trimmedName,
                 "friendCode": digits,
@@ -65,6 +68,7 @@ extension UserSessionStore {
     }
 
     func updateFcmToken(_ token: String) { // Handles FCM-token update flow.
+        if AppTesting.isUITesting { return }
         if fcmToken == token { return }
         fcmToken = token
         UserDefaults.standard.set(token, forKey: kFcmToken)
@@ -77,6 +81,7 @@ extension UserSessionStore {
     }
 
     func refreshProfileFromBackend() async { // Handles backend profile refresh flow.
+        if AppTesting.isUITesting { return }
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         do {
@@ -149,6 +154,7 @@ extension UserSessionStore {
     }
 
     func syncFcmToken(_ token: String) async { // Syncs FCM token to backend user document.
+        if AppTesting.isUITesting { return }
         guard let uid = Auth.auth().currentUser?.uid else { return }
         if lastSyncedFcmTokenByUid[uid] == token { return }
 
@@ -167,6 +173,7 @@ extension UserSessionStore {
     }
 
     func syncProfileFields(_ fields: [String: Any]) async { // Syncs selected profile fields to backend user document.
+        if AppTesting.isUITesting { return }
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         var data = fields
@@ -183,6 +190,7 @@ extension UserSessionStore {
     }
 
     func ensureUserProfile() async { // Ensures a minimally complete backend user document exists.
+        if AppTesting.isUITesting { return }
         guard let uid = Auth.auth().currentUser?.uid else { return }
         if isUserProfileEnsuredInCurrentSession { return }
 
@@ -209,6 +217,7 @@ extension UserSessionStore {
     }
 
     func syncHostedRoomProfile(displayName: String? = nil, friendCode: String? = nil, stars: Int? = nil, fcmToken: String? = nil) async { // Syncs host attendee snapshots across room attendee docs.
+        if AppTesting.isUITesting { return }
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         var attendeeUpdates: [String: Any] = [:]

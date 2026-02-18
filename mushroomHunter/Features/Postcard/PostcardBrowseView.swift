@@ -15,16 +15,16 @@ struct PostcardBrowseView: View {
     @EnvironmentObject private var session: UserSessionStore
     /// Browse view model that loads and filters postcard listings.
     @StateObject private var vm = PostcardBrowseViewModel()
-    /// Controls presentation of the search sheet.
-    @State private var isSearchSheetPresented: Bool = false
-    /// Controls initial focus for the search text field.
-    @State private var isSearchFieldFocused: Bool = false
+    /// Controls presentation of the search alert.
+    @State private var isSearchFieldVisible: Bool = false
     /// Controls presentation of the postcard register sheet.
     @State private var isRegisterSheetPresented: Bool = false
     /// Refresh trigger incremented after creating a postcard.
     @State private var browseDataRefreshToken: Int = 0
     /// Current color scheme used for theme background rendering.
     @Environment(\.colorScheme) private var scheme
+    /// Controls keyboard focus for inline search field.
+    @FocusState private var isSearchFieldFocused: Bool
     /// Spacing used between postcard grid columns.
     private let cardColumnSpacing: CGFloat = 8
 
@@ -41,6 +41,37 @@ struct PostcardBrowseView: View {
                     }
 
                     headerBar
+
+                    if isSearchFieldVisible {
+                        HStack(spacing: 8) {
+                            TextField(LocalizedStringKey("postcard_search_placeholder"), text: $vm.query)
+                                .focused($isSearchFieldFocused)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled(true)
+                                .onSubmit {
+                                    Task { await vm.performConfirmedSearch() }
+                                }
+
+                            Spacer(minLength: 0)
+
+                            Button {
+                                Task { await vm.clearConfirmedSearch() }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.caption.weight(.semibold))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("postcard_search_clear_button")
+                            .accessibilityLabel(LocalizedStringKey("postcard_search_clear_accessibility"))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(.ultraThinMaterial)
+                        )
+                        .padding(.horizontal)
+                    }
 
                     LazyVGrid(columns: gridColumns, spacing: 12) {
                         ForEach(vm.filteredListings) { listing in
@@ -94,50 +125,6 @@ struct PostcardBrowseView: View {
                 }
             }
         }
-        .sheet(isPresented: $isSearchSheetPresented) {
-            NavigationStack {
-                Form {
-                    Section {
-                        SelectAllTextField(
-                            placeholderKey: "postcard_search_placeholder",
-                            text: $vm.query,
-                            isFirstResponder: $isSearchFieldFocused,
-                            textContentType: .none,
-                            autocapitalization: .none,
-                            autocorrection: .no,
-                            textAlignment: .left
-                        )
-                        .frame(height: 22)
-                    } header: {
-                        Text(LocalizedStringKey("postcard_search_title"))
-                    } footer: {
-                        Text(LocalizedStringKey("postcard_search_message"))
-                    }
-
-                    Section {
-                        Button(LocalizedStringKey("common_clear")) { vm.query = "" }
-                        Button(LocalizedStringKey("common_done")) { isSearchSheetPresented = false }
-                    }
-                }
-                .navigationTitle(LocalizedStringKey("postcard_search_title"))
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button(LocalizedStringKey("common_close")) {
-                            isSearchSheetPresented = false
-                        }
-                    }
-                }
-                .onAppear {
-                    isSearchFieldFocused = true
-                }
-                .onDisappear {
-                    isSearchFieldFocused = false
-                }
-            }
-        }
-        .onChange(of: vm.query) { _, _ in
-            vm.scheduleSearch()
-        }
         .onChange(of: vm.selectedCountry) { _, _ in
             vm.normalizeProvinceSelection()
         }
@@ -167,7 +154,14 @@ struct PostcardBrowseView: View {
     private var headerBar: some View {
         BrowseViewTopActionBar(
             honey: session.honey,
-            onSearch: { isSearchSheetPresented = true },
+            onSearch: {
+                isSearchFieldVisible.toggle()
+                if isSearchFieldVisible {
+                    isSearchFieldFocused = true
+                } else {
+                    isSearchFieldFocused = false
+                }
+            },
             onCreate: { isRegisterSheetPresented = true },
             searchAccessibilityLabel: "postcard_search_accessibility",
             createAccessibilityLabel: "postcard_register_accessibility",

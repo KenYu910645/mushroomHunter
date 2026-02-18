@@ -23,7 +23,10 @@
 
 ## Feature Coverage
 - Browse and search postcard listings.
-- Browse search prompt is presented as a sheet, and its text input auto-selects all text on focus via shared `SelectAllTextField`.
+- Browse search is opened from the top action bar as an inline search field above the listing grid (no dedicated sheet/alert).
+- Postcard browse search matches postcard title and location text (country/city).
+- Postcard browse search applies local filtering while typing; backend query (up to first 50 results) runs only when user taps `Search`.
+- Inline search field includes an `x` clear button only; pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
 - Register flow uploads postcard image to Firebase Storage, then creates Firestore listing.
 - Register success dismisses the sheet and refreshes browse list.
 - Pull-to-refresh is supported in postcard browse, detail, and shipping flows.
@@ -44,6 +47,9 @@
 - Register form defaults country to Taiwan (`TW`).
 - Snapshot area itself opens photo picker (no separate upload button).
 - UI-test mock postcard mode (`--mock-postcards`) shows a quick submit button in create flow to bypass image upload and backend writes.
+- UI-test mock postcard mode also mocks seller shipping recipients and "mark sent" flow without Firestore writes.
+- UI-test mode hides seller share/edit toolbar actions so shipping action remains directly tappable in automated UI runs.
+- UI-test mode supports postcard deep-link routing via launch arg `--ui-open-postcard {postcardId}` for deterministic invite-entry automation.
 - Detail text field is capped at 100 characters.
 - Detail placeholder text is localized via `postcard_detail_placeholder`.
 

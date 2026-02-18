@@ -18,9 +18,9 @@ struct RoomBrowseView: View {
     @State private var showHostSheet: Bool = false // Controls host-room sheet presentation.
     @State private var pendingJoinListing: RoomListing? = nil // Selected listing for join prompt context.
     @State private var bidText: String = "" // Join prompt text input (digits only).
-    @State private var showSearchAlert: Bool = false // Controls search prompt alert.
+    @State private var isSearchFieldVisible: Bool = false // Controls inline search field visibility.
     @State private var bidFieldFocused: Bool = false // Controls first-responder focus for the bid entry field.
-    @State private var searchFieldFocused: Bool = false // Controls first-responder focus for the search input field.
+    @FocusState private var isSearchFieldFocused: Bool // Controls keyboard focus for inline search field.
     @Environment(\.colorScheme) private var scheme // Used for themed background.
 
     init(session: UserSessionStore) { // Initializes this type.
@@ -31,7 +31,8 @@ struct RoomBrowseView: View {
     /// Main browse screen composition:
     /// - list/skeleton content
     /// - host-room sheet
-    /// - join/search sheets
+    /// - join sheet
+    /// - inline search field
     var body: some View {
         NavigationStack {
             content
@@ -103,47 +104,6 @@ struct RoomBrowseView: View {
         } message: {
             Text(vm.joinLimitMessage)
         }
-        .sheet(isPresented: $showSearchAlert) {
-            NavigationStack {
-                Form {
-                    Section {
-                        SelectAllTextField(
-                            placeholderKey: "browse_search_placeholder",
-                            text: $vm.query,
-                            isFirstResponder: $searchFieldFocused,
-                            textContentType: .none,
-                            autocapitalization: .none,
-                            autocorrection: .no,
-                            textAlignment: .left
-                        )
-                        .frame(height: 22)
-                    } header: {
-                        Text(LocalizedStringKey("browse_search_title"))
-                    } footer: {
-                        Text(LocalizedStringKey("browse_search_message"))
-                    }
-
-                    Section {
-                        Button(LocalizedStringKey("common_clear")) { vm.query = "" }
-                        Button(LocalizedStringKey("common_done")) { showSearchAlert = false }
-                    }
-                }
-                .navigationTitle(LocalizedStringKey("browse_search_title"))
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button(LocalizedStringKey("common_close")) {
-                            showSearchAlert = false
-                        }
-                    }
-                }
-                .onAppear {
-                    searchFieldFocused = true
-                }
-                .onDisappear {
-                    searchFieldFocused = false
-                }
-            }
-        }
     }
     
     /// Main content body with two states:
@@ -159,7 +119,14 @@ struct RoomBrowseView: View {
             VStack(spacing: 12) {
                 BrowseViewTopActionBar(
                     honey: session.honey,
-                    onSearch: { showSearchAlert = true },
+                    onSearch: {
+                        isSearchFieldVisible.toggle()
+                        if isSearchFieldVisible {
+                            isSearchFieldFocused = true
+                        } else {
+                            isSearchFieldFocused = false
+                        }
+                    },
                     onCreate: { showHostSheet = true },
                     searchAccessibilityLabel: "browse_search_accessibility",
                     createAccessibilityLabel: "browse_create_accessibility",
@@ -173,6 +140,37 @@ struct RoomBrowseView: View {
                     if let err = vm.errorMessage {
                         Text(err)
                             .foregroundStyle(.red)
+                    }
+
+                    if isSearchFieldVisible {
+                        HStack(spacing: 8) {
+                            TextField(LocalizedStringKey("browse_search_placeholder"), text: $vm.query)
+                                .focused($isSearchFieldFocused)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled(true)
+                                .onSubmit {
+                                    Task { await vm.performConfirmedSearch() }
+                                }
+
+                            Spacer(minLength: 0)
+
+                            Button {
+                                vm.query = ""
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.caption.weight(.semibold))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("browse_search_clear_button")
+                            .accessibilityLabel(LocalizedStringKey("browse_search_clear_accessibility"))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(.ultraThinMaterial)
+                        )
+                        .padding(.vertical, 2)
                     }
 
                     // Each row provides:

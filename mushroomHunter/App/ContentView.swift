@@ -63,6 +63,12 @@ struct ContentView: View {
                 session.honey = 100
                 session.isProfileComplete = true
                 session.isShowingOnboardingTutorial = false
+
+                if let postcardId = AppTesting.launchArgumentValue(after: AppTesting.openPostcardArgument) {
+                    pendingRoute = .postcard(id: postcardId)
+                } else if let roomId = AppTesting.launchArgumentValue(after: AppTesting.openRoomArgument) {
+                    pendingRoute = .room(id: roomId)
+                }
             }
         }
     }
@@ -121,6 +127,14 @@ private struct PostcardLinkDestinationView: View {
 
     private func loadPostcard() async {
         guard !postcardId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        if AppTesting.useMockPostcards {
+            if postcardId == AppTesting.fixturePostcardId {
+                listing = AppTesting.fixturePostcardListing()
+            } else if postcardId == AppTesting.fixtureOwnedPostcardListing().id {
+                listing = AppTesting.fixtureOwnedPostcardListing()
+            }
+            return
+        }
         isLoading = true
         defer { isLoading = false }
         listing = try? await repo.fetchPostcard(postcardId: postcardId)

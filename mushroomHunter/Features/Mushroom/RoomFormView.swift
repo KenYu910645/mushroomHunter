@@ -137,6 +137,17 @@ final class HostViewModel: ObservableObject {
 
         defer { isSubmitting = false }
 
+        if AppTesting.useMockRooms {
+            switch mode {
+            case .create:
+                successRoomId = AppTesting.fixtureRoomId
+            case .edit(let roomId):
+                successRoomId = roomId
+            }
+            showSuccessAlert = true
+            return
+        }
+
         do {
             let req = FsRoomFormRequest(
             title: hostName,

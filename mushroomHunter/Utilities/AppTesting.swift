@@ -14,6 +14,8 @@ enum AppTesting {
     static let uiTestingArgument = "--ui-testing"
     static let mockRoomsArgument = "--mock-rooms"
     static let mockPostcardsArgument = "--mock-postcards"
+    static let openRoomArgument = "--ui-open-room"
+    static let openPostcardArgument = "--ui-open-postcard"
     static let userId = "ui-test-user"
 
     static var isUITesting: Bool {
@@ -122,5 +124,24 @@ enum AppTesting {
             imageUrl: nil,
             createdAt: Date()
         )
+    }
+
+    static func fixtureShippingRecipients() -> [PostcardShippingRecipient] {
+        [
+            PostcardShippingRecipient(
+                id: "ui-test-order-001",
+                buyerId: "ui-test-buyer-001",
+                buyerName: "Buyer Tester",
+                buyerFriendCode: "000011112222"
+            )
+        ]
+    }
+
+    static func launchArgumentValue(after key: String) -> String? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let keyIndex = args.firstIndex(of: key) else { return nil }
+        let valueIndex = args.index(after: keyIndex)
+        guard valueIndex < args.endIndex else { return nil }
+        return args[valueIndex]
     }
 }

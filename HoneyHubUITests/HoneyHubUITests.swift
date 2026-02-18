@@ -16,9 +16,10 @@ final class HoneyHubUITests: XCTestCase {
     }
 
     @MainActor
-    private func launchApp() -> XCUIApplication {
+    private func launchApp(extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += ["--ui-testing", "--mock-rooms", "--mock-postcards"]
+        app.launchArguments += extraArguments
         app.launch()
         return app
     }
@@ -66,9 +67,14 @@ final class HoneyHubUITests: XCTestCase {
         let cityField = app.textFields["host_city_field"]
         XCTAssertTrue(cityField.waitForExistence(timeout: 10))
 
-        let closeButton = app.buttons["host_close_button"]
-        XCTAssertTrue(closeButton.waitForExistence(timeout: 5))
-        closeButton.tap()
+        app.swipeUp()
+        let submitButton = app.buttons["host_submit_button"]
+        XCTAssertTrue(submitButton.waitForExistence(timeout: 5))
+        submitButton.tap()
+
+        let successAlert = app.alerts.firstMatch
+        XCTAssertTrue(successAlert.waitForExistence(timeout: 10))
+        successAlert.buttons.element(boundBy: 0).tap()
 
         XCTAssertTrue(createButton.waitForExistence(timeout: 5))
     }
@@ -116,6 +122,73 @@ final class HoneyHubUITests: XCTestCase {
         submitButton.tap()
 
         XCTAssertTrue(createButton.waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testDeepLinkPostcardInviteOpensDetail() throws {
+        let app = launchApp(extraArguments: ["--ui-open-postcard", "ui-test-postcard-001"])
+        XCTAssertTrue(app.buttons["postcard_buy_button"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testDeepLinkMushroomInviteOpensRoom() throws {
+        let app = launchApp(extraArguments: ["--ui-open-room", "ui-test-room-001"])
+        XCTAssertTrue(app.buttons["room_join_button"].waitForExistence(timeout: 15))
+    }
+
+    @MainActor
+    func testMushroomAttendeeLeaveFlow() throws {
+        let app = launchApp(extraArguments: ["--ui-open-room", "ui-test-room-001"])
+
+        let joinButton = app.buttons["room_join_button"]
+        XCTAssertTrue(joinButton.waitForExistence(timeout: 15))
+        joinButton.tap()
+
+        let confirmJoinButton = app.buttons["room_join_sheet_ok_button"]
+        if confirmJoinButton.waitForExistence(timeout: 10) {
+            confirmJoinButton.tap()
+        }
+
+        let joinConfirmAlert = app.alerts.firstMatch
+        XCTAssertTrue(joinConfirmAlert.waitForExistence(timeout: 10))
+        joinConfirmAlert.buttons.element(boundBy: 0).tap()
+
+        let joinSuccessAlert = app.alerts.firstMatch
+        if joinSuccessAlert.waitForExistence(timeout: 10) {
+            joinSuccessAlert.buttons.element(boundBy: 0).tap()
+        }
+
+        let editBidButton = app.buttons["room_edit_bid_button"]
+        XCTAssertTrue(editBidButton.waitForExistence(timeout: 10))
+        editBidButton.tap()
+
+        let leaveButton = app.buttons["room_leave_button"]
+        XCTAssertTrue(leaveButton.waitForExistence(timeout: 10))
+        leaveButton.tap()
+
+        XCTAssertTrue(joinButton.waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testPostcardSellerShippingFlow() throws {
+        let app = launchApp()
+
+        tapTab(app, index: 1)
+        let ownedListing = app.buttons["postcard_link_ui-test-postcard-owned"]
+        XCTAssertTrue(ownedListing.waitForExistence(timeout: 10))
+        ownedListing.tap()
+
+        let shippingButton = app.buttons["postcard_shipping_button"]
+        XCTAssertTrue(shippingButton.waitForExistence(timeout: 10))
+        shippingButton.tap()
+
+        let sendButton = app.buttons["postcard_shipping_send_button_ui-test-order-001"]
+        XCTAssertTrue(sendButton.waitForExistence(timeout: 10))
+        sendButton.tap()
+
+        let successAlert = app.alerts.firstMatch
+        XCTAssertTrue(successAlert.waitForExistence(timeout: 10))
+        successAlert.buttons.element(boundBy: 0).tap()
     }
 
     @MainActor

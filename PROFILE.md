@@ -42,6 +42,7 @@
 - Profile hosted-room loading queries `rooms.hostUid`; joined-room loading uses UID-scoped attendee queries.
 - Profile/token sync paths now apply write guards in session scope to skip duplicate `users/{uid}` writes when values have not changed.
 - FCM token sync also refreshes hosted room snapshots (`rooms.hostFcmToken` and host attendee `fcmToken`) so mushroom push flows can avoid per-push user reads.
+- UI testing mode (`--ui-testing`) disables profile Firestore reads/writes/sync paths so UI automation is fully offline from backend dependencies.
 
 ## Cloud Functions (Profile Use Cases)
 - `sendFeedbackNotificationEmail`

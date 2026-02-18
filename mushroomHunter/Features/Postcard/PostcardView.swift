@@ -65,6 +65,9 @@ struct PostcardView: View {
 
     /// Indicates whether the current user owns this listing.
     private var isSeller: Bool {
+        if AppTesting.useMockPostcards, currentListing.sellerId == AppTesting.userId {
+            return true
+        }
         guard let uid = session.authUid else { return false }
         return uid == currentListing.sellerId
     }
@@ -227,22 +230,24 @@ struct PostcardView: View {
         .navigationTitle(LocalizedStringKey("postcard_title"))
         .toolbar {
             if isSeller {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        isInviteSheetPresented = true
-                    } label: {
-                        Image(systemName: "square.and.arrow.up")
+                if !AppTesting.isUITesting {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            isInviteSheetPresented = true
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                        .accessibilityLabel(LocalizedStringKey("postcard_share_accessibility"))
                     }
-                    .accessibilityLabel(LocalizedStringKey("postcard_share_accessibility"))
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        isEditSheetPresented = true
-                    } label: {
-                        Image(systemName: "pencil")
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            isEditSheetPresented = true
+                        } label: {
+                            Image(systemName: "pencil")
+                        }
+                        .accessibilityLabel(LocalizedStringKey("postcard_edit_accessibility"))
+                        .accessibilityIdentifier("postcard_edit_button")
                     }
-                    .accessibilityLabel(LocalizedStringKey("postcard_edit_accessibility"))
-                    .accessibilityIdentifier("postcard_edit_button")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {

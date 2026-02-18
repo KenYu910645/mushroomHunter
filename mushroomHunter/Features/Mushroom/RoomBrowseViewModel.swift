@@ -10,6 +10,7 @@
 //
 import Foundation
 import Combine
+import Combine
 
 /// View model for the Mushroom browse screen.
 @MainActor
@@ -54,6 +55,12 @@ final class RoomBrowseViewModel: ObservableObject {
             print("❌ fetchListings error:", error)
             self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
+    }
+
+    /// Refreshes backend room listings when user confirms a search.
+    /// Search filtering itself remains local on the fetched page.
+    func performConfirmedSearch() async {
+        await fetchListings()
     }
 
     /// Attempts to join a room with user-entered honey deposit.
@@ -120,7 +127,7 @@ final class RoomBrowseViewModel: ObservableObject {
 
     /// Derived list shown by UI after applying:
     /// - availability filter
-    /// - text search (title/host name)
+    /// - text search (title/location/host name)
     var filteredListings: [RoomListing] {
         listings.filter { listing in
             if showOnlyAvailable && listing.joinedPlayers >= listing.maxPlayers { return false }
@@ -129,6 +136,7 @@ final class RoomBrowseViewModel: ObservableObject {
             if q.isEmpty { return true }
             let qq = q.lowercased()
             return listing.title.lowercased().contains(qq)
+                || listing.location.lowercased().contains(qq)
                 || (listing.hostName ?? "").lowercased().contains(qq)
         }
     }

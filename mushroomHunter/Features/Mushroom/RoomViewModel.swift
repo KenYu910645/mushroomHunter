@@ -392,11 +392,11 @@ final class RoomViewModel: ObservableObject {
     }
 
     var currentUserId: String? {
-        session.authUid
+        session.authUid ?? (AppTesting.useMockRooms ? AppTesting.userId : nil)
     }
 
     func currentUserDepositHoney() -> Honey? { // Handles currentUserDepositHoney flow.
-        guard let room, let uid = session.authUid else { return nil }
+        guard let room, let uid = currentUserId else { return nil }
         guard uid != room.hostId else { return nil }
         return room.attendees.first(where: { $0.id == uid })?.depositHoney
     }
@@ -408,7 +408,7 @@ final class RoomViewModel: ObservableObject {
             return
         }
         
-        let uid = session.authUid
+        let uid = currentUserId
         
         if let uid, uid == room.hostId {
             role = .host
@@ -443,7 +443,7 @@ final class RoomViewModel: ObservableObject {
                 .map(\.id)
         )
 
-        if let uid = session.authUid,
+        if let uid = currentUserId,
            let me = room.attendees.first(where: { $0.id == uid }) {
             pendingConfirmationForCurrentUser = (me.status == .waitingConfirmation)
         } else {

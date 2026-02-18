@@ -31,8 +31,6 @@ final class PostcardBrowseViewModel: ObservableObject {
     @Published var sortOrder: PostcardSortOrder = .newest
     /// Firebase-backed repository used to fetch postcard listings.
     private let repo = FbPostcardRepo()
-    /// Debounce task for query changes.
-    private var searchTask: Task<Void, Never>? = nil
 
     /// Loads data only when no listings have been fetched yet.
     func loadIfNeeded() async {
@@ -43,16 +41,18 @@ final class PostcardBrowseViewModel: ObservableObject {
 
     /// Refreshes browse data for the current query value.
     func refresh() async {
+        await fetchForQuery("")
+    }
+
+    /// Executes backend search using the current query text.
+    func performConfirmedSearch() async {
         await fetchForQuery(query)
     }
 
-    /// Debounces search input before executing a fetch.
-    func scheduleSearch() {
-        searchTask?.cancel()
-        searchTask = Task {
-            try? await Task.sleep(nanoseconds: AppConfig.Postcard.searchDebounceNanoseconds)
-            await fetchForQuery(query)
-        }
+    /// Clears search query and restores default recent results.
+    func clearConfirmedSearch() async {
+        query = ""
+        await fetchForQuery("")
     }
 
     /// Fetches listings from backend using the provided raw query text.
@@ -92,6 +92,7 @@ final class PostcardBrowseViewModel: ObservableObject {
     }
 
     /// Listings after stock/country/province/query filters and sorting.
+    /// Query filter currently matches title and location fields.
     var filteredListings: [PostcardListing] {
         var result = listings.filter { $0.stock > 0 }
 
@@ -106,7 +107,8 @@ final class PostcardBrowseViewModel: ObservableObject {
         if !q.isEmpty {
             result = result.filter {
                 $0.title.lowercased().contains(q)
-                || $0.sellerName.lowercased().contains(q)
+                || $0.location.country.lowercased().contains(q)
+                || $0.location.province.lowercased().contains(q)
                 || $0.location.fullLabel.lowercased().contains(q)
             }
         }

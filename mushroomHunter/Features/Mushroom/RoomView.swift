@@ -382,9 +382,14 @@ struct RoomView: View {
 
                     Section {
                         Button(role: .destructive) {
-                            showDepositSheet = false
-                            leaveRoomName = vm.room?.title ?? ""
-                            showLeaveConfirmAlert = true
+                            if AppTesting.useMockRooms {
+                                showDepositSheet = false
+                                Task { await vm.leave() }
+                            } else {
+                                showDepositSheet = false
+                                leaveRoomName = vm.room?.title ?? ""
+                                showLeaveConfirmAlert = true
+                            }
                         } label: {
                             HStack {
                                 Spacer()
@@ -392,6 +397,7 @@ struct RoomView: View {
                                 Spacer()
                             }
                         }
+                        .accessibilityIdentifier("room_leave_button")
                     }
                 }
                 .navigationTitle(LocalizedStringKey("room_edit_bid_title"))
@@ -688,9 +694,7 @@ struct RoomView: View {
                         .buttonStyle(.borderedProminent)
                         .accessibilityIdentifier("room_join_button")
                         .disabled(vm.isLoading || session.honey < room.fixedRaidCost)
-                    }
-
-                    if vm.canJoin {
+                    } else if vm.canJoin {
                         Button {
                             let minBid = room.fixedRaidCost
                             let clamped = max(joinDepositAmount, minBid)

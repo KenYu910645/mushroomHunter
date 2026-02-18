@@ -71,6 +71,7 @@ struct PostcardShippingView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(isSendingOrderId != nil)
+                        .accessibilityIdentifier("postcard_shipping_send_button_\(recipient.id)")
                     }
                     .padding(.vertical, 4)
                 }
@@ -82,6 +83,7 @@ struct PostcardShippingView: View {
                 Button(LocalizedStringKey("common_close")) {
                     dismiss()
                 }
+                .accessibilityIdentifier("postcard_shipping_close_button")
             }
         }
         .task {
@@ -103,6 +105,11 @@ struct PostcardShippingView: View {
         errorMessage = nil
         defer { isLoading = false }
 
+        if AppTesting.useMockPostcards {
+            recipients = AppTesting.fixtureShippingRecipients()
+            return
+        }
+
         do {
             recipients = try await repo.fetchShippingRecipients(postcardId: postcard.id)
         } catch {
@@ -116,6 +123,12 @@ struct PostcardShippingView: View {
         guard isSendingOrderId == nil else { return }
         isSendingOrderId = recipient.id
         defer { isSendingOrderId = nil }
+
+        if AppTesting.useMockPostcards {
+            recipients.removeAll { $0.id == recipient.id }
+            isShipSuccessAlertPresented = true
+            return
+        }
 
         do {
             try await repo.markPostcardSent(orderId: recipient.id)
