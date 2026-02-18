@@ -37,6 +37,7 @@
   - Tutorial card body uses an enlarged annotated screenshot with description text only (no extra title below image).
   - Tutorial cards support screenshot overlays with circles, arrows, and text labels rendered in-app.
   - Tutorial callouts now support both circle and rectangle highlights.
+  - Tutorial annotation highlights and text labels use a unified red style across all cards.
   - Arrow geometry is auto-generated from label location to nearest highlight border, so tuning only needs:
     - highlight location
     - highlight size

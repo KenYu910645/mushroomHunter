@@ -112,7 +112,7 @@ struct TutorialView: View {
                         heightRatio: 0.1,
                         color: .red
                     ),
-                    label: TutorialLabel(x: 0.6, y: 0.17, text: "Host Mushroom Raid")
+                    label: TutorialLabel(x: 0.56, y: 0.14, text: "Host mushroom raid to earn honey")
                 ),
                 TutorialCallout(
                     id: 1,
@@ -138,7 +138,7 @@ struct TutorialView: View {
                         heightRatio: 0.12,
                         color: .red
                     ),
-                    label: TutorialLabel(x: 0.50, y: 0.58, text: "Tap to join a mushroom raid")
+                    label: TutorialLabel(x: 0.50, y: 0.62, text: "Join mushroom raids require honey")
                 ),
                 TutorialCallout(
                     id: 3,
@@ -151,7 +151,7 @@ struct TutorialView: View {
                         heightRatio: 0.2,
                         color: .red
                     ),
-                    label: TutorialLabel(x: 0.50, y: 0.8, text: "Mushroom Raid List")
+                    label: TutorialLabel(x: 0.50, y: 0.8, text: "Mushroom raid list")
                 )
             ]
         ),
@@ -165,13 +165,39 @@ struct TutorialView: View {
                     highlight: TutorialHighlight(
                         id: 0,
                         shape: .rectangle,
-                        x: 0.50,
-                        y: 0.40,
-                        widthRatio: 0.42,
-                        heightRatio: 0.24,
-                        color: .orange
+                        x: 0.27,
+                        y: 0.45,
+                        widthRatio: 0.46,
+                        heightRatio: 0.32,
+                        color: .red
                     ),
-                    label: TutorialLabel(x: 0.26, y: 0.16, text: "Search and filter here")
+                    label: TutorialLabel(x: 0.4, y: 0.22, text: "Buy postcards require honey")
+                ),
+                TutorialCallout(
+                    id: 1,
+                    highlight: TutorialHighlight(
+                        id: 1,
+                        shape: .circle,
+                        x: 0.92,
+                        y: 0.25,
+                        widthRatio: 0.13,
+                        heightRatio: 0.1,
+                        color: .red
+                    ),
+                    label: TutorialLabel(x: 0.55, y: 0.13, text: "Sell your postcard to earn honey")
+                ),
+                TutorialCallout(
+                    id: 2,
+                    highlight: TutorialHighlight(
+                        id: 2,
+                        shape: .circle,
+                        x: 0.5,
+                        y: 0.92,
+                        widthRatio: 0.25,
+                        heightRatio: 0.2,
+                        color: .red
+                    ),
+                    label: TutorialLabel(x: 0.50, y: 0.8, text: "Postcard List")
                 )
             ]
         ),
@@ -184,14 +210,27 @@ struct TutorialView: View {
                     id: 0,
                     highlight: TutorialHighlight(
                         id: 0,
-                        shape: .circle,
+                        shape: .rectangle,
                         x: 0.50,
-                        y: 0.18,
-                        widthRatio: 0.18,
-                        heightRatio: 0.18,
-                        color: .blue
+                        y: 0.6,
+                        widthRatio: 0.9,
+                        heightRatio: 0.68,
+                        color: .red
                     ),
-                    label: TutorialLabel(x: 0.74, y: 0.34, text: "Your identity and stats")
+                    label: TutorialLabel(x: 0.6, y: 0.17, text: "Manage your mushroom raids and postcards in profile")
+                ),
+                TutorialCallout(
+                    id: 2,
+                    highlight: TutorialHighlight(
+                        id: 2,
+                        shape: .circle,
+                        x: 0.76,
+                        y: 0.92,
+                        widthRatio: 0.25,
+                        heightRatio: 0.2,
+                        color: .red
+                    ),
+                    label: TutorialLabel(x: 0.50, y: 0.8, text: "Your profile")
                 )
             ]
         )
@@ -259,7 +298,7 @@ private struct TutorialCardView: View {
                 .frame(height: 560)
             Text(card.description)
                 .font(.body)
-                .foregroundStyle(card.id == 0 ? .red : .secondary)
+                .foregroundStyle(.red)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 8)
         }
@@ -304,7 +343,7 @@ private struct TutorialAnnotatedImageView: View {
                 }
 
                 ForEach(card.callouts) { callout in
-                    labelView(callout.label, in: frame, textColor: card.id == 0 ? .red : .white)
+                    labelView(callout.label, in: frame, textColor: .red)
                 }
             }
         }
