@@ -294,6 +294,7 @@
 "profile_friend_code_error_digits" = "好友碼只能包含數字。";
 
 "login_title" = "Mushroom Hunter";
+"login_subtitle" = "和你的 Pikmin Bloom 夥伴一起揪菇、交換明信片。";
 "login_continue_apple" = "使用 Apple 繼續";
 "login_continue_google" = "使用 Google 繼續";
 "login_apple_error" = "Apple 登入目前無法使用。";

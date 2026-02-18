@@ -16,6 +16,11 @@
 - Supported providers:
   - Apple Sign-In
   - Google Sign-In
+- Sign-in page presentation:
+  - Uses the app honey icon (`HoneyIcon` asset) as the branded hero icon.
+  - Uses a rounded auth card layout on top of the shared honey-toned background gradient.
+  - Displays a localized subtitle under the `HoneyHub` title for clearer onboarding context.
+  - Styles the Google sign-in button with a solid Google-brand blue fill for stronger entry visibility.
 - Auth state routing:
   - Signed out -> `LoginView`
   - Signed in but profile incomplete -> `ProfileFormView(mode: .create)`

@@ -306,6 +306,7 @@
 "profile_friend_code_error_digits" = "Friend code must contain digits only.";
 
 "login_title" = "HoneyHub";
+"login_subtitle" = "Connect players all around the world";
 "login_continue_apple" = "Continue with Apple";
 "login_continue_google" = "Continue with Google";
 "login_apple_error" = "Apple Sign-In is not available right now.";
