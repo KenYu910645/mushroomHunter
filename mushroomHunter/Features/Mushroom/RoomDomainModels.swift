@@ -132,15 +132,7 @@ extension RoomDetail {
 extension RoomAttendee {
     /// Format friend code as "1234 5678 2345"
     var friendCodeFormatted: String {
-        let digits = friendCode.filter { $0.isNumber }
-        var parts: [String] = []
-        var i = digits.startIndex
-        while i < digits.endIndex {
-            let end = digits.index(i, offsetBy: 4, limitedBy: digits.endIndex) ?? digits.endIndex
-            parts.append(String(digits[i..<end]))
-            i = end
-        }
-        return parts.joined(separator: " ")
+        FriendCode.formatted(friendCode)
     }
 }
 

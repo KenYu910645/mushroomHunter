@@ -189,7 +189,7 @@ struct ProfileFormView: View {
             friendCode = ""
         case .edit:
             name = session.displayName
-            friendCode = session.friendCode.filter(\.isNumber)
+            friendCode = FriendCode.clampedDigits(session.friendCode)
         }
         nameError = nil
         friendCodeError = nil
@@ -199,16 +199,15 @@ struct ProfileFormView: View {
 
     /// Applies digit-only friend code input and max-length clamping.
     private func updateFriendCodeDraft(with rawValue: String) {
-        let digitsOnly = rawValue.filter(\.isNumber)
-        friendCode = String(digitsOnly.prefix(AppConfig.Profile.friendCodeDigits))
-        friendCodeError = validateFriendCode(friendCode)
+        friendCode = FriendCode.clampedDigits(rawValue)
+        friendCodeError = FriendCode.validationError(friendCode)
     }
 
     /// Validates inputs and submits profile values to the shared session.
     private func submit() {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         nameError = validateName(trimmedName)
-        friendCodeError = validateFriendCode(friendCode)
+        friendCodeError = FriendCode.validationError(friendCode)
 
         guard nameError == nil, friendCodeError == nil else {
             showValidationAlert = true
@@ -218,8 +217,9 @@ struct ProfileFormView: View {
         Task { @MainActor in
             isSubmitting = true
             defer { isSubmitting = false }
-            await session.completeProfile(name: trimmedName, friendCode: friendCode)
-            if mode == .edit {
+            let saveSource: UserSessionStore.ProfileSaveSource = (mode == .create) ? .onboarding : .edit
+            let didSave = await session.saveProfile(name: trimmedName, friendCode: friendCode, source: saveSource)
+            if mode == .edit, didSave {
                 dismiss()
             }
         }
@@ -233,17 +233,4 @@ struct ProfileFormView: View {
         return nil
     }
 
-    /// Validates friend code according to app-level profile rules.
-    private func validateFriendCode(_ code: String) -> String? {
-        if code.isEmpty {
-            return NSLocalizedString("profile_friend_code_error_required", comment: "")
-        }
-        if code.count != AppConfig.Profile.friendCodeDigits {
-            return NSLocalizedString("profile_friend_code_error_length", comment: "")
-        }
-        if code.allSatisfy(\.isNumber) == false {
-            return NSLocalizedString("profile_friend_code_error_digits", comment: "")
-        }
-        return nil
-    }
 }

@@ -49,8 +49,8 @@ final class RoomViewModel: ObservableObject {
     // Dependencies
     private let roomId: String
     private unowned let session: UserSessionStore
-    private let repo = FirebaseRoomDetailsRepository()
-    private let actions = FirebaseRoomActionsRepository()
+    private let repo = FbRoomRepo()
+    private let actions = FbRoomActionsRepo()
     
     // MARK: Init
     

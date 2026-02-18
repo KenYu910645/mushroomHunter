@@ -83,7 +83,7 @@ private struct PostcardLinkDestinationView: View {
     @Environment(\.dismiss) private var dismiss // State or dependency property.
     @State private var listing: PostcardListing? // State or dependency property.
     @State private var isLoading: Bool = false // State or dependency property.
-    private let repo = FirebasePostcardRepository()
+    private let repo = FbPostcardRepo()
 
     var body: some View {
         NavigationStack {

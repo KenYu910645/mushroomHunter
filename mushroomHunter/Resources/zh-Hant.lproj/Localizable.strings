@@ -258,11 +258,9 @@
 "about_website_label" = "個人網站";
 "profile_name" = "名稱";
 "profile_name_placeholder" = "Pikmin 遊戲名稱";
-"profile_edit_name_accessibility" = "編輯名稱";
 "profile_name_hint" = "建議使用 Pikmin Bloom 遊戲名稱";
 "profile_friend_code" = "好友碼";
 "profile_friend_code_placeholder" = "12 位數字";
-"profile_edit_friend_code_accessibility" = "編輯好友碼";
 "profile_friend_code_hint" = "在 Pikmin Bloom 中複製貼上好友碼";
 "profile_id_section" = "ID";
 "profile_stars" = "星數";

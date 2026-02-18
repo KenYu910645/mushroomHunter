@@ -7,6 +7,7 @@
 - `mushroomHunter/User/UserSessionStore.swift`: shared user session state container.
 - `mushroomHunter/User/UserAuth.swift`: authentication and auth state handling.
 - `mushroomHunter/User/UserProfile.swift`: profile-complete persistence/sync.
+- `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used by profile create flow.
 - `mushroomHunter/App/ContentView.swift`: app root routing between login, profile-form create mode, and main tabs.
 - `mushroomHunter/App/mushroomHunterApp.swift`: app bootstrap and URL/open handling for auth and deep links.
 

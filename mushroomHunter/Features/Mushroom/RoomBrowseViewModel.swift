@@ -23,8 +23,8 @@ final class RoomBrowseViewModel: ObservableObject {
     @Published var query: String = "" // Free-text query used by local filter.
     @Published var showOnlyAvailable: Bool = true // When true, hide rooms that are already full.
 
-    private let repo = FirebaseBrowseRepository() // Read-only room list source.
-    private let actions = FirebaseRoomActionsRepository() // Join action source (writes attendee/honey-related data).
+    private let repo = FbRoomBrowseRepo() // Read-only room list source.
+    private let actions = FbRoomActionsRepo() // Join action source (writes attendee/honey-related data).
     private unowned let session: UserSessionStore // Shared session state (honey, profile fields, limits).
 
     init(session: UserSessionStore) { // Initializes this type.

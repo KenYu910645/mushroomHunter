@@ -270,11 +270,9 @@
 "about_website_label" = "Website";
 "profile_name" = "Name";
 "profile_name_placeholder" = "Pikmin in-game name";
-"profile_edit_name_accessibility" = "Edit name";
 "profile_name_hint" = "Please type your Pikmin Bloom in-game name";
 "profile_friend_code" = "Friend Code";
 "profile_friend_code_placeholder" = "12 digits";
-"profile_edit_friend_code_accessibility" = "Edit friend code";
 "profile_friend_code_hint" = "Copy and paste friend code in Pikmin Bloom";
 "profile_id_section" = "Your ID";
 "profile_stars" = "Stars";

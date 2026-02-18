@@ -3,10 +3,49 @@
 //  mushroomHunter
 //
 //  Purpose:
-//  - Contains transactional room actions such as join/leave/confirm/rating.
+//  - Repository for transactional room action flows.
 //
-//  Defined in this file:
-//  - RoomActionError and FirebaseRoomActionsRepository action methods.
+//  Related flow:
+//  - Room detail actions: join, leave, deposit update, kick, close, finish raid,
+//    attendee confirmation response, host resend/give-up, host/attendee rating.
+//
+//  Field access legend:
+//  [R] Represent Read
+//  [X] Represent dont care
+//  [W] Represent write
+//
+//  Room document (`rooms/{roomId}`):
+//  [R] - `documentId`: Uses room id to locate transaction targets.
+//  [X] - `title`: Not used by actions logic.
+//  [X] - `roomTitle` (legacy fallback): Not used by actions logic.
+//  [X] - `hostName`: Not used by actions logic.
+//  [X] - `hostStars`: Not used by actions logic.
+//  [X] - `location`: Not used by actions logic.
+//  [X] - `description`: Not used by actions logic.
+//  [W] - `fixedRaidCost`: Reads for validation/settlement and drives writes to attendee deposit outcomes.
+//  [R] - `maxPlayers`: Reads to enforce room capacity during join.
+//  [W] - `joinedCount`: Updates when joining, leaving, kicking, and closing.
+//  [X] - `createdAt`: Not used by actions logic.
+//  [W] - `updatedAt`: Updates timestamp on every room mutation.
+//  [W] - `lastSuccessfulRaidAt`: Writes when host finishes raid confirmation cycle.
+//  [X] - `targetColor`: Not used by actions logic.
+//  [X] - `targetAttribute`: Not used by actions logic.
+//  [X] - `attribute` (legacy fallback): Not used by actions logic.
+//  [X] - `targetSize`: Not used by actions logic.
+//  [X] - `expiresAt`: Not used by actions logic.
+//
+//  Attendee document (`rooms/{roomId}/attendees/{uid}`):
+//  [W] - `uid`: Reads for collection-group join-limit checks and writes on attendee create.
+//  [W] - `name`: Writes attendee/host display name on create path.
+//  [W] - `friendCode`: Writes attendee friend code on create path.
+//  [W] - `stars`: Writes and increments stars during join and rating flows.
+//  [W] - `depositHoney`: Reads for validation/refund and writes on join/deposit/confirmation.
+//  [W] - `status`: Reads for authorization/state checks and writes on transitions.
+//  [W] - `joinedAt`: Writes join timestamp when attendee row is created.
+//  [W] - `updatedAt`: Writes attendee mutation timestamp on every state change.
+//  [W] - `needsHostRating`: Reads/writes pending host-rating state after confirmations.
+//  [W] - `attendeeRatedHost`: Reads/writes attendee-to-host rating completion state.
+//  [W] - `hostRatedAttendee`: Reads/writes host-to-attendee rating completion state.
 //
 import Foundation
 import FirebaseAuth
@@ -42,7 +81,7 @@ enum RoomActionError: LocalizedError {
     }
 }
 
-final class FirebaseRoomActionsRepository {
+final class FbRoomActionsRepo {
     private let db = Firestore.firestore()
     private let defaultMaxHostRooms = AppConfig.Mushroom.defaultHostRoomLimit
     private let defaultMaxJoinRooms = AppConfig.Mushroom.defaultJoinRoomLimit

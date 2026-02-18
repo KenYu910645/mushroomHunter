@@ -30,58 +30,50 @@ struct JoinedRoomsSection: View, Equatable {
 
     /// Joined-room list rendering, including loading, empty, and error states.
     var body: some View {
-        Group {
-            if let errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-            }
+        ProfileSectionStateView(
+            isLoading: isLoading,
+            isEmpty: rooms.isEmpty,
+            errorMessage: errorMessage,
+            loadingTextKey: LocalizedStringKey("profile_loading_joined")
+        ) {
+            ForEach(rooms) { room in
+                NavigationLink {
+                    RoomView(vm: RoomViewModel(roomId: room.id, session: session))
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(room.title)
+                            .font(.headline)
+                            .lineLimit(1)
 
-            if isLoading && rooms.isEmpty {
-                HStack {
-                    ProgressView()
-                    Text(LocalizedStringKey("profile_loading_joined"))
-                        .foregroundStyle(.secondary)
+                        HStack(spacing: 8) {
+                            Text(
+                                String(
+                                    format: NSLocalizedString("profile_players_format", comment: ""),
+                                    room.joinedCount,
+                                    room.maxPlayers
+                                )
+                            )
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+
+                            Text(
+                                String(
+                                    format: NSLocalizedString("profile_bid_format", comment: ""),
+                                    room.depositHoney
+                                )
+                            )
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        }
+                    }
                 }
-            } else if rooms.isEmpty {
+            }
+        } emptyContent: {
                 ContentUnavailableView(
                     LocalizedStringKey("profile_joined_empty_title"),
                     systemImage: "person.2"
                 )
                 .listRowBackground(Color.clear)
-            } else {
-                ForEach(rooms) { room in
-                    NavigationLink {
-                        RoomView(vm: RoomViewModel(roomId: room.id, session: session))
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(room.title)
-                                .font(.headline)
-                                .lineLimit(1)
-
-                            HStack(spacing: 8) {
-                                Text(
-                                    String(
-                                        format: NSLocalizedString("profile_players_format", comment: ""),
-                                        room.joinedCount,
-                                        room.maxPlayers
-                                    )
-                                )
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-
-                                Text(
-                                    String(
-                                        format: NSLocalizedString("profile_bid_format", comment: ""),
-                                        room.depositHoney
-                                    )
-                                )
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }
@@ -112,50 +104,42 @@ struct HostedRoomsSection: View, Equatable {
 
     /// Hosted-room list rendering, including loading, empty, and error states.
     var body: some View {
-        Group {
-            if let errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-            }
+        ProfileSectionStateView(
+            isLoading: isLoading,
+            isEmpty: rooms.isEmpty,
+            errorMessage: errorMessage,
+            loadingTextKey: LocalizedStringKey("profile_loading_hosted")
+        ) {
+            ForEach(rooms) { room in
+                NavigationLink {
+                    RoomView(
+                        vm: RoomViewModel(roomId: room.id, session: session),
+                        onRoomClosed: onRoomClosed
+                    )
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(room.title)
+                            .font(.headline)
+                            .lineLimit(1)
 
-            if isLoading && rooms.isEmpty {
-                HStack {
-                    ProgressView()
-                    Text(LocalizedStringKey("profile_loading_hosted"))
+                        Text(
+                            String(
+                                format: NSLocalizedString("profile_players_format", comment: ""),
+                                room.joinedCount,
+                                room.maxPlayers
+                            )
+                        )
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
+                    }
                 }
-            } else if rooms.isEmpty {
+            }
+        } emptyContent: {
                 ContentUnavailableView(
                     LocalizedStringKey("profile_hosted_empty_title"),
                     systemImage: "house"
                 )
                 .listRowBackground(Color.clear)
-            } else {
-                ForEach(rooms) { room in
-                    NavigationLink {
-                        RoomView(
-                            vm: RoomViewModel(roomId: room.id, session: session),
-                            onRoomClosed: onRoomClosed
-                        )
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(room.title)
-                                .font(.headline)
-                                .lineLimit(1)
-
-                            Text(
-                                String(
-                                    format: NSLocalizedString("profile_players_format", comment: ""),
-                                    room.joinedCount,
-                                    room.maxPlayers
-                                )
-                            )
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
         }
     }
 }

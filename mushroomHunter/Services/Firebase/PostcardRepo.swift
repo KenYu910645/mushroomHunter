@@ -3,10 +3,56 @@
 //  mushroomHunter
 //
 //  Purpose:
-//  - Contains Firestore-backed data access for Postcard listing/order flows.
+//  - Repository for postcard browse/listing/order lifecycle flows.
 //
-//  Defined in this file:
-//  - Postcard repository errors, query methods, and order state updates.
+//  Related flow:
+//  - Postcard tab browse/search, seller create/edit/delete, buyer purchase, seller ship,
+//  - buyer receive/confirm, profile-owned postcard queries.
+//
+//  Field access legend:
+//  [R] Represent Read
+//  [X] Represent dont care
+//  [W] Represent write
+//
+//  Postcard listing document (`postcards/{postcardId}`):
+//  [R] - `postcardId`: Reads document id for model identity and navigation.
+//  [W] - `title`: Writes on create/edit; reads for listing/buy payloads.
+//  [W] - `priceHoney`: Writes on create/edit; reads for purchase validation.
+//  [W] - `sellerId`: Writes on create; reads for ownership/forbidden checks.
+//  [W] - `sellerName`: Writes on create and refreshes on edit; reads for UI/order payload.
+//  [W] - `stock`: Writes on create/edit and decrements/increments during order lifecycle.
+//  [W] - `imageUrl`: Writes on create/edit; reads for display/order payload.
+//  [W] - `location`: Writes nested location on create/edit; reads for display/order payload.
+//  [W] - `searchTokens`: Writes index tokens on create/edit; reads for token-based search query.
+//  [W] - `createdAt`: Writes create timestamp; reads for ordering recent/my listings.
+//  [W] - `updatedAt`: Writes update timestamp on every listing mutation.
+//
+//  Postcard order document (`postcardOrders/{orderId}`):
+//  [R] - `orderId`: Reads document id for order tracking.
+//  [W] - `postcardId`: Writes linked listing id; reads for ordered-postcard lookup.
+//  [W] - `postcardTitle`: Writes title snapshot at buy time.
+//  [W] - `postcardImageUrl`: Writes image URL snapshot at buy time.
+//  [W] - `location`: Writes location snapshot at buy time.
+//  [W] - `status`: Writes order state transitions and reads for filtering/validation.
+//  [W] - `buyerId`: Writes buyer id and reads for profile/order authorization filters.
+//  [W] - `buyerName`: Writes buyer name snapshot.
+//  [W] - `sellerId`: Writes seller id and reads for seller authorization filters.
+//  [W] - `sellerName`: Writes seller name snapshot.
+//  [W] - `priceHoney`: Writes transaction price snapshot.
+//  [W] - `holdHoney`: Writes escrow/hold value and releases on completion/cancel paths.
+//  [W] - `sellerReminderAt`: Writes seller reminder deadline.
+//  [W] - `sellerDeadlineAt`: Writes seller send deadline.
+//  [W] - `buyerReminderAt`: Writes buyer reminder deadline.
+//  [W] - `buyerAutoCompleteAt`: Writes buyer auto-complete deadline.
+//  [W] - `trackingCode`: Writes shipment tracking code on seller ship flow.
+//  [W] - `createdAt`: Writes order creation timestamp and reads for profile ordering.
+//  [W] - `updatedAt`: Writes update timestamp on every order mutation.
+//
+//  User wallet/profile document (`users/{uid}`):
+//  [R] - `friendCode`: Reads for postcard detail shipping display.
+//  [W] - `honey`: Reads/writes wallet balance during buy/settlement flows.
+//  [R] - `displayName`: Reads buyer/seller display snapshots for orders.
+//  [W] - `updatedAt`: Writes timestamp when wallet is mutated by order transactions.
 //
 import Foundation
 import FirebaseAuth
@@ -36,7 +82,7 @@ enum PostcardRepoError: LocalizedError {
     }
 }
 
-final class FirebasePostcardRepository {
+final class FbPostcardRepo {
     private let db = Firestore.firestore()
     private let sellerSendReminderHours = AppConfig.Postcard.sellerSendReminderHours
     private let sellerSendDeadlineHours = AppConfig.Postcard.sellerSendDeadlineHours

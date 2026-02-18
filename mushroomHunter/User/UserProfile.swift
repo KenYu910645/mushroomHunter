@@ -13,43 +13,23 @@ import FirebaseAuth
 import FirebaseFirestore
 
 extension UserSessionStore {
+    /// Source context for a profile save operation.
+    enum ProfileSaveSource {
+        /// Save originated from first-time onboarding completion.
+        case onboarding
+
+        /// Save originated from in-app profile editing.
+        case edit
+    }
+
     // MARK: - Profile updates
 
-    func updateDisplayName(_ newName: String) { // Handles display-name update flow.
-        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-
-        displayName = trimmed
-        persistScopedString(kDisplayName, value: trimmed)
-
-        var fields: [String: Any] = ["displayName": trimmed]
-        if shouldMarkProfileComplete() {
-            isProfileComplete = true
-            fields["profileComplete"] = true
-        }
-
-        Task { await syncProfileFields(fields) }
-        Task { await syncHostedRoomProfile(displayName: trimmed) }
-    }
-
-    func updateFriendCode(_ code: String) { // Handles friend-code update flow.
-        friendCode = code
-        persistScopedString(kFriendCode, value: code)
-
-        var fields: [String: Any] = ["friendCode": code]
-        if shouldMarkProfileComplete() {
-            isProfileComplete = true
-            fields["profileComplete"] = true
-        }
-
-        Task { await syncProfileFields(fields) }
-        Task { await syncHostedRoomProfile(friendCode: code) }
-    }
-
-    func completeProfile(name: String, friendCode: String) async { // Handles profile-completion flow.
+    /// Saves profile fields and syncs local/backend room snapshots.
+    /// - Returns: `true` when input passed validation and save work completed.
+    func saveProfile(name: String, friendCode: String, source: ProfileSaveSource) async -> Bool { // Handles shared profile-save flow.
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let digits = friendCode.filter { $0.isNumber }
-        guard !trimmedName.isEmpty, digits.count == AppConfig.Profile.friendCodeDigits else { return }
+        let digits = FriendCode.digitsOnly(friendCode)
+        guard !trimmedName.isEmpty, FriendCode.validationError(digits) == nil else { return false }
 
         displayName = trimmedName
         self.friendCode = digits
@@ -64,7 +44,10 @@ extension UserSessionStore {
             "profileComplete": true
         ])
         await syncHostedRoomProfile(displayName: trimmedName, friendCode: digits, stars: stars)
-        await ensureUserProfile()
+        if source == .onboarding {
+            await ensureUserProfile()
+        }
+        return true
     }
 
     func updateFcmToken(_ token: String) { // Handles FCM-token update flow.
@@ -92,8 +75,9 @@ extension UserSessionStore {
             }
 
             if let code = data["friendCode"] as? String {
-                friendCode = code
-                persistScopedString(kFriendCode, value: code)
+                let sanitizedFriendCode = FriendCode.digitsOnly(code)
+                friendCode = sanitizedFriendCode
+                persistScopedString(kFriendCode, value: sanitizedFriendCode)
             }
 
             if let starsValue = data["stars"] as? Int {
@@ -240,11 +224,5 @@ extension UserSessionStore {
         } catch {
             print("❌ syncHostedRoomProfile error:", error)
         }
-    }
-
-    private func shouldMarkProfileComplete() -> Bool { // Evaluates whether current profile fields satisfy completion requirements.
-        let nameOK = !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let codeOK = !friendCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        return nameOK && codeOK
     }
 }

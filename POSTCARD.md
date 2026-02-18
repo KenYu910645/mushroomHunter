@@ -11,10 +11,11 @@
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by postcard form inputs.
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared auto-select text editor wrapper used by postcard description inputs.
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`: Firestore operations for listings, orders, shipping, and receipt confirmation.
-- `mushroomHunter/Services/Firebase/FirebasePostcardImageUploader.swift`: image crop/encode/upload to Firebase Storage.
+- `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`: image crop/encode/upload to Firebase Storage.
 - `mushroomHunter/Utilities/RoomInviteLink.swift`: postcard invite link generation/parsing for `honeyhub://postcard/{postcardId}`.
 - `mushroomHunter/Utilities/SearchTokens.swift`: normalized token generation for postcard search fields.
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed postcard settings (price/stock/text caps, fetch limits, order timeout windows).
+- `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used across profile, room, and postcard flows.
 - `mushroomHunter/App/mushroomHunterApp.swift`: handles postcard deep-link routing from invite links.
 - `mushroomHunter/App/ContentView.swift`: presents postcard detail sheet when a postcard invite link is opened.
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift`: shared invite QR sheet component reused by postcard detail.

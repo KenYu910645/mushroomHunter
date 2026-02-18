@@ -1,12 +1,29 @@
 //
-//  FirebasePostcardImageUploader.swift
+//  PostcardImageUploader.swift
 //  mushroomHunter
 //
 //  Purpose:
-//  - Handles postcard image preprocessing and Firebase Storage uploads.
+//  - Repository/helper for postcard image crop + Firebase Storage upload flow.
 //
-//  Defined in this file:
-//  - Image uploader errors and upload/crop helper methods.
+//  Related flow:
+//  - Postcard create/edit -> choose image -> crop -> upload -> store URL in postcard record.
+//
+//  Field access legend:
+//  [R] Represent Read
+//  [X] Represent dont care
+//  [W] Represent write
+//
+//  Storage object (`postcards/{ownerId}/{filename}.jpg`):
+//  [R] - `ownerId` path segment: Reads/validates owner id input before upload path creation.
+//  [W] - `filename` path segment: Writes generated UUID filename for object key.
+//  [W] - `binaryData`: Uploads encoded JPEG bytes to Firebase Storage.
+//  [W] - `contentType`: Writes object metadata content type (`image/jpeg`).
+//  [R] - `downloadURL`: Reads generated download URL after successful upload.
+//  [W] - `delete`: Deletes object by URL during cleanup flow.
+//
+//  Local image preprocessing contract (not Firestore fields):
+//  [R] - `requiredCropRect`: Reads fixed crop area (x:20, y:20, w:645, h:635) for validation/cropping.
+//  [W] - `normalizedImage`: Writes normalized bitmap before crop/encode operations.
 //
 import Foundation
 import FirebaseStorage
@@ -32,7 +49,7 @@ enum PostcardImageUploadError: LocalizedError {
     }
 }
 
-final class FirebasePostcardImageUploader {
+final class PostcardImageUploader {
     private let storage = Storage.storage()
     // Fixed crop rectangle requested by product requirement.
     private let requiredCropRect = CGRect(x: 20, y: 20, width: 645, height: 635)

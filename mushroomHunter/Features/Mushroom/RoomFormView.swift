@@ -28,7 +28,7 @@ final class HostViewModel: ObservableObject {
 
     // Dependencies
     private unowned let session: UserSessionStore
-    private let repo: FirebaseHostRepository
+    private let repo: FbRoomFormRepo
 
     let mode: Mode
 
@@ -60,13 +60,13 @@ final class HostViewModel: ObservableObject {
         return items.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }()
 
-    init(session: UserSessionStore, repo: FirebaseHostRepository = FirebaseHostRepository()) { // Initializes this type.
+    init(session: UserSessionStore, repo: FbRoomFormRepo = FbRoomFormRepo()) { // Initializes this type.
         self.session = session
         self.repo = repo
         self.mode = .create
     }
 
-    init(session: UserSessionStore, room: RoomDetail, repo: FirebaseHostRepository = FirebaseHostRepository()) { // Initializes this type.
+    init(session: UserSessionStore, room: RoomDetail, repo: FbRoomFormRepo = FbRoomFormRepo()) { // Initializes this type.
         self.session = session
         self.repo = repo
         self.mode = .edit(roomId: room.id)
@@ -138,7 +138,7 @@ final class HostViewModel: ObservableObject {
         defer { isSubmitting = false }
 
         do {
-        let req = FirestoreRoomCreateRequest(
+            let req = FsRoomFormRequest(
             title: hostName,
             location: locationString,
             description: otherMessage,
@@ -167,7 +167,7 @@ final class HostViewModel: ObservableObject {
 
         } catch {
             print("❌ submit(): error =", error)
-            if let limitError = error as? HostRoomError {
+            if let limitError = error as? RoomFormError {
                 limitAlertMessage = limitError.errorDescription ?? ""
                 showLimitAlert = true
             } else {

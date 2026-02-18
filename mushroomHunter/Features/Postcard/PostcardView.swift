@@ -9,49 +9,78 @@ import SwiftUI
 
 // MARK: - Detail
 
+/// Postcard detail screen with buyer/seller actions for one listing.
 struct PostcardView: View {
-    @State private var showBuyConfirm: Bool = false // State or dependency property.
-    @State private var showEditSheet: Bool = false // State or dependency property.
-    @State private var showInviteSheet: Bool = false // State or dependency property.
-    @State private var currentListing: PostcardListing // State or dependency property.
-    @State private var isBuying: Bool = false // State or dependency property.
-    @State private var showBuySuccessAlert: Bool = false // State or dependency property.
-    @State private var showBuyErrorAlert: Bool = false // State or dependency property.
-    @State private var buyErrorMessage: String = "" // State or dependency property.
-    @State private var showShippingSheet: Bool = false // State or dependency property.
-    @State private var buyerOrder: PostcardBuyerOrder? // State or dependency property.
-    @State private var showReceiveConfirmAlert: Bool = false // State or dependency property.
-    @State private var showNotReceivedAlert: Bool = false // State or dependency property.
-    @State private var showReceiveSuccessAlert: Bool = false // State or dependency property.
-    @State private var receiveSuccessMessage: String = "" // State or dependency property.
-    @State private var sellerFriendCode: String = "" // State or dependency property.
-    @State private var showCopyToast: Bool = false // State or dependency property.
-    @Environment(\.colorScheme) private var scheme // State or dependency property.
-    @Environment(\.dismiss) private var dismiss // State or dependency property.
-    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
-    private let repo = FirebasePostcardRepository()
+    /// Controls buy confirmation alert visibility.
+    @State private var isBuyConfirmPresented: Bool = false
+    /// Controls seller edit sheet visibility.
+    @State private var isEditSheetPresented: Bool = false
+    /// Controls share invite sheet visibility.
+    @State private var isInviteSheetPresented: Bool = false
+    /// Listing currently displayed on the detail screen.
+    @State private var currentListing: PostcardListing
+    /// Indicates whether the buy request is in progress.
+    @State private var isBuying: Bool = false
+    /// Controls buy success alert visibility.
+    @State private var isBuySuccessAlertPresented: Bool = false
+    /// Controls generic buy/receive error alert visibility.
+    @State private var isBuyErrorAlertPresented: Bool = false
+    /// Error message shown in buy/receive error alert.
+    @State private var buyErrorMessage: String = ""
+    /// Controls seller shipping queue sheet visibility.
+    @State private var isShippingSheetPresented: Bool = false
+    /// Latest buyer order for current user and listing.
+    @State private var buyerOrder: PostcardBuyerOrder?
+    /// Controls receive confirmation alert visibility.
+    @State private var isReceiveConfirmAlertPresented: Bool = false
+    /// Controls "not received yet" alert visibility.
+    @State private var isNotReceivedAlertPresented: Bool = false
+    /// Controls receive success alert visibility.
+    @State private var isReceiveSuccessAlertPresented: Bool = false
+    /// Success message shown after buyer confirms receipt.
+    @State private var receiveSuccessMessage: String = ""
+    /// Seller friend code shown to buyers.
+    @State private var sellerFriendCode: String = ""
+    /// Controls temporary copied toast visibility.
+    @State private var isCopyToastVisible: Bool = false
+    /// Current color scheme used for themed background.
+    @Environment(\.colorScheme) private var scheme
+    /// Dismiss action for this detail screen.
+    @Environment(\.dismiss) private var dismiss
+    /// Shared user session store.
+    @EnvironmentObject private var session: UserSessionStore
+    /// Firebase-backed repository for listing/order actions.
+    private let repo = FbPostcardRepo()
+    /// Fixed aspect ratio for the hero listing image.
     private let imageAspectRatio: CGFloat = 4.0 / 3.0
+    /// Maximum width applied to hero listing image container.
     private let detailImageMaxWidth: CGFloat = 300
 
-    init(listing: PostcardListing) { // Initializes this type.
+    /// Initializes the screen with an initial listing payload.
+    /// - Parameter listing: Listing selected from browse.
+    init(listing: PostcardListing) {
         _currentListing = State(initialValue: listing)
     }
 
+    /// Indicates whether the current user owns this listing.
     private var isSeller: Bool {
         guard let uid = session.authUid else { return false }
         return uid == currentListing.sellerId
     }
 
-    private var canConfirmReceive: Bool {
+    /// Indicates whether buyer receipt confirmation actions should be shown.
+    private var isReceiveConfirmationAvailable: Bool {
         guard let order = buyerOrder else { return false }
         return order.status == .inTransit || order.status == .awaitingBuyerDecision
     }
 
-    private var hasPendingBuyerOrder: Bool {
+    /// Indicates whether buyer currently has a pending order state.
+    private var isBuyerOrderPending: Bool {
         guard let order = buyerOrder else { return false }
-        return order.status == .awaitingSellerSend || canConfirmReceive
+        return order.status == .awaitingSellerSend || isReceiveConfirmationAvailable
     }
 
+    /// Main detail view content.
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -142,7 +171,7 @@ struct PostcardView: View {
                     }
                 }
 
-                if !isSeller && canConfirmReceive {
+                if !isSeller && isReceiveConfirmationAvailable {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(LocalizedStringKey("postcard_receive_prompt"))
                             .font(.subheadline)
@@ -150,7 +179,7 @@ struct PostcardView: View {
 
                         HStack(spacing: 10) {
                             Button {
-                                showNotReceivedAlert = true
+                                isNotReceivedAlertPresented = true
                             } label: {
                                 Text(LocalizedStringKey("postcard_receive_no_button"))
                                     .frame(maxWidth: .infinity)
@@ -158,7 +187,7 @@ struct PostcardView: View {
                             .buttonStyle(.bordered)
 
                             Button {
-                                showReceiveConfirmAlert = true
+                                isReceiveConfirmAlertPresented = true
                             } label: {
                                 Text(LocalizedStringKey("postcard_receive_yes_button"))
                                     .frame(maxWidth: .infinity)
@@ -166,13 +195,13 @@ struct PostcardView: View {
                             .buttonStyle(.borderedProminent)
                         }
                     }
-                } else if !isSeller && hasPendingBuyerOrder {
+                } else if !isSeller && isBuyerOrderPending {
                     Text(LocalizedStringKey("postcard_order_pending_message"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else if !isSeller {
                     Button {
-                        showBuyConfirm = true
+                        isBuyConfirmPresented = true
                     } label: {
                         if isBuying {
                             ProgressView()
@@ -194,7 +223,7 @@ struct PostcardView: View {
             if isSeller {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        showInviteSheet = true
+                        isInviteSheetPresented = true
                     } label: {
                         Image(systemName: "square.and.arrow.up")
                     }
@@ -202,7 +231,7 @@ struct PostcardView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        showEditSheet = true
+                        isEditSheetPresented = true
                     } label: {
                         Image(systemName: "pencil")
                     }
@@ -210,7 +239,7 @@ struct PostcardView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        showShippingSheet = true
+                        isShippingSheetPresented = true
                     } label: {
                         Image(systemName: "shippingbox")
                     }
@@ -218,7 +247,7 @@ struct PostcardView: View {
                 }
             }
         }
-        .alert(LocalizedStringKey("postcard_confirm_title"), isPresented: $showBuyConfirm) {
+        .alert(LocalizedStringKey("postcard_confirm_title"), isPresented: $isBuyConfirmPresented) {
             Button(LocalizedStringKey("common_confirm")) {
                 Task { await buyPostcard() }
             }
@@ -226,12 +255,12 @@ struct PostcardView: View {
         } message: {
             Text(LocalizedStringKey("postcard_confirm_message"))
         }
-        .alert(LocalizedStringKey("postcard_buy_success_title"), isPresented: $showBuySuccessAlert) {
+        .alert(LocalizedStringKey("postcard_buy_success_title"), isPresented: $isBuySuccessAlertPresented) {
             Button(LocalizedStringKey("common_ok")) {}
         } message: {
             Text(LocalizedStringKey("postcard_buy_success_message"))
         }
-        .alert(LocalizedStringKey("postcard_receive_confirm_title"), isPresented: $showReceiveConfirmAlert) {
+        .alert(LocalizedStringKey("postcard_receive_confirm_title"), isPresented: $isReceiveConfirmAlertPresented) {
             Button(LocalizedStringKey("common_confirm")) {
                 Task { await confirmReceive() }
             }
@@ -239,19 +268,19 @@ struct PostcardView: View {
         } message: {
             Text(LocalizedStringKey("postcard_receive_confirm_message"))
         }
-        .alert(LocalizedStringKey("postcard_receive_wait_title"), isPresented: $showNotReceivedAlert) {
+        .alert(LocalizedStringKey("postcard_receive_wait_title"), isPresented: $isNotReceivedAlertPresented) {
             Button(LocalizedStringKey("common_ok")) {
                 Task { await markNotYetReceived() }
             }
         } message: {
             Text(LocalizedStringKey("postcard_receive_wait_message"))
         }
-        .alert(LocalizedStringKey("postcard_receive_success_title"), isPresented: $showReceiveSuccessAlert) {
+        .alert(LocalizedStringKey("postcard_receive_success_title"), isPresented: $isReceiveSuccessAlertPresented) {
             Button(LocalizedStringKey("common_ok")) {}
         } message: {
             Text(receiveSuccessMessage)
         }
-        .alert(LocalizedStringKey("common_error"), isPresented: $showBuyErrorAlert) {
+        .alert(LocalizedStringKey("common_error"), isPresented: $isBuyErrorAlertPresented) {
             Button(LocalizedStringKey("common_ok")) {}
         } message: {
             Text(buyErrorMessage)
@@ -262,7 +291,7 @@ struct PostcardView: View {
         .refreshable {
             await refreshListing()
         }
-        .sheet(isPresented: $showEditSheet, onDismiss: {
+        .sheet(isPresented: $isEditSheetPresented, onDismiss: {
             Task { await refreshListing() }
         }) {
             NavigationStack {
@@ -272,12 +301,12 @@ struct PostcardView: View {
                 .navigationTitle(LocalizedStringKey("postcard_edit_title"))
             }
         }
-        .sheet(isPresented: $showShippingSheet) {
+        .sheet(isPresented: $isShippingSheetPresented) {
             NavigationStack {
                 PostcardShippingView(postcard: currentListing)
             }
         }
-        .sheet(isPresented: $showInviteSheet) {
+        .sheet(isPresented: $isInviteSheetPresented) {
             InviteShareSheet(
                 titleKey: LocalizedStringKey("postcard_invite_title"),
                 hintText: String(format: NSLocalizedString("postcard_invite_hint", comment: ""), currentListing.title),
@@ -289,7 +318,7 @@ struct PostcardView: View {
             )
         }
         .overlay(alignment: .top) {
-            if showCopyToast {
+            if isCopyToastVisible {
                 Text(LocalizedStringKey("common_copied"))
                     .font(.footnote)
                     .padding(.horizontal, 12)
@@ -301,6 +330,7 @@ struct PostcardView: View {
         }
     }
 
+    /// Refreshes listing data, seller friend code, and buyer order state.
     private func refreshListing() async {
         do {
             if let refreshed = try await repo.fetchPostcard(postcardId: currentListing.id) {
@@ -319,48 +349,48 @@ struct PostcardView: View {
         }
     }
 
+    /// Formats friend code for UI display.
+    /// - Parameter raw: Raw friend code value.
+    /// - Returns: Grouped friend code string or fallback marker.
     private func formattedFriendCode(_ raw: String) -> String {
-        let digits = raw.filter { $0.isNumber }
-        guard !digits.isEmpty else { return "-" }
-        if digits.count <= 4 { return digits }
-        if digits.count <= 8 {
-            let first = digits.prefix(4)
-            let second = digits.suffix(max(0, digits.count - 4))
-            return "\(first) \(second)"
-        }
-        let first = digits.prefix(4)
-        let second = digits.dropFirst(4).prefix(4)
-        let third = digits.dropFirst(8).prefix(4)
-        return "\(first) \(second) \(third)"
+        let digits = FriendCode.clampedDigits(raw)
+        guard digits.isEmpty == false else { return "-" }
+        return FriendCode.formatted(digits)
     }
 
+    /// Copies seller friend code digits to clipboard.
+    /// - Parameter raw: Raw seller friend code value.
     private func copyFriendCode(_ raw: String) {
-        let digits = raw.filter { $0.isNumber }
-        guard !digits.isEmpty else { return }
+        let digits = FriendCode.digitsOnly(raw)
+        guard digits.isEmpty == false else { return }
         UIPasteboard.general.string = digits
         showCopiedToast()
     }
 
+    /// Copies generated invite link to clipboard.
+    /// - Parameter link: Invite URL string.
     private func copyInviteLink(_ link: String) {
         guard !link.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         UIPasteboard.general.string = link
         showCopiedToast()
     }
 
+    /// Shows a short-lived copied toast message.
     private func showCopiedToast() {
         withAnimation(.easeInOut(duration: 0.2)) {
-            showCopyToast = true
+            isCopyToastVisible = true
         }
         Task {
             try? await Task.sleep(nanoseconds: 900_000_000)
             await MainActor.run {
                 withAnimation(.easeInOut(duration: 0.2)) {
-                    showCopyToast = false
+                    isCopyToastVisible = false
                 }
             }
         }
     }
 
+    /// Executes buy request for current listing.
     private func buyPostcard() async {
         guard !isBuying else { return }
         isBuying = true
@@ -370,13 +400,14 @@ struct PostcardView: View {
             _ = try await repo.buyPostcard(postcardId: currentListing.id)
             await session.refreshProfileFromBackend()
             await refreshListing()
-            showBuySuccessAlert = true
+            isBuySuccessAlertPresented = true
         } catch {
             buyErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            showBuyErrorAlert = true
+            isBuyErrorAlertPresented = true
         }
     }
 
+    /// Confirms postcard receipt for the latest buyer order.
     private func confirmReceive() async {
         guard let order = buyerOrder else { return }
         do {
@@ -384,13 +415,14 @@ struct PostcardView: View {
             await session.refreshProfileFromBackend()
             await refreshListing()
             receiveSuccessMessage = NSLocalizedString("postcard_receive_success_message", comment: "")
-            showReceiveSuccessAlert = true
+            isReceiveSuccessAlertPresented = true
         } catch {
             buyErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            showBuyErrorAlert = true
+            isBuyErrorAlertPresented = true
         }
     }
 
+    /// Marks the postcard as not yet received for the buyer order.
     private func markNotYetReceived() async {
         guard let order = buyerOrder else { return }
         do {
@@ -398,7 +430,7 @@ struct PostcardView: View {
             await refreshListing()
         } catch {
             buyErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            showBuyErrorAlert = true
+            isBuyErrorAlertPresented = true
         }
     }
 }

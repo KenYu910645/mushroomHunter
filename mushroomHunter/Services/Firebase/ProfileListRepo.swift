@@ -1,12 +1,45 @@
 //
-//  ProfileHostRepo.swift
+//  ProfileListRepo.swift
 //  mushroomHunter
 //
 //  Purpose:
-//  - Contains Firestore queries for profile-hosted and profile-joined rooms.
+//  - Repository for profile-hosted/profile-joined room summary queries.
 //
-//  Defined in this file:
-//  - ProfileHostRepo summaries and profile room aggregation methods.
+//  Related flow:
+//  - Profile tab -> hosted rooms list and joined rooms list.
+//
+//  Field access legend:
+//  [R] Represent Read
+//  [X] Represent dont care
+//  [W] Represent write
+//
+//  Room document (`rooms/{roomId}`):
+//  [R] - `documentId`: Reads room id for summary identity.
+//  [R] - `title`: Reads room title for hosted/joined summaries.
+//  [R] - `joinedCount`: Reads occupancy for hosted/joined summaries.
+//  [R] - `maxPlayers`: Reads player cap for hosted/joined summaries.
+//  [R] - `createdAt`: Reads sort key for hosted room list.
+//  [R] - `updatedAt`: Reads sort key for joined room list.
+//  [X] - `location`: Not required for current profile room summaries.
+//  [X] - `description`: Not required for current profile room summaries.
+//  [X] - `fixedRaidCost`: Not required for current profile room summaries.
+//  [X] - `targetColor`: Not required for current profile room summaries.
+//  [X] - `targetAttribute`: Not required for current profile room summaries.
+//  [X] - `targetSize`: Not required for current profile room summaries.
+//  [X] - `lastSuccessfulRaidAt`: Not required for current profile room summaries.
+//
+//  Attendee document (`rooms/{roomId}/attendees/{uid}`):
+//  [R] - `uid`: Reads by `uid` field and legacy document-id fallback for current user matching.
+//  [R] - `status`: Reads to split hosted (`host`) and joined (`ready`/`waitingConfirmation`/`rejected`) lists.
+//  [R] - `depositHoney`: Reads for joined-room summary display.
+//  [X] - `name`: Not required for current profile room summaries.
+//  [X] - `friendCode`: Not required for current profile room summaries.
+//  [X] - `stars`: Not required for current profile room summaries.
+//  [X] - `joinedAt`: Not required for current profile room summaries.
+//  [X] - `updatedAt`: Not required from attendee row (room `updatedAt` is used).
+//  [X] - `needsHostRating`: Not required for current profile room summaries.
+//  [X] - `attendeeRatedHost`: Not required for current profile room summaries.
+//  [X] - `hostRatedAttendee`: Not required for current profile room summaries.
 //
 import Foundation
 import FirebaseFirestore
@@ -29,7 +62,7 @@ struct JoinedRoomSummary: Identifiable, Hashable {
     let updatedAt: Date?
 }
 
-final class FirebaseProfileHostRepository {
+final class FbProfileListRepo {
     private let db = Firestore.firestore()
 
     func fetchMyHostedRooms(limit: Int = AppConfig.Mushroom.profileListFetchLimit) async throws -> [HostedRoomSummary] { // Handles fetchMyHostedRooms flow.

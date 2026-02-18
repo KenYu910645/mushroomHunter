@@ -1,18 +1,56 @@
 //
-//  RoomHostRepo.swift
+//  RoomFormRepo.swift
 //  mushroomHunter
 //
 //  Purpose:
-//  - Contains Firestore create/update operations for hosted room lifecycle.
+//  - Repository for room create/edit form flow.
 //
-//  Defined in this file:
-//  - Room host request models and Firebase room host repository methods.
+//  Related flow:
+//  - Mushroom tab -> host create room / edit room form submit.
+//
+//  Field access legend:
+//  [R] Represent Read
+//  [X] Represent dont care
+//  [W] Represent write
+//
+//  Room document (`rooms/{roomId}`):
+//  [X] - `documentId`: Uses generated id from Firestore reference; does not read/write id field.
+//  [W] - `title`: Writes room title from form input on create/edit.
+//  [X] - `roomTitle` (legacy fallback): Legacy field is not used in form write path.
+//  [W] - `hostName`: Writes host display name when creating room.
+//  [W] - `hostStars`: Writes host stars snapshot when creating room.
+//  [W] - `location`: Writes location string from form input on create/edit.
+//  [W] - `description`: Writes room description from form input on create/edit.
+//  [W] - `fixedRaidCost`: Writes normalized fixed raid cost on create/edit.
+//  [W] - `maxPlayers`: Writes default max player cap on create.
+//  [W] - `joinedCount`: Writes initial joined count (`1`) on create.
+//  [W] - `createdAt`: Writes create timestamp when creating room.
+//  [W] - `updatedAt`: Writes update timestamp on create/edit.
+//  [X] - `lastSuccessfulRaidAt`: Not touched by form flow.
+//  [X] - `targetColor`: Not touched by current form flow.
+//  [X] - `targetAttribute`: Not touched by current form flow.
+//  [X] - `attribute` (legacy fallback): Not touched by current form flow.
+//  [X] - `targetSize`: Not touched by current form flow.
+//  [X] - `expiresAt`: Not touched by current form flow.
+//
+//  Attendee document (`rooms/{roomId}/attendees/{uid}`):
+//  [W] - `uid`: Writes host uid when creating host attendee row.
+//  [W] - `name`: Writes host name when creating host attendee row.
+//  [W] - `friendCode`: Writes host friend code when creating host attendee row.
+//  [W] - `stars`: Writes host stars when creating host attendee row.
+//  [W] - `depositHoney`: Writes initial host deposit (`0`) on create.
+//  [W] - `status`: Reads host `status` for edit authorization and writes host status on create.
+//  [W] - `joinedAt`: Writes host joined timestamp on create.
+//  [W] - `updatedAt`: Writes attendee update timestamp on create.
+//  [X] - `needsHostRating`: Not touched by form flow.
+//  [X] - `attendeeRatedHost`: Not touched by form flow.
+//  [X] - `hostRatedAttendee`: Not touched by form flow.
 //
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
 
-struct FirestoreRoomCreateRequest {
+struct FsRoomFormRequest {
     let title: String
     let location: String
     let description: String
@@ -20,7 +58,7 @@ struct FirestoreRoomCreateRequest {
     let fixedRaidCost: Int
 }
 
-enum HostRoomError: LocalizedError {
+enum RoomFormError: LocalizedError {
     case maxHostRoomsReached(Int)
 
     var errorDescription: String? {
@@ -31,12 +69,12 @@ enum HostRoomError: LocalizedError {
     }
 }
 
-final class FirebaseHostRepository {
+final class FbRoomFormRepo {
     private let db = Firestore.firestore()
     private let defaultMaxHostRooms = AppConfig.Mushroom.defaultHostRoomLimit
     private let defaultMaxJoinRooms = AppConfig.Mushroom.defaultJoinRoomLimit
 
-    func createRoom(req: FirestoreRoomCreateRequest, hostName: String, hostStars: Int) async throws -> String { // Handles createRoom flow.
+    func createRoom(req: FsRoomFormRequest, hostName: String, hostStars: Int) async throws -> String { // Handles createRoom flow.
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }
@@ -50,7 +88,7 @@ final class FirebaseHostRepository {
         let existing = existingSnap.documents.filter { $0.documentID == uid }
 
         if existing.count >= maxHostRooms {
-            throw HostRoomError.maxHostRoomsReached(maxHostRooms)
+            throw RoomFormError.maxHostRoomsReached(maxHostRooms)
         }
 
         let ref = db.collection("rooms").document()
@@ -100,7 +138,7 @@ final class FirebaseHostRepository {
         return ref.documentID
     }
 
-    func updateRoom(roomId: String, req: FirestoreRoomCreateRequest) async throws { // Handles updateRoom flow.
+    func updateRoom(roomId: String, req: FsRoomFormRequest) async throws { // Handles updateRoom flow.
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }

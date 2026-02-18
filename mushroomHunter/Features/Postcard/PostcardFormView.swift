@@ -45,7 +45,9 @@ private func clampedText(_ value: String, max: Int) -> String {
 struct PostcardFormView: View {
     /// Mode that controls whether the form creates or edits a postcard.
     private enum FormMode {
+        /// Form is creating a brand-new listing.
         case create
+        /// Form is editing an existing listing.
         case edit
     }
 
@@ -79,15 +81,15 @@ struct PostcardFormView: View {
     @State private var stockText: String
 
     /// Title field focus state.
-    @State private var titleFieldFocused: Bool = false
+    @State private var isTitleFieldFocused: Bool = false
     /// Price field focus state.
-    @State private var priceFieldFocused: Bool = false
+    @State private var isPriceFieldFocused: Bool = false
     /// Province field focus state.
-    @State private var provinceFieldFocused: Bool = false
+    @State private var isProvinceFieldFocused: Bool = false
     /// Stock field focus state.
-    @State private var stockFieldFocused: Bool = false
+    @State private var isStockFieldFocused: Bool = false
     /// Detail field focus state.
-    @State private var detailFieldFocused: Bool = false
+    @State private var isDetailFieldFocused: Bool = false
 
     /// Selected photo picker item.
     @State private var selectedItem: PhotosPickerItem? = nil
@@ -97,7 +99,7 @@ struct PostcardFormView: View {
     /// Ongoing submit/upload flag.
     @State private var isSubmitting: Bool = false
     /// Error alert visibility state.
-    @State private var showErrorAlert: Bool = false
+    @State private var isErrorAlertPresented: Bool = false
     /// Error alert message content.
     @State private var errorAlertMessage: String = ""
     /// Inline upload error text.
@@ -105,12 +107,12 @@ struct PostcardFormView: View {
     /// Last uploaded image URL shown in create mode.
     @State private var uploadedImageURL: URL? = nil
     /// Delete confirmation dialog visibility.
-    @State private var showDeleteConfirm: Bool = false
+    @State private var isDeleteConfirmPresented: Bool = false
 
     /// Repository used for create/update/delete listing operations.
-    private let repo = FirebasePostcardRepository()
+    private let repo = FbPostcardRepo()
     /// Uploader used for image processing and storage upload.
-    private let uploader = FirebasePostcardImageUploader()
+    private let uploader = PostcardImageUploader()
 
     /// Initializes the unified form in create mode.
     init(onSubmitted: @escaping () -> Void = {}) {
@@ -193,14 +195,14 @@ struct PostcardFormView: View {
             let clamped = clampedText(newValue, max: postcardMaxProvinceChars)
             if clamped != newValue { province = clamped }
         }
-        .alert(LocalizedStringKey("common_error"), isPresented: $showErrorAlert) {
+        .alert(LocalizedStringKey("common_error"), isPresented: $isErrorAlertPresented) {
             Button(LocalizedStringKey("common_ok")) {}
         } message: {
             Text(errorAlertMessage)
         }
         .confirmationDialog(
             LocalizedStringKey("postcard_remove_confirm_title"),
-            isPresented: $showDeleteConfirm,
+            isPresented: $isDeleteConfirmPresented,
             titleVisibility: .visible
         ) {
             if isEditMode {
@@ -308,7 +310,7 @@ struct PostcardFormView: View {
                 SelectAllTextField(
                     placeholderKey: "postcard_default_title",
                     text: $title,
-                    isFirstResponder: $titleFieldFocused,
+                    isFirstResponder: $isTitleFieldFocused,
                     textContentType: .none,
                     autocapitalization: .words,
                     autocorrection: .yes,
@@ -324,7 +326,7 @@ struct PostcardFormView: View {
                 SelectAllTextField(
                     placeholderKey: "postcard_default_price",
                     text: $priceText,
-                    isFirstResponder: $priceFieldFocused,
+                    isFirstResponder: $isPriceFieldFocused,
                     keyboardType: .numberPad,
                     textContentType: .none,
                     autocapitalization: .none,
@@ -356,7 +358,7 @@ struct PostcardFormView: View {
                 SelectAllTextField(
                     placeholderKey: "postcard_default_province",
                     text: $province,
-                    isFirstResponder: $provinceFieldFocused,
+                    isFirstResponder: $isProvinceFieldFocused,
                     textContentType: .addressCity,
                     autocapitalization: .words,
                     autocorrection: .yes,
@@ -372,7 +374,7 @@ struct PostcardFormView: View {
                 SelectAllTextField(
                     placeholderKey: "postcard_default_stock",
                     text: $stockText,
-                    isFirstResponder: $stockFieldFocused,
+                    isFirstResponder: $isStockFieldFocused,
                     keyboardType: .numberPad,
                     textContentType: .none,
                     autocapitalization: .none,
@@ -398,7 +400,7 @@ struct PostcardFormView: View {
 
                     SelectAllTextEditor(
                         text: $detail,
-                        isFirstResponder: $detailFieldFocused
+                        isFirstResponder: $isDetailFieldFocused
                     )
                         .padding(.horizontal, 2)
                         .frame(minHeight: 110)
@@ -438,7 +440,7 @@ struct PostcardFormView: View {
     private var deleteSection: some View {
         Section {
             Button(LocalizedStringKey("postcard_remove_button"), role: .destructive) {
-                showDeleteConfirm = true
+                isDeleteConfirmPresented = true
             }
             .disabled(isSubmitting)
         }
@@ -469,10 +471,10 @@ struct PostcardFormView: View {
         }
     }
 
-    /// Handles create mode submit flow.
+    /// Validates inputs, uploads image, and creates a new postcard listing.
     private func submitCreate() async {
         uploadError = nil
-        showErrorAlert = false
+        isErrorAlertPresented = false
         errorAlertMessage = ""
 
         guard !isSubmitting else { return }
@@ -546,7 +548,7 @@ struct PostcardFormView: View {
         }
     }
 
-    /// Handles edit mode submit flow.
+    /// Validates inputs and updates the existing postcard listing.
     private func submitEdit() async {
         guard let listing else { return }
         guard !isSubmitting else { return }
@@ -636,7 +638,7 @@ struct PostcardFormView: View {
     private func presentError(_ message: String) {
         uploadError = message
         errorAlertMessage = message
-        showErrorAlert = true
+        isErrorAlertPresented = true
     }
 
     /// Resets create form fields after successful postcard creation.

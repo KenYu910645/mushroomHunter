@@ -3,10 +3,29 @@
 //  mushroomHunter
 //
 //  Purpose:
-//  - Contains Firestore write operations for in-app feedback submissions.
+//  - Repository for in-app feedback submit flow.
 //
-//  Defined in this file:
-//  - FeedbackRepo error definitions and submit helpers.
+//  Related flow:
+//  - Profile -> Feedback -> submit message.
+//
+//  Field access legend:
+//  [R] Represent Read
+//  [X] Represent dont care
+//  [W] Represent write
+//
+//  Feedback submission document (`feedbackSubmissions/{submissionId}`):
+//  [X] - `submissionId`: Firestore auto-generates document id; repo does not read/write id field.
+//  [W] - `userId`: Writes resolved user id (explicit id or current auth uid).
+//  [W] - `displayName`: Writes trimmed display name from session/form.
+//  [W] - `friendCode`: Writes trimmed friend code from session/form.
+//  [W] - `subject`: Writes trimmed feedback subject.
+//  [W] - `message`: Writes trimmed feedback message (required non-empty).
+//  [W] - `appVersion`: Writes app short version for support context.
+//  [W] - `buildNumber`: Writes build number for support context.
+//  [W] - `bundleId`: Writes app bundle identifier.
+//  [W] - `localeIdentifier`: Writes current locale identifier.
+//  [W] - `platform`: Writes fixed platform value (`iOS`).
+//  [W] - `createdAt`: Writes submission timestamp.
 //
 import Foundation
 import FirebaseAuth
@@ -23,7 +42,7 @@ enum FeedbackRepoError: LocalizedError {
     }
 }
 
-final class FirebaseFeedbackRepository {
+final class FbFeedbackRepo {
     private let db = Firestore.firestore()
 
     func submitFeedback(

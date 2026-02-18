@@ -41,11 +41,12 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by host/profile/profile-create forms)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by multiline inputs)
 - `mushroomHunter/Services/Firebase/RoomBrowseRepo.swift`
-- `mushroomHunter/Services/Firebase/RoomHostRepo.swift`
-- `mushroomHunter/Services/Firebase/RoomDetailsRepo.swift`
+- `mushroomHunter/Services/Firebase/RoomFormRepo.swift`
+- `mushroomHunter/Services/Firebase/RoomRepo.swift`
 - `mushroomHunter/Services/Firebase/RoomActionsRepo.swift`
 - `mushroomHunter/Utilities/RoomInviteLink.swift`
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed mushroom defaults, limits, and option sets)
+- `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile/room/postcard)
 - Cloud Functions in `functions/index.js`:
   - `sendRaidConfirmationPush`
   - `notifyHostRaidConfirmationResult`
@@ -64,10 +65,11 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by postcard description fields)
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift` (shared invite QR sheet used by postcard seller share flow)
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`
-- `mushroomHunter/Services/Firebase/FirebasePostcardImageUploader.swift`
+- `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`
 - `mushroomHunter/Utilities/RoomInviteLink.swift` (postcard invite link generation/parsing)
 - `mushroomHunter/Utilities/SearchTokens.swift`
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed postcard caps, list limits, and timeout windows)
+- `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile/room/postcard)
 - Cloud Functions in `functions/index.js`:
   - `sendPostcardOrderCreatedPush`
   - `sendPostcardShippedPush`
@@ -76,19 +78,22 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 ### PROFILE (`PROFILE.md`)
 - `mushroomHunter/Features/Profile/ProfileView.swift`
 - `mushroomHunter/Features/Profile/ProfileFormView.swift` (shared create/edit profile form presented from onboarding and profile edit sheet)
+- `mushroomHunter/Features/Profile/ProfileViewModel.swift` (profile tab room/postcard list loading and error state orchestration)
 - `mushroomHunter/Features/Profile/ProfileMushroom.swift` (joined/hosted mushroom section views extracted from profile)
 - `mushroomHunter/Features/Profile/ProfilePostcard.swift` (on-shelf/ordered postcard section views extracted from profile)
+- `mushroomHunter/Features/Profile/ProfileSectionStateView.swift` (shared loading/error/empty/content renderer for profile list sections)
 - `mushroomHunter/Features/Profile/FeedbackView.swift` (feedback compose view + submission payload model)
 - `mushroomHunter/Features/Profile/AboutView.swift` (about page contact information view)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by profile edit/create)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by profile feedback message)
-- `mushroomHunter/Services/Firebase/ProfileHostRepo.swift`
+- `mushroomHunter/Services/Firebase/ProfileListRepo.swift`
 - `mushroomHunter/Services/Firebase/FeedbackRepo.swift`
 - `mushroomHunter/User/UserSessionStore.swift` (shared user session state container + local persistence helpers)
 - `mushroomHunter/User/UserAuth.swift` (auth lifecycle and sign-in/sign-out flows)
 - `mushroomHunter/User/UserProfile.swift` (profile fields, user sync, token sync)
 - `mushroomHunter/User/UserWallet.swift` (honey/stars state helpers)
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed profile validation and shared limits)
+- `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile form and display)
 - Cloud Functions in `functions/index.js`:
   - `sendFeedbackNotificationEmail`
 
@@ -102,6 +107,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/User/UserProfile.swift` (profile completion persistence/sync)
 - `mushroomHunter/App/ContentView.swift` (auth/profile-complete routing)
 - `mushroomHunter/App/mushroomHunterApp.swift` (URL routing bootstrap)
+- `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile create flow)
 
 ## Backend
 - Auth: Firebase Authentication (Apple + Google)
@@ -161,6 +167,9 @@ Commit message format:
 - All function/strcture/variable need to have comment
 - All comments must be meaningful and explain intent/purpose; placeholder comments are forbidden.
 - Do not use generic placeholders such as `// State or dependency property.` or similar non-informative comments.
+- All boolean variables naming need to start with "is"
+
+
 
 ## Automated Testing
 - UI test target: `HoneyHubUITests`

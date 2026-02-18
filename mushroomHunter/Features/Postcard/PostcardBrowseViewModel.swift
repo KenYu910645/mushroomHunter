@@ -13,28 +13,41 @@ import SwiftUI
 import Combine
 
 @MainActor
+/// View model that manages postcard browse loading, filtering, and search.
 final class PostcardBrowseViewModel: ObservableObject {
-    @Published var listings: [PostcardListing] = [] // State or dependency property.
-    @Published var isLoading: Bool = false // State or dependency property.
-    @Published var errorMessage: String? = nil // State or dependency property.
-    @Published var query: String = "" // State or dependency property.
-    @Published var selectedCountry: String = "All" // State or dependency property.
-    @Published var selectedProvince: String = "All" // State or dependency property.
-    @Published var sortOrder: PostcardSortOrder = .newest // State or dependency property.
-    private let repo = FirebasePostcardRepository()
+    /// Raw listings fetched from Firestore before local filters are applied.
+    @Published var listings: [PostcardListing] = []
+    /// Indicates whether an async fetch is currently running.
+    @Published var isLoading: Bool = false
+    /// Error text presented by the browse view when fetching fails.
+    @Published var errorMessage: String? = nil
+    /// Free-text search input entered by the user.
+    @Published var query: String = ""
+    /// Country filter value (`All` means no filter).
+    @Published var selectedCountry: String = "All"
+    /// Province filter value (`All` means no filter).
+    @Published var selectedProvince: String = "All"
+    /// Current sort mode for browse results.
+    @Published var sortOrder: PostcardSortOrder = .newest
+    /// Firebase-backed repository used to fetch postcard listings.
+    private let repo = FbPostcardRepo()
+    /// Debounce task for query changes.
     private var searchTask: Task<Void, Never>? = nil
 
-    func loadIfNeeded() async { // Handles loadIfNeeded flow.
+    /// Loads data only when no listings have been fetched yet.
+    func loadIfNeeded() async {
         if listings.isEmpty {
             await refresh()
         }
     }
 
-    func refresh() async { // Handles refresh flow.
+    /// Refreshes browse data for the current query value.
+    func refresh() async {
         await fetchForQuery(query)
     }
 
-    func scheduleSearch() { // Handles scheduleSearch flow.
+    /// Debounces search input before executing a fetch.
+    func scheduleSearch() {
         searchTask?.cancel()
         searchTask = Task {
             try? await Task.sleep(nanoseconds: AppConfig.Postcard.searchDebounceNanoseconds)
@@ -42,7 +55,9 @@ final class PostcardBrowseViewModel: ObservableObject {
         }
     }
 
-    func fetchForQuery(_ rawQuery: String) async { // Handles fetchForQuery flow.
+    /// Fetches listings from backend using the provided raw query text.
+    /// - Parameter rawQuery: User-entered search text before tokenization.
+    func fetchForQuery(_ rawQuery: String) async {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -68,6 +83,7 @@ final class PostcardBrowseViewModel: ObservableObject {
         }
     }
 
+    /// Listings after stock/country/province/query filters and sorting.
     var filteredListings: [PostcardListing] {
         var result = listings.filter { $0.stock > 0 }
 
@@ -95,11 +111,13 @@ final class PostcardBrowseViewModel: ObservableObject {
         }
     }
 
+    /// Distinct sorted list of countries present in fetched listings.
     var availableCountries: [String] {
         let set = Set(listings.map { $0.location.country }.filter { !$0.isEmpty })
         return Array(set).sorted()
     }
 
+    /// Distinct sorted list of provinces for the currently selected country.
     var availableProvinces: [String] {
         let filtered = listings.filter { listing in
             selectedCountry == "All" || listing.location.country == selectedCountry
@@ -108,7 +126,8 @@ final class PostcardBrowseViewModel: ObservableObject {
         return Array(set).sorted()
     }
 
-    func normalizeProvinceSelection() { // Handles normalizeProvinceSelection flow.
+    /// Resets province to `All` if the current selection is no longer valid.
+    func normalizeProvinceSelection() {
         if selectedProvince != "All" && !availableProvinces.contains(selectedProvince) {
             selectedProvince = "All"
         }

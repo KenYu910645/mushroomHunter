@@ -13,8 +13,13 @@ import UIKit
 import AuthenticationServices
 
 struct LoginView: View {
-    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
-    @Environment(\.colorScheme) private var scheme // State or dependency property.
+    /// Shared user session used for sign-in actions and auth error/loading state.
+    @EnvironmentObject private var session: UserSessionStore
+
+    /// Color scheme used to style Apple sign-in button and background.
+    @Environment(\.colorScheme) private var scheme
+
+    /// Login screen layout with Apple/Google auth entry actions.
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
@@ -46,7 +51,7 @@ struct LoginView: View {
                 .frame(height: 48)
                 .disabled(session.isLoading)
 
-                // ✅ Google Sign-In implemented
+                // Google sign-in entry action.
                 Button {
                     guard let vc = topViewController() else {
                         session.errorMessage = NSLocalizedString("login_google_error", comment: "")
@@ -78,7 +83,7 @@ struct LoginView: View {
         }
     }
 
-    // Simple helper to present Google UI from SwiftUI
+    /// Resolves the top-most UIKit view controller required by Google Sign-In SDK presentation.
     private func topViewController() -> UIViewController? {
         guard
             let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,

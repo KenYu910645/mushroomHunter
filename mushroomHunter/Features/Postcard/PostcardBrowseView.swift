@@ -3,22 +3,32 @@
 //  mushroomHunter
 //
 //  Purpose:
-//  - Renders postcard listing browse/search UI and listing cards.
+//  - Hosts the postcard tab browse flow with search, register sheet, and listing grid.
 //
 import SwiftUI
 
 // MARK: - Browse
 
+/// Root postcard browse screen used by the Postcard tab.
 struct PostcardBrowseView: View {
-    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
-    @StateObject private var vm = PostcardBrowseViewModel() // State or dependency property.
-    @State private var showSearchAlert: Bool = false // State or dependency property.
-    @State private var searchFieldFocused: Bool = false // State or dependency property.
-    @State private var isRegisterSheetPresented: Bool = false // State or dependency property.
-    @State private var browseDataRefreshToken: Int = 0 // State or dependency property.
-    @Environment(\.colorScheme) private var scheme // State or dependency property.
+    /// Shared session state used for wallet values and profile refresh.
+    @EnvironmentObject private var session: UserSessionStore
+    /// Browse view model that loads and filters postcard listings.
+    @StateObject private var vm = PostcardBrowseViewModel()
+    /// Controls presentation of the search sheet.
+    @State private var isSearchSheetPresented: Bool = false
+    /// Controls initial focus for the search text field.
+    @State private var isSearchFieldFocused: Bool = false
+    /// Controls presentation of the postcard register sheet.
+    @State private var isRegisterSheetPresented: Bool = false
+    /// Refresh trigger incremented after creating a postcard.
+    @State private var browseDataRefreshToken: Int = 0
+    /// Current color scheme used for theme background rendering.
+    @Environment(\.colorScheme) private var scheme
+    /// Spacing used between postcard grid columns.
     private let cardColumnSpacing: CGFloat = 8
 
+    /// Main postcard browse UI tree.
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -83,14 +93,14 @@ struct PostcardBrowseView: View {
                 }
             }
         }
-        .sheet(isPresented: $showSearchAlert) {
+        .sheet(isPresented: $isSearchSheetPresented) {
             NavigationStack {
                 Form {
                     Section {
                         SelectAllTextField(
                             placeholderKey: "postcard_search_placeholder",
                             text: $vm.query,
-                            isFirstResponder: $searchFieldFocused,
+                            isFirstResponder: $isSearchFieldFocused,
                             textContentType: .none,
                             autocapitalization: .none,
                             autocorrection: .no,
@@ -105,22 +115,22 @@ struct PostcardBrowseView: View {
 
                     Section {
                         Button(LocalizedStringKey("common_clear")) { vm.query = "" }
-                        Button(LocalizedStringKey("common_done")) { showSearchAlert = false }
+                        Button(LocalizedStringKey("common_done")) { isSearchSheetPresented = false }
                     }
                 }
                 .navigationTitle(LocalizedStringKey("postcard_search_title"))
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Button(LocalizedStringKey("common_close")) {
-                            showSearchAlert = false
+                            isSearchSheetPresented = false
                         }
                     }
                 }
                 .onAppear {
-                    searchFieldFocused = true
+                    isSearchFieldFocused = true
                 }
                 .onDisappear {
-                    searchFieldFocused = false
+                    isSearchFieldFocused = false
                 }
             }
         }
@@ -144,6 +154,7 @@ struct PostcardBrowseView: View {
         }
     }
 
+    /// Grid layout used by postcard cards.
     private var gridColumns: [GridItem] {
         [
             GridItem(.flexible(minimum: 0, maximum: .infinity), spacing: cardColumnSpacing, alignment: .top),
@@ -151,10 +162,11 @@ struct PostcardBrowseView: View {
         ]
     }
 
+    /// Shared top action bar for honey amount, search, and create actions.
     private var headerBar: some View {
         BrowseViewTopActionBar(
             honey: session.honey,
-            onSearch: { showSearchAlert = true },
+            onSearch: { isSearchSheetPresented = true },
             onCreate: { isRegisterSheetPresented = true },
             searchAccessibilityLabel: "postcard_search_accessibility",
             createAccessibilityLabel: "postcard_register_accessibility",
@@ -165,11 +177,16 @@ struct PostcardBrowseView: View {
     }
 }
 
+/// Card tile shown for each postcard listing in the browse grid.
 private struct PostcardCardView: View {
+    /// Listing displayed by this card.
     let listing: PostcardListing
-    @Environment(\.colorScheme) private var scheme // State or dependency property.
+    /// Current color scheme used for card background styling.
+    @Environment(\.colorScheme) private var scheme
+    /// Fixed aspect ratio used for postcard thumbnail area.
     private let imageAspectRatio: CGFloat = 1.0
 
+    /// Card content for a single postcard listing.
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack {

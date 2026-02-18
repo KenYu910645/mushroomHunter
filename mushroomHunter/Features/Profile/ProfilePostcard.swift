@@ -34,29 +34,23 @@ struct OnShelfPostcardsSection: View, Equatable {
             Text(LocalizedStringKey("profile_postcard_onshelf_section"))
                 .font(.subheadline.weight(.semibold))
 
-            if let errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-            }
-
-            if isLoading && postcards.isEmpty {
-                HStack {
-                    ProgressView()
-                    Text(LocalizedStringKey("profile_loading_onshelf_postcards"))
-                        .foregroundStyle(.secondary)
-                }
-            } else if postcards.isEmpty {
-                ContentUnavailableView(
-                    LocalizedStringKey("profile_onshelf_empty_title"),
-                    systemImage: "shippingbox"
-                )
-                .listRowBackground(Color.clear)
-            } else {
+            ProfileSectionStateView(
+                isLoading: isLoading,
+                isEmpty: postcards.isEmpty,
+                errorMessage: errorMessage,
+                loadingTextKey: LocalizedStringKey("profile_loading_onshelf_postcards")
+            ) {
                 ForEach(postcards) { postcard in
                     PostcardSummaryRow(postcard: postcard) {
                         onSelectPostcard(postcard)
                     }
                 }
+            } emptyContent: {
+                ContentUnavailableView(
+                    LocalizedStringKey("profile_onshelf_empty_title"),
+                    systemImage: "shippingbox"
+                )
+                .listRowBackground(Color.clear)
             }
         }
     }
@@ -89,29 +83,23 @@ struct OrderedPostcardsSection: View, Equatable {
             Text(LocalizedStringKey("profile_postcard_ordered_section"))
                 .font(.subheadline.weight(.semibold))
 
-            if let errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-            }
-
-            if isLoading && postcards.isEmpty {
-                HStack {
-                    ProgressView()
-                    Text(LocalizedStringKey("profile_loading_ordered_postcards"))
-                        .foregroundStyle(.secondary)
-                }
-            } else if postcards.isEmpty {
-                ContentUnavailableView(
-                    LocalizedStringKey("profile_ordered_empty_title"),
-                    systemImage: "cart"
-                )
-                .listRowBackground(Color.clear)
-            } else {
+            ProfileSectionStateView(
+                isLoading: isLoading,
+                isEmpty: postcards.isEmpty,
+                errorMessage: errorMessage,
+                loadingTextKey: LocalizedStringKey("profile_loading_ordered_postcards")
+            ) {
                 ForEach(postcards) { postcard in
                     PostcardSummaryRow(postcard: postcard) {
                         onSelectPostcard(postcard)
                     }
                 }
+            } emptyContent: {
+                ContentUnavailableView(
+                    LocalizedStringKey("profile_ordered_empty_title"),
+                    systemImage: "cart"
+                )
+                .listRowBackground(Color.clear)
             }
         }
     }
