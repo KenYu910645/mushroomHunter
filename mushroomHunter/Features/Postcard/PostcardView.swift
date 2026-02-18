@@ -202,7 +202,11 @@ struct PostcardView: View {
                         .foregroundStyle(.secondary)
                 } else if !isSeller {
                     Button {
-                        isBuyConfirmPresented = true
+                        if AppTesting.useMockPostcards {
+                            Task { await buyPostcard() }
+                        } else {
+                            isBuyConfirmPresented = true
+                        }
                     } label: {
                         if isBuying {
                             ProgressView()
@@ -214,6 +218,7 @@ struct PostcardView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(isBuying)
+                    .accessibilityIdentifier("postcard_buy_button")
                 }
             }
             .padding()
@@ -237,6 +242,7 @@ struct PostcardView: View {
                         Image(systemName: "pencil")
                     }
                     .accessibilityLabel(LocalizedStringKey("postcard_edit_accessibility"))
+                    .accessibilityIdentifier("postcard_edit_button")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -245,6 +251,7 @@ struct PostcardView: View {
                         Image(systemName: "shippingbox")
                     }
                     .accessibilityLabel(LocalizedStringKey("postcard_shipping_accessibility"))
+                    .accessibilityIdentifier("postcard_shipping_button")
                 }
             }
         }
@@ -333,6 +340,14 @@ struct PostcardView: View {
 
     /// Refreshes listing data, seller friend code, and buyer order state.
     private func refreshListing() async {
+        if AppTesting.useMockPostcards {
+            currentListing = currentListing.sellerId == AppTesting.userId
+                ? AppTesting.fixtureOwnedPostcardListing()
+                : AppTesting.fixturePostcardListing()
+            sellerFriendCode = currentListing.sellerFriendCode
+            return
+        }
+
         do {
             if let refreshed = try await repo.fetchPostcard(postcardId: currentListing.id) {
                 currentListing = refreshed
@@ -397,6 +412,17 @@ struct PostcardView: View {
         guard !isBuying else { return }
         isBuying = true
         defer { isBuying = false }
+
+        if AppTesting.useMockPostcards {
+            if session.canAffordHoney(currentListing.priceHoney) {
+                _ = session.spendHoney(currentListing.priceHoney)
+                isBuySuccessAlertPresented = true
+            } else {
+                buyErrorMessage = NSLocalizedString("postcard_error_not_enough_honey", comment: "")
+                isBuyErrorAlertPresented = true
+            }
+            return
+        }
 
         do {
             _ = try await repo.buyPostcard(postcardId: currentListing.id)

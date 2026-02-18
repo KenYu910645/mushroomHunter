@@ -13,6 +13,7 @@ import Foundation
 enum AppTesting {
     static let uiTestingArgument = "--ui-testing"
     static let mockRoomsArgument = "--mock-rooms"
+    static let mockPostcardsArgument = "--mock-postcards"
     static let userId = "ui-test-user"
 
     static var isUITesting: Bool {
@@ -23,6 +24,11 @@ enum AppTesting {
     static var useMockRooms: Bool {
         let args = ProcessInfo.processInfo.arguments
         return isUITesting || args.contains(mockRoomsArgument)
+    }
+
+    static var useMockPostcards: Bool {
+        let args = ProcessInfo.processInfo.arguments
+        return isUITesting || args.contains(mockPostcardsArgument)
     }
 
     static var fixtureRoomId: String { "ui-test-room-001" }
@@ -82,6 +88,39 @@ enum AppTesting {
             lastSuccessfulRaidAt: Date().addingTimeInterval(-3600),
             attendees: attendees,
             maxPlayers: AppConfig.Mushroom.defaultMaxPlayersPerRoom
+        )
+    }
+
+    static var fixturePostcardId: String { "ui-test-postcard-001" }
+    static var fixtureSellerId: String { "ui-test-seller" }
+
+    static func fixturePostcardListing() -> PostcardListing {
+        PostcardListing(
+            id: fixturePostcardId,
+            sellerId: fixtureSellerId,
+            title: "UI Test Postcard",
+            priceHoney: 10,
+            location: PostcardLocation(country: "Taiwan", province: "Taipei", detail: "UI Test"),
+            sellerName: "Seller Tester",
+            sellerFriendCode: "123456789012",
+            stock: 3,
+            imageUrl: nil,
+            createdAt: Date()
+        )
+    }
+
+    static func fixtureOwnedPostcardListing() -> PostcardListing {
+        PostcardListing(
+            id: "ui-test-postcard-owned",
+            sellerId: userId,
+            title: "UI Owned Postcard",
+            priceHoney: 20,
+            location: PostcardLocation(country: "Taiwan", province: "Kaohsiung", detail: "Owned"),
+            sellerName: "UI Tester",
+            sellerFriendCode: "999988887777",
+            stock: 2,
+            imageUrl: nil,
+            createdAt: Date()
         )
     }
 }

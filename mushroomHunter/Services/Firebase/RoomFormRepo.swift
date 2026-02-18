@@ -90,17 +90,6 @@ final class FbRoomFormRepo {
             .limit(to: maxHostRooms)
             .getDocuments()
         var hostedRoomIds = Set(hostedRoomsSnap.documents.map(\.documentID))
-        if hostedRoomIds.count < maxHostRooms {
-            let legacyHostAttendees = try await db.collectionGroup("attendees")
-                .whereField(FieldPath.documentID(), isEqualTo: uid)
-                .whereField("status", isEqualTo: AttendeeStatus.host.rawValue)
-                .getDocuments()
-            for doc in legacyHostAttendees.documents {
-                if let roomRef = doc.reference.parent.parent {
-                    hostedRoomIds.insert(roomRef.documentID)
-                }
-            }
-        }
 
         if hostedRoomIds.count >= maxHostRooms {
             throw RoomFormError.maxHostRoomsReached(maxHostRooms)

@@ -16,7 +16,7 @@
 - `mushroomHunter/Utilities/SearchTokens.swift`: normalized token generation for postcard search fields.
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed postcard settings (price/stock/text caps, fetch limits, order timeout windows).
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used across profile, room, and postcard flows.
-- `mushroomHunter/App/mushroomHunterApp.swift`: handles postcard deep-link routing from invite links.
+- `mushroomHunter/App/HoneyHubApp.swift`: handles postcard deep-link routing from invite links.
 - `mushroomHunter/App/ContentView.swift`: presents postcard detail sheet when a postcard invite link is opened.
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift`: shared invite QR sheet component reused by postcard detail.
 - `functions/index.js`: server-side push triggers for postcard order/shipping/completion events.

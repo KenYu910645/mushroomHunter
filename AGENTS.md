@@ -58,7 +58,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Postcard/PostcardFormView.swift`
 - `mushroomHunter/Features/Postcard/PostcardBrowseViewModel.swift`
 - `mushroomHunter/Features/Postcard/PostcardDomainModel.swift`
-- `mushroomHunter/App/mushroomHunterApp.swift` (postcard invite deep-link routing)
+- `mushroomHunter/App/HoneyHubApp.swift` (postcard invite deep-link routing)
 - `mushroomHunter/App/ContentView.swift` (postcard invite deep-link presentation)
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift` (shared browse header with honey/search/create actions)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by postcard/profile/mushroom forms)
@@ -107,7 +107,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/User/UserAuth.swift` (Apple/Google auth + auth state handling)
 - `mushroomHunter/User/UserProfile.swift` (profile completion persistence/sync)
 - `mushroomHunter/App/ContentView.swift` (auth/profile-complete routing)
-- `mushroomHunter/App/mushroomHunterApp.swift` (URL routing bootstrap)
+- `mushroomHunter/App/HoneyHubApp.swift` (URL routing bootstrap)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile create flow)
 
 ## Backend

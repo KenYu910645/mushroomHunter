@@ -62,6 +62,14 @@ final class PostcardBrowseViewModel: ObservableObject {
         errorMessage = nil
         defer { isLoading = false }
 
+        if AppTesting.useMockPostcards {
+            listings = [
+                AppTesting.fixturePostcardListing(),
+                AppTesting.fixtureOwnedPostcardListing()
+            ]
+            return
+        }
+
         let tokens = SearchTokenBuilder.queryTokens(from: rawQuery)
         do {
             let results: [PostcardListing]

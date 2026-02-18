@@ -90,6 +90,7 @@ struct ProfileView: View {
                         Image(systemName: "pencil")
                     }
                     .accessibilityLabel(LocalizedStringKey("edit_profile_title"))
+                    .accessibilityIdentifier("profile_edit_button")
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -99,6 +100,7 @@ struct ProfileView: View {
                         Image(systemName: "gearshape")
                     }
                     .accessibilityLabel(LocalizedStringKey("settings_title"))
+                    .accessibilityIdentifier("profile_settings_button")
                 }
             }
             .task {
@@ -119,6 +121,12 @@ struct ProfileView: View {
                 settingsSheet
             case .feedback:
                 FeedbackView { draft in
+                    if AppTesting.isUITesting {
+                        await MainActor.run {
+                            isFeedbackSubmittedAlertPresented = true
+                        }
+                        return
+                    }
                     let userId = session.authUid
                     let displayName = session.displayName
                     let friendCode = session.friendCode
@@ -155,6 +163,7 @@ struct ProfileView: View {
                 Spacer()
                 Text(session.displayName)
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("profile_display_name_value")
             }
             .padding(.vertical, 4)
 
@@ -164,6 +173,7 @@ struct ProfileView: View {
                 let rawFriendCode = session.friendCode
                 Text(rawFriendCode.isEmpty ? "XXXX XXXX XXXX" : FriendCode.formatted(rawFriendCode))
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("profile_friend_code_value")
             }
             .padding(.vertical, 4)
         } header: {
@@ -258,12 +268,14 @@ struct ProfileView: View {
                     } label: {
                         Label(LocalizedStringKey("settings_feedback_button"), systemImage: "envelope")
                     }
+                    .accessibilityIdentifier("settings_feedback_button")
 
                     NavigationLink {
                         AboutView()
                     } label: {
                         Label(LocalizedStringKey("settings_about_button"), systemImage: "info.circle")
                     }
+                    .accessibilityIdentifier("settings_about_button")
                 }
             }
             .navigationTitle(LocalizedStringKey("settings_title"))
@@ -274,6 +286,7 @@ struct ProfileView: View {
                         } label: {
                             Image(systemName: "xmark")
                         }
+                        .accessibilityIdentifier("settings_close_button")
                 }
             }
         }

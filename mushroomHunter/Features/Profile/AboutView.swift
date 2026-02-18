@@ -25,6 +25,7 @@ struct AboutView: View {
                 Text(LocalizedStringKey("about_intro"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("about_intro_text")
             }
 
             Section {

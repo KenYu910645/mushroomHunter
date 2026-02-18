@@ -168,29 +168,13 @@ final class FbProfileListRepo {
         statusFilter: StatusFilter,
         desiredCount: Int
     ) async throws -> [QueryDocumentSnapshot] {
+        _ = desiredCount
         let attendeeGroup = db.collectionGroup("attendees")
         let byUidQuery = applyStatusFilter(
             to: attendeeGroup.whereField("uid", isEqualTo: uid),
             statusFilter: statusFilter
         )
-        let uidDocs = try await fetchDocuments(query: byUidQuery)
-        if uidDocs.count >= desiredCount {
-            return uidDocs
-        }
-
-        let byLegacyDocumentIdQuery = applyStatusFilter(
-            to: attendeeGroup.whereField(FieldPath.documentID(), isEqualTo: uid),
-            statusFilter: statusFilter
-        )
-        let legacyDocs = try await fetchDocuments(query: byLegacyDocumentIdQuery)
-
-        var merged: [String: QueryDocumentSnapshot] = [:]
-        merged.reserveCapacity(uidDocs.count + legacyDocs.count)
-        for doc in uidDocs + legacyDocs {
-            merged[doc.reference.path] = doc
-        }
-
-        return Array(merged.values)
+        return try await fetchDocuments(query: byUidQuery)
     }
 
     private func applyStatusFilter(to query: Query, statusFilter: StatusFilter) -> Query {

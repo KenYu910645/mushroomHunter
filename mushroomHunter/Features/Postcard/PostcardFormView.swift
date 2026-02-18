@@ -318,6 +318,7 @@ struct PostcardFormView: View {
                 )
                 .frame(height: 22)
                 .multilineTextAlignment(.trailing)
+                .accessibilityIdentifier("postcard_form_title_field")
             }
 
             HStack(spacing: 12) {
@@ -338,6 +339,7 @@ struct PostcardFormView: View {
                 }
                 .frame(height: 22)
                 .multilineTextAlignment(.trailing)
+                .accessibilityIdentifier("postcard_form_price_field")
             }
 
             HStack(spacing: 12) {
@@ -366,6 +368,7 @@ struct PostcardFormView: View {
                 )
                 .frame(height: 22)
                 .multilineTextAlignment(.trailing)
+                .accessibilityIdentifier("postcard_form_province_field")
             }
 
             HStack(spacing: 12) {
@@ -386,6 +389,7 @@ struct PostcardFormView: View {
                 }
                 .frame(height: 22)
                 .multilineTextAlignment(.trailing)
+                .accessibilityIdentifier("postcard_form_stock_field")
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -404,6 +408,7 @@ struct PostcardFormView: View {
                     )
                         .padding(.horizontal, 2)
                         .frame(minHeight: 110)
+                        .accessibilityIdentifier("postcard_form_detail_editor")
                 }
                 .frame(minHeight: 110)
 
@@ -427,11 +432,13 @@ struct PostcardFormView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
                 .buttonStyle(.borderedProminent)
                 .disabled(isSubmitting || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityIdentifier("postcard_form_submit_button")
             } else {
                 Button(submitButtonTitleKey) {
                     Task { await submitForm() }
                 }
                 .disabled(isSubmitting)
+                .accessibilityIdentifier("postcard_form_submit_button")
             }
         }
     }
@@ -499,6 +506,11 @@ struct PostcardFormView: View {
         let cleanProvince = province.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanCountry.isEmpty, !cleanProvince.isEmpty else {
             presentError(NSLocalizedString("postcard_validation_location_error", comment: ""))
+            return
+        }
+
+        if AppTesting.useMockPostcards {
+            onSubmitted()
             return
         }
 

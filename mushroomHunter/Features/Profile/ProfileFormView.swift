@@ -88,7 +88,16 @@ struct ProfileFormView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(isSubmitting)
+                        .accessibilityIdentifier("profile_form_submit_button")
                         Spacer()
+                    }
+
+                    if AppTesting.isUITesting && mode == .edit {
+                        Button(LocalizedStringKey("common_done")) {
+                            name = "Tester Updated"
+                            friendCode = "111122223333"
+                        }
+                        .accessibilityIdentifier("profile_form_autofill_button")
                     }
                 }
             }
@@ -101,6 +110,7 @@ struct ProfileFormView: View {
                             dismiss()
                         }
                         .disabled(isSubmitting)
+                        .accessibilityIdentifier("profile_form_cancel_button")
                     }
                 }
             }
@@ -131,6 +141,7 @@ struct ProfileFormView: View {
                 )
                 .frame(height: 22)
                 .multilineTextAlignment(.trailing)
+                .accessibilityIdentifier("profile_form_name_field")
             }
 
             Text(LocalizedStringKey("profile_name_hint"))
@@ -166,6 +177,7 @@ struct ProfileFormView: View {
                 }
                 .frame(height: 22)
                 .multilineTextAlignment(.trailing)
+                .accessibilityIdentifier("profile_form_friend_code_field")
             }
 
             Text(LocalizedStringKey("profile_friend_code_hint"))

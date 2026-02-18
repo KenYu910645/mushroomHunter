@@ -52,6 +52,7 @@ struct PostcardBrowseView: View {
                             .frame(maxWidth: .infinity, alignment: .topLeading)
                             .buttonStyle(.plain)
                             .contentShape(RoundedRectangle(cornerRadius: 12))
+                            .accessibilityIdentifier("postcard_link_\(listing.id)")
                         }
                     }
                     .padding(.horizontal)
@@ -170,8 +171,8 @@ struct PostcardBrowseView: View {
             onCreate: { isRegisterSheetPresented = true },
             searchAccessibilityLabel: "postcard_search_accessibility",
             createAccessibilityLabel: "postcard_register_accessibility",
-            searchButtonIdentifier: nil,
-            createButtonIdentifier: nil
+            searchButtonIdentifier: "postcard_search_button",
+            createButtonIdentifier: "postcard_create_button"
         )
         .padding(.horizontal)
     }

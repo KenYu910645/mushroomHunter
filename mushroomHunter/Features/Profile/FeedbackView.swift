@@ -70,6 +70,7 @@ struct FeedbackView: View {
                     textAlignment: .left
                 )
                 .frame(height: 22)
+                .accessibilityIdentifier("feedback_subject_field")
 
                 SelectAllTextEditor(
                     text: $messageText,
@@ -79,8 +80,19 @@ struct FeedbackView: View {
                 )
                 .padding(.horizontal, 2)
                 .frame(minHeight: 180)
+                .accessibilityIdentifier("feedback_message_editor")
             } header: {
                 Text(LocalizedStringKey("feedback_message_label"))
+            }
+
+            if AppTesting.isUITesting {
+                Section {
+                    Button(LocalizedStringKey("common_done")) {
+                        subject = "UI Feedback"
+                        messageText = "Feedback from UI test flow."
+                    }
+                    .accessibilityIdentifier("feedback_autofill_button")
+                }
             }
         }
     }
@@ -103,6 +115,7 @@ struct FeedbackView: View {
                             submitFeedback()
                         }
                         .disabled(trimmedBody.isEmpty || isSubmitting)
+                        .accessibilityIdentifier("feedback_send_button")
                     }
                 }
                 .overlay {

@@ -252,22 +252,6 @@ extension UserSessionStore {
                 isHasAnyUpdateTarget = true
             }
 
-            if !isHasAnyUpdateTarget {
-                let legacyHostAttendeesSnap = try await Firestore.firestore()
-                    .collectionGroup("attendees")
-                    .whereField(FieldPath.documentID(), isEqualTo: uid)
-                    .whereField("status", isEqualTo: AttendeeStatus.host.rawValue)
-                    .getDocuments()
-
-                for doc in legacyHostAttendeesSnap.documents {
-                    batch.setData(attendeeUpdates, forDocument: doc.reference, merge: true)
-                    if let roomRef = doc.reference.parent.parent {
-                        batch.updateData(roomUpdates, forDocument: roomRef)
-                        isHasAnyUpdateTarget = true
-                    }
-                }
-            }
-
             if !isHasAnyUpdateTarget { return }
             try await batch.commit()
         } catch {

@@ -1,12 +1,12 @@
 //
-//  mushroomHunterApp.swift
+//  HoneyHubApp.swift
 //  mushroomHunter
 //
 //  Purpose:
-//  - Defines application startup, Firebase setup, and app delegate wiring.
+//  - Defines HoneyHub startup, Firebase setup, and app delegate wiring.
 //
 //  Defined in this file:
-//  - mushroomHunterApp entry point and AppDelegate notification handling.
+//  - HoneyHubApp entry point and AppDelegate notification handling.
 //
 import SwiftUI
 import FirebaseCore
@@ -15,10 +15,14 @@ import FirebaseMessaging
 import UserNotifications
 
 @main
-struct mushroomHunterApp: App {
+struct HoneyHubApp: App {
+    /// Bridges UIKit app delegate callbacks into the SwiftUI lifecycle.
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @StateObject private var session = UserSessionStore() // State or dependency property.
-    init() { // Initializes this type.
+    /// Stores sign-in and profile completion state shared across root views.
+    @StateObject private var session = UserSessionStore()
+
+    /// Configures Firebase before any app view is rendered.
+    init() {
         FirebaseApp.configure()
     }
 
@@ -46,6 +50,7 @@ struct mushroomHunterApp: App {
 }
 
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
+    /// Requests notification permissions and configures Firebase Messaging delegate.
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
@@ -62,15 +67,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         return true
     }
 
-    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) { // Handles application flow.
+    /// Forwards APNs device token to Firebase Cloud Messaging.
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Messaging.messaging().apnsToken = deviceToken
     }
 
-    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) { // Handles messaging flow.
+    /// Publishes refreshed FCM token so profile sync can upload it to backend.
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         guard let token = fcmToken else { return }
         NotificationCenter.default.post(name: .didReceiveFcmToken, object: token)
     }
 
+    /// Shows push notifications with banner/sound/badge while app is foreground.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
@@ -79,6 +87,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         completionHandler([.banner, .sound, .badge])
     }
 
+    /// Routes notification tap events into the room deep-link channel.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,

@@ -92,25 +92,12 @@ final class FbRoomActionsRepo {
     }
 
     private func countActiveJoinedRooms(uid: String, threshold: Int) async throws -> Int {
+        _ = threshold
         let byUidField = try await db.collectionGroup("attendees")
             .whereField("uid", isEqualTo: uid)
             .whereField("status", in: AttendeeStatus.activeStatusRawValues)
             .getDocuments()
-        if byUidField.documents.count >= threshold {
-            return byUidField.documents.count
-        }
-
-        let byDocumentID = try await db.collectionGroup("attendees")
-            .whereField(FieldPath.documentID(), isEqualTo: uid)
-            .whereField("status", in: AttendeeStatus.activeStatusRawValues)
-            .getDocuments()
-        let attendeeDocs = byUidField.documents + byDocumentID.documents
-        var seenRoomPaths: Set<String> = []
-        for doc in attendeeDocs {
-            guard let roomRef = doc.reference.parent.parent else { continue }
-            seenRoomPaths.insert(roomRef.path)
-        }
-        return seenRoomPaths.count
+        return byUidField.documents.count
     }
 
     private struct RoomHostContext {

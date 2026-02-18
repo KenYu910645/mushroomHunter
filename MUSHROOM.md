@@ -91,8 +91,8 @@ Fields:
 Notes:
 - Host identity and info are stored in `attendees/{uid}` with `status = Host` (the host is just an attendee).
 - Legacy rooms may still include `targetColor`/`targetAttribute`/`targetSize`, but create/edit no longer writes or edits those fields.
-- Host-room limit checks now query `rooms.hostUid` first, with legacy host-attendee fallback only when needed.
-- Join-room limit checks now query attendee docs by `uid + active status` (with legacy doc-id fallback) and count unique parent room paths without per-room read fan-out.
+- Host-room limit checks query `rooms.hostUid`.
+- Join-room limit checks query attendee docs by `uid + active status` without per-room read fan-out.
 
 #### `rooms/{roomId}/attendees/{uid}`
 Attendee entries for a room. Written in join/leave/deposit flows.
@@ -135,7 +135,7 @@ Main implementation files:
 - `/Users/ken/Desktop/mushroomHunter/mushroomHunter/User/UserAuth.swift`
 - `/Users/ken/Desktop/mushroomHunter/mushroomHunter/User/UserProfile.swift`
 - `/Users/ken/Desktop/mushroomHunter/mushroomHunter/User/UserWallet.swift`
-- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/App/mushroomHunterApp.swift`
+- `/Users/ken/Desktop/mushroomHunter/mushroomHunter/App/HoneyHubApp.swift`
 - `/Users/ken/Desktop/mushroomHunter/mushroomHunter/App/ContentView.swift`
 
 ## State Model
