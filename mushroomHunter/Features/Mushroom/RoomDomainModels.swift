@@ -111,6 +111,11 @@ enum AttendeeStatus: String, CaseIterable, Codable {
     case ready = "Ready"
     case waitingConfirmation = "WaitingConfirmation"
     case rejected = "Rejected"
+
+    /// Status values treated as active room participation for join-limit counting.
+    static var activeStatusRawValues: [String] {
+        [host.rawValue, ready.rawValue, waitingConfirmation.rawValue, rejected.rawValue]
+    }
 }
 
 // MARK: - Utilities

@@ -24,6 +24,7 @@ final class UserSessionStore: ObservableObject {
     @Published var authUid: String? = nil // State or dependency property.
     @Published var fcmToken: String? = nil // State or dependency property.
     @Published var isProfileComplete: Bool = false // State or dependency property.
+    @Published var isShowingOnboardingTutorial: Bool = false // Tracks whether the first-time tutorial sheet is currently presented.
     @Published var isLoading: Bool = false // State or dependency property.
     @Published var errorMessage: String? = nil // State or dependency property.
 
@@ -34,9 +35,13 @@ final class UserSessionStore: ObservableObject {
     let kFcmToken: String = "mh.fcmToken" // Local persistence key.
     let kMaxHostRoom: String = "mh.maxHostRoom" // Local persistence key.
     let kMaxJoinRoom: String = "mh.maxJoinRoom" // Local persistence key.
+    let kHasShownOnboardingTutorial: String = "mh.hasShownOnboardingTutorial" // Local persistence key for one-time tutorial visibility.
 
     var authHandle: AuthStateDidChangeListenerHandle? // Firebase auth state listener handle.
     var currentAppleNonce: String? // Temporary nonce used during Apple sign-in.
+    var lastSyncedFcmTokenByUid: [String: String] = [:] // Tracks the most recently synced FCM token per uid to avoid duplicate writes.
+    var isUserProfileEnsuredInCurrentSession: Bool = false // Tracks whether ensureUserProfile already wrote for the current signed-in uid.
+    var lastObservedAuthUid: String? = nil // Keeps the previous auth uid so session-scoped sync guards reset when user changes.
 
     init() { // Initializes this type.
         resetToDefaults()
@@ -44,6 +49,13 @@ final class UserSessionStore: ObservableObject {
 
         authHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             guard let self else { return }
+
+            let newAuthUid = user?.uid
+            let isAuthUserChanged = self.lastObservedAuthUid != newAuthUid
+            if isAuthUserChanged {
+                self.isUserProfileEnsuredInCurrentSession = false
+                self.lastObservedAuthUid = newAuthUid
+            }
 
             self.authUid = user?.uid
             self.isLoggedIn = (user != nil)
@@ -99,6 +111,17 @@ final class UserSessionStore: ObservableObject {
         isProfileComplete = nameOK && codeOK
     }
 
+    func hasShownOnboardingTutorial() -> Bool { // Returns whether the signed-in user has already completed or skipped onboarding cards.
+        guard let uid = authUid else { return false }
+        return UserDefaults.standard.bool(forKey: scopedKey(kHasShownOnboardingTutorial, uid: uid))
+    }
+
+    func markOnboardingTutorialShown() { // Persists that onboarding cards were completed or skipped and closes the tutorial presentation.
+        guard let uid = authUid else { return }
+        UserDefaults.standard.set(true, forKey: scopedKey(kHasShownOnboardingTutorial, uid: uid))
+        isShowingOnboardingTutorial = false
+    }
+
     func resetToDefaults() { // Resets in-memory user state to defaults.
         displayName = ""
         friendCode = ""
@@ -107,6 +130,7 @@ final class UserSessionStore: ObservableObject {
         maxHostRoom = AppConfig.Mushroom.defaultHostRoomLimit
         maxJoinRoom = AppConfig.Mushroom.defaultJoinRoomLimit
         isProfileComplete = false
+        isShowingOnboardingTutorial = false
     }
 
     private func loadLocalProfile(for uid: String) { // Loads user-scoped profile values from local persistence.

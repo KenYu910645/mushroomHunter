@@ -20,6 +20,8 @@
 //  [W] - `priceHoney`: Writes on create/edit; reads for purchase validation.
 //  [W] - `sellerId`: Writes on create; reads for ownership/forbidden checks.
 //  [W] - `sellerName`: Writes on create and refreshes on edit; reads for UI/order payload.
+//  [W] - `sellerFriendCode`: Writes on create/edit and reads for detail display to avoid extra user reads.
+//  [W] - `sellerFcmToken`: Writes on create/edit and reads for order push token snapshot.
 //  [W] - `stock`: Writes on create/edit and decrements/increments during order lifecycle.
 //  [W] - `imageUrl`: Writes on create/edit; reads for display/order payload.
 //  [W] - `location`: Writes nested location on create/edit; reads for display/order payload.
@@ -36,8 +38,11 @@
 //  [W] - `status`: Writes order state transitions and reads for filtering/validation.
 //  [W] - `buyerId`: Writes buyer id and reads for profile/order authorization filters.
 //  [W] - `buyerName`: Writes buyer name snapshot.
+//  [W] - `buyerFriendCode`: Writes buyer friend code snapshot for seller shipping list.
+//  [W] - `buyerFcmToken`: Writes buyer push token snapshot from buyer profile.
 //  [W] - `sellerId`: Writes seller id and reads for seller authorization filters.
 //  [W] - `sellerName`: Writes seller name snapshot.
+//  [W] - `sellerFcmToken`: Writes seller push token snapshot from listing.
 //  [W] - `priceHoney`: Writes transaction price snapshot.
 //  [W] - `holdHoney`: Writes escrow/hold value and releases on completion/cancel paths.
 //  [W] - `sellerReminderAt`: Writes seller reminder deadline.
@@ -49,7 +54,7 @@
 //  [W] - `updatedAt`: Writes update timestamp on every order mutation.
 //
 //  User wallet/profile document (`users/{uid}`):
-//  [R] - `friendCode`: Reads for postcard detail shipping display.
+//  [R] - `friendCode`: Reads for order buyer snapshot and shipping legacy fallback.
 //  [W] - `honey`: Reads/writes wallet balance during buy/settlement flows.
 //  [R] - `displayName`: Reads buyer/seller display snapshots for orders.
 //  [W] - `updatedAt`: Writes timestamp when wallet is mutated by order transactions.
@@ -119,22 +124,19 @@ final class FbPostcardRepo {
     }
 
     func fetchMyOrderedPostcards(userId: String, limit: Int = AppConfig.Postcard.profileListFetchLimit) async throws -> [PostcardListing] { // Handles fetchMyOrderedPostcards flow.
-        let activeStatuses: [PostcardOrderStatus] = [.awaitingSellerSend, .inTransit, .awaitingBuyerDecision]
-        var orderDocs: [QueryDocumentSnapshot] = []
-        for status in activeStatuses {
-            let query = db.collection("postcardOrders")
-                .whereField("buyerId", isEqualTo: userId)
-                .whereField("status", isEqualTo: status.rawValue)
-            orderDocs += try await fetchDocuments(query: query)
-        }
+        let activeStatuses = [
+            PostcardOrderStatus.awaitingSellerSend.rawValue,
+            PostcardOrderStatus.inTransit.rawValue,
+            PostcardOrderStatus.awaitingBuyerDecision.rawValue
+        ]
+        let query = db.collection("postcardOrders")
+            .whereField("buyerId", isEqualTo: userId)
+            .whereField("status", in: activeStatuses)
+            .order(by: "createdAt", descending: true)
+            .limit(to: limit)
+        let orderDocs = try await fetchDocuments(query: query)
 
         let orderedPostcardIds = orderDocs
-            .sorted { lhs, rhs in
-                let lhsDate = (lhs.data()["createdAt"] as? Timestamp)?.dateValue() ?? .distantPast
-                let rhsDate = (rhs.data()["createdAt"] as? Timestamp)?.dateValue() ?? .distantPast
-                return lhsDate > rhsDate
-            }
-            .prefix(limit)
             .compactMap { doc -> String? in
                 let id = (doc.data()["postcardId"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                 return id.isEmpty ? nil : id
@@ -188,17 +190,6 @@ final class FbPostcardRepo {
         return decodeListing(id: snap.documentID, data: data)
     }
 
-    func fetchUserFriendCode(userId: String) async throws -> String { // Handles fetchUserFriendCode flow.
-        let ref = db.collection("users").document(userId)
-        let snap: DocumentSnapshot
-        do {
-            snap = try await ref.getDocument(source: .server)
-        } catch {
-            snap = try await ref.getDocument(source: .default)
-        }
-        return snap.data()?["friendCode"] as? String ?? ""
-    }
-
     func createPostcard(
         title: String,
         priceHoney: Int,
@@ -206,11 +197,15 @@ final class FbPostcardRepo {
         stock: Int,
         sellerId: String,
         sellerName: String,
+        sellerFriendCode: String,
+        sellerFcmToken: String,
         imageUrl: String
     ) async throws {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanSellerId = sellerId.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanSeller = sellerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanSellerFriendCode = sellerFriendCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanSellerFcmToken = sellerFcmToken.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanCountry = location.country.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanProvince = location.province.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanDetail = location.detail.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -223,6 +218,8 @@ final class FbPostcardRepo {
             "priceHoney": priceHoney,
             "sellerId": cleanSellerId,
             "sellerName": cleanSeller,
+            "sellerFriendCode": cleanSellerFriendCode,
+            "sellerFcmToken": cleanSellerFcmToken,
             "stock": stock,
             "imageUrl": imageUrl,
             "location": [
@@ -243,10 +240,14 @@ final class FbPostcardRepo {
         location: PostcardLocation,
         stock: Int,
         sellerName: String,
+        sellerFriendCode: String,
+        sellerFcmToken: String,
         imageUrl: String? = nil
     ) async throws {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanSeller = sellerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanSellerFriendCode = sellerFriendCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanSellerFcmToken = sellerFcmToken.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanCountry = location.country.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanProvince = location.province.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanDetail = location.detail.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -257,6 +258,9 @@ final class FbPostcardRepo {
         var payload: [String: Any] = [
             "title": cleanTitle,
             "priceHoney": priceHoney,
+            "sellerName": cleanSeller,
+            "sellerFriendCode": cleanSellerFriendCode,
+            "sellerFcmToken": cleanSellerFcmToken,
             "stock": stock,
             "location": [
                 "country": cleanCountry,
@@ -314,6 +318,7 @@ final class FbPostcardRepo {
             let priceHoney = postcard["priceHoney"] as? Int ?? 0
             let sellerId = postcard["sellerId"] as? String ?? ""
             let sellerName = postcard["sellerName"] as? String ?? "Unknown"
+            let sellerFcmToken = postcard["sellerFcmToken"] as? String ?? ""
             let title = postcard["title"] as? String ?? "Untitled"
 
             guard stock > 0 else {
@@ -348,6 +353,8 @@ final class FbPostcardRepo {
             let location = postcard["location"] as? [String: Any] ?? [:]
             let imageUrl = postcard["imageUrl"] as? String ?? ""
             let buyerName = buyerSnap.data()?["displayName"] as? String ?? "Unknown"
+            let buyerFriendCode = buyerSnap.data()?["friendCode"] as? String ?? ""
+            let buyerFcmToken = buyerSnap.data()?["fcmToken"] as? String ?? ""
 
             tx.setData([
                 "postcardId": postcardId,
@@ -357,8 +364,11 @@ final class FbPostcardRepo {
                 "status": PostcardOrderStatus.awaitingSellerSend.rawValue,
                 "buyerId": buyerId,
                 "buyerName": buyerName,
+                "buyerFriendCode": buyerFriendCode,
+                "buyerFcmToken": buyerFcmToken,
                 "sellerId": sellerId,
                 "sellerName": sellerName,
+                "sellerFcmToken": sellerFcmToken,
                 "priceHoney": priceHoney,
                 "holdHoney": priceHoney,
                 "sellerReminderAt": sellerReminderAt,
@@ -399,8 +409,13 @@ final class FbPostcardRepo {
 
         let buyerIds = Array(Set(candidates.compactMap { $0.1["buyerId"] as? String }).filter { !$0.isEmpty })
         var buyerFriendCodes: [String: String] = [:]
+        let isAllFriendCodesCached = candidates.allSatisfy { candidate in
+            let friendCode = (candidate.1["buyerFriendCode"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return !friendCode.isEmpty
+        }
 
-        if !buyerIds.isEmpty {
+        if !buyerIds.isEmpty && !isAllFriendCodesCached {
             // Firestore "in" supports up to 10 IDs per query.
             for chunk in buyerIds.chunked(into: 10) {
                 let usersSnap = try await db.collection("users")
@@ -416,11 +431,13 @@ final class FbPostcardRepo {
         return candidates.map { (orderId, data) in
             let buyerId = data["buyerId"] as? String ?? ""
             let buyerName = data["buyerName"] as? String ?? "Unknown"
+            let cachedFriendCode = (data["buyerFriendCode"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             return PostcardShippingRecipient(
                 id: orderId,
                 buyerId: buyerId,
                 buyerName: buyerName,
-                buyerFriendCode: buyerFriendCodes[buyerId] ?? ""
+                buyerFriendCode: cachedFriendCode.isEmpty ? (buyerFriendCodes[buyerId] ?? "") : cachedFriendCode
             )
         }
         .sorted { $0.buyerName.localizedCaseInsensitiveCompare($1.buyerName) == .orderedAscending }
@@ -486,16 +503,20 @@ final class FbPostcardRepo {
             throw PostcardRepoError.notSignedIn
         }
 
+        let activeStatuses = [
+            PostcardOrderStatus.awaitingSellerSend.rawValue,
+            PostcardOrderStatus.inTransit.rawValue,
+            PostcardOrderStatus.awaitingBuyerDecision.rawValue
+        ]
         let query = db.collection("postcardOrders")
             .whereField("buyerId", isEqualTo: buyerId)
             .whereField("postcardId", isEqualTo: postcardId)
+            .whereField("status", in: activeStatuses)
+            .order(by: "createdAt", descending: true)
+            .limit(to: 1)
         let docs = try await fetchDocuments(query: query)
-
-        let orders = docs.compactMap(decodeBuyerOrder)
-            .filter { $0.status != .completed && $0.status != .cancelled }
-            .sorted { $0.createdAt > $1.createdAt }
-
-        return orders.first
+        guard let latestDoc = docs.first else { return nil }
+        return decodeBuyerOrder(latestDoc)
     }
 
     func confirmPostcardReceived(orderId: String) async throws { // Handles confirmPostcardReceived flow.
@@ -651,6 +672,7 @@ final class FbPostcardRepo {
         let priceHoney = data["priceHoney"] as? Int ?? 0
         let sellerId = data["sellerId"] as? String ?? ""
         let sellerName = data["sellerName"] as? String ?? "Unknown"
+        let sellerFriendCode = data["sellerFriendCode"] as? String ?? ""
         let stock = data["stock"] as? Int ?? 0
         let imageUrl = data["imageUrl"] as? String
 
@@ -670,6 +692,7 @@ final class FbPostcardRepo {
             priceHoney: priceHoney,
             location: location,
             sellerName: sellerName,
+            sellerFriendCode: sellerFriendCode,
             stock: stock,
             imageUrl: imageUrl,
             createdAt: createdAt

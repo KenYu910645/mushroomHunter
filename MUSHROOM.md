@@ -36,13 +36,13 @@
 - `sendRaidConfirmationPush`
   - Trigger: update on `rooms/{roomId}/attendees/{attendeeUid}`
   - Sends only when attendee status transitions into `WaitingConfirmation`
-  - Push target: `users/{attendeeUid}.fcmToken`
+  - Push target: `rooms/{roomId}/attendees/{attendeeUid}.fcmToken` first, with `users/{attendeeUid}.fcmToken` fallback
   - Payload data: `type=raid_confirmation`, `roomId`, `room_id`
 - `notifyHostRaidConfirmationResult`
   - Trigger: update on `rooms/{roomId}/attendees/{attendeeUid}`
   - Sends only when status transitions from `WaitingConfirmation` to `Ready` or `Rejected`
-  - Host resolved from attendee doc where `status=Host`
-  - Push target: `users/{hostUid}.fcmToken`
+  - Host resolved from cached `rooms/{roomId}.hostUid` first, with attendee query fallback where `status=Host`
+  - Push target: `rooms/{roomId}.hostFcmToken` first, with `users/{hostUid}.fcmToken` fallback
   - Payload data:
     - accepted: `type=raid_confirmation_accepted`
     - rejected: `type=raid_confirmation_rejected`
@@ -75,6 +75,8 @@ Fields:
 Mushroom rooms hosted by a player. We delete the room doc when the host closes it, so Firestore only stores active rooms.
 Fields:
 - `title` (String): room title. Set on create; updated on edit.
+- `hostUid` (String): cached host uid used by backend push flows to avoid attendee host lookups.
+- `hostFcmToken` (String, optional): cached host push token used by backend push flows before user lookup fallback.
 - `location` (String): short location label. Set on create/update. Typically, consist of country, city
 - `description` (String): description. Set on create/update.
 - `fixedRaidCost` (Int): minimum honey deposit for joining. Set on create/update.
@@ -89,6 +91,8 @@ Fields:
 Notes:
 - Host identity and info are stored in `attendees/{uid}` with `status = Host` (the host is just an attendee).
 - Legacy rooms may still include `targetColor`/`targetAttribute`/`targetSize`, but create/edit no longer writes or edits those fields.
+- Host-room limit checks now query `rooms.hostUid` first, with legacy host-attendee fallback only when needed.
+- Join-room limit checks now query attendee docs by `uid + active status` (with legacy doc-id fallback) and count unique parent room paths without per-room read fan-out.
 
 #### `rooms/{roomId}/attendees/{uid}`
 Attendee entries for a room. Written in join/leave/deposit flows.
@@ -96,6 +100,7 @@ Fields:
 - `name` (String): attendee display name. Set on join.
 - `uid` (String): attendee uid snapshot used by collection-group membership checks.
 - `friendCode` (String): attendee friend code. Set on join.
+- `fcmToken` (String, optional): attendee push token snapshot used by backend push flows before user lookup fallback.
 - `stars` (Int): attendee stars. Set on join.
 - `depositHoney` (Int): current deposit. Set on join; updated on deposit change and raid settlement.
 - `joinedAt` (Timestamp): set on join.
@@ -202,7 +207,7 @@ Host opens Room Details and uses `Mushroom Raid Done`:
 ### 3. Push To Attendee (Request)
 Cloud Function `sendRaidConfirmationPush` triggers on attendee doc update:
 - Sends push only when status transitions into `WaitingConfirmation`
-- Target token: `users/{attendeeUid}.fcmToken`
+- Target token: `rooms/{roomId}/attendees/{attendeeUid}.fcmToken` (fallback `users/{attendeeUid}.fcmToken`)
 - Payload data includes: `type=raid_confirmation`, `roomId`, `room_id`
 
 ### 4. Attendee Decision
@@ -227,7 +232,7 @@ Cloud Function `notifyHostRaidConfirmationResult` triggers when status transitio
 - `WaitingConfirmation -> Ready`: send accepted message and honey earned
 - `WaitingConfirmation -> Rejected`: send rejected message
 - Host is resolved by attendee row where `status = Host`
-- Host token from `users/{hostUid}.fcmToken`
+- Host token from `rooms/{roomId}.hostFcmToken` (fallback `users/{hostUid}.fcmToken`)
 
 ### 6. Resolve Rejected Case
 Host sees rejected state in attendee row and can tap `Resolve`:

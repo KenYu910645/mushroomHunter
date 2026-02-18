@@ -30,6 +30,9 @@ extension UserSessionStore {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let digits = FriendCode.digitsOnly(friendCode)
         guard !trimmedName.isEmpty, FriendCode.validationError(digits) == nil else { return false }
+        let isNameChanged = displayName != trimmedName
+        let isFriendCodeChanged = self.friendCode != digits
+        let isProfileCompletionChanged = !isProfileComplete
 
         displayName = trimmedName
         self.friendCode = digits
@@ -38,24 +41,37 @@ extension UserSessionStore {
         persistScopedString(kDisplayName, value: trimmedName)
         persistScopedString(kFriendCode, value: digits)
 
-        await syncProfileFields([
-            "displayName": trimmedName,
-            "friendCode": digits,
-            "profileComplete": true
-        ])
-        await syncHostedRoomProfile(displayName: trimmedName, friendCode: digits, stars: stars)
+        if isNameChanged || isFriendCodeChanged || isProfileCompletionChanged {
+            await syncProfileFields([
+                "displayName": trimmedName,
+                "friendCode": digits,
+                "profileComplete": true
+            ])
+        }
+        if isNameChanged || isFriendCodeChanged {
+            await syncHostedRoomProfile(
+                displayName: isNameChanged ? trimmedName : nil,
+                friendCode: isFriendCodeChanged ? digits : nil,
+                stars: nil
+            )
+        }
         if source == .onboarding {
             await ensureUserProfile()
+            if !hasShownOnboardingTutorial() {
+                isShowingOnboardingTutorial = true
+            }
         }
         return true
     }
 
     func updateFcmToken(_ token: String) { // Handles FCM-token update flow.
+        if fcmToken == token { return }
         fcmToken = token
         UserDefaults.standard.set(token, forKey: kFcmToken)
 
         Task {
             await syncFcmToken(token)
+            await syncHostedRoomProfile(fcmToken: token)
             await ensureUserProfile()
         }
     }
@@ -88,6 +104,9 @@ extension UserSessionStore {
             if let honeyValue = data["honey"] as? Int {
                 honey = max(0, honeyValue)
                 persistScopedInt(kHoney, value: honey)
+            }
+            if let backendFcmToken = data["fcmToken"] as? String {
+                lastSyncedFcmTokenByUid[uid] = backendFcmToken
             }
 
             if let maxHostValue = data["maxHostRoom"] as? Int {
@@ -131,6 +150,7 @@ extension UserSessionStore {
 
     func syncFcmToken(_ token: String) async { // Syncs FCM token to backend user document.
         guard let uid = Auth.auth().currentUser?.uid else { return }
+        if lastSyncedFcmTokenByUid[uid] == token { return }
 
         do {
             try await Firestore.firestore()
@@ -140,6 +160,7 @@ extension UserSessionStore {
                     "fcmToken": token,
                     "updatedAt": Timestamp(date: Date())
                 ], merge: true)
+            lastSyncedFcmTokenByUid[uid] = token
         } catch {
             print("❌ syncFcmToken error:", error)
         }
@@ -163,6 +184,7 @@ extension UserSessionStore {
 
     func ensureUserProfile() async { // Ensures a minimally complete backend user document exists.
         guard let uid = Auth.auth().currentUser?.uid else { return }
+        if isUserProfileEnsuredInCurrentSession { return }
 
         do {
             let now = Timestamp(date: Date())
@@ -180,12 +202,13 @@ extension UserSessionStore {
                     "createdAt": now,
                     "updatedAt": now
                 ], merge: true)
+            isUserProfileEnsuredInCurrentSession = true
         } catch {
             print("❌ ensureUserProfile error:", error)
         }
     }
 
-    func syncHostedRoomProfile(displayName: String? = nil, friendCode: String? = nil, stars: Int? = nil) async { // Syncs host attendee snapshots across room attendee docs.
+    func syncHostedRoomProfile(displayName: String? = nil, friendCode: String? = nil, stars: Int? = nil, fcmToken: String? = nil) async { // Syncs host attendee snapshots across room attendee docs.
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         var attendeeUpdates: [String: Any] = [:]
@@ -198,28 +221,54 @@ extension UserSessionStore {
         if let stars {
             attendeeUpdates["stars"] = stars
         }
+        if let fcmToken {
+            attendeeUpdates["fcmToken"] = fcmToken
+        }
 
         guard !attendeeUpdates.isEmpty else { return }
 
         let now = Timestamp(date: Date())
         attendeeUpdates["updatedAt"] = now
+        var roomUpdates: [String: Any] = [
+            "updatedAt": now
+        ]
+        if let fcmToken {
+            roomUpdates["hostFcmToken"] = fcmToken
+        }
 
         do {
-            let snap = try await Firestore.firestore()
-                .collectionGroup("attendees")
-                .whereField("status", isEqualTo: AttendeeStatus.host.rawValue)
+            let hostedRoomsSnap = try await Firestore.firestore()
+                .collection("rooms")
+                .whereField("hostUid", isEqualTo: uid)
                 .getDocuments()
 
-            if snap.documents.isEmpty { return }
-
             let batch = Firestore.firestore().batch()
-            for doc in snap.documents {
-                guard doc.documentID == uid else { continue }
-                batch.setData(attendeeUpdates, forDocument: doc.reference, merge: true)
-                if let roomRef = doc.reference.parent.parent {
-                    batch.updateData(["updatedAt": now], forDocument: roomRef)
+            var isHasAnyUpdateTarget = false
+            for roomDoc in hostedRoomsSnap.documents {
+                let roomRef = roomDoc.reference
+                let hostAttendeeRef = roomRef.collection("attendees").document(uid)
+                batch.setData(attendeeUpdates, forDocument: hostAttendeeRef, merge: true)
+                batch.updateData(roomUpdates, forDocument: roomRef)
+                isHasAnyUpdateTarget = true
+            }
+
+            if !isHasAnyUpdateTarget {
+                let legacyHostAttendeesSnap = try await Firestore.firestore()
+                    .collectionGroup("attendees")
+                    .whereField(FieldPath.documentID(), isEqualTo: uid)
+                    .whereField("status", isEqualTo: AttendeeStatus.host.rawValue)
+                    .getDocuments()
+
+                for doc in legacyHostAttendeesSnap.documents {
+                    batch.setData(attendeeUpdates, forDocument: doc.reference, merge: true)
+                    if let roomRef = doc.reference.parent.parent {
+                        batch.updateData(roomUpdates, forDocument: roomRef)
+                        isHasAnyUpdateTarget = true
+                    }
                 }
             }
+
+            if !isHasAnyUpdateTarget { return }
             try await batch.commit()
         } catch {
             print("❌ syncHostedRoomProfile error:", error)

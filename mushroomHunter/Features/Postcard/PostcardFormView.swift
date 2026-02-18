@@ -535,6 +535,8 @@ struct PostcardFormView: View {
                 stock: stock,
                 sellerId: session.authUid ?? "",
                 sellerName: session.displayName.isEmpty ? "Unknown" : session.displayName,
+                sellerFriendCode: session.friendCode,
+                sellerFcmToken: session.fcmToken ?? "",
                 imageUrl: uploaded.absoluteString
             )
 
@@ -608,6 +610,8 @@ struct PostcardFormView: View {
                 ),
                 stock: stock,
                 sellerName: listing.sellerName,
+                sellerFriendCode: session.friendCode,
+                sellerFcmToken: session.fcmToken ?? "",
                 imageUrl: newImageUrl
             )
             dismiss()

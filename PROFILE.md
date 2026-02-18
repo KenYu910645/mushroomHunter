@@ -39,6 +39,9 @@
   - `Feedback`: opens in-app compose sheet (subject/message) and submits to Firestore `feedbackSubmissions`.
   - `About`: shows contact information (phone, email, website).
 - Feedback compose subject and message both auto-select existing text on focus.
+- Profile hosted-room loading now queries `rooms.hostUid` first, with attendee legacy fallback only when needed; joined-room loading keeps UID-scoped attendee queries and only adds legacy fallback when primary results are insufficient.
+- Profile/token sync paths now apply write guards in session scope to skip duplicate `users/{uid}` writes when values have not changed.
+- FCM token sync also refreshes hosted room snapshots (`rooms.hostFcmToken` and host attendee `fcmToken`) so mushroom push flows can avoid per-push user reads.
 
 ## Cloud Functions (Profile Use Cases)
 - `sendFeedbackNotificationEmail`

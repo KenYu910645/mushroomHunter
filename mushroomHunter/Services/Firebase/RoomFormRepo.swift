@@ -17,6 +17,7 @@
 //  [X] - `documentId`: Uses generated id from Firestore reference; does not read/write id field.
 //  [W] - `title`: Writes room title from form input on create/edit.
 //  [X] - `roomTitle` (legacy fallback): Legacy field is not used in form write path.
+//  [W] - `hostUid`: Writes cached host uid on create for host lookups without attendee query.
 //  [W] - `hostName`: Writes host display name when creating room.
 //  [W] - `hostStars`: Writes host stars snapshot when creating room.
 //  [W] - `location`: Writes location string from form input on create/edit.
@@ -80,14 +81,28 @@ final class FbRoomFormRepo {
         }
 
         let userSnap = try await db.collection("users").document(uid).getDocument()
-        let maxHostRooms = userSnap.data()?["maxHostRoom"] as? Int ?? defaultMaxHostRooms
+        let userData = userSnap.data() ?? [:]
+        let maxHostRooms = userData["maxHostRoom"] as? Int ?? defaultMaxHostRooms
+        let hostFcmToken = (userData["fcmToken"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 
-        let existingSnap = try await db.collectionGroup("attendees")
-            .whereField("status", isEqualTo: AttendeeStatus.host.rawValue)
+        let hostedRoomsSnap = try await db.collection("rooms")
+            .whereField("hostUid", isEqualTo: uid)
+            .limit(to: maxHostRooms)
             .getDocuments()
-        let existing = existingSnap.documents.filter { $0.documentID == uid }
+        var hostedRoomIds = Set(hostedRoomsSnap.documents.map(\.documentID))
+        if hostedRoomIds.count < maxHostRooms {
+            let legacyHostAttendees = try await db.collectionGroup("attendees")
+                .whereField(FieldPath.documentID(), isEqualTo: uid)
+                .whereField("status", isEqualTo: AttendeeStatus.host.rawValue)
+                .getDocuments()
+            for doc in legacyHostAttendees.documents {
+                if let roomRef = doc.reference.parent.parent {
+                    hostedRoomIds.insert(roomRef.documentID)
+                }
+            }
+        }
 
-        if existing.count >= maxHostRooms {
+        if hostedRoomIds.count >= maxHostRooms {
             throw RoomFormError.maxHostRoomsReached(maxHostRooms)
         }
 
@@ -96,6 +111,8 @@ final class FbRoomFormRepo {
 
         let data: [String: Any] = [
             "title": req.title,
+            "hostUid": uid,
+            "hostFcmToken": hostFcmToken,
             "hostName": hostName,
             "hostStars": hostStars,
             "location": req.location,
@@ -111,6 +128,7 @@ final class FbRoomFormRepo {
         let hostAttendeeRef = ref.collection("attendees").document(uid)
         let attendeeData: [String: Any] = [
             "uid": uid,
+            "fcmToken": hostFcmToken,
             "name": hostName,
             "friendCode": req.hostFriendCode,
             "stars": hostStars,

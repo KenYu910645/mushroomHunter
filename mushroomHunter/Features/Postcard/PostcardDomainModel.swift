@@ -54,6 +54,8 @@ struct PostcardListing: Identifiable, Equatable, Hashable {
     let location: PostcardLocation
     /// Seller display name snapshot saved in listing.
     let sellerName: String
+    /// Seller friend code snapshot saved in listing for detail display.
+    let sellerFriendCode: String
     /// Remaining stock quantity.
     let stock: Int
     /// Optional uploaded image URL string.

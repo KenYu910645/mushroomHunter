@@ -70,22 +70,38 @@ final class FbProfileListRepo {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }
 
-        let attendeeDocs = try await fetchAttendeeDocs(
-            uid: uid,
-            statusFilter: .equal(AttendeeStatus.host.rawValue)
-        )
-        let roomMap = try await fetchRoomDataMap(roomIds: attendeeDocs.compactMap { $0.reference.parent.parent?.documentID })
+        let hostRoomQuery = db.collection("rooms")
+            .whereField("hostUid", isEqualTo: uid)
+        let hostRoomDocs = try await fetchDocuments(query: hostRoomQuery)
+        var roomMap: [String: [String: Any]] = [:]
+        roomMap.reserveCapacity(hostRoomDocs.count)
+        for doc in hostRoomDocs {
+            roomMap[doc.documentID] = doc.data()
+        }
+
+        if roomMap.count < limit {
+            let attendeeDocs = try await fetchAttendeeDocs(
+                uid: uid,
+                statusFilter: .equal(AttendeeStatus.host.rawValue),
+                desiredCount: limit
+            )
+            let attendeeRoomIds = attendeeDocs.compactMap { $0.reference.parent.parent?.documentID }
+            let missingRoomIds = attendeeRoomIds.filter { roomMap[$0] == nil }
+            if !missingRoomIds.isEmpty {
+                let legacyRoomMap = try await fetchRoomDataMap(roomIds: missingRoomIds)
+                for (roomId, roomData) in legacyRoomMap {
+                    roomMap[roomId] = roomData
+                }
+            }
+        }
 
         var results: [HostedRoomSummary] = []
-        results.reserveCapacity(attendeeDocs.count)
+        results.reserveCapacity(roomMap.count)
 
-        for doc in attendeeDocs {
-            guard let roomRef = doc.reference.parent.parent else { continue }
-            guard let d = roomMap[roomRef.documentID] else { continue }
-
+        for (roomId, d) in roomMap {
             results.append(
                 HostedRoomSummary(
-                    id: roomRef.documentID,
+                    id: roomId,
                     title: (d["title"] as? String) ?? "Untitled Room",
                     joinedCount: (d["joinedCount"] as? Int) ?? 0,
                     maxPlayers: (d["maxPlayers"] as? Int) ?? AppConfig.Mushroom.defaultMaxPlayersPerRoom,
@@ -111,7 +127,8 @@ final class FbProfileListRepo {
                 AttendeeStatus.ready.rawValue,
                 AttendeeStatus.waitingConfirmation.rawValue,
                 AttendeeStatus.rejected.rawValue
-            ])
+            ]),
+            desiredCount: limit
         )
         let roomMap = try await fetchRoomDataMap(roomIds: attendeeDocs.compactMap { $0.reference.parent.parent?.documentID })
 
@@ -148,19 +165,24 @@ final class FbProfileListRepo {
 
     private func fetchAttendeeDocs(
         uid: String,
-        statusFilter: StatusFilter
+        statusFilter: StatusFilter,
+        desiredCount: Int
     ) async throws -> [QueryDocumentSnapshot] {
         let attendeeGroup = db.collectionGroup("attendees")
         let byUidQuery = applyStatusFilter(
             to: attendeeGroup.whereField("uid", isEqualTo: uid),
             statusFilter: statusFilter
         )
-        let byStatusQuery = applyStatusFilter(to: attendeeGroup, statusFilter: statusFilter)
+        let uidDocs = try await fetchDocuments(query: byUidQuery)
+        if uidDocs.count >= desiredCount {
+            return uidDocs
+        }
 
-        async let byUidSnap = fetchDocuments(query: byUidQuery)
-        async let byStatusSnap = fetchDocuments(query: byStatusQuery)
-        let (uidDocs, statusDocs) = try await (byUidSnap, byStatusSnap)
-        let legacyDocs = statusDocs.filter { $0.documentID == uid }
+        let byLegacyDocumentIdQuery = applyStatusFilter(
+            to: attendeeGroup.whereField(FieldPath.documentID(), isEqualTo: uid),
+            statusFilter: statusFilter
+        )
+        let legacyDocs = try await fetchDocuments(query: byLegacyDocumentIdQuery)
 
         var merged: [String: QueryDocumentSnapshot] = [:]
         merged.reserveCapacity(uidDocs.count + legacyDocs.count)

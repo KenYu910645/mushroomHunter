@@ -50,17 +50,17 @@
 - `sendPostcardOrderCreatedPush`
   - Trigger: create on `postcardOrders/{orderId}`
   - Sends only when new order status is `AwaitingSellerSend`
-  - Push target: `users/{sellerId}.fcmToken`
+  - Push target: `postcardOrders/{orderId}.sellerFcmToken` first, with `users/{sellerId}.fcmToken` fallback
   - Payload data: `type=postcard_order_created`, `orderId`, `postcardId`
 - `sendPostcardShippedPush`
   - Trigger: update on `postcardOrders/{orderId}`
   - Sends only when order status transitions into `InTransit`
-  - Push target: `users/{buyerId}.fcmToken`
+  - Push target: `postcardOrders/{orderId}.buyerFcmToken` first, with `users/{buyerId}.fcmToken` fallback
   - Payload data: `type=postcard_shipped`, `orderId`, `postcardId`
 - `notifySellerPostcardCompleted`
   - Trigger: update on `postcardOrders/{orderId}`
   - Sends only when order status transitions into `Completed`
-  - Push target: `users/{sellerId}.fcmToken`
+  - Push target: `postcardOrders/{orderId}.sellerFcmToken` first, with `users/{sellerId}.fcmToken` fallback
   - Payload data: `type=postcard_order_completed`, `orderId`, `postcardId`, `honey`
 
 ### Firebase Storage
@@ -76,6 +76,8 @@ Fields:
 - `priceHoney` (Int): price per postcard.
 - `sellerId` (String): seller uid for ownership checks.
 - `sellerName` (String): seller display name.
+- `sellerFriendCode` (String): seller friend code snapshot used by detail display to avoid extra user reads.
+- `sellerFcmToken` (String, optional): seller push token snapshot used by order-push functions.
 - `stock` (Int): available quantity.
 - `imageUrl` (String, optional): public URL of postcard image.
 - `location` (Map): `{ country, province, detail }` strings.
@@ -90,6 +92,7 @@ Notes:
   - Seller (`auth.uid == sellerId`) sees share/edit/shipping toolbar actions and can share invite QR/link, update listing fields, or delete listing.
   - Non-seller sees buy action button only.
   - On buy, client runs Firestore transaction: decrements `stock` and deducts buyer `users/{uid}.honey` atomically.
+  - Seller friend code is shown from `postcards.sellerFriendCode` snapshot only (no detail-screen fallback user read).
   - Postcard create/edit form clamps numeric input to avoid integer overflow (`priceHoney` max `1,000,000,000`; `stock` max `1,000,000`).
 
 #### `postcardOrders/{orderId}`
@@ -102,8 +105,11 @@ Fields:
 - `status` (String): current transaction state. Starts as `AwaitingSellerSend`.
 - `buyerId` (String): buyer uid.
 - `buyerName` (String): buyer display name snapshot.
+- `buyerFriendCode` (String): buyer friend code snapshot used by seller shipping list.
+- `buyerFcmToken` (String, optional): buyer push token snapshot used by order-push functions.
 - `sellerId` (String): seller uid.
 - `sellerName` (String): seller display name snapshot.
+- `sellerFcmToken` (String, optional): seller push token snapshot copied from listing.
 - `priceHoney` (Int): listing price at purchase.
 - `holdHoney` (Int): honey held for escrow (equal to `priceHoney` in MVP).
 - `sellerReminderAt` (Timestamp): next seller reminder time.
@@ -123,7 +129,7 @@ Notes:
 - Seller shipping action transitions status from `AwaitingSellerSend` -> `InTransit` and updates `sentAt`, `buyerReminderAt`, and `buyerAutoCompleteAt`.
 - Buyer "not received yet" keeps honey on hold and sets status to `AwaitingBuyerDecision`.
 - Buyer confirmation transitions status to `Completed` and transfers `holdHoney` to seller `users/{sellerId}.honey`.
-- Profile ordered-postcards view loads only active buyer orders (`AwaitingSellerSend`, `InTransit`, `AwaitingBuyerDecision`) to avoid history-heavy truncation.
-- Buyer latest-order lookup fetches all matching buyer/postcard orders and picks the newest active one by `createdAt`.
-- Shipping recipients are fetched with server-side filters on `postcardId`, `sellerId`, and `status = AwaitingSellerSend`.
+- Profile ordered-postcards view uses one server-side query: `buyerId + status in [AwaitingSellerSend, InTransit, AwaitingBuyerDecision]`, ordered by `createdAt desc`, limited by profile fetch cap.
+- Buyer latest-order lookup uses a server-side query with `buyerId + postcardId + status in [AwaitingSellerSend, InTransit, AwaitingBuyerDecision]`, ordered by `createdAt desc`, limited to `1`.
+- Shipping recipients are fetched with server-side filters on `postcardId`, `sellerId`, and `status = AwaitingSellerSend`; buyer friend codes are read from order snapshots with users lookup fallback for legacy orders.
 - Register/edit upload flow performs best-effort cleanup of newly uploaded image blobs if subsequent Firestore write fails.

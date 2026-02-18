@@ -13,7 +13,7 @@ Main app flow after sign-in:
 2. Postcard tab
 3. Profile tab
 
-If signed out, users see the sign-in flow. First-time users must complete profile creation.
+If signed out, users see the sign-in flow. First-time users must complete profile creation, then receive a one-time swipe tutorial (Honey & Stars -> Join Mushroom Rooms -> Host a Room -> Postcard Market).
 
 ## Documentation Map (Must Keep In Sync)
 Use and maintain these files when related code changes:
@@ -100,6 +100,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 ### SIGNIN (`SIGNIN.md`)
 - `mushroomHunter/Features/Profile/LoginView.swift`
 - `mushroomHunter/Features/Profile/ProfileFormView.swift` (shared create/edit profile form, signin flow uses create mode)
+- `mushroomHunter/Features/Profile/TutorialView.swift` (one-time swipe tutorial presented after first successful profile creation)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used in create-profile form)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper for multiline form inputs)
 - `mushroomHunter/User/UserSessionStore.swift` (main session state container)

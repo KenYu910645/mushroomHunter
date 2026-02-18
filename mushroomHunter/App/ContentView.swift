@@ -49,6 +49,10 @@ struct ContentView: View {
                     .environmentObject(session)
             }
         }
+        .fullScreenCover(isPresented: $session.isShowingOnboardingTutorial) {
+            TutorialView()
+                .environmentObject(session)
+        }
         .onAppear {
             if AppTesting.isUITesting {
                 session.isLoggedIn = true
@@ -58,6 +62,7 @@ struct ContentView: View {
                 session.stars = 1
                 session.honey = 100
                 session.isProfileComplete = true
+                session.isShowingOnboardingTutorial = false
             }
         }
     }

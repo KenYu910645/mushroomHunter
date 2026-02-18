@@ -91,26 +91,54 @@ final class FbRoomActionsRepo {
         return userSnap.data()?["maxJoinRoom"] as? Int ?? defaultMaxJoinRooms
     }
 
-    private func countActiveJoinedRooms(uid: String) async throws -> Int {
+    private func countActiveJoinedRooms(uid: String, threshold: Int) async throws -> Int {
         let byUidField = try await db.collectionGroup("attendees")
             .whereField("uid", isEqualTo: uid)
+            .whereField("status", in: AttendeeStatus.activeStatusRawValues)
             .getDocuments()
+        if byUidField.documents.count >= threshold {
+            return byUidField.documents.count
+        }
+
         let byDocumentID = try await db.collectionGroup("attendees")
             .whereField(FieldPath.documentID(), isEqualTo: uid)
+            .whereField("status", in: AttendeeStatus.activeStatusRawValues)
             .getDocuments()
         let attendeeDocs = byUidField.documents + byDocumentID.documents
         var seenRoomPaths: Set<String> = []
-        var count = 0
         for doc in attendeeDocs {
             guard let roomRef = doc.reference.parent.parent else { continue }
-            if seenRoomPaths.contains(roomRef.path) { continue }
             seenRoomPaths.insert(roomRef.path)
-            let roomSnap = try await roomRef.getDocument()
-            if roomSnap.exists {
-                count += 1
-            }
         }
-        return count
+        return seenRoomPaths.count
+    }
+
+    private struct RoomHostContext {
+        let hostUid: String
+        let raidCostHoney: Int
+    }
+
+    private func fetchRoomHostContext(roomRef: DocumentReference) async throws -> RoomHostContext {
+        let roomSnap = try await roomRef.getDocument()
+        guard let roomData = roomSnap.data() else {
+            throw RoomActionError.roomNotFound
+        }
+
+        let raidCostHoney = (roomData["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
+        let hostUidFromRoom = (roomData["hostUid"] as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !hostUidFromRoom.isEmpty {
+            return RoomHostContext(hostUid: hostUidFromRoom, raidCostHoney: raidCostHoney)
+        }
+
+        let hostQuery = try await roomRef.collection("attendees")
+            .whereField("status", isEqualTo: AttendeeStatus.host.rawValue)
+            .limit(to: 1)
+            .getDocuments()
+        guard let hostDoc = hostQuery.documents.first else {
+            throw RoomActionError.notHost
+        }
+        return RoomHostContext(hostUid: hostDoc.documentID, raidCostHoney: raidCostHoney)
     }
 
     // MARK: - Join (transaction)
@@ -125,7 +153,7 @@ final class FbRoomActionsRepo {
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
         let maxJoinRooms = try await fetchMaxJoinRooms(uid: uid)
-        let currentJoined = try await countActiveJoinedRooms(uid: uid)
+        let currentJoined = try await countActiveJoinedRooms(uid: uid, threshold: maxJoinRooms)
         if currentJoined >= maxJoinRooms {
             throw RoomActionError.maxJoinRoomsReached(maxJoinRooms)
         }
@@ -170,10 +198,14 @@ final class FbRoomActionsRepo {
             catch { errPtr?.pointee = error as NSError; return nil }
 
             let currentHoney: Int
+            let currentFcmToken: String
             if let userData = userSnap.data() {
                 currentHoney = userData["honey"] as? Int ?? 0
+                currentFcmToken = (userData["fcmToken"] as? String ?? "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
             } else {
                 currentHoney = max(0, attendeeHoney)
+                currentFcmToken = ""
                 tx.setData([
                     "displayName": userName,
                     "friendCode": friendCode,
@@ -199,6 +231,7 @@ final class FbRoomActionsRepo {
             // 3) Write attendee
             tx.setData([
                 "uid": uid,
+                "fcmToken": currentFcmToken,
                 "name": userName,
                 "friendCode": friendCode,
                 "stars": stars,
@@ -554,28 +587,10 @@ final class FbRoomActionsRepo {
         let roomRef = db.collection("rooms").document(roomId)
         let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
         let now = Timestamp(date: Date())
-
-        let hostQuery = try await roomRef.collection("attendees")
-            .whereField("status", isEqualTo: AttendeeStatus.host.rawValue)
-            .limit(to: 1)
-            .getDocuments()
-        guard let hostDoc = hostQuery.documents.first else {
-            throw RoomActionError.notHost
-        }
-        let hostUid = hostDoc.documentID
+        let hostContext = try await fetchRoomHostContext(roomRef: roomRef)
 
         try await db.runTransaction { [self] tx, errPtr -> Any? in
-            let roomSnap: DocumentSnapshot
-            do { roomSnap = try tx.getDocument(roomRef) }
-            catch { errPtr?.pointee = error as NSError; return nil }
-
-            guard let room = roomSnap.data() else {
-                errPtr?.pointee = RoomActionError.roomNotFound as NSError
-                return nil
-            }
-
-            let raidCostHoney = (room["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
-            let hostRef = self.db.collection("users").document(hostUid)
+            let hostRef = self.db.collection("users").document(hostContext.hostUid)
 
             let hostSnap: DocumentSnapshot
             let attendeeSnap: DocumentSnapshot
@@ -591,17 +606,17 @@ final class FbRoomActionsRepo {
             let attendeeDeposit = attendeeSnap.data()?["depositHoney"] as? Int ?? 0
 
             if accept {
-                if attendeeDeposit < raidCostHoney {
+                if attendeeDeposit < hostContext.raidCostHoney {
                     errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
                     return nil
                 }
                 tx.updateData([
-                    "honey": hostHoney + max(0, raidCostHoney),
+                    "honey": hostHoney + max(0, hostContext.raidCostHoney),
                     "updatedAt": now
                 ], forDocument: hostRef)
 
                 tx.updateData([
-                    "depositHoney": max(0, attendeeDeposit - raidCostHoney),
+                    "depositHoney": max(0, attendeeDeposit - hostContext.raidCostHoney),
                     "status": AttendeeStatus.ready.rawValue,
                     "needsHostRating": true,
                     "updatedAt": now
@@ -706,17 +721,9 @@ final class FbRoomActionsRepo {
         let roomRef = db.collection("rooms").document(roomId)
         let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
         let now = Timestamp(date: Date())
-
-        let hostQuery = try await roomRef.collection("attendees")
-            .whereField("status", isEqualTo: AttendeeStatus.host.rawValue)
-            .limit(to: 1)
-            .getDocuments()
-        guard let hostDoc = hostQuery.documents.first else {
-            throw RoomActionError.notHost
-        }
-        let hostUid = hostDoc.documentID
-        let hostAttendeeRef = hostDoc.reference
-        let hostUserRef = db.collection("users").document(hostUid)
+        let hostContext = try await fetchRoomHostContext(roomRef: roomRef)
+        let hostAttendeeRef = roomRef.collection("attendees").document(hostContext.hostUid)
+        let hostUserRef = db.collection("users").document(hostContext.hostUid)
 
         try await db.runTransaction { tx, errPtr -> Any? in
             let attendeeSnap: DocumentSnapshot

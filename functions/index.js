@@ -66,14 +66,22 @@ function feedbackEmailText(feedbackId, data) {
   ].join("\n");
 }
 
-async function sendPushToUser(uid, message, context) {
-  const userSnap = await db.collection("users").doc(uid).get();
-  if (!userSnap.exists) {
-    logger.warn("User profile not found for push", {uid, ...context});
-    return;
+function normalizeToken(rawToken) {
+  const token = stringifyValue(rawToken, "");
+  return token;
+}
+
+async function sendPushToUser(uid, message, context, snapshotToken = "") {
+  let token = normalizeToken(snapshotToken);
+  if (!token) {
+    const userSnap = await db.collection("users").doc(uid).get();
+    if (!userSnap.exists) {
+      logger.warn("User profile not found for push", {uid, ...context});
+      return;
+    }
+    token = normalizeToken(userSnap.data()?.fcmToken);
   }
 
-  const token = userSnap.data()?.fcmToken;
   if (!token || typeof token !== "string") {
     logger.info("Skipping push because user has no FCM token", {uid, ...context});
     return;
@@ -92,7 +100,12 @@ async function sendPushToUser(uid, message, context) {
   });
 }
 
-async function getHostUid(roomId) {
+async function resolveHostUid(roomId, roomData) {
+  const hostUidFromRoom = stringifyValue(roomData?.hostUid, "");
+  if (hostUidFromRoom) {
+    return hostUidFromRoom;
+  }
+
   const hostQuery = await db.collection("rooms").doc(roomId).collection("attendees")
       .where("status", "==", "Host")
       .limit(1)
@@ -135,7 +148,7 @@ exports.sendRaidConfirmationPush = onDocumentUpdated(
           roomId,
           room_id: roomId,
         },
-      }, {roomId, attendeeUid});
+      }, {roomId, attendeeUid}, afterData.fcmToken);
         logger.info("Raid confirmation push sent", {attendeeUid, roomId});
       } catch (error) {
         logger.error("Failed to send raid confirmation push", {
@@ -168,17 +181,15 @@ exports.notifyHostRaidConfirmationResult = onDocumentUpdated(
 
       const roomId = event.params.roomId;
       const attendeeUid = event.params.attendeeUid;
-      const [roomSnap, hostUid] = await Promise.all([
-        db.collection("rooms").doc(roomId).get(),
-        getHostUid(roomId),
-      ]);
+      const roomSnap = await db.collection("rooms").doc(roomId).get();
+      const roomData = roomSnap.data() || {};
+      const hostUid = await resolveHostUid(roomId, roomData);
 
       if (!hostUid) {
         logger.warn("Host attendee not found for room", {roomId, attendeeUid});
         return;
       }
 
-      const roomData = roomSnap.data() || {};
       const raidCostHoney = Number(roomData.fixedRaidCost || 0);
       const attendeeName = (afterData.name || "A player").toString();
 
@@ -208,7 +219,7 @@ exports.notifyHostRaidConfirmationResult = onDocumentUpdated(
       };
 
       try {
-        await sendPushToUser(hostUid, message, {roomId, attendeeUid, hostUid});
+        await sendPushToUser(hostUid, message, {roomId, attendeeUid, hostUid}, roomData.hostFcmToken);
         logger.info("Host raid confirmation result push sent", {
           roomId,
           attendeeUid,
@@ -261,10 +272,10 @@ exports.sendPostcardShippedPush = onDocumentUpdated(
           },
           data: {
             type: "postcard_shipped",
-            orderId,
-            postcardId: (afterData.postcardId || "").toString(),
-          },
-        }, {orderId, buyerUid});
+          orderId,
+          postcardId: (afterData.postcardId || "").toString(),
+        },
+        }, {orderId, buyerUid}, afterData.buyerFcmToken);
         logger.info("Postcard shipped push sent", {orderId, buyerUid});
       } catch (error) {
         logger.error("Failed to send postcard shipped push", {
@@ -308,10 +319,10 @@ exports.sendPostcardOrderCreatedPush = onDocumentCreated(
           },
           data: {
             type: "postcard_order_created",
-            orderId,
-            postcardId: (orderData.postcardId || "").toString(),
-          },
-        }, {orderId, sellerUid});
+          orderId,
+          postcardId: (orderData.postcardId || "").toString(),
+        },
+        }, {orderId, sellerUid}, orderData.sellerFcmToken);
         logger.info("Postcard order-created push sent", {orderId, sellerUid});
       } catch (error) {
         logger.error("Failed to send postcard order-created push", {
@@ -361,7 +372,7 @@ exports.notifySellerPostcardCompleted = onDocumentUpdated(
             postcardId: (afterData.postcardId || "").toString(),
             honey: String(holdHoney),
           },
-        }, {orderId, sellerUid});
+        }, {orderId, sellerUid}, afterData.sellerFcmToken);
         logger.info("Postcard completed push sent", {orderId, sellerUid});
       } catch (error) {
         logger.error("Failed to send postcard completed push", {

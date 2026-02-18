@@ -60,6 +60,7 @@ struct PostcardView: View {
     /// - Parameter listing: Listing selected from browse.
     init(listing: PostcardListing) {
         _currentListing = State(initialValue: listing)
+        _sellerFriendCode = State(initialValue: listing.sellerFriendCode)
     }
 
     /// Indicates whether the current user owns this listing.
@@ -335,7 +336,8 @@ struct PostcardView: View {
         do {
             if let refreshed = try await repo.fetchPostcard(postcardId: currentListing.id) {
                 currentListing = refreshed
-                sellerFriendCode = try await repo.fetchUserFriendCode(userId: refreshed.sellerId)
+                let cachedFriendCode = refreshed.sellerFriendCode.trimmingCharacters(in: .whitespacesAndNewlines)
+                sellerFriendCode = cachedFriendCode
                 if !isSeller {
                     buyerOrder = try await repo.fetchLatestBuyerOrder(postcardId: refreshed.id)
                 } else {
