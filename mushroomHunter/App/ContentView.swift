@@ -135,7 +135,7 @@ struct MainTabView: View {
         TabView {
             RoomBrowseView(session: session)
                 .tabItem {
-                    Label("tab_mushroom", systemImage: "magnifyingglass")
+                    Label("tab_mushroom", systemImage: "person.3.fill")
                 }
                 .accessibilityIdentifier("tab_browse")
 

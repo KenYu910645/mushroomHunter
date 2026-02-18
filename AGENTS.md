@@ -183,4 +183,4 @@ xcodebuild -project /Users/ken/Desktop/mushroomHunter/mushroomHunter.xcodeproj \
   test
 ```
 - CI workflow: `/Users/ken/Desktop/mushroomHunter/.github/workflows/ios-ui-tests.yml`
-- UI tests launch app with `--ui-testing --mock-rooms` (no live Firebase dependency).
+- UI tests launch app with `--ui-testing --mock-rooms --mock-postcards` (no live Firebase dependency).

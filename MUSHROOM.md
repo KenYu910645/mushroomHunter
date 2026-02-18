@@ -22,6 +22,7 @@
 - `functions/index.js`: server-side push triggers used by mushroom confirmation flows.
 
 ## Feature Coverage
+- Main Mushroom tab icon uses SF Symbol `person.3.fill` to reflect group room coordination.
 - Host can create and manage a room with title/location/description/fixed raid cost (no target mushroom selectors in create/edit UI).
 - Host create/edit description is prefilled with localized default `host_default_description` (`Welcome! Let's play!`) when empty.
 - Host can manage attendees (kick, close room, finish raid/claim cycle).

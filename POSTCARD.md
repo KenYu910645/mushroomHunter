@@ -43,6 +43,7 @@
 - Country selector is dropdown-based and uses the same country source as room host form.
 - Register form defaults country to Taiwan (`TW`).
 - Snapshot area itself opens photo picker (no separate upload button).
+- UI-test mock postcard mode (`--mock-postcards`) shows a quick submit button in create flow to bypass image upload and backend writes.
 - Detail text field is capped at 100 characters.
 - Detail placeholder text is localized via `postcard_detail_placeholder`.
 

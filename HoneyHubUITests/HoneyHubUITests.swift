@@ -111,8 +111,7 @@ final class HoneyHubUITests: XCTestCase {
         XCTAssertTrue(createButton.waitForExistence(timeout: 10))
         createButton.tap()
 
-        app.swipeUp()
-        let submitButton = app.buttons["postcard_form_submit_button"]
+        let submitButton = app.buttons["postcard_form_quick_submit_button"]
         XCTAssertTrue(submitButton.waitForExistence(timeout: 10))
         submitButton.tap()
 

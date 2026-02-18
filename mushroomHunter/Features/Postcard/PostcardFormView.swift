@@ -236,6 +236,14 @@ struct PostcardFormView: View {
                     ProgressView(LocalizedStringKey("postcard_uploading"))
                 }
 
+                if AppTesting.useMockPostcards && isCreateMode {
+                    Button(LocalizedStringKey("common_done")) {
+                        Task { await submitForm() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("postcard_form_quick_submit_button")
+                }
+
                 if let err = uploadError {
                     Text(err)
                         .font(.footnote)
