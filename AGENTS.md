@@ -188,4 +188,6 @@ xcodebuild -project /Users/ken/Desktop/mushroomHunter/mushroomHunter.xcodeproj \
 - UI tests can optionally force deep-link entry with:
   - `--ui-open-room {roomId}`
   - `--ui-open-postcard {postcardId}`
+- UI tests can optionally launch a fixture room in joined-attendee state with:
+  - `--mock-room-joined`
 - Test case documentation: `/Users/ken/Desktop/mushroomHunter/TESTCASE.md`

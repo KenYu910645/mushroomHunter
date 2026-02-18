@@ -58,7 +58,7 @@ final class RoomViewModel: ObservableObject {
         self.roomId = roomId
         self.session = session
         if AppTesting.useMockRooms, roomId == AppTesting.fixtureRoomId {
-            self.room = AppTesting.fixtureRoom(includeCurrentUser: false)
+            self.room = AppTesting.fixtureRoom(includeCurrentUser: AppTesting.useMockJoinedRoom)
             recomputeRole()
             recomputeConfirmationStates()
             sortAttendees(by: attendeeSort)
@@ -73,7 +73,7 @@ final class RoomViewModel: ObservableObject {
         defer { isLoading = false }
 
         if AppTesting.useMockRooms, roomId == AppTesting.fixtureRoomId {
-            let includeCurrentUser = false
+            let includeCurrentUser = AppTesting.useMockJoinedRoom
             self.room = AppTesting.fixtureRoom(includeCurrentUser: includeCurrentUser)
             recomputeRole()
             recomputeConfirmationStates()
@@ -241,6 +241,18 @@ final class RoomViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
+
+        if AppTesting.useMockRooms, room.id == AppTesting.fixtureRoomId {
+            let currentDeposit = currentUserDepositHoney() ?? 0
+            if currentDeposit > 0 {
+                session.addHoney(currentDeposit)
+            }
+            self.room = AppTesting.fixtureRoom(includeCurrentUser: false)
+            recomputeRole()
+            recomputeConfirmationStates()
+            sortAttendees(by: attendeeSort)
+            return
+        }
         
         do {
             let currentDeposit = currentUserDepositHoney() ?? 0

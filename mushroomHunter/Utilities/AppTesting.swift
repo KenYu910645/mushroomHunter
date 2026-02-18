@@ -13,6 +13,7 @@ import Foundation
 enum AppTesting {
     static let uiTestingArgument = "--ui-testing"
     static let mockRoomsArgument = "--mock-rooms"
+    static let mockJoinedRoomArgument = "--mock-room-joined"
     static let mockPostcardsArgument = "--mock-postcards"
     static let openRoomArgument = "--ui-open-room"
     static let openPostcardArgument = "--ui-open-postcard"
@@ -26,6 +27,11 @@ enum AppTesting {
     static var useMockRooms: Bool {
         let args = ProcessInfo.processInfo.arguments
         return isUITesting || args.contains(mockRoomsArgument)
+    }
+
+    static var useMockJoinedRoom: Bool {
+        let args = ProcessInfo.processInfo.arguments
+        return args.contains(mockJoinedRoomArgument)
     }
 
     static var useMockPostcards: Bool {

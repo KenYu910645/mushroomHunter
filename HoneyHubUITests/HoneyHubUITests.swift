@@ -138,34 +138,22 @@ final class HoneyHubUITests: XCTestCase {
 
     @MainActor
     func testMushroomAttendeeLeaveFlow() throws {
-        let app = launchApp(extraArguments: ["--ui-open-room", "ui-test-room-001"])
-
-        let joinButton = app.buttons["room_join_button"]
-        XCTAssertTrue(joinButton.waitForExistence(timeout: 15))
-        joinButton.tap()
-
-        let confirmJoinButton = app.buttons["room_join_sheet_ok_button"]
-        if confirmJoinButton.waitForExistence(timeout: 10) {
-            confirmJoinButton.tap()
-        }
-
-        let joinConfirmAlert = app.alerts.firstMatch
-        XCTAssertTrue(joinConfirmAlert.waitForExistence(timeout: 10))
-        joinConfirmAlert.buttons.element(boundBy: 0).tap()
-
-        let joinSuccessAlert = app.alerts.firstMatch
-        if joinSuccessAlert.waitForExistence(timeout: 10) {
-            joinSuccessAlert.buttons.element(boundBy: 0).tap()
-        }
+        let app = launchApp(extraArguments: ["--ui-open-room", "ui-test-room-001", "--mock-room-joined"])
 
         let editBidButton = app.buttons["room_edit_bid_button"]
-        XCTAssertTrue(editBidButton.waitForExistence(timeout: 10))
+        XCTAssertTrue(editBidButton.waitForExistence(timeout: 15))
         editBidButton.tap()
 
         let leaveButton = app.buttons["room_leave_button"]
         XCTAssertTrue(leaveButton.waitForExistence(timeout: 10))
         leaveButton.tap()
 
+        let leaveSuccessAlert = app.alerts.firstMatch
+        if leaveSuccessAlert.waitForExistence(timeout: 5) {
+            leaveSuccessAlert.buttons.element(boundBy: 0).tap()
+        }
+
+        let joinButton = app.buttons["room_join_button"]
         XCTAssertTrue(joinButton.waitForExistence(timeout: 10))
     }
 

@@ -10,6 +10,7 @@ UI tests run with launch arguments:
 - optional deep-link route arguments:
   - `--ui-open-room <roomId>`
   - `--ui-open-postcard <postcardId>`
+  - `--mock-room-joined` (launch fixture room as joined attendee for leave-flow testing)
 
 These flags keep tests independent from live Firebase data.
 In UI testing mode, profile refresh/sync paths are also short-circuited so no Firestore reads/writes are executed.

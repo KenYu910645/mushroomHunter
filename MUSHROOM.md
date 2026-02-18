@@ -34,6 +34,7 @@
 - UI-test mode supports room deep-link routing via launch arg `--ui-open-room {roomId}` for deterministic room-entry automation.
 - In UI-test mock mode, attendee leave from edit-bid sheet executes directly without confirmation alert to reduce automation flakiness.
 - In UI-test mock mode, room role/deposit checks fall back to fixture user id (`ui-test-user`) when session auth uid is not yet populated.
+- UI-test mock mode supports forcing fixture room attendee state at launch with `--mock-room-joined`.
 - Host reject-resolution alert behavior:
   - `Resend`: sets attendee status back to `WaitingConfirmation` and triggers confirmation push again.
   - `Give Up`: sets attendee status back to `Ready`.
