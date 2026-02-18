@@ -110,9 +110,9 @@ enum AppConfig {
 
     enum Postcard {
         // `browseListFetchLimit`
-        // Purpose: max postcard listings fetched for browse/search.
-        // Suggested range: 20...300.
-        static let browseListFetchLimit: Int = 50
+        // Purpose: per-page postcard listings fetched for browse/search pagination.
+        // Suggested range: 10...100.
+        static let browseListFetchLimit: Int = 20
 
         // `profileListFetchLimit`
         // Purpose: max profile on-shelf/ordered postcard items.
@@ -149,6 +149,16 @@ enum AppConfig {
         // Purpose: rendered preview size for selected postcard image.
         // Suggested range: 120...260 points.
         static let snapshotSize: CGFloat = 180
+
+        // `thumbnailPixelSize`
+        // Purpose: square thumbnail edge length uploaded for browse card display.
+        // Suggested range: 128...512.
+        static let thumbnailPixelSize: CGFloat = 256
+
+        // `thumbnailCompressionQuality`
+        // Purpose: JPEG compression quality for uploaded thumbnail.
+        // Suggested range: 0.4...0.9.
+        static let thumbnailCompressionQuality: CGFloat = 0.68
 
         // `searchDebounceNanoseconds`
         // Purpose: wait time before executing search after typing.

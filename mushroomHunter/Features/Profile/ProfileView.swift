@@ -3,7 +3,7 @@
 //  mushroomHunter
 //
 //  Purpose:
-//  - Renders the profile tab and related sheets (profile edit, settings, feedback, about).
+//  - Renders the profile tab and related sheets (profile edit, settings, feedback, help, about).
 //  - Loads profile-owned mushroom/postcard lists and profile summary information.
 //
 import SwiftUI
@@ -17,6 +17,9 @@ struct ProfileView: View {
 
         /// Feedback compose sheet.
         case feedback
+
+        /// Tutorial walkthrough sheet opened from settings help.
+        case help
 
         /// Edit-profile form sheet.
         case editProfile
@@ -141,6 +144,8 @@ struct ProfileView: View {
                         isFeedbackSubmittedAlertPresented = true
                     }
                 }
+            case .help:
+                TutorialView()
             case .editProfile:
                 ProfileFormView(mode: .edit)
             }
@@ -257,7 +262,7 @@ struct ProfileView: View {
         }
     }
 
-    /// Settings sheet that routes to feedback and about pages.
+    /// Settings sheet that routes to feedback, help, and about pages.
     private var settingsSheet: some View {
         NavigationStack {
             List {
@@ -269,6 +274,14 @@ struct ProfileView: View {
                         Label(LocalizedStringKey("settings_feedback_button"), systemImage: "envelope")
                     }
                     .accessibilityIdentifier("settings_feedback_button")
+
+                    Button {
+                        pendingSheetAfterDismiss = .help
+                        activeSheet = nil
+                    } label: {
+                        Label(LocalizedStringKey("settings_help_button"), systemImage: "questionmark.circle")
+                    }
+                    .accessibilityIdentifier("settings_help_button")
 
                     NavigationLink {
                         AboutView()

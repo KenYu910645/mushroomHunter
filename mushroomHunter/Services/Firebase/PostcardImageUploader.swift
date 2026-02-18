@@ -53,6 +53,10 @@ final class PostcardImageUploader {
     private let storage = Storage.storage()
     // Fixed crop rectangle requested by product requirement.
     private let requiredCropRect = CGRect(x: 20, y: 20, width: 645, height: 635)
+    // Default thumbnail edge size for browse-card rendering.
+    private let defaultThumbnailPixelSize = AppConfig.Postcard.thumbnailPixelSize
+    // Default thumbnail JPEG compression for smaller transfer size.
+    private let defaultThumbnailCompressionQuality = AppConfig.Postcard.thumbnailCompressionQuality
 
     func cropSnapshotImage(_ image: UIImage) throws -> UIImage { // Handles cropSnapshotImage flow.
         let normalized = normalizedImage(image)
@@ -81,6 +85,20 @@ final class PostcardImageUploader {
         return data
     }
 
+    func prepareThumbnailJPEGData(
+        from image: UIImage,
+        edge: CGFloat? = nil,
+        compressionQuality: CGFloat? = nil
+    ) throws -> Data { // Handles thumbnail generation flow.
+        let targetEdge = max(1, Int((edge ?? defaultThumbnailPixelSize).rounded()))
+        let thumbnailImage = resizedSquareImage(from: image, edge: targetEdge)
+        let quality = compressionQuality ?? defaultThumbnailCompressionQuality
+        guard let data = thumbnailImage.jpegData(compressionQuality: quality) else {
+            throw PostcardImageUploadError.imageEncodeFailed
+        }
+        return data
+    }
+
     func uploadPostcardImage(data: Data, ownerId: String?) async throws -> URL { // Handles uploadPostcardImage flow.
         guard let owner = ownerId?.trimmingCharacters(in: .whitespacesAndNewlines),
               !owner.isEmpty else {
@@ -89,9 +107,24 @@ final class PostcardImageUploader {
 
         let filename = UUID().uuidString + ".jpg"
         let ref = storage.reference().child("postcards/\(owner)/\(filename)")
+        return try await uploadImageData(data: data, ref: ref)
+    }
 
+    func uploadPostcardThumbnail(data: Data, ownerId: String?) async throws -> URL { // Handles uploadPostcardThumbnail flow.
+        guard let owner = ownerId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !owner.isEmpty else {
+            throw PostcardImageUploadError.unauthenticated
+        }
+
+        let filename = UUID().uuidString + "_thumb.jpg"
+        let ref = storage.reference().child("postcards/\(owner)/\(filename)")
+        return try await uploadImageData(data: data, ref: ref)
+    }
+
+    private func uploadImageData(data: Data, ref: StorageReference) async throws -> URL {
         let metadata = StorageMetadata()
         metadata.contentType = "image/jpeg"
+        metadata.cacheControl = "public,max-age=86400"
 
         _ = try await ref.putDataAsync(data, metadata: metadata)
 
@@ -126,6 +159,35 @@ final class PostcardImageUploader {
         let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
         return renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+    }
+
+    private func resizedSquareImage(from image: UIImage, edge: Int) -> UIImage {
+        let normalized = normalizedImage(image)
+        let targetSize = CGSize(width: edge, height: edge)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+        return renderer.image { _ in
+            let sourceSize = normalized.size
+            guard sourceSize.width > 0, sourceSize.height > 0 else {
+                normalized.draw(in: CGRect(origin: .zero, size: targetSize))
+                return
+            }
+
+            let widthRatio = targetSize.width / sourceSize.width
+            let heightRatio = targetSize.height / sourceSize.height
+            let fillScale = max(widthRatio, heightRatio)
+            let scaledWidth = sourceSize.width * fillScale
+            let scaledHeight = sourceSize.height * fillScale
+            let drawRect = CGRect(
+                x: (targetSize.width - scaledWidth) * 0.5,
+                y: (targetSize.height - scaledHeight) * 0.5,
+                width: scaledWidth,
+                height: scaledHeight
+            )
+            normalized.draw(in: drawRect)
         }
     }
 }

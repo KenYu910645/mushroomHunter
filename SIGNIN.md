@@ -31,10 +31,18 @@
   - Sets `profileComplete = true`
   - Immediately presents a one-time full-screen swipe tutorial after successful create-profile submit.
   - Tutorial card order:
-    1. Honey & Stars
-    2. Join Mushroom Rooms
-    3. Host a Room
-    4. Postcard Market
+    1. Mushroom
+    2. Postcard
+    3. Profile
+  - Tutorial card body uses an enlarged annotated screenshot with description text only (no extra title below image).
+  - Tutorial cards support screenshot overlays with circles, arrows, and text labels rendered in-app.
+  - Tutorial callouts now support both circle and rectangle highlights.
+  - Arrow geometry is auto-generated from label location to nearest highlight border, so tuning only needs:
+    - highlight location
+    - highlight size
+    - label location
+  - Screenshot assets expected by default template: `Mushroom`, `Postcard`, `Profile`.
+  - Tutorial layout reserves space above the pager indicator so screenshot content does not overlap page dots.
   - Tutorial supports `Skip`, `Next`, and `Get Started`.
   - Completion/skip is persisted per user (`UserDefaults` scoped by uid) so it is shown only once.
 
@@ -48,5 +56,5 @@
 - `mushroomHunter/App/ContentView.swift`
 
 ## Notes
-- Tutorial is only triggered from first-time profile creation (`ProfileSaveSource.onboarding`) and not from profile edit.
+- Tutorial is auto-triggered from first-time profile creation (`ProfileSaveSource.onboarding`) and can also be opened later from Profile -> Settings -> Help.
 - No dedicated Cloud Function is owned by signin flow right now.

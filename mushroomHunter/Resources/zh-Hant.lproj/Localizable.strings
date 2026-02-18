@@ -245,6 +245,7 @@
 "settings_title" = "設定";
 "settings_language_managed" = "語言請到 iOS 設定中變更。";
 "settings_feedback_button" = "意見回饋";
+"settings_help_button" = "教學";
 "settings_about_button" = "關於";
 "feedback_title" = "意見回饋";
 "feedback_message_label" = "內容";

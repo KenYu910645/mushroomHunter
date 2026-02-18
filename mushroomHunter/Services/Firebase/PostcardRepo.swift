@@ -24,6 +24,7 @@
 //  [W] - `sellerFcmToken`: Writes on create/edit and reads for order push token snapshot.
 //  [W] - `stock`: Writes on create/edit and decrements/increments during order lifecycle.
 //  [W] - `imageUrl`: Writes on create/edit; reads for display/order payload.
+//  [W] - `thumbnailUrl`: Writes on create/edit; reads for browse thumbnail payload.
 //  [W] - `location`: Writes nested location on create/edit; reads for display/order payload.
 //  [W] - `searchTokens`: Writes index tokens on create/edit; reads for token-based search query.
 //  [W] - `createdAt`: Writes create timestamp; reads for ordering recent/my listings.
@@ -62,6 +63,7 @@
 import Foundation
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseStorage
 
 enum PostcardRepoError: LocalizedError {
     case notSignedIn
@@ -88,6 +90,22 @@ enum PostcardRepoError: LocalizedError {
 }
 
 final class FbPostcardRepo {
+    /// Cursor wrapper for browse pagination.
+    struct ListingPageCursor {
+        /// Firestore document used as cursor anchor.
+        let snapshot: QueryDocumentSnapshot
+    }
+
+    /// Paged listing result used by browse/search.
+    struct ListingPage {
+        /// Listings decoded from the current page.
+        let listings: [PostcardListing]
+        /// Cursor for loading the next page; `nil` when exhausted.
+        let nextCursor: ListingPageCursor?
+        /// Indicates whether backend likely has another page.
+        let isHasMore: Bool
+    }
+
     private let db = Firestore.firestore()
     private let sellerSendReminderHours = AppConfig.Postcard.sellerSendReminderHours
     private let sellerSendDeadlineHours = AppConfig.Postcard.sellerSendDeadlineHours
@@ -95,17 +113,8 @@ final class FbPostcardRepo {
     private let buyerAutoCompleteHours = AppConfig.Postcard.buyerAutoCompleteHours
 
     func fetchRecent(limit: Int = AppConfig.Postcard.browseListFetchLimit) async throws -> [PostcardListing] { // Handles fetchRecent flow.
-        let q = db.collection("postcards")
-            .order(by: "createdAt", descending: true)
-            .limit(to: limit)
-
-        let snap: QuerySnapshot
-        do {
-            snap = try await q.getDocuments(source: .server)
-        } catch {
-            snap = try await q.getDocuments(source: .default)
-        }
-        return snap.documents.map(decodeListing)
+        let page = try await fetchRecentPage(limit: limit)
+        return page.listings
     }
 
     func fetchMyListings(userId: String, limit: Int = AppConfig.Postcard.profileListFetchLimit) async throws -> [PostcardListing] { // Handles fetchMyListings flow.
@@ -163,18 +172,52 @@ final class FbPostcardRepo {
     }
 
     func searchByToken(_ token: String, limit: Int = AppConfig.Postcard.browseListFetchLimit) async throws -> [PostcardListing] { // Handles searchByToken flow.
-        let q = db.collection("postcards")
-            .whereField("searchTokens", arrayContains: token)
+        let page = try await searchByTokenPage(token, limit: limit)
+        return page.listings
+    }
+
+    func fetchRecentPage(
+        limit: Int = AppConfig.Postcard.browseListFetchLimit,
+        cursor: ListingPageCursor? = nil
+    ) async throws -> ListingPage { // Handles paged recent fetch flow.
+        var q: Query = db.collection("postcards")
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
 
-        let snap: QuerySnapshot
-        do {
-            snap = try await q.getDocuments(source: .server)
-        } catch {
-            snap = try await q.getDocuments(source: .default)
+        if let cursor {
+            q = q.start(afterDocument: cursor.snapshot)
         }
-        return snap.documents.map(decodeListing)
+
+        let docs = try await fetchDocuments(query: q)
+        let nextCursor = docs.last.map { ListingPageCursor(snapshot: $0) }
+        let isHasMore = docs.count >= limit
+        return ListingPage(
+            listings: docs.map(decodeListing),
+            nextCursor: nextCursor,
+            isHasMore: isHasMore
+        )
+    }
+
+    func searchByTokenPage(
+        _ token: String,
+        limit: Int = AppConfig.Postcard.browseListFetchLimit,
+        cursor: ListingPageCursor? = nil
+    ) async throws -> ListingPage { // Handles paged token search flow.
+        let q = db.collection("postcards")
+            .whereField("searchTokens", arrayContains: token)
+            .order(by: "createdAt", descending: true)
+        var pagedQuery: Query = q.limit(to: limit)
+        if let cursor {
+            pagedQuery = pagedQuery.start(afterDocument: cursor.snapshot)
+        }
+        let docs = try await fetchDocuments(query: pagedQuery)
+        let nextCursor = docs.last.map { ListingPageCursor(snapshot: $0) }
+        let isHasMore = docs.count >= limit
+        return ListingPage(
+            listings: docs.map(decodeListing),
+            nextCursor: nextCursor,
+            isHasMore: isHasMore
+        )
     }
 
     func fetchPostcard(postcardId: String) async throws -> PostcardListing? { // Handles fetchPostcard flow.
@@ -199,13 +242,15 @@ final class FbPostcardRepo {
         sellerName: String,
         sellerFriendCode: String,
         sellerFcmToken: String,
-        imageUrl: String
+        imageUrl: String,
+        thumbnailUrl: String
     ) async throws {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanSellerId = sellerId.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanSeller = sellerName.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanSellerFriendCode = sellerFriendCode.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanSellerFcmToken = sellerFcmToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanThumbnailUrl = thumbnailUrl.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanCountry = location.country.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanProvince = location.province.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanDetail = location.detail.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -222,6 +267,7 @@ final class FbPostcardRepo {
             "sellerFcmToken": cleanSellerFcmToken,
             "stock": stock,
             "imageUrl": imageUrl,
+            "thumbnailUrl": cleanThumbnailUrl,
             "location": [
                 "country": cleanCountry,
                 "province": cleanProvince,
@@ -242,7 +288,8 @@ final class FbPostcardRepo {
         sellerName: String,
         sellerFriendCode: String,
         sellerFcmToken: String,
-        imageUrl: String? = nil
+        imageUrl: String? = nil,
+        thumbnailUrl: String? = nil
     ) async throws {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanSeller = sellerName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -273,12 +320,22 @@ final class FbPostcardRepo {
         if let imageUrl {
             payload["imageUrl"] = imageUrl
         }
+        if let thumbnailUrl {
+            payload["thumbnailUrl"] = thumbnailUrl
+        }
 
         try await db.collection("postcards").document(postcardId).setData(payload, merge: true)
     }
 
     func deletePostcard(postcardId: String) async throws { // Handles deletePostcard flow.
-        try await db.collection("postcards").document(postcardId).delete()
+        let ref = db.collection("postcards").document(postcardId)
+        let snap = try await ref.getDocument()
+        let fullImageUrl = snap.data()?["imageUrl"] as? String
+        let thumbnailImageUrl = snap.data()?["thumbnailUrl"] as? String
+
+        try await ref.delete()
+        await deleteStorageImage(urlString: fullImageUrl)
+        await deleteStorageImage(urlString: thumbnailImageUrl)
     }
 
     @discardableResult
@@ -675,6 +732,7 @@ final class FbPostcardRepo {
         let sellerFriendCode = data["sellerFriendCode"] as? String ?? ""
         let stock = data["stock"] as? Int ?? 0
         let imageUrl = data["imageUrl"] as? String
+        let thumbnailUrl = data["thumbnailUrl"] as? String
 
         let locationMap = data["location"] as? [String: Any]
         let location = PostcardLocation(
@@ -695,8 +753,19 @@ final class FbPostcardRepo {
             sellerFriendCode: sellerFriendCode,
             stock: stock,
             imageUrl: imageUrl,
+            thumbnailUrl: thumbnailUrl,
             createdAt: createdAt
         )
+    }
+
+    private func deleteStorageImage(urlString: String?) async {
+        guard let urlString = urlString?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !urlString.isEmpty else { return }
+        do {
+            try await Storage.storage().reference(forURL: urlString).delete()
+        } catch {
+            // Best effort cleanup only.
+        }
     }
 
     private func makeError(_ error: PostcardRepoError) -> NSError {

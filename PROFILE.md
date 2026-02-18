@@ -37,6 +37,7 @@
   - Ordered postcards
 - Settings includes:
   - `Feedback`: opens in-app compose sheet (subject/message) and submits to Firestore `feedbackSubmissions`.
+  - `Help`: opens the in-app tutorial walkthrough (`TutorialView`) so users can revisit onboarding guidance anytime.
   - `About`: shows contact information (phone, email, website).
 - Feedback compose subject and message both auto-select existing text on focus.
 - Profile hosted-room loading queries `rooms.hostUid`; joined-room loading uses UID-scoped attendee queries.

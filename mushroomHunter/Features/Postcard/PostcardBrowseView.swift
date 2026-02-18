@@ -88,6 +88,24 @@ struct PostcardBrowseView: View {
                     }
                     .padding(.horizontal)
 
+                    if !vm.listings.isEmpty {
+                        if vm.isLoadingNextPage {
+                            ProgressView("Loading more postcards…")
+                                .padding(.top, 8)
+                        } else if vm.isHasMorePages {
+                            Button {
+                                Task { await vm.loadNextPage() }
+                            } label: {
+                                Text("Load more")
+                                    .font(.subheadline.weight(.semibold))
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                            .padding(.horizontal)
+                            .padding(.top, 4)
+                        }
+                    }
+
                     if vm.filteredListings.isEmpty && !vm.isLoading {
                         ContentUnavailableView(
                             LocalizedStringKey("postcard_empty_title"),
@@ -184,12 +202,12 @@ private struct PostcardCardView: View {
     /// Card content for a single postcard listing.
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ZStack {
+            ZStack(alignment: .topTrailing) {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.white)
                     .aspectRatio(imageAspectRatio, contentMode: .fit)
 
-                if let urlString = listing.imageUrl, let url = URL(string: urlString) {
+                if let urlString = listing.thumbnailUrl ?? listing.imageUrl, let url = URL(string: urlString) {
                     AsyncImage(url: url) { phase in
                         switch phase {
                         case .success(let image):
@@ -216,12 +234,32 @@ private struct PostcardCardView: View {
                         .font(.title)
                         .foregroundStyle(.secondary)
                 }
+
+                // Keep price visible on top of the postcard snapshot in the browse card.
+                HStack(spacing: 4) {
+                    Text("\(listing.priceHoney)")
+                        .font(.caption.weight(.semibold))
+                    Image("HoneyIcon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 12, height: 12)
+                }
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
             }
             .frame(maxWidth: .infinity)
 
             Text(listing.title)
                 .font(.headline)
                 .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .allowsTightening(true)
+                .truncationMode(.tail)
 
             HStack(spacing: 6) {
                 Image(systemName: "mappin.and.ellipse")
@@ -231,21 +269,6 @@ private struct PostcardCardView: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
-
-            HStack {
-                HStack(spacing: 4) {
-                    Text("\(listing.priceHoney)")
-                        .font(.subheadline)
-                    Image("HoneyIcon")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 14, height: 14)
-                }
-                Spacer()
-                Text(String(format: NSLocalizedString("postcard_stock_format", comment: ""), listing.stock))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
         .padding(10)
         .background(

@@ -60,6 +60,8 @@ struct PostcardListing: Identifiable, Equatable, Hashable {
     let stock: Int
     /// Optional uploaded image URL string.
     let imageUrl: String?
+    /// Optional uploaded thumbnail image URL string for browse cards.
+    let thumbnailUrl: String?
     /// Listing creation timestamp.
     let createdAt: Date
 }

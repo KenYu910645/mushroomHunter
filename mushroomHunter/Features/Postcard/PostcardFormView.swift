@@ -528,8 +528,10 @@ struct PostcardFormView: View {
         }
 
         let data: Data
+        let thumbnailData: Data
         do {
             data = try uploader.prepareUploadJPEGData(from: image)
+            thumbnailData = try uploader.prepareThumbnailJPEGData(from: image)
         } catch {
             presentError((error as? LocalizedError)?.errorDescription ?? NSLocalizedString("postcard_upload_process_error", comment: ""))
             return
@@ -539,9 +541,12 @@ struct PostcardFormView: View {
         defer { isSubmitting = false }
 
         var imageURL: URL? = nil
+        var thumbnailImageURL: URL? = nil
         do {
             let uploaded = try await uploader.uploadPostcardImage(data: data, ownerId: session.authUid)
+            let uploadedThumbnail = try await uploader.uploadPostcardThumbnail(data: thumbnailData, ownerId: session.authUid)
             imageURL = uploaded
+            thumbnailImageURL = uploadedThumbnail
             uploadedImageURL = uploaded
 
             try await repo.createPostcard(
@@ -557,7 +562,8 @@ struct PostcardFormView: View {
                 sellerName: session.displayName.isEmpty ? "Unknown" : session.displayName,
                 sellerFriendCode: session.friendCode,
                 sellerFcmToken: session.fcmToken ?? "",
-                imageUrl: uploaded.absoluteString
+                imageUrl: uploaded.absoluteString,
+                thumbnailUrl: uploadedThumbnail.absoluteString
             )
 
             resetCreateForm()
@@ -565,6 +571,9 @@ struct PostcardFormView: View {
         } catch {
             if let imageURL {
                 await uploader.deleteUploadedImage(at: imageURL)
+            }
+            if let thumbnailImageURL {
+                await uploader.deleteUploadedImage(at: thumbnailImageURL)
             }
             presentError((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
         }
@@ -604,19 +613,26 @@ struct PostcardFormView: View {
         defer { isSubmitting = false }
 
         var uploadedImageURLToRollback: URL? = nil
+        var uploadedThumbnailURLToRollback: URL? = nil
         do {
             var newImageUrl: String? = nil
+            var newThumbnailUrl: String? = nil
             if let image = selectedImage {
                 let data: Data
+                let thumbnailData: Data
                 do {
                     data = try uploader.prepareUploadJPEGData(from: image)
+                    thumbnailData = try uploader.prepareThumbnailJPEGData(from: image)
                 } catch {
                     presentError((error as? LocalizedError)?.errorDescription ?? NSLocalizedString("postcard_upload_process_error", comment: ""))
                     return
                 }
                 let uploaded = try await uploader.uploadPostcardImage(data: data, ownerId: listing.sellerId)
+                let uploadedThumbnail = try await uploader.uploadPostcardThumbnail(data: thumbnailData, ownerId: listing.sellerId)
                 uploadedImageURLToRollback = uploaded
+                uploadedThumbnailURLToRollback = uploadedThumbnail
                 newImageUrl = uploaded.absoluteString
+                newThumbnailUrl = uploadedThumbnail.absoluteString
             }
 
             try await repo.updatePostcard(
@@ -632,12 +648,25 @@ struct PostcardFormView: View {
                 sellerName: listing.sellerName,
                 sellerFriendCode: session.friendCode,
                 sellerFcmToken: session.fcmToken ?? "",
-                imageUrl: newImageUrl
+                imageUrl: newImageUrl,
+                thumbnailUrl: newThumbnailUrl
             )
+
+            if newImageUrl != nil, let oldImageUrl = listing.imageUrl, let oldImage = URL(string: oldImageUrl) {
+                await uploader.deleteUploadedImage(at: oldImage)
+            }
+            if newThumbnailUrl != nil,
+               let oldThumbnailUrl = listing.thumbnailUrl,
+               let oldThumbnail = URL(string: oldThumbnailUrl) {
+                await uploader.deleteUploadedImage(at: oldThumbnail)
+            }
             dismiss()
         } catch {
             if let uploadedImageURLToRollback {
                 await uploader.deleteUploadedImage(at: uploadedImageURLToRollback)
+            }
+            if let uploadedThumbnailURLToRollback {
+                await uploader.deleteUploadedImage(at: uploadedThumbnailURLToRollback)
             }
             presentError((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
         }

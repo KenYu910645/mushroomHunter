@@ -113,6 +113,7 @@ enum AppTesting {
             sellerFriendCode: "123456789012",
             stock: 3,
             imageUrl: nil,
+            thumbnailUrl: nil,
             createdAt: Date()
         )
     }
@@ -128,6 +129,7 @@ enum AppTesting {
             sellerFriendCode: "999988887777",
             stock: 2,
             imageUrl: nil,
+            thumbnailUrl: nil,
             createdAt: Date()
         )
     }

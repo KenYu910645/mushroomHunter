@@ -257,6 +257,7 @@
 "settings_title" = "Settings";
 "settings_language_managed" = "Language is managed in iOS Settings.";
 "settings_feedback_button" = "Feedback";
+"settings_help_button" = "Help";
 "settings_about_button" = "About";
 "feedback_title" = "Feedback";
 "feedback_message_label" = "Message";

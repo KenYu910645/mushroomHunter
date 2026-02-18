@@ -13,7 +13,7 @@ Main app flow after sign-in:
 2. Postcard tab
 3. Profile tab
 
-If signed out, users see the sign-in flow. First-time users must complete profile creation, then receive a one-time swipe tutorial (Honey & Stars -> Join Mushroom Rooms -> Host a Room -> Postcard Market).
+If signed out, users see the sign-in flow. First-time users must complete profile creation, then receive a one-time swipe tutorial (Mushroom -> Postcard -> Profile) with screenshot annotations (circle/arrow/text) rendered in-app.
 
 ## Documentation Map (Must Keep In Sync)
 Use and maintain these files when related code changes:

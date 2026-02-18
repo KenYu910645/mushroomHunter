@@ -21,6 +21,10 @@ final class PostcardBrowseViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     /// Error text presented by the browse view when fetching fails.
     @Published var errorMessage: String? = nil
+    /// Indicates whether a pagination request is currently running.
+    @Published var isLoadingNextPage: Bool = false
+    /// Indicates whether backend currently has more browse pages.
+    @Published var isHasMorePages: Bool = false
     /// Free-text search input entered by the user.
     @Published var query: String = ""
     /// Country filter value (`All` means no filter).
@@ -31,6 +35,12 @@ final class PostcardBrowseViewModel: ObservableObject {
     @Published var sortOrder: PostcardSortOrder = .newest
     /// Firebase-backed repository used to fetch postcard listings.
     private let repo = FbPostcardRepo()
+    /// Cursor for loading the next browse page.
+    private var nextPageCursor: FbPostcardRepo.ListingPageCursor? = nil
+    /// Last query committed to backend search.
+    private var confirmedQuery: String = ""
+    /// Active backend token for paged search mode.
+    private var activeSearchToken: String? = nil
 
     /// Loads data only when no listings have been fetched yet.
     func loadIfNeeded() async {
@@ -41,53 +51,90 @@ final class PostcardBrowseViewModel: ObservableObject {
 
     /// Refreshes browse data for the current query value.
     func refresh() async {
-        await fetchForQuery("")
+        await fetchForQuery(confirmedQuery)
     }
 
     /// Executes backend search using the current query text.
     func performConfirmedSearch() async {
-        await fetchForQuery(query)
+        confirmedQuery = query
+        await fetchForQuery(confirmedQuery)
     }
 
     /// Clears search query and restores default recent results.
     func clearConfirmedSearch() async {
         query = ""
-        await fetchForQuery("")
+        confirmedQuery = ""
+        await fetchForQuery(confirmedQuery)
     }
 
     /// Fetches listings from backend using the provided raw query text.
     /// - Parameter rawQuery: User-entered search text before tokenization.
     func fetchForQuery(_ rawQuery: String) async {
-        isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
+        nextPageCursor = nil
+        let tokens = SearchTokenBuilder.queryTokens(from: rawQuery)
+        activeSearchToken = tokens.first
+        await loadNextPage(isReset: true)
+    }
+
+    /// Loads the next browse page using current confirmed search context.
+    func loadNextPage(isReset: Bool = false) async {
+        if isReset {
+            isLoading = true
+            errorMessage = nil
+        } else {
+            if isLoading || isLoadingNextPage || !isHasMorePages { return }
+            isLoadingNextPage = true
+        }
+
+        defer {
+            if isReset {
+                isLoading = false
+            } else {
+                isLoadingNextPage = false
+            }
+        }
 
         if AppTesting.useMockPostcards {
             listings = [
                 AppTesting.fixturePostcardListing(),
                 AppTesting.fixtureOwnedPostcardListing()
             ]
+            isHasMorePages = false
             return
         }
 
-        let tokens = SearchTokenBuilder.queryTokens(from: rawQuery)
         do {
-            let results: [PostcardListing]
-            if let first = tokens.first {
-                results = try await withTimeout(seconds: AppConfig.Network.requestTimeoutSeconds) {
-                    try await self.repo.searchByToken(first)
+            let result = try await withTimeout(seconds: AppConfig.Network.requestTimeoutSeconds) {
+                if let searchToken = self.activeSearchToken {
+                    return try await self.repo.searchByTokenPage(
+                        searchToken,
+                        limit: AppConfig.Postcard.browseListFetchLimit,
+                        cursor: isReset ? nil : self.nextPageCursor
+                    )
                 }
-            } else {
-                results = try await withTimeout(seconds: AppConfig.Network.requestTimeoutSeconds) {
-                    try await self.repo.fetchRecent()
-                }
+                return try await self.repo.fetchRecentPage(
+                    limit: AppConfig.Postcard.browseListFetchLimit,
+                    cursor: isReset ? nil : self.nextPageCursor
+                )
             }
-            self.listings = results
+
+            if isReset {
+                listings = result.listings
+            } else {
+                listings.append(contentsOf: result.listings)
+            }
+            nextPageCursor = result.nextCursor
+            isHasMorePages = result.isHasMore && result.nextCursor != nil
         } catch is CancellationError {
             return
         } catch {
-            print("❌ fetch postcards error:", error)
-            self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            print("❌ fetch postcards page error:", error)
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            if isReset {
+                listings = []
+                isHasMorePages = false
+            }
         }
     }
 
