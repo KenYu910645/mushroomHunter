@@ -42,8 +42,10 @@ struct ContentView: View {
         .sheet(item: $pendingRoute) { route in
             switch route {
             case .room(let id):
-                RoomView(vm: RoomViewModel(roomId: id, session: session))
-                    .environmentObject(session)
+                NavigationStack {
+                    RoomView(vm: RoomViewModel(roomId: id, session: session))
+                        .environmentObject(session)
+                }
             case .postcard(let id):
                 PostcardLinkDestinationView(postcardId: id)
                     .environmentObject(session)

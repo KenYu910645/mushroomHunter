@@ -18,6 +18,7 @@ If signed out, users see the sign-in flow. First-time users must complete profil
 ## Documentation Map (Must Keep In Sync)
 Use and maintain these files when related code changes:
 - `AGENTS.md`: execution workflow, build/run rules, repo-level constraints.
+- `FIREBASE.md`: Firebase architecture, operational notes, and the current Firestore database rule.
 - `MUSHROOM.md`: mushroom room lifecycle, attendee states, room invite/share flow.
 - `POSTCARD.md`: postcard marketplace, listing/order lifecycle, shipping/receipt behavior.
 - `PROFILE.md`: profile editing, settings, feedback/about, profile-owned content views.
@@ -25,6 +26,16 @@ Use and maintain these files when related code changes:
 - `TESTCASE.md`: UI test case inventory and covered end-to-end flow scope.
 
 Rule: any code change that affects behavior must update the relevant markdown file(s) above.
+
+## Firestore Rule Sync Policy
+- `FIREBASE.md` must always contain the latest "Current Firestore Database Rule" section that mirrors the deployed Firestore rules.
+- If implementation work requires a Firestore rule change, notify Ken in the handoff that deployed rules must be synced.
+- If you directly update the rule block in `FIREBASE.md`, explicitly notify Ken to sync Firebase console/deployed rules to match the document.
+
+## Firebase Storage Rule Sync Policy
+- `FIREBASE.md` must always contain the latest "Current Firebase Storage Rule" section that mirrors the deployed Firebase Storage rules.
+- If implementation work requires a Firebase Storage rule change, notify Ken in the handoff that deployed rules must be synced.
+- If you directly update the storage rule block in `FIREBASE.md`, explicitly notify Ken to sync Firebase console/deployed rules to match the document.
 
 ## File Structure By Feature
 This is the source-of-truth feature map. Keep it updated whenever files are added/moved.
@@ -175,11 +186,23 @@ Commit message format:
 
 ## Automated Testing
 - UI test target: `HoneyHubUITests`
+- Trigger phrase:
+  - If user says `run UT`, run the full UI test suite.
+  - Default execution must target Ken's iPhone first (`id=00008150-00021D26028A401C`).
+  - If the target iPhone is unavailable (not connected/locked/untrusted), fall back to simulator and report that fallback in the handoff.
 - Local UI test command:
 ```bash
 xcodebuild -project /Users/ken/Desktop/mushroomHunter/mushroomHunter.xcodeproj \
   -scheme HoneyHub \
   -destination "platform=iOS Simulator,name=iPhone 17,OS=26.1" \
+  -maximum-parallel-testing-workers 1 \
+  test
+```
+- Target iPhone UI test command:
+```bash
+xcodebuild -project /Users/ken/Desktop/mushroomHunter/mushroomHunter.xcodeproj \
+  -scheme HoneyHub \
+  -destination "id=00008150-00021D26028A401C" \
   -maximum-parallel-testing-workers 1 \
   test
 ```

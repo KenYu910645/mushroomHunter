@@ -32,7 +32,7 @@
 - Host create/edit description is prefilled with localized default `host_default_description` (`Welcome! Let's play!`) when empty.
 - Host can manage attendees (kick, close room, finish raid/claim cycle).
 - UI-test mode supports room deep-link routing via launch arg `--ui-open-room {roomId}` for deterministic room-entry automation.
-- In UI-test mock mode, attendee leave from edit-bid sheet executes directly without confirmation alert to reduce automation flakiness.
+- In UI-test mock mode, attendee leave can execute directly from the bottom action dock (and from edit-bid sheet) without confirmation alert to reduce automation flakiness.
 - In UI-test mock mode, room role/deposit checks fall back to fixture user id (`ui-test-user`) when session auth uid is not yet populated.
 - UI-test mock mode supports forcing fixture room attendee state at launch with `--mock-room-joined`.
 - Host reject-resolution alert behavior:
@@ -275,7 +275,7 @@ Host rates attendee:
 Push/deeplink routing path:
 1. iOS receives push (`roomId` or `room_id` in payload)
 2. App posts `Notification.Name.didOpenRoomFromPush`
-3. `ContentView` opens `RoomView` sheet for that room
+3. `ContentView` opens a `NavigationStack` sheet containing `RoomView` for that room (so room toolbar actions are available for host/attendee roles)
 4. `RoomViewModel.load()` fetches attendee statuses and recomputes pending states
 
 ## Data Mutation Map (Quick Reference)

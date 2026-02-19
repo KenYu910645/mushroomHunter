@@ -720,6 +720,20 @@ struct RoomView: View {
                         .buttonStyle(.borderedProminent)
                         .disabled(vm.isLoading)
                     }
+
+                    if AppTesting.useMockRooms {
+                        Button(role: .destructive) {
+                            Task {
+                                await vm.leave()
+                            }
+                        } label: {
+                            Text(LocalizedStringKey("room_leave_room"))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("room_leave_button")
+                        .disabled(vm.isLoading)
+                    }
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 10)
