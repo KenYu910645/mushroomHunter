@@ -18,7 +18,7 @@
 //  [R] - `title`: Reads primary room title shown in browse cards.
 //  [R] - `roomTitle` (legacy fallback): Reads fallback title when `title` is missing.
 //  [R] - `hostName`: Reads host display name for browse summary.
-//  [X] - `hostStars`: Not used in browse card mapping.
+//  [R] - `hostStars`: Reads host-star snapshot for browse priority sorting.
 //  [R] - `location`: Reads location text shown in browse cards.
 //  [X] - `description`: Not used by browse list UI.
 //  [X] - `fixedRaidCost`: Not used by browse list UI.
@@ -26,7 +26,7 @@
 //  [R] - `joinedCount`: Reads current joined count for occupancy display.
 //  [R] - `createdAt`: Reads for query ordering (`order by createdAt desc`).
 //  [X] - `updatedAt`: Not used by browse list UI.
-//  [X] - `lastSuccessfulRaidAt`: Not used by browse list UI.
+//  [R] - `lastSuccessfulRaidAt`: Reads for dormant-room priority downgrade logic.
 //  [R] - `targetColor`: Reads target color for browse filters/badges.
 //  [R] - `targetAttribute`: Reads target attribute and derives `mushroomType`.
 //  [R] - `attribute` (legacy fallback): Reads fallback when `targetAttribute` is missing.
@@ -59,7 +59,10 @@ struct RoomListing: Identifiable, Hashable, Codable {
     var joinedPlayers: Int
     let maxPlayers: Int  // store from backend (default 10)
     var hostName: String?
+    var hostStars: Int
     var location: String
+    var createdAt: Date?
+    var lastSuccessfulRaidAt: Date?
     var expiresAt: Date? // optional for future
 }
 
@@ -102,7 +105,10 @@ final class FbRoomBrowseRepo {
                 joinedPlayers: joined,
                 maxPlayers: maxPlayers,
                 hostName: data["hostName"] as? String,
+                hostStars: data["hostStars"] as? Int ?? 0,
                 location: data["location"] as? String ?? "",
+                createdAt: (data["createdAt"] as? Timestamp)?.dateValue(),
+                lastSuccessfulRaidAt: (data["lastSuccessfulRaidAt"] as? Timestamp)?.dateValue(),
                 expiresAt: (data["expiresAt"] as? Timestamp)?.dateValue()
             )
         }

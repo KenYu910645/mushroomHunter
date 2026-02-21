@@ -42,6 +42,21 @@ enum AppConfig {
         // Suggested range: 20...200.
         static let browseListFetchLimit: Int = 50
 
+        // `browsePriorityDormantThresholdHours`
+        // Purpose: no dormancy penalty is applied before this elapsed-hour threshold.
+        // Suggested range: 12...168.
+        static let browsePriorityDormantThresholdHours: Double = 48
+
+        // `browsePriorityHostStarWeight`
+        // Purpose: host-star contribution per star in room browse score.
+        // Suggested range: 10...500.
+        static let browsePriorityHostStarWeight: Double = 100
+
+        // `browsePriorityDormantHourPenalty`
+        // Purpose: score penalty per hour beyond dormancy threshold.
+        // Suggested range: 0.1...10.
+        static let browsePriorityDormantHourPenalty: Double = 1
+
         // `profileListFetchLimit`
         // Purpose: max hosted/joined rooms loaded in Profile sections.
         // Suggested range: 20...200.

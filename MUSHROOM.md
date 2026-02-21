@@ -29,11 +29,17 @@
 - Browse search is opened from the top action bar as an inline search field above the room list (no dedicated sheet/alert).
 - Mushroom browse search matches room title and location text (country/city).
 - Mushroom browse search applies local filtering while typing; backend fetch (first page) is refreshed only when user taps `Search`.
+- Mushroom browse priority uses a score model (after local text/availability filters):
+  - Score reward: `hostStars * AppConfig.Mushroom.browsePriorityHostStarWeight`.
+  - Score penalty: `dormantHoursBeyondThreshold * AppConfig.Mushroom.browsePriorityDormantHourPenalty`.
+  - Dormant hours are measured from `lastSuccessfulRaidAt` (fallback `createdAt` when never raided).
+  - No dormancy penalty is applied until elapsed time exceeds `AppConfig.Mushroom.browsePriorityDormantThresholdHours` (default 48h).
 - Mushroom browse list now uses app-level stale-first cache:
   - Entering Mushroom tab reads cached browse list first.
   - Pull-to-refresh forces latest Firestore query and overwrites cache.
   - Tapping keyboard search submit forces latest Firestore query before applying local filter.
 - Inline search field includes an `x` clear button only; pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
+- Mushroom browse uses `ScrollView + LazyVStack` (same pattern as Postcard browse), so the top action bar (honey/search/create) moves with page scroll and matches postcard visual style.
 - UI-test mode (`--ui-testing --mock-rooms`) routes host submit flow through mock success without Firestore writes.
 - Host create/edit description is prefilled with localized default `host_default_description` (`Welcome! Let's play!`) when empty.
 - Host can manage attendees (kick, close room, finish raid/claim cycle).
@@ -68,6 +74,7 @@
   - Opening room shows cached payload first.
   - Pull-to-refresh forces latest `rooms/{roomId}` + `attendees` query and overwrites cache.
   - Room state-changing actions (join/leave/deposit update/kick/approve/reject/finish/confirm/rating) force latest backend reload and refresh cache.
+- Room detail view hides the navigation title so content starts directly with room snapshot/details.
 
 ## Cloud Functions (Mushroom Use Cases)
 - `notifyHostJoinRequest`

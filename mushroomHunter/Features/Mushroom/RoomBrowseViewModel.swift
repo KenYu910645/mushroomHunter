@@ -158,7 +158,7 @@ final class RoomBrowseViewModel: ObservableObject {
     /// - availability filter
     /// - text search (title/location/host name)
     var filteredListings: [RoomListing] {
-        listings.filter { listing in
+        let visibleListings = listings.filter { listing in
             if showOnlyAvailable && listing.joinedPlayers >= listing.maxPlayers { return false }
 
             let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -168,6 +168,41 @@ final class RoomBrowseViewModel: ObservableObject {
                 || listing.location.lowercased().contains(qq)
                 || (listing.hostName ?? "").lowercased().contains(qq)
         }
+        return visibleListings.sorted(by: comparePriority)
+    }
+
+    /// Compares two listings using score-based browse priority.
+    /// Higher score ranks earlier.
+    private func comparePriority(_ lhs: RoomListing, _ rhs: RoomListing) -> Bool {
+        let now = Date()
+        let lhsScore = priorityScore(for: lhs, now: now)
+        let rhsScore = priorityScore(for: rhs, now: now)
+        if lhsScore != rhsScore { return lhsScore > rhsScore }
+
+        let lhsCreatedAt = lhs.createdAt ?? .distantPast
+        let rhsCreatedAt = rhs.createdAt ?? .distantPast
+        if lhsCreatedAt != rhsCreatedAt { return lhsCreatedAt > rhsCreatedAt }
+
+        return lhs.id < rhs.id
+    }
+
+    /// Returns browse priority score derived from host stars and dormancy age.
+    /// Score formula:
+    /// - reward: hostStars * host-star weight
+    /// - penalty: hours beyond dormancy threshold * dormant-hour penalty
+    /// No penalty is applied when dormancy is below threshold.
+    private func priorityScore(for listing: RoomListing, now: Date) -> Double {
+        let starReward = Double(listing.hostStars) * AppConfig.Mushroom.browsePriorityHostStarWeight
+        let dormantPenalty = dormantPenaltyHours(for: listing, now: now) * AppConfig.Mushroom.browsePriorityDormantHourPenalty
+        return starReward - dormantPenalty
+    }
+
+    /// Returns hours exceeded beyond dormancy threshold, or zero when still below threshold.
+    private func dormantPenaltyHours(for listing: RoomListing, now: Date) -> Double {
+        let referenceDate = listing.lastSuccessfulRaidAt ?? listing.createdAt ?? now
+        let elapsedHours = now.timeIntervalSince(referenceDate) / 3600
+        let thresholdHours = AppConfig.Mushroom.browsePriorityDormantThresholdHours
+        return max(0, elapsedHours - thresholdHours)
     }
 
     /// Loads browse listings from app cache into current state.

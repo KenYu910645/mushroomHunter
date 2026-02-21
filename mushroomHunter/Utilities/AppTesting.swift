@@ -52,7 +52,10 @@ enum AppTesting {
             joinedPlayers: 1,
             maxPlayers: AppConfig.Mushroom.defaultMaxPlayersPerRoom,
             hostName: "Host Tester",
+            hostStars: 3,
             location: "US New York",
+            createdAt: Date().addingTimeInterval(-1800),
+            lastSuccessfulRaidAt: Date().addingTimeInterval(-900),
             expiresAt: nil
         )
     }
