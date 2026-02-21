@@ -221,7 +221,6 @@ struct PostcardView: View {
             .padding()
         }
         .background(Theme.backgroundGradient(for: scheme))
-        .navigationTitle(LocalizedStringKey("postcard_title"))
         .toolbar {
             if isSeller {
                 ToolbarItemGroup(placement: .topBarTrailing) {

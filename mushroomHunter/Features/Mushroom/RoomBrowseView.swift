@@ -162,31 +162,32 @@ struct RoomBrowseView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Theme.backgroundGradient(for: scheme))
         } else {
-            VStack(spacing: 12) {
-                BrowseViewTopActionBar(
-                    honey: session.honey,
-                    onSearch: {
-                        isSearchFieldVisible.toggle()
-                        if isSearchFieldVisible {
-                            isSearchFieldFocused = true
-                        } else {
-                            isSearchFieldFocused = false
-                        }
-                    },
-                    onCreate: { showHostSheet = true },
-                    searchAccessibilityLabel: "browse_search_accessibility",
-                    createAccessibilityLabel: "browse_create_accessibility",
-                    searchButtonIdentifier: "browse_search_button",
-                    createButtonIdentifier: "browse_create_button"
-                )
-                .padding(.horizontal)
-                .padding(.top, 8)
-
-                List {
+            ScrollView {
+                VStack(spacing: 12) {
                     if let err = vm.errorMessage {
                         Text(err)
                             .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal)
                     }
+
+                    BrowseViewTopActionBar(
+                        honey: session.honey,
+                        onSearch: {
+                            isSearchFieldVisible.toggle()
+                            if isSearchFieldVisible {
+                                isSearchFieldFocused = true
+                            } else {
+                                isSearchFieldFocused = false
+                            }
+                        },
+                        onCreate: { showHostSheet = true },
+                        searchAccessibilityLabel: "browse_search_accessibility",
+                        createAccessibilityLabel: "browse_create_accessibility",
+                        searchButtonIdentifier: "browse_search_button",
+                        createButtonIdentifier: "browse_create_button"
+                    )
+                    .padding(.horizontal)
 
                     if isSearchFieldVisible {
                         HStack(spacing: 8) {
@@ -216,39 +217,47 @@ struct RoomBrowseView: View {
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .fill(.ultraThinMaterial)
                         )
-                        .padding(.vertical, 2)
+                        .padding(.horizontal)
                     }
 
                     // Each row provides:
                     // - navigation to details
                     // - mock-only quick join button for UI testing
-                    ForEach(vm.filteredListings) { listing in
-                        HStack(alignment: .top, spacing: 12) {
-                            NavigationLink {
-                                RoomView(
-                                    vm: RoomViewModel(roomId: listing.id, session: session)
-                                )
-                            } label: {
-                                RoomRowContent(listing: listing)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("browse_room_link_\(listing.id)")
-
-                            Spacer(minLength: 0)
-
-                            if AppTesting.useMockRooms {
-                                Button {
-                                    pendingJoinListing = listing
-                                    bidText = "\(max(AppConfig.Mushroom.minFixedRaidCost, listing.joinedPlayers > 0 ? AppConfig.Mushroom.defaultFixedRaidCost : AppConfig.Mushroom.minFixedRaidCost))"
-                                    joinGreetingMessage = NSLocalizedString("browse_join_greeting_default", comment: "")
+                    LazyVStack(spacing: 0) {
+                        ForEach(vm.filteredListings) { listing in
+                            HStack(alignment: .top, spacing: 12) {
+                                NavigationLink {
+                                    RoomView(
+                                        vm: RoomViewModel(roomId: listing.id, session: session)
+                                    )
                                 } label: {
-                                    Text(LocalizedStringKey("common_join"))
+                                    RoomRowContent(listing: listing)
                                 }
-                                .buttonStyle(.bordered)
-                                .accessibilityIdentifier("browse_quick_join_button_\(listing.id)")
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("browse_room_link_\(listing.id)")
+
+                                Spacer(minLength: 0)
+
+                                if AppTesting.useMockRooms {
+                                    Button {
+                                        pendingJoinListing = listing
+                                        bidText = "\(max(AppConfig.Mushroom.minFixedRaidCost, listing.joinedPlayers > 0 ? AppConfig.Mushroom.defaultFixedRaidCost : AppConfig.Mushroom.minFixedRaidCost))"
+                                        joinGreetingMessage = NSLocalizedString("browse_join_greeting_default", comment: "")
+                                    } label: {
+                                        Text(LocalizedStringKey("common_join"))
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .accessibilityIdentifier("browse_quick_join_button_\(listing.id)")
+                                }
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 8)
+
+                            if listing.id != vm.filteredListings.last?.id {
+                                Divider()
+                                    .padding(.horizontal)
                             }
                         }
-                        .padding(.vertical, 4)
                     }
 
                     if vm.filteredListings.isEmpty {
@@ -256,14 +265,13 @@ struct RoomBrowseView: View {
                             LocalizedStringKey("browse_empty_title"),
                             systemImage: "magnifyingglass",
                         )
-                        .listRowBackground(Color.clear)
+                        .padding(.top, 24)
                     }
                 }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
-                .refreshable {
-                    await vm.fetchListings(forceRefresh: true)
-                }
+                .padding(.vertical, 8)
+            }
+            .refreshable {
+                await vm.fetchListings(forceRefresh: true)
             }
             .background(Theme.backgroundGradient(for: scheme))
         }

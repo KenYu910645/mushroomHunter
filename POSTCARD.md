@@ -33,6 +33,7 @@
 - Postcard browse card thumbnail overlays the honey price badge (value + honey icon) at the top-right corner; stock count is not shown on browse cards.
 - Postcard browse thumbnails and postcard detail/form preview images use shared cache-first loading (`memory -> disk -> network`) so revisiting recently viewed images avoids repeated Firebase Storage downloads when cache is hit.
 - Postcard browse card title stays single-line, scales down for longer names, then truncates with trailing ellipsis.
+- Postcard detail view hides the navigation title so the postcard snapshot is the first visible content at the top.
 - Register flow uploads full image + thumbnail to Firebase Storage, then creates Firestore listing.
 - Register success dismisses the sheet and refreshes browse list.
 - Pull-to-refresh is supported in postcard browse, detail, and shipping flows.

@@ -57,7 +57,7 @@ struct ProfileView: View {
     /// Main profile screen composition and modal routing.
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
+            Form {
                 BrowseViewTopActionBar(
                     honey: session.honey,
                     onSearch: nil,
@@ -70,14 +70,15 @@ struct ProfileView: View {
                 )
                 .padding(.horizontal)
                 .padding(.top, 8)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
 
-                Form {
-                    accountSection
-                    communitySection
-                    mushroomSection
-                    postcardSection
-                    signOutSection
-                }
+                accountSection
+                communitySection
+                mushroomSection
+                postcardSection
+                signOutSection
             }
             .navigationTitle(LocalizedStringKey("profile_title"))
             .navigationDestination(item: $selectedPostcard) { postcard in

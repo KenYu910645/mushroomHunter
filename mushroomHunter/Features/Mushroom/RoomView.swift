@@ -65,8 +65,6 @@ struct RoomView: View {
         NavigationStack {
             content
                 .accessibilityIdentifier("room_details_screen")
-                .navigationTitle(LocalizedStringKey("room_title"))
-                .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbarContent }
                 .safeAreaInset(edge: .bottom) { actionDock }
                 .task {

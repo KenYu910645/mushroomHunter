@@ -31,6 +31,7 @@
   - Stars/reputation (displayed community value)
 - Profile identity values are read-only in profile section rows; editing is triggered by the top-right pencil button and presented in a dedicated edit-profile sheet.
 - Profile tab top area now uses shared `BrowseViewTopActionBar` in honey-only mode (no search/create actions).
+- Profile top action bar is rendered inside the scrolling form content so it moves with the page while scrolling.
 - Community section no longer includes a separate honey row.
 - Profile tab includes user-related content views:
   - Joined mushroom rooms
