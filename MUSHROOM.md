@@ -54,6 +54,7 @@
 - Room details includes invite share tools for host:
   - QR code sheet.
   - Share/copy room invite link using deep link format `honeyhub://room/{roomId}`.
+- Room details copy-feedback toast (`Copied to clipboard`) now uses the same visual style and timing as postcard screens to keep cross-feature behavior consistent.
 
 ## Cloud Functions (Mushroom Use Cases)
 - `sendRaidConfirmationPush`

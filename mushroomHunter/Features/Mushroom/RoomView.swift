@@ -37,7 +37,7 @@ struct RoomView: View {
     @State private var leaveRoomName: String = "" // State or dependency property.
     @State private var showClaimConfirmAlert: Bool = false // State or dependency property.
     @State private var showClaimSentAlert: Bool = false // State or dependency property.
-    @State private var showCopyToast: Bool = false // State or dependency property.
+    @State private var isCopyToastVisible: Bool = false // Controls temporary copied-toast visibility.
     @State private var showFinishSheet: Bool = false // State or dependency property.
     @State private var finishSelection: Set<String> = [] // State or dependency property.
     @State private var showRaidConfirmAlert: Bool = false // State or dependency property.
@@ -97,15 +97,14 @@ struct RoomView: View {
                 .environmentObject(session)
         }
         .overlay(alignment: .top) {
-            if showCopyToast {
+            if isCopyToastVisible {
                 Text(LocalizedStringKey("common_copied"))
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .font(.footnote)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(.black.opacity(0.8), in: Capsule())
-                    .padding(.top, 10)
-                    .transition(.opacity)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .overlay {
@@ -351,11 +350,7 @@ struct RoomView: View {
                     inviteURL: RoomInviteLink.makeURL(roomId: room.id),
                     onCopyInviteLink: { link in
                         UIPasteboard.general.string = link
-                        showCopyToast = true
-                        Task {
-                            try? await Task.sleep(nanoseconds: 900_000_000)
-                            showCopyToast = false
-                        }
+                        showCopiedToast()
                     }
                 )
             }
@@ -1007,10 +1002,21 @@ struct RoomView: View {
         let digits = code.filter { $0.isNumber }
         guard !digits.isEmpty else { return }
         UIPasteboard.general.string = digits
-        showCopyToast = true
+        showCopiedToast()
+    }
+
+    /// Shows a short-lived copied toast message.
+    private func showCopiedToast() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isCopyToastVisible = true
+        }
         Task {
             try? await Task.sleep(nanoseconds: 900_000_000)
-            showCopyToast = false
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isCopyToastVisible = false
+                }
+            }
         }
     }
 
