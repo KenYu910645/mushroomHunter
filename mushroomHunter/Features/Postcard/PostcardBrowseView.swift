@@ -208,24 +208,11 @@ private struct PostcardCardView: View {
                     .aspectRatio(imageAspectRatio, contentMode: .fit)
 
                 if let urlString = listing.thumbnailUrl ?? listing.imageUrl, let url = URL(string: urlString) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                        case .failure:
-                            Image(systemName: "photo")
-                                .font(.title)
-                                .foregroundStyle(.secondary)
-                        case .empty:
-                            ProgressView()
-                        @unknown default:
-                            Image(systemName: "photo")
-                                .font(.title)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                    CachedPostcardImageView(
+                        imageURL: url,
+                        fallbackSystemImageName: "photo",
+                        fallbackIconFont: .title
+                    )
                     .aspectRatio(imageAspectRatio, contentMode: .fill)
                     .frame(maxWidth: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))

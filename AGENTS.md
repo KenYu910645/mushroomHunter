@@ -32,6 +32,11 @@ Rule: any code change that affects behavior must update the relevant markdown fi
 - If implementation work requires a Firestore rule change, notify Ken in the handoff that deployed rules must be synced.
 - If you directly update the rule block in `FIREBASE.md`, explicitly notify Ken to sync Firebase console/deployed rules to match the document.
 
+## Firestore Index Sync Policy
+- If implementation introduces a new Firestore query pattern (new `where`/`orderBy` combinations, new `in` filters, or new timeout/status sweep queries), verify whether a composite index is required.
+- Update `FIREBASE.md` query documentation when query patterns change.
+- In handoff, explicitly remind Ken to create/update Firebase Firestore indexes when needed and call out which query paths require them.
+
 ## Firebase Storage Rule Sync Policy
 - `FIREBASE.md` must always contain the latest "Current Firebase Storage Rule" section that mirrors the deployed Firebase Storage rules.
 - If implementation work requires a Firebase Storage rule change, notify Ken in the handoff that deployed rules must be synced.
@@ -52,6 +57,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift` (shared browse header with honey/search/create actions)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by host/profile/profile-create forms)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by multiline inputs)
+- `mushroomHunter/Features/Shared/HoneyMessageBox.swift` (shared custom confirmation/error dialog used across room flows)
 - `mushroomHunter/Services/Firebase/RoomBrowseRepo.swift`
 - `mushroomHunter/Services/Firebase/RoomFormRepo.swift`
 - `mushroomHunter/Services/Firebase/RoomRepo.swift`
@@ -76,6 +82,8 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by postcard/profile/mushroom forms)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by postcard description fields)
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift` (shared invite QR sheet used by postcard seller share flow)
+- `mushroomHunter/Features/Shared/HoneyMessageBox.swift` (shared custom confirmation/error dialog used across postcard flows)
+- `mushroomHunter/Features/Shared/CachedPostcardImageView.swift` (shared cache-first postcard image renderer with memory+disk cache for browse/detail/form previews)
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`
 - `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`
 - `mushroomHunter/Utilities/RoomInviteLink.swift` (postcard invite link generation/parsing)
@@ -98,6 +106,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Profile/AboutView.swift` (about page contact information view)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by profile edit/create)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by profile feedback message)
+- `mushroomHunter/Features/Shared/HoneyMessageBox.swift` (shared custom confirmation/error dialog used across profile flows)
 - `mushroomHunter/Services/Firebase/ProfileListRepo.swift`
 - `mushroomHunter/Services/Firebase/FeedbackRepo.swift`
 - `mushroomHunter/User/UserSessionStore.swift` (shared user session state container + local persistence helpers)
@@ -115,6 +124,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Profile/TutorialView.swift` (one-time swipe tutorial presented after first successful profile creation)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used in create-profile form)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper for multiline form inputs)
+- `mushroomHunter/Features/Shared/HoneyMessageBox.swift` (shared custom confirmation/error dialog used by profile create/edit validation)
 - `mushroomHunter/User/UserSessionStore.swift` (main session state container)
 - `mushroomHunter/User/UserAuth.swift` (Apple/Google auth + auth state handling)
 - `mushroomHunter/User/UserProfile.swift` (profile completion persistence/sync)
@@ -174,6 +184,7 @@ Commit message format:
 - Prefer `rg` for search.
 - Keep changes minimal and focused.
 - Do not reformat unrelated files.
+- For two-button UI actions, place the proceed/action button on the left and the cancel button on the right.
 - If behavior changes, include app test guidance in handoff.
 - After you understand the requirement, please scan through the code first, to check whehther these is code can be re-use(leverage exist function/struct/... etc) to help you write code.
 - All files need to contain header comment

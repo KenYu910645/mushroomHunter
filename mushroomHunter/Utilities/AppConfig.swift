@@ -80,6 +80,23 @@ enum AppConfig {
         // Suggested range: 100...100_000.
         static let maxFixedRaidCost: Int = 10_000
 
+        // `noFaultEffortFeeRate`
+        // Purpose: host effort-fee ratio used when attendee selects "seat full" settlement.
+        // Suggested range: 0.05...0.5.
+        static let noFaultEffortFeeRate: Double = 0.2
+
+        // `noFaultEffortFeeMinimum`
+        // Purpose: minimum effort-fee honey for no-fault seat-full settlement.
+        // Suggested range: 1...10.
+        static let noFaultEffortFeeMinimum: Int = 1
+
+        // Computes no-fault effort fee from fixed raid cost.
+        static func noFaultEffortFee(for fixedRaidCost: Int) -> Int { // Handles noFaultEffortFee flow.
+            let normalizedRaidCost = max(0, fixedRaidCost)
+            let ratioFee = Int((Double(normalizedRaidCost) * noFaultEffortFeeRate).rounded(.down))
+            return max(noFaultEffortFeeMinimum, ratioFee)
+        }
+
         // `defaultHostCountryCode`
         // Purpose: fallback country if device region cannot be resolved.
         // Must be an ISO 3166-1 alpha-2 code (e.g. "US", "TW", "JP").
@@ -160,22 +177,40 @@ enum AppConfig {
         // Suggested range: 0.4...0.9.
         static let thumbnailCompressionQuality: CGFloat = 0.68
 
+        // `imageMemoryCacheEntryLimit`
+        // Purpose: max decoded postcard images kept in RAM for instant repeat rendering.
+        // Suggested range: 50...500.
+        static let imageMemoryCacheEntryLimit: Int = 220
+
+        // `imageDiskCacheMaxBytes`
+        // Purpose: hard cap for postcard image disk cache folder size.
+        // Suggested range: 20MB...500MB depending on device/storage policy.
+        static let imageDiskCacheMaxBytes: Int = 120 * 1024 * 1024
+
+        // `imageDiskCachePruneTargetRatio`
+        // Purpose: prune target after overflow; cache shrinks to (maxBytes * ratio).
+        // Suggested range: 0.6...0.95.
+        static let imageDiskCachePruneTargetRatio: Double = 0.8
+
+        // `imageDiskCacheMaxAgeSeconds`
+        // Purpose: TTL for one disk cache entry before it is treated as expired.
+        // Suggested range: 1 day...90 days.
+        static let imageDiskCacheMaxAgeSeconds: TimeInterval = 30 * 24 * 60 * 60
+
         // `searchDebounceNanoseconds`
         // Purpose: wait time before executing search after typing.
         // 300ms...700ms is usually a good UX range.
         static let searchDebounceNanoseconds: UInt64 = 350_000_000
 
         // Order timeout settings (hours)
-        // Purpose: server/client timestamps for shipping/receipt reminders and auto-complete.
-        // Keep aligned with business policy and Cloud Functions logic.
+        // Purpose: server/client timestamps for seller shipping and buyer confirmation.
+        // Keep aligned with business policy and Cloud Functions timeout sweep logic.
         // Suggested ranges:
-        // - seller reminder/deadline: 6...168
-        // - buyer reminder: 6...168
-        // - buyer auto-complete: 24...336
-        static let sellerSendReminderHours: Int = 24
-        static let sellerSendDeadlineHours: Int = 24
+        // - seller shipping deadline: 12...336
+        // - buyer confirmation deadline: 24...336
+        static let sellerShippingDeadlineHours: Int = 72
         static let buyerReceiveReminderHours: Int = 24
-        static let buyerAutoCompleteHours: Int = 72
+        static let buyerConfirmDeadlineHours: Int = 120
     }
 
     enum Profile {

@@ -71,6 +71,8 @@ service firebase.storage {
 ### Profile Tab
 - Open profile tab:
   - Firestore queries for profile-owned rooms/listings/orders depending on sections shown.
+- On-shelf postcard status badges:
+  - Firestore query: `postcardOrders where sellerId == uid and status in [SellerConfirmPending, AwaitingShipping, AwaitingSellerSend]` to flag listings with unprocessed seller queue items as `Order Received`.
 - Hosted rooms list:
   - Primary query: `rooms where hostUid == uid`.
   - Legacy fallback query only when needed.
@@ -99,8 +101,19 @@ service firebase.storage {
   - Legacy fallback query only when required.
   - Firestore transaction writes:
     - create attendee doc
+      - initial `status: AskingToJoin`
+      - `joinGreetingMessage`
     - decrement user honey
     - increment room joinedCount
+
+#### Host approve/reject join application
+- Host opens room attendee row menu (`...`) for pending applicant (`AskingToJoin`):
+  - Accept:
+    - Firestore transaction writes attendee `status: Ready`.
+  - Reject:
+    - Firestore transaction deletes attendee doc.
+    - Decrements `rooms.joinedCount`.
+    - Refunds full attendee deposit to `users/{attendeeUid}.honey`.
 
 #### Update deposit
 - Tap update deposit:
@@ -115,10 +128,13 @@ service firebase.storage {
 
 #### Finish raid / confirmation flows
 - Host taps raid done:
-  - Firestore transaction writes attendee statuses to `WaitingConfirmation` and room timestamps
+  - Firestore transaction writes all non-host attendee statuses to `WaitingConfirmation` and room timestamps
   - Triggers Cloud Function push flow
-- Attendee accepts/rejects:
-  - Firestore transaction writes status/deposit/honey/rating flags
+- Attendee submits escrow settlement:
+  - `JoinedSuccess`: full raid cost transferred to host, attendee escrow deducts full cost.
+  - `SeatFullNoFault`: small effort fee transferred to host, attendee escrow deducts only effort fee.
+  - `MissedInvitation`: no honey transfer.
+  - Firestore transaction writes status/deposit/honey/rating flags and settlement snapshot fields.
   - Triggers Cloud Function push flow
 - Host/attendee rating:
   - Firestore transaction updates user stars + attendee flags
@@ -173,6 +189,7 @@ service firebase.storage {
 
 #### Buy postcard
 - Tap buy:
+  - Firestore query read: checks active order for `(buyerId, postcardId)` in status set `[AwaitingShipping, Shipped]` (plus legacy aliases).
   - Firestore transaction reads postcard + buyer user docs
   - Firestore writes:
     - decrement listing stock
@@ -182,17 +199,21 @@ service firebase.storage {
 
 #### Seller shipping queue
 - Open shipping sheet:
-  - Firestore query read: `postcardOrders` filtered by seller+postcard+awaiting send.
+  - Firestore query read: `postcardOrders` filtered by seller+postcard+pending statuses (`AwaitingShipping`, plus legacy aliases).
   - Friend-code fallback users query only for legacy orders missing snapshot values.
+- Seller reject:
+  - Firestore transaction write:
+    - reject -> `status: Rejected` + buyer refund + stock restore
 - Mark sent:
-  - Firestore transaction write: order status/timeouts -> `InTransit`.
+  - Firestore transaction write: order status/timeouts -> `Shipped`.
 
 #### Buyer receive flow
 - Confirm received:
   - Firestore transaction reads order + seller user
   - Firestore writes seller honey and order completion state
-- Mark not received:
-  - Firestore transaction writes order status/timestamps (no honey transfer)
+- Auto-complete fallback:
+  - Cloud Scheduler function sweeps `Shipped` orders past `buyerConfirmDeadlineAt`
+  - Firestore transaction writes seller honey and order status -> `CompletedAuto`
 
 ### Feedback
 - Submit feedback from profile:
@@ -212,26 +233,35 @@ service firebase.storage {
 
 ### Postcard push functions
 - `sendPostcardOrderCreatedPush`
-  - Trigger: order created in `AwaitingSellerSend`
+  - Trigger: order created in `AwaitingShipping`
   - Uses `postcardOrders.sellerFcmToken` first, user fallback.
 - `sendPostcardShippedPush`
-  - Trigger: order status -> `InTransit`
+  - Trigger: order status -> `Shipped`
+  - Uses `postcardOrders.buyerFcmToken` first, user fallback.
+- `sendPostcardRejectedPush`
+  - Trigger: order status -> `Rejected`
   - Uses `postcardOrders.buyerFcmToken` first, user fallback.
 - `notifySellerPostcardCompleted`
-  - Trigger: order status -> `Completed`
+  - Trigger: order status -> `Completed` or `CompletedAuto`
   - Uses `postcardOrders.sellerFcmToken` first, user fallback.
+- `processPostcardOrderTimeouts`
+  - Trigger: scheduler every 15 minutes
+  - Handles seller no-ship timeout and buyer auto-complete.
 
 This token-snapshot-first approach reduces repeated `users/{uid}` reads in hot notification paths.
+Postcard pushes use APNs localization keys (`title-loc-key` / `loc-key` with args), so notification copy is sourced from app `Localizable.strings` instead of hardcoded-only text.
 
 ## Image Download Behavior (Important for Cost)
 - Browse card uses `thumbnailUrl` first, then falls back to `imageUrl` if thumbnail missing.
 - Detail screen uses full `imageUrl`.
+- Postcard image UI now uses cache-first local image loading (`memory -> disk -> network`) for browse thumbnails, detail hero image, and form preview fallback images.
 - Bigger user base + more browsing mainly increases Storage download bandwidth cost.
 - Pagination (20 per page) limits one-time burst download compared with loading 50+ cards at once.
 
 ## Current Efficiency Patterns Already in Place
 - Cursor pagination for postcard browse/search.
 - Thumbnail pipeline (`256x256` default, compressed) for browse images.
+- App-level postcard image cache (memory+disk) with cache-first image rendering to reduce repeated Firebase Storage egress.
 - Conditional legacy fallback queries (only when primary query is insufficient).
 - Snapshot fields (`sellerFriendCode`, `hostUid`, push token snapshots) to avoid extra reads.
 - Write guards for token/profile sync paths to avoid duplicate writes.
@@ -244,6 +274,7 @@ This token-snapshot-first approach reduces repeated `users/{uid}` reads in hot n
 
 ## Operational Suggestions
 - Keep thumbnail size/compression tuned in `AppConfig.Postcard` based on visual quality vs bandwidth.
+- Keep image cache limits tuned in `AppConfig.Postcard` (`imageMemoryCacheEntryLimit`, `imageDiskCacheMaxBytes`, `imageDiskCachePruneTargetRatio`, `imageDiskCacheMaxAgeSeconds`) to balance instant reloads vs local storage use.
 - Keep browse page size conservative (currently 20).
 - Periodically backfill missing snapshot fields (`thumbnailUrl`, token snapshots) to reduce fallback reads.
 - Track Firebase usage dashboard by product area:

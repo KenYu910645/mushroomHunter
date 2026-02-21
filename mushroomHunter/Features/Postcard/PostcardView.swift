@@ -11,8 +11,8 @@ import SwiftUI
 
 /// Postcard detail screen with buyer/seller actions for one listing.
 struct PostcardView: View {
-    /// Controls buy confirmation alert visibility.
-    @State private var isBuyConfirmPresented: Bool = false
+    /// Controls buy confirmation dialog visibility.
+    @State private var isBuyConfirmDialogPresented: Bool = false
     /// Controls seller edit sheet visibility.
     @State private var isEditSheetPresented: Bool = false
     /// Controls share invite sheet visibility.
@@ -29,12 +29,12 @@ struct PostcardView: View {
     @State private var buyErrorMessage: String = ""
     /// Controls seller shipping queue sheet visibility.
     @State private var isShippingSheetPresented: Bool = false
+    /// Count of seller orders that are waiting for shipping actions.
+    @State private var pendingShippingCount: Int = 0
     /// Latest buyer order for current user and listing.
     @State private var buyerOrder: PostcardBuyerOrder?
     /// Controls receive confirmation alert visibility.
     @State private var isReceiveConfirmAlertPresented: Bool = false
-    /// Controls "not received yet" alert visibility.
-    @State private var isNotReceivedAlertPresented: Bool = false
     /// Controls receive success alert visibility.
     @State private var isReceiveSuccessAlertPresented: Bool = false
     /// Success message shown after buyer confirms receipt.
@@ -75,13 +75,26 @@ struct PostcardView: View {
     /// Indicates whether buyer receipt confirmation actions should be shown.
     private var isReceiveConfirmationAvailable: Bool {
         guard let order = buyerOrder else { return false }
-        return order.status == .inTransit || order.status == .awaitingBuyerDecision
+        return order.status == .shipped
     }
 
     /// Indicates whether buyer currently has a pending order state.
     private var isBuyerOrderPending: Bool {
         guard let order = buyerOrder else { return false }
-        return order.status == .awaitingSellerSend || isReceiveConfirmationAvailable
+        return order.status == .sellerConfirmPending ||
+            order.status == .awaitingShipping ||
+            isReceiveConfirmationAvailable
+    }
+
+    /// Purchase confirmation message with tokenized honey icon and postcard title.
+    private var purchaseConfirmMessage: String {
+        let line1 = String(
+            format: NSLocalizedString("postcard_msg_purchase_line1_template", comment: ""),
+            currentListing.priceHoney,
+            currentListing.title
+        )
+        let line2 = NSLocalizedString("postcard_msg_purchase_line2", comment: "")
+        return "\(line1)\n\(line2)"
     }
 
     /// Main detail view content.
@@ -95,24 +108,11 @@ struct PostcardView: View {
                         .aspectRatio(imageAspectRatio, contentMode: .fit)
 
                     if let urlString = currentListing.imageUrl, let url = URL(string: urlString) {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                            case .failure:
-                                Image(systemName: "photo")
-                                    .font(.largeTitle)
-                                    .foregroundStyle(.secondary)
-                            case .empty:
-                                ProgressView()
-                            @unknown default:
-                                Image(systemName: "photo")
-                                    .font(.largeTitle)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                        CachedPostcardImageView(
+                            imageURL: url,
+                            fallbackSystemImageName: "photo",
+                            fallbackIconFont: .largeTitle
+                        )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                     } else {
@@ -175,53 +175,47 @@ struct PostcardView: View {
                     }
                 }
 
-                if !isSeller && isReceiveConfirmationAvailable {
+                if !isSeller {
+                    Divider()
+                        .padding(.top, 4)
+
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(LocalizedStringKey("postcard_receive_prompt"))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        if let buyerStatusText = buyerStatusText {
+                            Text(buyerStatusText)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
 
-                        HStack(spacing: 10) {
-                            Button {
-                                isNotReceivedAlertPresented = true
-                            } label: {
-                                Text(LocalizedStringKey("postcard_receive_no_button"))
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-
+                        if isReceiveConfirmationAvailable {
                             Button {
                                 isReceiveConfirmAlertPresented = true
                             } label: {
-                                Text(LocalizedStringKey("postcard_receive_yes_button"))
+                                Text(LocalizedStringKey("postcard_receive_complete_button"))
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.borderedProminent)
+                            .accessibilityIdentifier("postcard_receive_complete_button")
+                        } else if !isBuyerOrderPending {
+                            Button {
+                                if AppTesting.useMockPostcards {
+                                    Task { await buyPostcard() }
+                                } else {
+                                    isBuyConfirmDialogPresented = true
+                                }
+                            } label: {
+                                if isBuying {
+                                    ProgressView()
+                                        .frame(maxWidth: .infinity)
+                                } else {
+                                    Text(LocalizedStringKey("postcard_buy_button"))
+                                        .frame(maxWidth: .infinity)
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isBuying)
+                            .accessibilityIdentifier("postcard_buy_button")
                         }
                     }
-                } else if !isSeller && isBuyerOrderPending {
-                    Text(LocalizedStringKey("postcard_order_pending_message"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                } else if !isSeller {
-                    Button {
-                        if AppTesting.useMockPostcards {
-                            Task { await buyPostcard() }
-                        } else {
-                            isBuyConfirmPresented = true
-                        }
-                    } label: {
-                        if isBuying {
-                            ProgressView()
-                                .frame(maxWidth: .infinity)
-                        } else {
-                            Text(LocalizedStringKey("postcard_buy_button"))
-                                .frame(maxWidth: .infinity)
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isBuying)
-                    .accessibilityIdentifier("postcard_buy_button")
                 }
             }
             .padding()
@@ -230,16 +224,24 @@ struct PostcardView: View {
         .navigationTitle(LocalizedStringKey("postcard_title"))
         .toolbar {
             if isSeller {
-                if !AppTesting.isUITesting {
-                    ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        isShippingSheetPresented = true
+                    } label: {
+                        shippingToolbarIcon
+                    }
+                    .accessibilityLabel(LocalizedStringKey("postcard_shipping_accessibility"))
+                    .accessibilityIdentifier("postcard_shipping_button")
+
+                    if !AppTesting.isUITesting {
                         Button {
                             isInviteSheetPresented = true
                         } label: {
                             Image(systemName: "square.and.arrow.up")
                         }
                         .accessibilityLabel(LocalizedStringKey("postcard_share_accessibility"))
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
+                        .accessibilityIdentifier("postcard_share_button")
+
                         Button {
                             isEditSheetPresented = true
                         } label: {
@@ -249,54 +251,7 @@ struct PostcardView: View {
                         .accessibilityIdentifier("postcard_edit_button")
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        isShippingSheetPresented = true
-                    } label: {
-                        Image(systemName: "shippingbox")
-                    }
-                    .accessibilityLabel(LocalizedStringKey("postcard_shipping_accessibility"))
-                    .accessibilityIdentifier("postcard_shipping_button")
-                }
             }
-        }
-        .alert(LocalizedStringKey("postcard_confirm_title"), isPresented: $isBuyConfirmPresented) {
-            Button(LocalizedStringKey("common_confirm")) {
-                Task { await buyPostcard() }
-            }
-            Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
-        } message: {
-            Text(LocalizedStringKey("postcard_confirm_message"))
-        }
-        .alert(LocalizedStringKey("postcard_buy_success_title"), isPresented: $isBuySuccessAlertPresented) {
-            Button(LocalizedStringKey("common_ok")) {}
-        } message: {
-            Text(LocalizedStringKey("postcard_buy_success_message"))
-        }
-        .alert(LocalizedStringKey("postcard_receive_confirm_title"), isPresented: $isReceiveConfirmAlertPresented) {
-            Button(LocalizedStringKey("common_confirm")) {
-                Task { await confirmReceive() }
-            }
-            Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
-        } message: {
-            Text(LocalizedStringKey("postcard_receive_confirm_message"))
-        }
-        .alert(LocalizedStringKey("postcard_receive_wait_title"), isPresented: $isNotReceivedAlertPresented) {
-            Button(LocalizedStringKey("common_ok")) {
-                Task { await markNotYetReceived() }
-            }
-        } message: {
-            Text(LocalizedStringKey("postcard_receive_wait_message"))
-        }
-        .alert(LocalizedStringKey("postcard_receive_success_title"), isPresented: $isReceiveSuccessAlertPresented) {
-            Button(LocalizedStringKey("common_ok")) {}
-        } message: {
-            Text(receiveSuccessMessage)
-        }
-        .alert(LocalizedStringKey("common_error"), isPresented: $isBuyErrorAlertPresented) {
-            Button(LocalizedStringKey("common_ok")) {}
-        } message: {
-            Text(buyErrorMessage)
         }
         .task {
             await refreshListing()
@@ -314,7 +269,9 @@ struct PostcardView: View {
                 .navigationTitle(LocalizedStringKey("postcard_edit_title"))
             }
         }
-        .sheet(isPresented: $isShippingSheetPresented) {
+        .sheet(isPresented: $isShippingSheetPresented, onDismiss: {
+            Task { await refreshListing() }
+        }) {
             NavigationStack {
                 PostcardShippingView(postcard: currentListing)
             }
@@ -341,6 +298,90 @@ struct PostcardView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
+        .overlay {
+            if isBuyConfirmDialogPresented {
+                HoneyMessageBox(
+                    title: NSLocalizedString("postcard_msg_purchase_title", comment: ""),
+                    message: purchaseConfirmMessage,
+                    buttons: [
+                        HoneyMessageBoxButton(
+                            id: "postcard_buy_confirm_order",
+                            title: NSLocalizedString("postcard_msg_purchase_order_button", comment: "")
+                        ) {
+                            isBuyConfirmDialogPresented = false
+                            Task { await buyPostcard() }
+                        },
+                        HoneyMessageBoxButton(
+                            id: "postcard_buy_confirm_cancel",
+                            title: NSLocalizedString("postcard_msg_purchase_cancel_button", comment: ""),
+                            role: .cancel
+                        ) {
+                            isBuyConfirmDialogPresented = false
+                        }
+                    ]
+                )
+            } else if isReceiveConfirmAlertPresented {
+                HoneyMessageBox(
+                    title: NSLocalizedString("postcard_msg_receive_confirm_title", comment: ""),
+                    message: NSLocalizedString("postcard_msg_receive_confirm_message", comment: ""),
+                    buttons: [
+                        HoneyMessageBoxButton(
+                            id: "postcard_receive_confirm_confirm",
+                            title: NSLocalizedString("postcard_msg_receive_confirm_received_button", comment: "")
+                        ) {
+                            isReceiveConfirmAlertPresented = false
+                            Task { await confirmReceive() }
+                        },
+                        HoneyMessageBoxButton(
+                            id: "postcard_receive_confirm_cancel",
+                            title: NSLocalizedString("common_cancel", comment: ""),
+                            role: .cancel
+                        ) {
+                            isReceiveConfirmAlertPresented = false
+                        }
+                    ]
+                )
+            } else if isBuySuccessAlertPresented {
+                HoneyMessageBox(
+                    title: NSLocalizedString("postcard_msg_buy_success_title", comment: ""),
+                    message: NSLocalizedString("postcard_msg_buy_success_message", comment: ""),
+                    buttons: [
+                        HoneyMessageBoxButton(
+                            id: "postcard_buy_success_ok",
+                            title: NSLocalizedString("common_ok", comment: "")
+                        ) {
+                            isBuySuccessAlertPresented = false
+                        }
+                    ]
+                )
+            } else if isReceiveSuccessAlertPresented {
+                HoneyMessageBox(
+                    title: NSLocalizedString("postcard_msg_receive_success_title", comment: ""),
+                    message: receiveSuccessMessage,
+                    buttons: [
+                        HoneyMessageBoxButton(
+                            id: "postcard_receive_success_ok",
+                            title: NSLocalizedString("common_ok", comment: "")
+                        ) {
+                            isReceiveSuccessAlertPresented = false
+                        }
+                    ]
+                )
+            } else if isBuyErrorAlertPresented {
+                HoneyMessageBox(
+                    title: NSLocalizedString("common_error", comment: ""),
+                    message: buyErrorMessage,
+                    buttons: [
+                        HoneyMessageBoxButton(
+                            id: "postcard_buy_error_ok",
+                            title: NSLocalizedString("common_ok", comment: "")
+                        ) {
+                            isBuyErrorAlertPresented = false
+                        }
+                    ]
+                )
+            }
+        }
     }
 
     /// Refreshes listing data, seller friend code, and buyer order state.
@@ -350,6 +391,7 @@ struct PostcardView: View {
                 ? AppTesting.fixtureOwnedPostcardListing()
                 : AppTesting.fixturePostcardListing()
             sellerFriendCode = currentListing.sellerFriendCode
+            pendingShippingCount = isSeller ? AppTesting.fixtureShippingRecipients().count : 0
             return
         }
 
@@ -360,8 +402,10 @@ struct PostcardView: View {
                 sellerFriendCode = cachedFriendCode
                 if !isSeller {
                     buyerOrder = try await repo.fetchLatestBuyerOrder(postcardId: refreshed.id)
+                    pendingShippingCount = 0
                 } else {
                     buyerOrder = nil
+                    await refreshPendingShippingCount(postcardId: refreshed.id)
                 }
             } else {
                 dismiss()
@@ -440,6 +484,32 @@ struct PostcardView: View {
         }
     }
 
+    /// Returns current pending-order message shown to buyer.
+    private var buyerOrderPendingMessage: LocalizedStringKey {
+        guard let order = buyerOrder else { return LocalizedStringKey("postcard_order_pending_message") }
+        switch order.status {
+        case .sellerConfirmPending, .awaitingShipping:
+            return LocalizedStringKey("postcard_order_waiting_shipping_message")
+        case .shipped:
+            return LocalizedStringKey("postcard_order_waiting_buyer_confirm_message")
+        default:
+            return LocalizedStringKey("postcard_order_pending_message")
+        }
+    }
+
+    /// Status text shown in buyer action section.
+    private var buyerStatusText: LocalizedStringKey? {
+        guard let order = buyerOrder else { return nil }
+        switch order.status {
+        case .sellerConfirmPending, .awaitingShipping:
+            return LocalizedStringKey("postcard_status_waiting_seller_ship")
+        case .shipped:
+            return LocalizedStringKey("postcard_status_shipped_on_way")
+        default:
+            return buyerOrderPendingMessage
+        }
+    }
+
     /// Confirms postcard receipt for the latest buyer order.
     private func confirmReceive() async {
         guard let order = buyerOrder else { return }
@@ -447,7 +517,7 @@ struct PostcardView: View {
             try await repo.confirmPostcardReceived(orderId: order.id)
             await session.refreshProfileFromBackend()
             await refreshListing()
-            receiveSuccessMessage = NSLocalizedString("postcard_receive_success_message", comment: "")
+            receiveSuccessMessage = NSLocalizedString("postcard_msg_receive_success_message", comment: "")
             isReceiveSuccessAlertPresented = true
         } catch {
             buyErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -455,15 +525,40 @@ struct PostcardView: View {
         }
     }
 
-    /// Marks the postcard as not yet received for the buyer order.
-    private func markNotYetReceived() async {
-        guard let order = buyerOrder else { return }
+    /// Toolbar shipping icon with a compact pending-order badge for sellers.
+    @ViewBuilder
+    private var shippingToolbarIcon: some View {
+        ZStack(alignment: .topTrailing) {
+            Image(systemName: "shippingbox")
+
+            if pendingShippingCount > 0 {
+                Text(pendingShippingCount > 99 ? "99+" : "\(pendingShippingCount)")
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, pendingShippingCount > 9 ? 5 : 6)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color.red))
+                    .offset(x: 10, y: -8)
+            }
+        }
+        .accessibilityValue(
+            Text(
+                pendingShippingCount > 0
+                    ? "\(pendingShippingCount)"
+                    : "0"
+            )
+        )
+    }
+
+    /// Refreshes seller pending-shipping order count for badge rendering.
+    /// - Parameter postcardId: Listing id to scope shipping recipients query.
+    private func refreshPendingShippingCount(postcardId: String) async {
         do {
-            try await repo.markPostcardNotYetReceived(orderId: order.id)
-            await refreshListing()
+            pendingShippingCount = try await repo.fetchShippingRecipients(postcardId: postcardId).count
         } catch {
-            buyErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            isBuyErrorAlertPresented = true
+            // Keep last badge count if recipient refresh fails.
         }
     }
+
 }

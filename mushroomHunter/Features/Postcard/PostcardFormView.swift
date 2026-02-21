@@ -195,21 +195,42 @@ struct PostcardFormView: View {
             let clamped = clampedText(newValue, max: postcardMaxProvinceChars)
             if clamped != newValue { province = clamped }
         }
-        .alert(LocalizedStringKey("common_error"), isPresented: $isErrorAlertPresented) {
-            Button(LocalizedStringKey("common_ok")) {}
-        } message: {
-            Text(errorAlertMessage)
-        }
-        .confirmationDialog(
-            LocalizedStringKey("postcard_remove_confirm_title"),
-            isPresented: $isDeleteConfirmPresented,
-            titleVisibility: .visible
-        ) {
-            if isEditMode {
-                Button(LocalizedStringKey("postcard_remove_button"), role: .destructive) {
-                    Task { await removePostcard() }
-                }
-                Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
+        .overlay {
+            if isErrorAlertPresented {
+                HoneyMessageBox(
+                    title: NSLocalizedString("common_error", comment: ""),
+                    message: errorAlertMessage,
+                    buttons: [
+                        HoneyMessageBoxButton(
+                            id: "postcard_form_error_ok",
+                            title: NSLocalizedString("common_ok", comment: "")
+                        ) {
+                            isErrorAlertPresented = false
+                        }
+                    ]
+                )
+            } else if isDeleteConfirmPresented, isEditMode {
+                HoneyMessageBox(
+                    title: NSLocalizedString("postcard_msg_remove_confirm_title", comment: ""),
+                    message: "",
+                    buttons: [
+                        HoneyMessageBoxButton(
+                            id: "postcard_form_remove_confirm",
+                            title: NSLocalizedString("postcard_remove_button", comment: ""),
+                            role: .destructive
+                        ) {
+                            isDeleteConfirmPresented = false
+                            Task { await removePostcard() }
+                        },
+                        HoneyMessageBoxButton(
+                            id: "postcard_form_remove_cancel",
+                            title: NSLocalizedString("common_cancel", comment: ""),
+                            role: .cancel
+                        ) {
+                            isDeleteConfirmPresented = false
+                        }
+                    ]
+                )
             }
         }
         .toolbar {
@@ -276,24 +297,11 @@ struct PostcardFormView: View {
             } else if let listing,
                       let urlString = listing.imageUrl,
                       let url = URL(string: urlString) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .failure:
-                        Image(systemName: "photo")
-                            .font(.title2)
-                            .foregroundStyle(.secondary)
-                    case .empty:
-                        ProgressView()
-                    @unknown default:
-                        Image(systemName: "photo")
-                            .font(.title2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                CachedPostcardImageView(
+                    imageURL: url,
+                    fallbackSystemImageName: "photo",
+                    fallbackIconFont: .title2
+                )
                 .frame(width: postcardSnapshotSize, height: postcardSnapshotSize)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             } else {
