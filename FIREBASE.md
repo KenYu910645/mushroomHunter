@@ -70,7 +70,8 @@ service firebase.storage {
 
 ### Profile Tab
 - Open profile tab:
-  - Firestore queries for profile-owned rooms/listings/orders depending on sections shown.
+  - Uses app-level cache first for hosted/joined/on-shelf/ordered lists.
+  - Firestore queries run when cache is missing or when user pull-to-refreshes.
 - On-shelf postcard status badges:
   - Firestore query: `postcardOrders where sellerId == uid and status in [SellerConfirmPending, AwaitingShipping, AwaitingSellerSend]` to flag listings with unprocessed seller queue items as `Order Received`.
 - Hosted rooms list:
@@ -86,11 +87,19 @@ service firebase.storage {
 ### Mushroom Tab
 
 #### Browse rooms
-- Enter Mushroom browse / pull-to-refresh:
-  - Firestore query read on `rooms` list.
+- Enter Mushroom browse:
+  - Uses app-level cache first for browse list.
+  - Firestore query runs when cache is missing.
+- Pull-to-refresh:
+  - Firestore query read on `rooms` list, then cache overwrite.
+- Search submit:
+  - Forces Firestore query read on `rooms` list before applying local text filter.
 
 #### Open room detail
 - Tap a room:
+  - Uses app-level cache first for room header + attendee list.
+  - Firestore reads run when cache is missing.
+- Pull-to-refresh:
   - Firestore read: `rooms/{roomId}`
   - Firestore query read: `rooms/{roomId}/attendees`
 
@@ -279,9 +288,56 @@ All push notifications (mushroom + postcard) now use APNs localization keys (`ti
 - Cursor pagination for postcard browse/search.
 - Thumbnail pipeline (`256x256` default, compressed) for browse images.
 - App-level postcard image cache (memory+disk) with cache-first image rendering to reduce repeated Firebase Storage egress.
+- App-level mushroom/profile list caches (memory+disk) with stale-first rendering and explicit refresh on pull-to-refresh/state-changing actions.
 - Conditional legacy fallback queries (only when primary query is insufficient).
 - Snapshot fields (`sellerFriendCode`, `hostUid`, push token snapshots) to avoid extra reads.
 - Write guards for token/profile sync paths to avoid duplicate writes.
+
+## App-Level Data Cache Scope
+
+This section documents app-level cache behavior for Postcard, Mushroom, and Profile views.
+
+### Cache storage scope
+- Cache type: app-level memory + disk cache (persisted across view transitions; disk survives app restarts until evicted/overwritten).
+- Cache granularity:
+  - Postcard: image URL cache (`thumbnailUrl` / `imageUrl`) for postcard browse/detail/form previews.
+  - Mushroom browse: one cached room-list payload for browse page.
+  - Mushroom room detail: one cached payload per `roomId` (room header + attendees list).
+  - Profile: one cached payload per user (`authUid`) for hosted rooms, joined rooms, on-shelf postcards, ordered postcards, and pending seller-order badge ids.
+
+### Cache hit / miss behavior
+- Postcard image cache:
+  - Hit: memory or disk has image bytes for the URL; UI renders without Firebase Storage fetch.
+  - Miss: no cached bytes (or expired/evicted); network fetch runs, then cache is filled.
+- Mushroom browse data cache:
+  - Hit: cached browse list exists; entering Mushroom tab uses cached list immediately (no immediate Firestore read).
+  - Miss: no cached list; entering Mushroom tab queries Firestore and writes returned list into cache.
+- Mushroom room detail cache:
+  - Hit: cached room payload exists for that `roomId`; opening room uses cached header/attendees immediately.
+  - Miss: no cached payload for that `roomId`; opening room queries Firestore (`rooms/{roomId}` + `attendees`) and caches result.
+- Profile list cache:
+  - Hit: cached profile payload exists for current user; opening Profile uses cached sections immediately.
+  - Miss: no cached payload for current user; Profile queries Firestore lists and caches results.
+
+### Forced update triggers (refresh from Firebase)
+- User pull-to-refresh (upscroll) always forces backend refresh:
+  - Mushroom browse list (`rooms` query).
+  - Mushroom room detail (`rooms/{roomId}` + attendees query).
+  - Profile lists (hosted/joined/on-shelf/ordered + seller pending-order ids).
+- Mushroom browse search submit forces backend refresh before applying local text filtering.
+- Mushroom room state-changing actions force backend refresh and cache overwrite, including:
+  - join / leave / update deposit
+  - approve / reject join application
+  - kick attendee
+  - finish raid
+  - attendee confirmation responses
+  - host/attendee rating actions
+- Profile hosted-room close callback forces hosted-room refresh to keep profile host list consistent after room lifecycle changes.
+
+### Practical behavior summary
+- Default navigation is stale-first (cache-first) for faster UX and fewer reads.
+- Pull-to-refresh (user upscroll) is the explicit "get latest from Firebase now" action.
+- Mutating actions refresh and overwrite cache so post-action UI state is backend-consistent.
 
 ## When Cost Usually Spikes
 - Heavy browse traffic with many image impressions (Storage egress).

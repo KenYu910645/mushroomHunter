@@ -11,7 +11,7 @@
 import Foundation
 
 /// Seller-provided location metadata for a postcard listing.
-struct PostcardLocation: Equatable, Hashable {
+struct PostcardLocation: Equatable, Hashable, Codable {
     /// Country name selected in the postcard form.
     var country: String
     /// Province/city text selected in the postcard form.
@@ -41,7 +41,7 @@ struct PostcardLocation: Equatable, Hashable {
 }
 
 /// Marketplace listing owned by a seller.
-struct PostcardListing: Identifiable, Equatable, Hashable {
+struct PostcardListing: Identifiable, Equatable, Hashable, Codable {
     /// Firestore listing document id.
     let id: String
     /// Seller uid who created the listing.
@@ -86,7 +86,7 @@ enum PostcardSortOrder: String, CaseIterable, Identifiable {
 }
 
 /// Lifecycle states for a postcard order.
-enum PostcardOrderStatus: String {
+enum PostcardOrderStatus: String, Codable {
     /// Legacy state where buyer order waited for seller accept/reject.
     case sellerConfirmPending = "SellerConfirmPending"
     /// Active pending state where seller should ship or decline.
@@ -155,7 +155,7 @@ struct PostcardBuyerOrder: Identifiable, Equatable {
 }
 
 /// Ordered postcard summary rendered in profile with latest active order status.
-struct OrderedPostcardSummary: Identifiable, Equatable {
+struct OrderedPostcardSummary: Identifiable, Equatable, Codable {
     /// Uses listing id so profile row navigation can open postcard detail directly.
     var id: String { listing.id }
     /// Related postcard listing snapshot.

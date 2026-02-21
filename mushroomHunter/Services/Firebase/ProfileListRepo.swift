@@ -45,7 +45,7 @@ import Foundation
 import FirebaseFirestore
 import FirebaseAuth
 
-struct HostedRoomSummary: Identifiable, Hashable {
+struct HostedRoomSummary: Identifiable, Hashable, Codable {
     let id: String          // Firestore docID
     let title: String
     let joinedCount: Int
@@ -53,7 +53,7 @@ struct HostedRoomSummary: Identifiable, Hashable {
     let createdAt: Date?
 }
 
-struct JoinedRoomSummary: Identifiable, Hashable {
+struct JoinedRoomSummary: Identifiable, Hashable, Codable {
     let id: String
     let title: String
     let joinedCount: Int

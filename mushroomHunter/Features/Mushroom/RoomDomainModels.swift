@@ -26,7 +26,7 @@ enum RoomRole: Equatable {
 
 /// The “room” object your Room screen needs.
 /// Keep it UI-friendly; later we can map Firestore docs into this.
-struct RoomDetail: Identifiable, Equatable {
+struct RoomDetail: Identifiable, Equatable, Codable {
     let id: String
 
     // Header
@@ -48,7 +48,7 @@ struct RoomDetail: Identifiable, Equatable {
 }
 
 /// Mushroom targeting info (align with your Host tab)
-struct MushroomTarget: Equatable {
+struct MushroomTarget: Equatable, Codable {
     var color: MushroomColor
     var attribute: MushroomAttribute
     var size: MushroomSize
@@ -85,7 +85,7 @@ enum MushroomSize: String, CaseIterable, Codable {
 // MARK: - Attendees
 
 /// An attendee as shown in the bottom list.
-struct RoomAttendee: Identifiable, Equatable {
+struct RoomAttendee: Identifiable, Equatable, Codable {
     /// Use uid when you have auth; for now any unique string.
     let id: String
 

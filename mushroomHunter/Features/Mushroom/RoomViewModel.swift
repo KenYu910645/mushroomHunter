@@ -51,6 +51,7 @@ final class RoomViewModel: ObservableObject {
     private unowned let session: UserSessionStore
     private let repo = FbRoomRepo()
     private let actions = FbRoomActionsRepo()
+    private let cache = AppDataCache.shared // Shared app-level cache used for stale-first room detail loading.
     
     // MARK: Init
     
@@ -67,7 +68,11 @@ final class RoomViewModel: ObservableObject {
     
     // MARK: Public API
     
-    func load() async { // Handles load flow.
+    func load(forceRefresh isForceRefresh: Bool = false) async { // Handles load flow.
+        if !isForceRefresh, await loadRoomFromCache() {
+            return
+        }
+
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -88,6 +93,7 @@ final class RoomViewModel: ObservableObject {
             var merged = fetchedRoom
             merged.attendees = attendees
             self.room = merged
+            await cache.save(merged, key: roomCacheKey(roomId: roomId))
             
             recomputeRole()
             recomputeConfirmationStates()
@@ -107,7 +113,7 @@ final class RoomViewModel: ObservableObject {
                 attendeeUid: uid,
                 settlementOutcome: settlementOutcome
             )
-            await load()
+            await load(forceRefresh: true)
             return true
         } catch {
             print("❌ respondToRaidConfirmation error:", error)
@@ -128,7 +134,7 @@ final class RoomViewModel: ObservableObject {
         guard let room, let uid = session.authUid else { return }
         do {
             try await actions.rateHostAfterConfirmation(roomId: room.id, attendeeUid: uid, stars: stars)
-            await load()
+            await load(forceRefresh: true)
             await session.refreshProfileFromBackend()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -139,7 +145,7 @@ final class RoomViewModel: ObservableObject {
         guard let room else { return }
         do {
             try await actions.rateAttendeeAfterConfirmation(roomId: room.id, attendeeUid: attendeeId, stars: stars)
-            await load()
+            await load(forceRefresh: true)
             await session.refreshProfileFromBackend()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -171,7 +177,7 @@ final class RoomViewModel: ObservableObject {
         guard let room else { return }
         do {
             try await actions.resendRejectedConfirmation(roomId: room.id, attendeeUid: attendeeId)
-            await load()
+            await load(forceRefresh: true)
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -181,7 +187,7 @@ final class RoomViewModel: ObservableObject {
         guard let room else { return }
         do {
             try await actions.giveUpRejectedConfirmation(roomId: room.id, attendeeUid: attendeeId)
-            await load()
+            await load(forceRefresh: true)
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -191,7 +197,7 @@ final class RoomViewModel: ObservableObject {
         guard let room else { return }
         do {
             try await actions.approveJoinApplication(roomId: room.id, attendeeUid: attendeeId)
-            await load()
+            await load(forceRefresh: true)
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -201,7 +207,7 @@ final class RoomViewModel: ObservableObject {
         guard let room else { return }
         do {
             try await actions.rejectJoinApplication(roomId: room.id, attendeeUid: attendeeId)
-            await load()
+            await load(forceRefresh: true)
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -267,7 +273,7 @@ final class RoomViewModel: ObservableObject {
                 attendeeHoney: balanceAfter
             )
             _ = session.spendHoney(trimmedDeposit)
-            await load() // refresh room + attendees
+            await load(forceRefresh: true) // refresh room + attendees
         } catch is CancellationError {
             return
         } catch {
@@ -306,7 +312,7 @@ final class RoomViewModel: ObservableObject {
             if currentDeposit > 0 {
                 session.addHoney(currentDeposit)
             }
-            await load()
+            await load(forceRefresh: true)
         } catch is CancellationError {
             return
         } catch {
@@ -352,7 +358,7 @@ final class RoomViewModel: ObservableObject {
             } else if delta < 0 {
                 session.addHoney(-delta)
             }
-            await load()
+            await load(forceRefresh: true)
         } catch is CancellationError {
             return
         } catch {
@@ -369,7 +375,7 @@ final class RoomViewModel: ObservableObject {
         
         do {
             try await actions.kickAttendee(roomId: room.id, attendeeUid: attendeeId)
-            await load()
+            await load(forceRefresh: true)
         } catch is CancellationError {
             return
         } catch {
@@ -385,7 +391,8 @@ final class RoomViewModel: ObservableObject {
         
         do {
             try await actions.closeRoom(roomId: room.id)
-            await load()
+            await cache.remove(key: roomCacheKey(roomId: room.id))
+            self.room = nil
         } catch is CancellationError {
             return
         } catch {
@@ -404,7 +411,7 @@ final class RoomViewModel: ObservableObject {
                 roomId: room.id,
                 attendeeUids: attendeeIds
             )
-            await load()
+            await load(forceRefresh: true)
         } catch is CancellationError {
             return
         } catch {
@@ -516,6 +523,27 @@ final class RoomViewModel: ObservableObject {
         } else {
             pendingConfirmationForCurrentUser = false
         }
+    }
+
+    /// Returns the stable cache key for one room detail payload.
+    /// - Parameter roomId: Target room identifier.
+    /// - Returns: Namespaced cache key.
+    private func roomCacheKey(roomId: String) -> String {
+        "mushroom.room.detail.\(roomId)"
+    }
+
+    /// Applies cached room payload when available.
+    /// - Returns: `true` when cached room was loaded into view-model state.
+    private func loadRoomFromCache() async -> Bool {
+        guard let payload = await cache.load(key: roomCacheKey(roomId: roomId), as: RoomDetail.self) else {
+            return false
+        }
+        room = payload.value
+        errorMessage = nil
+        recomputeRole()
+        recomputeConfirmationStates()
+        sortAttendees(by: attendeeSort)
+        return true
     }
     
 }

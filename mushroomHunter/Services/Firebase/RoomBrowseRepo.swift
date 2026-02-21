@@ -49,7 +49,7 @@
 import Foundation
 import FirebaseFirestore
 
-struct RoomListing: Identifiable, Hashable {
+struct RoomListing: Identifiable, Hashable, Codable {
     let id: String
     var title: String
     var mushroomType: String

@@ -107,10 +107,10 @@ struct ProfileView: View {
                 }
             }
             .task {
-                await viewModel.refreshAllProfileData(session: session)
+                await viewModel.loadOnAppear(session: session)
             }
             .refreshable {
-                await viewModel.refreshAllProfileData(session: session)
+                await viewModel.refreshAllProfileData(session: session, forceRefresh: true)
             }
         }
         .sheet(item: $activeSheet, onDismiss: {
@@ -228,7 +228,7 @@ struct ProfileView: View {
                 rooms: viewModel.hostedRooms,
                 isLoading: viewModel.isHostedRoomsLoading,
                 errorMessage: viewModel.hostedRoomsErrorMessage,
-                onRoomClosed: { Task { await viewModel.loadHostedRooms(session: session) } }
+                onRoomClosed: { Task { await viewModel.loadHostedRooms(session: session, forceRefresh: true) } }
             )
             .equatable()
         } header: {

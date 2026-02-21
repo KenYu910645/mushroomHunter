@@ -44,8 +44,8 @@ struct RoomBrowseView: View {
                     if !AppTesting.isUITesting {
                         Task { await session.refreshProfileFromBackend() }
                     }
-                    // Always refresh list when screen appears.
-                    Task { await vm.fetchListings() }
+                    // Load cache-first room list on screen entry.
+                    Task { await vm.loadListingsOnAppear() }
                 }
         }
         .sheet(isPresented: $showHostSheet) {
@@ -262,7 +262,7 @@ struct RoomBrowseView: View {
                 .listStyle(.insetGrouped)
                 .scrollContentBackground(.hidden)
                 .refreshable {
-                    await vm.fetchListings()
+                    await vm.fetchListings(forceRefresh: true)
                 }
             }
             .background(Theme.backgroundGradient(for: scheme))

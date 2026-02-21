@@ -64,6 +64,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Services/Firebase/RoomActionsRepo.swift`
 - `mushroomHunter/Utilities/RoomInviteLink.swift`
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed mushroom defaults, limits, and option sets)
+- `mushroomHunter/Utilities/AppDataCache.swift` (shared app-level memory+disk Codable cache used by mushroom browse/detail and profile list stale-first loading)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile/room/postcard)
 - Cloud Functions in `functions/index.js`:
   - `notifyHostJoinRequest`
@@ -118,6 +119,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/User/UserProfile.swift` (profile fields, user sync, token sync)
 - `mushroomHunter/User/UserWallet.swift` (honey/stars state helpers)
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed profile validation and shared limits)
+- `mushroomHunter/Utilities/AppDataCache.swift` (shared app-level memory+disk Codable cache used by profile room/postcard list stale-first loading)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile form and display)
 - Cloud Functions in `functions/index.js`:
   - `sendFeedbackNotificationEmail`

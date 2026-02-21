@@ -20,6 +20,7 @@
 - `mushroomHunter/User/UserProfile.swift`: profile state storage and sync (display name, friend code, limits, tokens).
 - `mushroomHunter/User/UserWallet.swift`: stars/honey state helpers.
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed profile constraints (friend code length) and shared list limits.
+- `mushroomHunter/Utilities/AppDataCache.swift`: shared app-level memory+disk Codable cache used by profile list stale-first loading.
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used by profile create/edit and displays.
 - `functions/index.js`: server-side email trigger for profile feedback submissions.
 
@@ -63,6 +64,10 @@
 - Profile hosted-room loading queries `rooms.hostUid`; joined-room loading uses UID-scoped attendee queries.
 - Profile/token sync paths now apply write guards in session scope to skip duplicate `users/{uid}` writes when values have not changed.
 - FCM token sync also refreshes hosted room snapshots (`rooms.hostFcmToken` and host attendee `fcmToken`) so mushroom push flows can avoid per-push user reads.
+- Profile room/postcard sections now use app-level stale-first cache:
+  - Opening Profile loads cached hosted/joined/on-shelf/ordered lists first.
+  - Pull-to-refresh forces latest Firestore queries and overwrites profile list cache.
+  - Hosted room close callback forces hosted-room refresh to keep host list consistent after room lifecycle actions.
 - UI testing mode (`--ui-testing`) disables profile Firestore reads/writes/sync paths so UI automation is fully offline from backend dependencies.
 
 ## Cloud Functions (Profile Use Cases)

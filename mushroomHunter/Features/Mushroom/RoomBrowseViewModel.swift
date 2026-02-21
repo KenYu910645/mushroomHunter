@@ -27,13 +27,29 @@ final class RoomBrowseViewModel: ObservableObject {
     private let repo = FbRoomBrowseRepo() // Read-only room list source.
     private let actions = FbRoomActionsRepo() // Join action source (writes attendee/honey-related data).
     private unowned let session: UserSessionStore // Shared session state (honey, profile fields, limits).
+    private let cache = AppDataCache.shared // Shared app-level cache used for stale-first browse loading.
+    private let browseCacheKey = "mushroom.browse.listings.v1" // Stable cache key for browse room listing payload.
 
     init(session: UserSessionStore) { // Initializes this type.
         self.session = session
     }
 
+    /// Loads browse listings with stale-first strategy.
+    /// Uses cache on enter and refreshes from server only when cache is unavailable.
+    func loadListingsOnAppear() async { // Handles loadListingsOnAppear flow.
+        if await loadListingsFromCache() {
+            return
+        }
+        await fetchListings(forceRefresh: true)
+    }
+
     /// Fetches latest open room listings from backend (or fixture in UI-test mode).
-    func fetchListings() async { // Handles fetchListings flow.
+    /// - Parameter isForceRefresh: `true` to always query Firestore and overwrite cache.
+    func fetchListings(forceRefresh isForceRefresh: Bool = false) async { // Handles fetchListings flow.
+        if !isForceRefresh, await loadListingsFromCache() {
+            return
+        }
+
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -48,6 +64,7 @@ final class RoomBrowseViewModel: ObservableObject {
                 try await self.repo.fetchOpenListings(limit: AppConfig.Mushroom.browseListFetchLimit)
             }
             self.listings = docs
+            await cache.save(docs, key: browseCacheKey)
         } catch is CancellationError {
             // Normal: user pulled to refresh, view reloaded, or task replaced.
             return
@@ -60,7 +77,7 @@ final class RoomBrowseViewModel: ObservableObject {
     /// Refreshes backend room listings when user confirms a search.
     /// Search filtering itself remains local on the fetched page.
     func performConfirmedSearch() async {
-        await fetchListings()
+        await fetchListings(forceRefresh: true)
     }
 
     /// Attempts to join a room with user-entered honey deposit.
@@ -123,7 +140,7 @@ final class RoomBrowseViewModel: ObservableObject {
             }
             _ = session.spendHoney(trimmedDeposit)
             // Optionally refresh listings after joining to update counts.
-            await fetchListings()
+            await fetchListings(forceRefresh: true)
         } catch {
             print("❌ join error:", error)
             if let actionError = error as? RoomActionError,
@@ -151,5 +168,16 @@ final class RoomBrowseViewModel: ObservableObject {
                 || listing.location.lowercased().contains(qq)
                 || (listing.hostName ?? "").lowercased().contains(qq)
         }
+    }
+
+    /// Loads browse listings from app cache into current state.
+    /// - Returns: `true` when cache existed and was applied.
+    private func loadListingsFromCache() async -> Bool {
+        guard let payload = await cache.load(key: browseCacheKey, as: [RoomListing].self) else {
+            return false
+        }
+        listings = payload.value
+        errorMessage = nil
+        return true
     }
 }

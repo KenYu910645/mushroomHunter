@@ -19,6 +19,7 @@
 - `mushroomHunter/Services/Firebase/RoomActionsRepo.swift`: Firestore transactions for join/leave/deposit/raid confirmation/rating.
 - `mushroomHunter/Utilities/RoomInviteLink.swift`: deep link generation/parsing for `honeyhub://room/{roomId}`.
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed mushroom settings (attribute lists, fixed raid defaults, room limits, query limits).
+- `mushroomHunter/Utilities/AppDataCache.swift`: shared app-level memory+disk Codable cache used by mushroom browse/detail stale-first loading.
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used across profile, room, and postcard flows.
 - `functions/index.js`: server-side push triggers used by mushroom confirmation flows.
 
@@ -28,6 +29,10 @@
 - Browse search is opened from the top action bar as an inline search field above the room list (no dedicated sheet/alert).
 - Mushroom browse search matches room title and location text (country/city).
 - Mushroom browse search applies local filtering while typing; backend fetch (first page) is refreshed only when user taps `Search`.
+- Mushroom browse list now uses app-level stale-first cache:
+  - Entering Mushroom tab reads cached browse list first.
+  - Pull-to-refresh forces latest Firestore query and overwrites cache.
+  - Tapping keyboard search submit forces latest Firestore query before applying local filter.
 - Inline search field includes an `x` clear button only; pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
 - UI-test mode (`--ui-testing --mock-rooms`) routes host submit flow through mock success without Firestore writes.
 - Host create/edit description is prefilled with localized default `host_default_description` (`Welcome! Let's play!`) when empty.
@@ -59,6 +64,10 @@
   - QR code sheet.
   - Share/copy room invite link using deep link format `honeyhub://room/{roomId}`.
 - Room details copy-feedback toast (`Copied to clipboard`) now uses the same visual style and timing as postcard screens to keep cross-feature behavior consistent.
+- Room details now uses app-level stale-first cache for room header + attendee data:
+  - Opening room shows cached payload first.
+  - Pull-to-refresh forces latest `rooms/{roomId}` + `attendees` query and overwrites cache.
+  - Room state-changing actions (join/leave/deposit update/kick/approve/reject/finish/confirm/rating) force latest backend reload and refresh cache.
 
 ## Cloud Functions (Mushroom Use Cases)
 - `notifyHostJoinRequest`

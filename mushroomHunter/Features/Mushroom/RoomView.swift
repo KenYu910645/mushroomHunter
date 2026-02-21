@@ -80,7 +80,7 @@ struct RoomView: View {
                 }
         }
         .sheet(item: $editingRoom, onDismiss: {
-            Task { await vm.load() }
+            Task { await vm.load(forceRefresh: true) }
         }) { room in
             RoomFormView(
                 vm: HostViewModel(session: session, room: room),
@@ -390,7 +390,7 @@ struct RoomView: View {
                 }
             }
             .refreshable {
-                await vm.load()
+                await vm.load(forceRefresh: true)
             }
             .scrollContentBackground(.hidden)
             .background(Theme.backgroundGradient(for: scheme))
