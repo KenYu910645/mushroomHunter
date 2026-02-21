@@ -50,7 +50,14 @@ struct HostedRoomSummary: Identifiable, Hashable, Codable {
     let title: String
     let joinedCount: Int
     let maxPlayers: Int
+    let roomStatus: HostedRoomStatus
     let createdAt: Date?
+}
+
+enum HostedRoomStatus: String, Hashable, Codable {
+    case ready
+    case waitingForPlayers
+    case waitingConfirmation
 }
 
 struct JoinedRoomSummary: Identifiable, Hashable, Codable {
@@ -96,25 +103,43 @@ final class FbProfileListRepo {
             }
         }
 
-        var results: [HostedRoomSummary] = []
-        results.reserveCapacity(roomMap.count)
-
+        var baseResults: [HostedRoomSummary] = []
+        baseResults.reserveCapacity(roomMap.count)
         for (roomId, d) in roomMap {
-            results.append(
+            baseResults.append(
                 HostedRoomSummary(
                     id: roomId,
                     title: (d["title"] as? String) ?? "Untitled Room",
                     joinedCount: (d["joinedCount"] as? Int) ?? 0,
                     maxPlayers: (d["maxPlayers"] as? Int) ?? AppConfig.Mushroom.defaultMaxPlayersPerRoom,
+                    roomStatus: .waitingForPlayers,
                     createdAt: (d["createdAt"] as? Timestamp)?.dateValue()
                 )
             )
         }
 
-        return results
+        let sortedBaseResults = baseResults
             .sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
             .prefix(limit)
             .map { $0 }
+
+        var finalResults: [HostedRoomSummary] = []
+        finalResults.reserveCapacity(sortedBaseResults.count)
+        for room in sortedBaseResults {
+            let roomStatus = try await fetchHostedRoomStatus(roomId: room.id)
+            finalResults.append(
+                HostedRoomSummary(
+                    id: room.id,
+                    title: room.title,
+                    joinedCount: room.joinedCount,
+                    maxPlayers: room.maxPlayers,
+                    roomStatus: roomStatus,
+                    createdAt: room.createdAt
+                )
+            )
+        }
+
+        return finalResults
     }
 
     func fetchMyJoinedRooms(limit: Int = AppConfig.Mushroom.profileListFetchLimit) async throws -> [JoinedRoomSummary] { // Handles fetchMyJoinedRooms flow.
@@ -212,6 +237,40 @@ final class FbProfileListRepo {
         } catch {
             return try await query.getDocuments(source: .default).documents
         }
+    }
+
+    private func fetchHostedRoomStatus(roomId: String) async throws -> HostedRoomStatus {
+        let attendeeRef = db.collection("rooms").document(roomId).collection("attendees")
+        let attendeeDocuments: [QueryDocumentSnapshot]
+        do {
+            attendeeDocuments = try await attendeeRef.getDocuments(source: .server).documents
+        } catch {
+            attendeeDocuments = try await attendeeRef.getDocuments(source: .default).documents
+        }
+
+        let nonHostAttendeeStatuses: [AttendeeStatus] = attendeeDocuments.compactMap { document in
+            let rawStatus = document.data()["status"] as? String ?? ""
+            let attendeeStatus = AttendeeStatus(rawValue: rawStatus) ?? .ready
+            if attendeeStatus == .host { return nil }
+            return attendeeStatus
+        }
+
+        let isHasReadyAttendee = nonHostAttendeeStatuses.contains(.ready)
+        if isHasReadyAttendee {
+            return .ready
+        }
+
+        let isHasAnyNonHostAttendee = !nonHostAttendeeStatuses.isEmpty
+        if !isHasAnyNonHostAttendee {
+            return .waitingForPlayers
+        }
+
+        let isAllWaitingConfirmation = nonHostAttendeeStatuses.allSatisfy { $0 == .waitingConfirmation }
+        if isAllWaitingConfirmation {
+            return .waitingConfirmation
+        }
+
+        return .waitingForPlayers
     }
 }
 

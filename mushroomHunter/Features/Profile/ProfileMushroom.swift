@@ -56,14 +56,16 @@ struct JoinedRoomsSection: View, Equatable {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
 
-                            Text(
-                                String(
-                                    format: NSLocalizedString("profile_bid_format", comment: ""),
-                                    room.depositHoney
-                                )
-                            )
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            HStack(spacing: 4) {
+                                Image("HoneyIcon")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 14, height: 14)
+                                Text("\(room.depositHoney)")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                            }
 
                             Spacer(minLength: 0)
 
@@ -163,15 +165,24 @@ struct HostedRoomsSection: View, Equatable {
                             .font(.headline)
                             .lineLimit(1)
 
-                        Text(
-                            String(
-                                format: NSLocalizedString("profile_players_format", comment: ""),
-                                room.joinedCount,
-                                room.maxPlayers
+                        HStack(spacing: 8) {
+                            Text(
+                                String(
+                                    format: NSLocalizedString("profile_players_format", comment: ""),
+                                    room.joinedCount,
+                                    room.maxPlayers
+                                )
                             )
-                        )
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+
+                            Spacer(minLength: 0)
+
+                            ProfileStatusBadge(
+                                titleKey: hostedStatusKey(for: room.roomStatus),
+                                urgency: hostedStatusUrgency(for: room.roomStatus)
+                            )
+                        }
                     }
                 }
             }
@@ -181,6 +192,34 @@ struct HostedRoomsSection: View, Equatable {
                     systemImage: "house"
                 )
                 .listRowBackground(Color.clear)
+        }
+    }
+
+    /// Maps hosted-room aggregate status to localized badge title.
+    /// - Parameter status: Aggregate hosted-room status from attendee states.
+    /// - Returns: Localized key for hosted-room badge.
+    private func hostedStatusKey(for status: HostedRoomStatus) -> LocalizedStringKey {
+        switch status {
+        case .ready:
+            return LocalizedStringKey("profile_room_status_ready")
+        case .waitingForPlayers:
+            return LocalizedStringKey("profile_room_status_waiting_for_players")
+        case .waitingConfirmation:
+            return LocalizedStringKey("profile_room_status_waiting_confirmation")
+        }
+    }
+
+    /// Maps hosted-room aggregate status to badge urgency color.
+    /// - Parameter status: Aggregate hosted-room status from attendee states.
+    /// - Returns: Urgency palette used by hosted-room badge.
+    private func hostedStatusUrgency(for status: HostedRoomStatus) -> ProfileStatusUrgency {
+        switch status {
+        case .ready:
+            return .success
+        case .waitingForPlayers:
+            return .neutral
+        case .waitingConfirmation:
+            return .warning
         }
     }
 }

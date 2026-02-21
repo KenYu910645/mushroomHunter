@@ -79,10 +79,8 @@ final class ProfileViewModel: ObservableObject {
             await resetForUITestingMode()
             return
         }
-        let isLoadedFromCache = await loadListsFromCache(session: session)
-        if !isLoadedFromCache {
-            await refreshAllProfileData(session: session, forceRefresh: true)
-        }
+        _ = await loadListsFromCache(session: session)
+        await refreshAllProfileData(session: session, forceRefresh: true)
     }
 
     /// Reloads profile backend fields and all room/postcard collections in parallel.
@@ -256,6 +254,6 @@ final class ProfileViewModel: ObservableObject {
     /// - Returns: Stable cache key string.
     private func cacheKey(session: UserSessionStore) -> String {
         let userId = session.authUid ?? "anonymous"
-        return "profile.lists.\(userId).v1"
+        return "profile.lists.\(userId).v2"
     }
 }

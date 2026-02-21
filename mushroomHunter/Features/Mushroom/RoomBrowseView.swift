@@ -292,7 +292,6 @@ struct RoomBrowseView: View {
             let delta = Int(expiresAt.timeIntervalSinceNow / 60.0)
             return max(delta, 0)
         }
-        
         /// Row layout shown in browse list.
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {

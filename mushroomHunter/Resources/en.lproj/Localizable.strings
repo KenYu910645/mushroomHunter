@@ -233,12 +233,12 @@
 /***************************************/
 
 "room_msg_raid_confirm_title" = "Mushroom Invited";
-"room_msg_raid_confirm_message" = "%@ has invitied attendees to join a mushroom raid. Did you see the invitation?";
+"room_msg_raid_confirm_message" = "%@ has invited you to a mushroom. Did you see the invitation?";
 "room_msg_raid_confirm_joined_success_button" = "Yes, I joined the mushroom";
 "room_msg_raid_confirm_seat_full_button" = "Yes, but the mushroom is full";
 "room_msg_raid_confirm_missed_invite_button" = "No, I didn't see invitation";
-"room_msg_settlement_no_fault_title" = "Got it!";
-"room_msg_settlement_no_fault_message" = "Transfer 2 {honey_icon} to host as tips. No worries! You will have better luck next time. The host will keep inviting you.";
+"room_msg_settlement_no_fault_title" = "Thanks for the update!";
+"room_msg_settlement_no_fault_message" = "Transfer 2 {honey_icon} to host as tips. No worries! The host will invite you next time.";
 
 /***************************************/
 /**** Room Message Box: Next Round ****/
@@ -280,7 +280,7 @@
 "room_msg_claim_confirm_title" = "Confirm Invitation";
 "room_msg_claim_confirm_message" = "Have you invited all attendees to a mushroom raid?";
 "room_msg_claim_sent_title" = "Notified Attendees";
-"room_msg_claim_sent_message" = "Notified attendees to response to the invitation. You will receive payment later.";
+"room_msg_claim_sent_message" = "You will receive payment after they respond.";
 
 /***************************************/
 /**** Room Message Box: Thanks/Rating ****/
@@ -386,8 +386,8 @@
 "push_mushroom_join_request_rejected_body" = "Host rejected your request to join %@.";
 "push_mushroom_raid_result_accepted_title" = "Attendee Confirmed";
 "push_mushroom_raid_result_accepted_body" = "%@ confirmed raid join. You earned %@ honey.";
-"push_mushroom_raid_result_seat_full_title" = "Seat Full";
-"push_mushroom_raid_result_seat_full_body" = "%@ reported seat full. You earned %@ honey tips.";
+"push_mushroom_raid_result_seat_full_title" = "Attendee Confirmed";
+"push_mushroom_raid_result_seat_full_body" = "%@ reported invited but seat full. You earned %@ honey.";
 "push_mushroom_raid_result_missed_invite_title" = "Attendee Missed Invite";
 "push_mushroom_raid_result_missed_invite_body" = "%@ reported no invitation was seen.";
 "push_mushroom_raid_result_rejected_title" = "Invitation Rejected";
@@ -553,6 +553,7 @@
 "profile_room_status_host" = "Host";
 "profile_room_status_asking_to_join" = "Asking to join";
 "profile_room_status_ready" = "Ready";
+"profile_room_status_waiting_for_players" = "Waiting for players";
 "profile_room_status_waiting_confirmation" = "Waiting confirmation";
 "profile_room_status_rejected" = "Rejected";
 "profile_joined_section" = "Joined Rooms";

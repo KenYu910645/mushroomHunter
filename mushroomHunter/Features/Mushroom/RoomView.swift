@@ -1066,6 +1066,37 @@ private struct AttendeeRow: View {
     let onResolve: () -> Void // Callback to resolve rejected confirmation state.
     let onCopyFriendCode: (String) -> Void // Callback to copy attendee friend code.
 
+    /// Localized status key displayed in attendee status badge.
+    private var statusTitleKey: LocalizedStringKey {
+        if isHostAttendee {
+            return LocalizedStringKey("room_status_host")
+        }
+        if isAskingToJoin {
+            return LocalizedStringKey("room_status_asking_to_join")
+        }
+        if isPendingConfirmation {
+            return LocalizedStringKey("room_status_waiting_confirm")
+        }
+        if isRejectedConfirmation {
+            return LocalizedStringKey("room_status_rejected")
+        }
+        return LocalizedStringKey("room_status_ready")
+    }
+
+    /// Badge urgency mapped from current attendee status.
+    private var statusUrgency: ProfileStatusUrgency {
+        if isHostAttendee {
+            return .neutral
+        }
+        if isAskingToJoin || isPendingConfirmation {
+            return .warning
+        }
+        if isRejectedConfirmation {
+            return .critical
+        }
+        return .success
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
@@ -1091,34 +1122,10 @@ private struct AttendeeRow: View {
             }
 
             HStack(spacing: 10) {
-                if isHostAttendee {
-                    Text(LocalizedStringKey("room_status_host"))
-                        .font(.footnote)
-                        .foregroundStyle(.blue)
-                } else {
-                    if isAskingToJoin {
-                        Text(LocalizedStringKey("room_status_asking_to_join"))
-                            .font(.footnote)
-                            .foregroundStyle(.orange)
-                    }
-                    if isPendingConfirmation {
-                        Text(LocalizedStringKey("room_status_waiting_confirm"))
-                            .font(.footnote)
-                            .foregroundStyle(.orange)
-                    }
-
-                    if isRejectedConfirmation {
-                        Text(LocalizedStringKey("room_status_rejected"))
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                    }
-
-                    if !isAskingToJoin, !isPendingConfirmation, !isRejectedConfirmation {
-                        Text(LocalizedStringKey("room_status_ready"))
-                            .font(.footnote)
-                            .foregroundStyle(.green)
-                    }
-                }
+                ProfileStatusBadge(
+                    titleKey: statusTitleKey,
+                    urgency: statusUrgency
+                )
 
                 Spacer()
 

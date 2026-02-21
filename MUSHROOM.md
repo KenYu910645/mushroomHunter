@@ -70,6 +70,7 @@
   - QR code sheet.
   - Share/copy room invite link using deep link format `honeyhub://room/{roomId}`.
 - Room details copy-feedback toast (`Copied to clipboard`) now uses the same visual style and timing as postcard screens to keep cross-feature behavior consistent.
+- Room attendee list statuses now use the same rounded-rectangle urgency badge style as Profile status labels (`Host` blue, `Asking/Waiting` orange, `Rejected` red, `Ready` green).
 - Room details now uses app-level stale-first cache for room header + attendee data:
   - Opening room shows cached payload first.
   - Pull-to-refresh forces latest `rooms/{roomId}` + `attendees` query and overwrites cache.

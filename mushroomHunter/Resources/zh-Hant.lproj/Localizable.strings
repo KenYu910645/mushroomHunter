@@ -551,6 +551,7 @@
 "profile_room_status_host" = "主持人";
 "profile_room_status_asking_to_join" = "申請加入中";
 "profile_room_status_ready" = "可出戰";
+"profile_room_status_waiting_for_players" = "等待玩家";
 "profile_room_status_waiting_confirmation" = "等待確認";
 "profile_room_status_rejected" = "已拒絕";
 "profile_joined_section" = "已加入的蘑菇團";

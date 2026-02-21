@@ -39,11 +39,13 @@
   - On-shelf postcards
   - Ordered postcards
 - Joined mushroom room rows now show the attendee status directly in profile (`Host`, `Asking to join`, `Ready`, `Waiting confirmation`, `Rejected`) so users can instantly see their room state.
+- Profile list loading is now cache-first plus immediate forced backend refresh on appear, so attendee/host room-status changes (for example `Ready -> Waiting confirmation`) are updated promptly after entering Profile.
 - Joined mushroom room statuses are highlighted with rounded-rectangle badges and urgency color coding:
   - `Ready`: green
   - `Asking to join` / `Waiting confirmation`: yellow-orange
   - `Rejected`: red
-  - `Host`: blue
+- `Host`: blue
+- Joined mushroom room deposit now renders as `<deposit number> + honey icon` instead of plain text label format.
 - Profile postcard rows display status text on the right side (stock count hidden in profile lists):
   - On-shelf section:
     - `Order Received` when seller has unprocessed queue items (`SellerConfirmPending` / `AwaitingShipping` and legacy `AwaitingSellerSend`) for that listing.
@@ -56,6 +58,11 @@
   - `Order Received`: yellow-orange
   - `Wait for shipping`: yellow-orange
   - `Shipped, on-the-way`: blue
+- Hosted mushroom room rows now show an aggregate room-status badge so hosts can see room state immediately:
+  - `Ready` when at least one non-host attendee is `Ready`.
+  - `Waiting for players` when there is no non-host attendee.
+  - `Waiting confirmation` when all non-host attendees are `WaitingConfirmation`.
+  - Any other mixed non-host state currently falls back to `Waiting for players`.
 - Settings includes:
   - `Feedback`: opens in-app compose sheet (subject/message) and submits to Firestore `feedbackSubmissions`.
   - `Help`: opens the in-app tutorial walkthrough (`TutorialView`) so users can revisit onboarding guidance anytime.
