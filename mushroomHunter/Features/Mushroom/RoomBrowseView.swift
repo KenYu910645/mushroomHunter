@@ -18,6 +18,8 @@ struct RoomBrowseView: View {
     @State private var showHostSheet: Bool = false // Controls host-room sheet presentation.
     @State private var pendingJoinListing: RoomListing? = nil // Selected listing for join prompt context.
     @State private var bidText: String = "" // Join prompt text input (digits only).
+    @State private var joinGreetingMessage: String = NSLocalizedString("browse_join_greeting_default", comment: "") // Greeting message submitted together with join deposit.
+    @State private var isJoinGreetingFocused: Bool = false // Controls first-responder focus for join greeting editor.
     @State private var isSearchFieldVisible: Bool = false // Controls inline search field visibility.
     @State private var bidFieldFocused: Bool = false // Controls first-responder focus for the bid entry field.
     @FocusState private var isSearchFieldFocused: Bool // Controls keyboard focus for inline search field.
@@ -76,11 +78,40 @@ struct RoomBrowseView: View {
                     }
 
                     Section {
+                        ZStack(alignment: .topLeading) {
+                            if joinGreetingMessage.isEmpty {
+                                Text(LocalizedStringKey("browse_join_greeting_placeholder"))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.top, 8)
+                                    .padding(.leading, 6)
+                            }
+                            SelectAllTextEditor(
+                                text: $joinGreetingMessage,
+                                isFirstResponder: $isJoinGreetingFocused,
+                                autocapitalization: .sentences,
+                                autocorrection: .yes
+                            ) { latestValue in
+                                let maxLength = 100
+                                if latestValue.count > maxLength {
+                                    joinGreetingMessage = String(latestValue.prefix(maxLength))
+                                }
+                            }
+                            .frame(minHeight: 88)
+                        }
+                    } header: {
+                        Text(LocalizedStringKey("browse_join_greeting_header"))
+                    } footer: {
+                        Text(LocalizedStringKey("browse_join_greeting_footer"))
+                    }
+
+                    Section {
                         Button(LocalizedStringKey("common_join")) {
                             let bid = parseBid(bidText)
                             pendingJoinListing = nil
-                            Task { await vm.join(listing, deposit: bid) }
+                            isJoinGreetingFocused = false
+                            Task { await vm.join(listing, deposit: bid, greetingMessage: joinGreetingMessage) }
                         }
+                        .disabled(joinGreetingMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
                 .navigationTitle(LocalizedStringKey("browse_join_room_title"))
@@ -93,16 +124,31 @@ struct RoomBrowseView: View {
                 }
                 .onAppear {
                     bidFieldFocused = true
+                    if joinGreetingMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        joinGreetingMessage = NSLocalizedString("browse_join_greeting_default", comment: "")
+                    }
                 }
                 .onDisappear {
                     bidFieldFocused = false
+                    isJoinGreetingFocused = false
                 }
             }
         }
-        .alert(LocalizedStringKey("room_join_limit_title"), isPresented: $vm.showJoinLimitAlert) {
-            Button(LocalizedStringKey("common_ok")) {}
-        } message: {
-            Text(vm.joinLimitMessage)
+        .overlay {
+            if vm.showJoinLimitAlert {
+                HoneyMessageBox(
+                    title: NSLocalizedString("room_msg_join_limit_title", comment: ""),
+                    message: vm.joinLimitMessage,
+                    buttons: [
+                        HoneyMessageBoxButton(
+                            id: "room_browse_join_limit_ok",
+                            title: NSLocalizedString("common_ok", comment: "")
+                        ) {
+                            vm.showJoinLimitAlert = false
+                        }
+                    ]
+                )
+            }
         }
     }
     
@@ -194,6 +240,7 @@ struct RoomBrowseView: View {
                                 Button {
                                     pendingJoinListing = listing
                                     bidText = "\(max(AppConfig.Mushroom.minFixedRaidCost, listing.joinedPlayers > 0 ? AppConfig.Mushroom.defaultFixedRaidCost : AppConfig.Mushroom.minFixedRaidCost))"
+                                    joinGreetingMessage = NSLocalizedString("browse_join_greeting_default", comment: "")
                                 } label: {
                                     Text(LocalizedStringKey("common_join"))
                                 }

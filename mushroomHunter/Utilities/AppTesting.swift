@@ -65,6 +65,7 @@ enum AppTesting {
                 friendCode: "123456789012",
                 stars: 3,
                 depositHoney: AppConfig.Mushroom.defaultFixedRaidCost,
+                joinGreetingMessage: "Host fixture attendee.",
                 joinedAt: Date().addingTimeInterval(-300),
                 status: .host,
                 needsHostRating: false
@@ -79,6 +80,7 @@ enum AppTesting {
                     friendCode: "999988887777",
                     stars: 1,
                     depositHoney: 12,
+                    joinGreetingMessage: "UI fixture join greeting.",
                     joinedAt: Date(),
                     status: .ready,
                     needsHostRating: false
@@ -140,7 +142,8 @@ enum AppTesting {
                 id: "ui-test-order-001",
                 buyerId: "ui-test-buyer-001",
                 buyerName: "Buyer Tester",
-                buyerFriendCode: "000011112222"
+                buyerFriendCode: "000011112222",
+                status: .awaitingShipping
             )
         ]
     }

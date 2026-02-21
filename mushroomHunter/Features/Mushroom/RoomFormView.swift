@@ -489,22 +489,48 @@ struct RoomFormView: View {
                     .accessibilityIdentifier("host_close_button")
                 }
             }
-            .alert(vm.successAlertTitle, isPresented: $vm.showSuccessAlert) {
-                Button(LocalizedStringKey("common_ok")) {
-                    dismiss()
+            .overlay {
+                if vm.showSuccessAlert {
+                    HoneyMessageBox(
+                        title: vm.successAlertTitle,
+                        message: vm.successAlertMessage,
+                        buttons: [
+                            HoneyMessageBoxButton(
+                                id: "room_form_success_ok",
+                                title: NSLocalizedString("common_ok", comment: "")
+                            ) {
+                                vm.showSuccessAlert = false
+                                dismiss()
+                            }
+                        ]
+                    )
+                } else if vm.showLimitAlert {
+                    HoneyMessageBox(
+                        title: NSLocalizedString("host_limit_title", comment: ""),
+                        message: vm.limitAlertMessage,
+                        buttons: [
+                            HoneyMessageBoxButton(
+                                id: "room_form_limit_ok",
+                                title: NSLocalizedString("common_ok", comment: "")
+                            ) {
+                                vm.showLimitAlert = false
+                            }
+                        ]
+                    )
+                } else if vm.showRequiredAlert {
+                    HoneyMessageBox(
+                        title: NSLocalizedString("host_required_title", comment: ""),
+                        message: NSLocalizedString("host_required_message", comment: ""),
+                        buttons: [
+                            HoneyMessageBoxButton(
+                                id: "room_form_required_ok",
+                                title: NSLocalizedString("common_ok", comment: "")
+                            ) {
+                                vm.showRequiredAlert = false
+                            }
+                        ]
+                    )
                 }
-            } message: {
-                Text(vm.successAlertMessage)
-            }
-            .alert(LocalizedStringKey("host_limit_title"), isPresented: $vm.showLimitAlert) {
-                Button(LocalizedStringKey("common_ok")) {}
-            } message: {
-                Text(vm.limitAlertMessage)
-            }
-            .alert(LocalizedStringKey("host_required_title"), isPresented: $vm.showRequiredAlert) {
-                Button(LocalizedStringKey("common_ok")) {}
-            } message: {
-                Text(LocalizedStringKey("host_required_message"))
             }
         }
     }

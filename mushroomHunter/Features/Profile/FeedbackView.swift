@@ -127,13 +127,21 @@ struct FeedbackView: View {
                         .ignoresSafeArea()
                     }
                 }
-                .alert(
-                    LocalizedStringKey("feedback_submit_failed_title"),
-                    isPresented: $isSubmissionErrorAlertPresented
-                ) {
-                    Button(LocalizedStringKey("common_done")) { }
-                } message: {
-                    Text(submissionError ?? NSLocalizedString("feedback_submit_failed_message", comment: ""))
+                .overlay {
+                    if isSubmissionErrorAlertPresented {
+                        HoneyMessageBox(
+                            title: NSLocalizedString("feedback_submit_failed_title", comment: ""),
+                            message: submissionError ?? NSLocalizedString("feedback_submit_failed_message", comment: ""),
+                            buttons: [
+                                HoneyMessageBoxButton(
+                                    id: "feedback_submit_error_done",
+                                    title: NSLocalizedString("common_done", comment: "")
+                                ) {
+                                    isSubmissionErrorAlertPresented = false
+                                }
+                            ]
+                        )
+                    }
                 }
         }
     }

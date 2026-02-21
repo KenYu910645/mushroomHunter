@@ -38,14 +38,17 @@ final class ProfileViewModel: ObservableObject {
     /// On-shelf postcard listings shown in profile.
     @Published var onShelfPostcards: [PostcardListing] = []
 
+    /// On-shelf listing ids that currently have pending seller orders.
+    @Published var onShelfPendingOrderPostcardIds: Set<String> = []
+
     /// Ordered postcard loading indicator state.
     @Published var isOrderedPostcardsLoading: Bool = false
 
     /// Ordered postcard fetch error message.
     @Published var orderedPostcardsErrorMessage: String? = nil
 
-    /// Ordered postcard listings shown in profile.
-    @Published var orderedPostcards: [PostcardListing] = []
+    /// Ordered postcard summaries shown in profile.
+    @Published var orderedPostcards: [OrderedPostcardSummary] = []
 
     /// Repository for room profile queries.
     private let hostRepo = FbProfileListRepo()
@@ -59,6 +62,7 @@ final class ProfileViewModel: ObservableObject {
             hostedRooms = []
             joinedRooms = []
             onShelfPostcards = []
+            onShelfPendingOrderPostcardIds = []
             orderedPostcards = []
             hostedRoomsErrorMessage = nil
             joinedRoomsErrorMessage = nil
@@ -126,15 +130,21 @@ final class ProfileViewModel: ObservableObject {
         defer { isOnShelfPostcardsLoading = false }
 
         do {
-            onShelfPostcards = try await postcardRepo.fetchMyListings(
+            async let listingsLoad: [PostcardListing] = postcardRepo.fetchMyListings(
                 userId: userId,
                 limit: AppConfig.Postcard.profileListFetchLimit
             )
+            async let pendingOrderIdsLoad: Set<String> = postcardRepo.fetchSellerPendingOrderPostcardIds(
+                userId: userId
+            )
+            onShelfPostcards = try await listingsLoad
+            onShelfPendingOrderPostcardIds = try await pendingOrderIdsLoad
         } catch is CancellationError {
             return
         } catch {
             print("❌ loadOnShelfPostcards error:", error)
             onShelfPostcardsErrorMessage = resolvedErrorMessage(from: error)
+            onShelfPendingOrderPostcardIds = []
         }
     }
 

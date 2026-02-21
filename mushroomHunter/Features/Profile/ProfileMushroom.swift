@@ -64,6 +64,13 @@ struct JoinedRoomsSection: View, Equatable {
                             )
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+
+                            Spacer(minLength: 0)
+
+                            ProfileStatusBadge(
+                                titleKey: statusKey(for: room.attendeeStatus),
+                                urgency: statusUrgency(for: room.attendeeStatus)
+                            )
                         }
                     }
                 }
@@ -74,6 +81,40 @@ struct JoinedRoomsSection: View, Equatable {
                     systemImage: "person.2"
                 )
                 .listRowBackground(Color.clear)
+        }
+    }
+
+    /// Maps attendee status to profile joined-room status text.
+    /// - Parameter status: Current attendee status in this room.
+    /// - Returns: Localized key used by the profile joined-room row.
+    private func statusKey(for status: AttendeeStatus) -> LocalizedStringKey {
+        switch status {
+        case .host:
+            return LocalizedStringKey("profile_room_status_host")
+        case .askingToJoin:
+            return LocalizedStringKey("profile_room_status_asking_to_join")
+        case .ready:
+            return LocalizedStringKey("profile_room_status_ready")
+        case .waitingConfirmation:
+            return LocalizedStringKey("profile_room_status_waiting_confirmation")
+        case .rejected:
+            return LocalizedStringKey("profile_room_status_rejected")
+        }
+    }
+
+    /// Maps attendee status to profile badge urgency color.
+    /// - Parameter status: Current attendee status in this room.
+    /// - Returns: Urgency palette for status badge.
+    private func statusUrgency(for status: AttendeeStatus) -> ProfileStatusUrgency {
+        switch status {
+        case .ready:
+            return .success
+        case .askingToJoin, .waitingConfirmation:
+            return .warning
+        case .rejected:
+            return .critical
+        case .host:
+            return .neutral
         }
     }
 }

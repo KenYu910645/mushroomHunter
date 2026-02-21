@@ -12,6 +12,9 @@ struct OnShelfPostcardsSection: View, Equatable {
     /// Postcard listings owned by the user.
     let postcards: [PostcardListing]
 
+    /// Listing ids that currently have pending seller order queue items.
+    let pendingOrderPostcardIds: Set<String>
+
     /// Loading state for on-shelf postcard fetch.
     let isLoading: Bool
 
@@ -24,6 +27,7 @@ struct OnShelfPostcardsSection: View, Equatable {
     /// Equality gate used by `.equatable()` to skip unnecessary redraws.
     static func == (lhs: OnShelfPostcardsSection, rhs: OnShelfPostcardsSection) -> Bool {
         lhs.postcards == rhs.postcards
+            && lhs.pendingOrderPostcardIds == rhs.pendingOrderPostcardIds
             && lhs.isLoading == rhs.isLoading
             && lhs.errorMessage == rhs.errorMessage
     }
@@ -41,7 +45,13 @@ struct OnShelfPostcardsSection: View, Equatable {
                 loadingTextKey: LocalizedStringKey("profile_loading_onshelf_postcards")
             ) {
                 ForEach(postcards) { postcard in
-                    PostcardSummaryRow(postcard: postcard) {
+                    let statusKey = statusKey(for: postcard.id)
+                    let statusUrgency = statusUrgency(for: postcard.id)
+                    PostcardSummaryRow(
+                        postcard: postcard,
+                        statusKey: statusKey,
+                        statusUrgency: statusUrgency
+                    ) {
                         onSelectPostcard(postcard)
                     }
                 }
@@ -54,12 +64,30 @@ struct OnShelfPostcardsSection: View, Equatable {
             }
         }
     }
+
+    /// Maps on-shelf listing id to seller status text.
+    /// - Parameter postcardId: Listing id being rendered in profile.
+    /// - Returns: Localized status text key for on-shelf row.
+    private func statusKey(for postcardId: String) -> LocalizedStringKey {
+        let isOrderReceived = pendingOrderPostcardIds.contains(postcardId)
+        return isOrderReceived
+            ? LocalizedStringKey("profile_postcard_status_order_received")
+            : LocalizedStringKey("profile_postcard_status_on_shelf")
+    }
+
+    /// Maps on-shelf listing id to seller status urgency color.
+    /// - Parameter postcardId: Listing id being rendered in profile.
+    /// - Returns: Urgency palette for on-shelf status badge.
+    private func statusUrgency(for postcardId: String) -> ProfileStatusUrgency {
+        let isOrderReceived = pendingOrderPostcardIds.contains(postcardId)
+        return isOrderReceived ? .warning : .success
+    }
 }
 
 /// Ordered postcard list content shown in profile postcard section.
 struct OrderedPostcardsSection: View, Equatable {
-    /// Postcards purchased by the user.
-    let postcards: [PostcardListing]
+    /// Postcards purchased by the user with current order status.
+    let postcards: [OrderedPostcardSummary]
 
     /// Loading state for ordered postcard fetch.
     let isLoading: Bool
@@ -68,7 +96,7 @@ struct OrderedPostcardsSection: View, Equatable {
     let errorMessage: String?
 
     /// Row tap callback used to navigate to postcard detail.
-    let onSelectPostcard: (PostcardListing) -> Void
+    let onSelectPostcard: (OrderedPostcardSummary) -> Void
 
     /// Equality gate used by `.equatable()` to skip unnecessary redraws.
     static func == (lhs: OrderedPostcardsSection, rhs: OrderedPostcardsSection) -> Bool {
@@ -89,9 +117,13 @@ struct OrderedPostcardsSection: View, Equatable {
                 errorMessage: errorMessage,
                 loadingTextKey: LocalizedStringKey("profile_loading_ordered_postcards")
             ) {
-                ForEach(postcards) { postcard in
-                    PostcardSummaryRow(postcard: postcard) {
-                        onSelectPostcard(postcard)
+                ForEach(postcards) { postcardSummary in
+                    PostcardSummaryRow(
+                        postcard: postcardSummary.listing,
+                        statusKey: statusKey(for: postcardSummary.status),
+                        statusUrgency: statusUrgency(for: postcardSummary.status)
+                    ) {
+                        onSelectPostcard(postcardSummary)
                     }
                 }
             } emptyContent: {
@@ -103,12 +135,44 @@ struct OrderedPostcardsSection: View, Equatable {
             }
         }
     }
+
+    /// Maps order status to profile ordered-row status text.
+    /// - Parameter status: Latest active order status.
+    /// - Returns: Localized status text key for ordered section.
+    private func statusKey(for status: PostcardOrderStatus) -> LocalizedStringKey {
+        switch status {
+        case .sellerConfirmPending, .awaitingShipping:
+            return LocalizedStringKey("profile_postcard_status_wait_for_shipping")
+        case .shipped:
+            return LocalizedStringKey("profile_postcard_status_on_the_way")
+        default:
+            return LocalizedStringKey("profile_postcard_status_wait_for_shipping")
+        }
+    }
+
+    /// Maps order status to profile badge urgency color.
+    /// - Parameter status: Latest active order status.
+    /// - Returns: Urgency palette for status badge.
+    private func statusUrgency(for status: PostcardOrderStatus) -> ProfileStatusUrgency {
+        switch status {
+        case .sellerConfirmPending, .awaitingShipping:
+            return .warning
+        case .shipped:
+            return .neutral
+        default:
+            return .warning
+        }
+    }
 }
 
 /// Reusable row style for postcard list items in profile tab.
 private struct PostcardSummaryRow: View {
-    /// Postcard model used to render title, location, price, and stock.
+    /// Postcard model used to render title, location, and price.
     let postcard: PostcardListing
+    /// Status text key shown in place of stock value.
+    let statusKey: LocalizedStringKey
+    /// Urgency palette that controls status badge color.
+    let statusUrgency: ProfileStatusUrgency
 
     /// Tap callback for row selection.
     let onTap: () -> Void
@@ -145,10 +209,10 @@ private struct PostcardSummaryRow: View {
                             .frame(width: 12, height: 12)
                     }
 
-                    Text("x\(postcard.stock)")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+                    ProfileStatusBadge(
+                        titleKey: statusKey,
+                        urgency: statusUrgency
+                    )
                 }
             }
         }

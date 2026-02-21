@@ -72,11 +72,17 @@ final class RoomBrowseViewModel: ObservableObject {
     /// Side effects:
     /// - On success, spends honey locally and refreshes listing counts.
     /// - On max-join-limit error, surfaces dedicated alert state.
-    func join(_ listing: RoomListing, deposit: Honey) async { // Handles join flow.
+    func join(_ listing: RoomListing, deposit: Honey, greetingMessage: String) async { // Handles join flow.
+        let trimmedGreetingMessage = greetingMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         if AppTesting.useMockRooms {
             guard deposit > 0 else {
                 let msg = NSLocalizedString("browse_error_enter_bid", comment: "")
                 self.errorMessage = msg
+                return
+            }
+            guard !trimmedGreetingMessage.isEmpty else {
+                let message = NSLocalizedString("browse_error_enter_greeting", comment: "")
+                self.errorMessage = message
                 return
             }
             _ = session.spendHoney(deposit)
@@ -87,6 +93,11 @@ final class RoomBrowseViewModel: ObservableObject {
         guard trimmedDeposit > 0 else {
             let msg = NSLocalizedString("browse_error_enter_bid", comment: "")
             self.errorMessage = msg
+            return
+        }
+        guard !trimmedGreetingMessage.isEmpty else {
+            let message = NSLocalizedString("browse_error_enter_greeting", comment: "")
+            self.errorMessage = message
             return
         }
         guard session.canAffordHoney(trimmedDeposit) else {
@@ -103,6 +114,7 @@ final class RoomBrowseViewModel: ObservableObject {
                 try await self.actions.joinRoom(
                     roomId: listing.id,
                     initialDepositHoney: trimmedDeposit,
+                    greetingMessage: trimmedGreetingMessage,
                     userName: self.session.displayName,
                     friendCode: self.session.friendCode,
                     stars: self.session.stars,

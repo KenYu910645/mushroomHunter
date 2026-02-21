@@ -1,5 +1,6 @@
 const {setGlobalOptions} = require("firebase-functions/v2");
 const {onDocumentCreated, onDocumentUpdated} = require("firebase-functions/v2/firestore");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
@@ -87,14 +88,22 @@ async function sendPushToUser(uid, message, context, snapshotToken = "") {
     return;
   }
 
+  const incomingApns = message.apns || {};
+  const incomingPayload = incomingApns.payload || {};
+  const incomingAps = incomingPayload.aps || {};
+  const mergedAps = {
+    sound: "default",
+    ...incomingAps,
+  };
+
   await messaging.send({
     token,
     ...message,
     apns: {
+      ...incomingApns,
       payload: {
-        aps: {
-          sound: "default",
-        },
+        ...incomingPayload,
+        aps: mergedAps,
       },
     },
   });
@@ -112,6 +121,123 @@ async function resolveHostUid(roomId, roomData) {
       .get();
   return hostQuery.docs[0]?.id ?? null;
 }
+
+function isTimestampReached(timestampValue, nowTimestamp) {
+  const isHasTimestamp = timestampValue &&
+      typeof timestampValue.toMillis === "function";
+  if (!isHasTimestamp) {
+    return false;
+  }
+  return timestampValue.toMillis() <= nowTimestamp.toMillis();
+}
+
+async function processSellerShippingTimeouts(nowTimestamp) {
+  const query = db.collection("postcardOrders")
+      .where("status", "==", "AwaitingShipping")
+      .where("sellerShippingDeadlineAt", "<=", nowTimestamp)
+      .limit(50);
+  const snap = await query.get();
+
+  for (const doc of snap.docs) {
+    const orderRef = doc.ref;
+    await db.runTransaction(async (tx) => {
+      const latestSnap = await tx.get(orderRef);
+      const latestData = latestSnap.data();
+      if (!latestData) return;
+
+      const isStatusMatch = latestData.status === "AwaitingShipping";
+      const isDeadlineReached = isTimestampReached(
+          latestData.sellerShippingDeadlineAt,
+          nowTimestamp,
+      );
+      if (!isStatusMatch || !isDeadlineReached) return;
+
+      const buyerId = stringifyValue(latestData.buyerId, "");
+      const postcardId = stringifyValue(latestData.postcardId, "");
+      const holdHoney = Number(latestData.holdHoney || 0);
+      const isMissingSettlementPayload = !buyerId || !postcardId || holdHoney <= 0;
+      if (isMissingSettlementPayload) return;
+
+      const buyerRef = db.collection("users").doc(buyerId);
+      const postcardRef = db.collection("postcards").doc(postcardId);
+      const buyerSnap = await tx.get(buyerRef);
+      const postcardSnap = await tx.get(postcardRef);
+      const buyerHoney = Number(buyerSnap.data()?.honey || 0);
+      const stock = Number(postcardSnap.data()?.stock || 0);
+
+      tx.set(buyerRef, {
+        honey: buyerHoney + holdHoney,
+        updatedAt: nowTimestamp,
+      }, {merge: true});
+      tx.set(postcardRef, {
+        stock: stock + 1,
+        updatedAt: nowTimestamp,
+      }, {merge: true});
+      tx.update(orderRef, {
+        status: "FailedSellerNoShip",
+        completedAt: nowTimestamp,
+        updatedAt: nowTimestamp,
+      });
+    });
+  }
+}
+
+async function processBuyerAutoCompletion(nowTimestamp) {
+  const query = db.collection("postcardOrders")
+      .where("status", "==", "Shipped")
+      .where("buyerConfirmDeadlineAt", "<=", nowTimestamp)
+      .limit(50);
+  const snap = await query.get();
+
+  for (const doc of snap.docs) {
+    const orderRef = doc.ref;
+    await db.runTransaction(async (tx) => {
+      const latestSnap = await tx.get(orderRef);
+      const latestData = latestSnap.data();
+      if (!latestData) return;
+
+      const isStatusMatch = latestData.status === "Shipped";
+      const isDeadlineReached = isTimestampReached(
+          latestData.buyerConfirmDeadlineAt,
+          nowTimestamp,
+      );
+      if (!isStatusMatch || !isDeadlineReached) return;
+
+      const sellerId = stringifyValue(latestData.sellerId, "");
+      const holdHoney = Number(latestData.holdHoney || 0);
+      const isMissingSettlementPayload = !sellerId || holdHoney <= 0;
+      if (isMissingSettlementPayload) return;
+
+      const sellerRef = db.collection("users").doc(sellerId);
+      const sellerSnap = await tx.get(sellerRef);
+      const sellerHoney = Number(sellerSnap.data()?.honey || 0);
+
+      tx.set(sellerRef, {
+        honey: sellerHoney + holdHoney,
+        updatedAt: nowTimestamp,
+      }, {merge: true});
+      tx.update(orderRef, {
+        status: "CompletedAuto",
+        completedAt: nowTimestamp,
+        updatedAt: nowTimestamp,
+      });
+    });
+  }
+}
+
+exports.processPostcardOrderTimeouts = onSchedule(
+    {
+      schedule: "every 15 minutes",
+      region: "us-central1",
+      timeZone: "Etc/UTC",
+    },
+    async () => {
+      const nowTimestamp = admin.firestore.Timestamp.now();
+      await processSellerShippingTimeouts(nowTimestamp);
+      await processBuyerAutoCompletion(nowTimestamp);
+      logger.info("Postcard order timeout sweep completed");
+    },
+);
 
 exports.sendRaidConfirmationPush = onDocumentUpdated(
     {
@@ -192,8 +318,34 @@ exports.notifyHostRaidConfirmationResult = onDocumentUpdated(
 
       const raidCostHoney = Number(roomData.fixedRaidCost || 0);
       const attendeeName = (afterData.name || "A player").toString();
+      const settlementOutcome = (afterData.lastSettlementOutcome || "").toString();
+      const settlementHoney = Number(afterData.lastSettlementHoney || 0);
 
-      const message = transitionedToReady ? {
+      const message = transitionedToReady ? (settlementOutcome === "SeatFullNoFault" ? {
+        notification: {
+          title: "Seat Full (No-Fault)",
+          body: `${attendeeName} reported seat full. You earned ${settlementHoney} honey effort fee.`,
+        },
+        data: {
+          type: "raid_confirmation_seat_full",
+          roomId,
+          room_id: roomId,
+          attendeeUid,
+          honeyEarned: String(settlementHoney),
+        },
+      } : settlementOutcome === "MissedInvitation" ? {
+        notification: {
+          title: "Attendee Missed Invite",
+          body: `${attendeeName} reported no invitation was seen. No honey moved.`,
+        },
+        data: {
+          type: "raid_confirmation_missed_invite",
+          roomId,
+          room_id: roomId,
+          attendeeUid,
+          honeyEarned: "0",
+        },
+      } : {
         notification: {
           title: "Attendee Confirmed",
           body: `${attendeeName} confirmed. You earned ${raidCostHoney} honey.`,
@@ -205,10 +357,10 @@ exports.notifyHostRaidConfirmationResult = onDocumentUpdated(
           attendeeUid,
           honeyEarned: String(raidCostHoney),
         },
-      } : {
+      }) : {
         notification: {
-          title: "Attendee Rejected",
-          body: `${attendeeName} rejected your confirmation. Tap to resolve it.`,
+          title: "Attendee Missed Invite",
+          body: `${attendeeName} reported no invitation was seen. No honey moved.`,
         },
         data: {
           type: "raid_confirmation_rejected",
@@ -250,7 +402,7 @@ exports.sendPostcardShippedPush = onDocumentUpdated(
 
       const oldStatus = beforeData.status ?? null;
       const newStatus = afterData.status ?? null;
-      if (oldStatus === "InTransit" || newStatus !== "InTransit") {
+      if (oldStatus === "Shipped" || newStatus !== "Shipped") {
         return;
       }
 
@@ -269,6 +421,17 @@ exports.sendPostcardShippedPush = onDocumentUpdated(
           notification: {
             title: "Postcard Sent",
             body: `${sellerName} marked "${postcardTitle}" as sent. Please check delivery and confirm receipt in app.`,
+          },
+          apns: {
+            payload: {
+              aps: {
+                alert: {
+                  "title-loc-key": "push_postcard_shipped_title",
+                  "loc-key": "push_postcard_shipped_body",
+                  "loc-args": [sellerName, postcardTitle],
+                },
+              },
+            },
           },
           data: {
             type: "postcard_shipped",
@@ -297,7 +460,7 @@ exports.sendPostcardOrderCreatedPush = onDocumentCreated(
       if (!orderData) return;
 
       const status = (orderData.status || "").toString();
-      if (status !== "AwaitingSellerSend") {
+      if (status !== "AwaitingShipping") {
         return;
       }
 
@@ -316,6 +479,17 @@ exports.sendPostcardOrderCreatedPush = onDocumentCreated(
           notification: {
             title: "New Postcard Order",
             body: `${buyerName} ordered "${postcardTitle}". Open postcard detail to process shipping.`,
+          },
+          apns: {
+            payload: {
+              aps: {
+                alert: {
+                  "title-loc-key": "push_postcard_order_created_title",
+                  "loc-key": "push_postcard_order_created_body",
+                  "loc-args": [postcardTitle],
+                },
+              },
+            },
           },
           data: {
             type: "postcard_order_created",
@@ -346,7 +520,9 @@ exports.notifySellerPostcardCompleted = onDocumentUpdated(
 
       const oldStatus = (beforeData.status || "").toString();
       const newStatus = (afterData.status || "").toString();
-      if (oldStatus === "Completed" || newStatus !== "Completed") {
+      const isCompletionStatus = newStatus === "Completed" || newStatus === "CompletedAuto";
+      const isAlreadyCompleted = oldStatus === "Completed" || oldStatus === "CompletedAuto";
+      if (isAlreadyCompleted || !isCompletionStatus) {
         return;
       }
 
@@ -358,13 +534,33 @@ exports.notifySellerPostcardCompleted = onDocumentUpdated(
       }
 
       const buyerName = (afterData.buyerName || "Buyer").toString();
+      const postcardTitle = (afterData.postcardTitle || "postcard").toString();
       const holdHoney = Number(afterData.holdHoney || 0);
+      const holdHoneyText = String(holdHoney);
+      const isAutoCompleted = newStatus === "CompletedAuto";
 
       try {
         await sendPushToUser(sellerUid, {
           notification: {
             title: "Order Completed",
-            body: `${buyerName} confirmed receipt. ${holdHoney} honey has been transferred to you.`,
+            body: isAutoCompleted ?
+                `Buyer confirmation timed out. ${holdHoney} honey has been automatically transferred to you.` :
+                `${buyerName} confirmed receipt. ${holdHoney} honey has been transferred to you.`,
+          },
+          apns: {
+            payload: {
+              aps: {
+                alert: isAutoCompleted ? {
+                  "title-loc-key": "push_postcard_completed_title",
+                  "loc-key": "push_postcard_completed_auto_body",
+                  "loc-args": [postcardTitle, holdHoneyText],
+                } : {
+                  "title-loc-key": "push_postcard_completed_title",
+                  "loc-key": "push_postcard_completed_body",
+                  "loc-args": [buyerName, holdHoneyText],
+                },
+              },
+            },
           },
           data: {
             type: "postcard_order_completed",
@@ -378,6 +574,68 @@ exports.notifySellerPostcardCompleted = onDocumentUpdated(
         logger.error("Failed to send postcard completed push", {
           orderId,
           sellerUid,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+);
+
+exports.sendPostcardRejectedPush = onDocumentUpdated(
+    {
+      document: "postcardOrders/{orderId}",
+      region: "us-central1",
+    },
+    async (event) => {
+      const beforeData = event.data?.before?.data();
+      const afterData = event.data?.after?.data();
+      if (!beforeData || !afterData) return;
+
+      const oldStatus = (beforeData.status || "").toString();
+      const newStatus = (afterData.status || "").toString();
+      if (oldStatus === "Rejected" || newStatus !== "Rejected") {
+        return;
+      }
+
+      const orderId = event.params.orderId;
+      const buyerUid = (afterData.buyerId || "").toString();
+      if (!buyerUid) {
+        logger.warn("Missing buyerId for postcard rejected push", {orderId});
+        return;
+      }
+
+      const postcardTitle = (afterData.postcardTitle || "postcard").toString();
+      const holdHoney = Number(afterData.holdHoney || afterData.priceHoney || 0);
+      const holdHoneyText = String(holdHoney);
+
+      try {
+        await sendPushToUser(buyerUid, {
+          notification: {
+            title: "Order Rejected",
+            body: `Your order for "${postcardTitle}" was rejected. ${holdHoney} honey has been fully refunded.`,
+          },
+          apns: {
+            payload: {
+              aps: {
+                alert: {
+                  "title-loc-key": "push_postcard_rejected_title",
+                  "loc-key": "push_postcard_rejected_body",
+                  "loc-args": [postcardTitle, holdHoneyText],
+                },
+              },
+            },
+          },
+          data: {
+            type: "postcard_rejected",
+            orderId,
+            postcardId: (afterData.postcardId || "").toString(),
+            honey: holdHoneyText,
+          },
+        }, {orderId, buyerUid}, afterData.buyerFcmToken);
+        logger.info("Postcard rejected push sent", {orderId, buyerUid});
+      } catch (error) {
+        logger.error("Failed to send postcard rejected push", {
+          orderId,
+          buyerUid,
           error: error instanceof Error ? error.message : String(error),
         });
       }

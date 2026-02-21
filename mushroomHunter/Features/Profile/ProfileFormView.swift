@@ -114,10 +114,21 @@ struct ProfileFormView: View {
                     }
                 }
             }
-            .alert(LocalizedStringKey("create_profile_error_title"), isPresented: $showValidationAlert) {
-                Button(LocalizedStringKey("common_ok")) { }
-            } message: {
-                Text(LocalizedStringKey("create_profile_error_message"))
+            .overlay {
+                if showValidationAlert {
+                    HoneyMessageBox(
+                        title: NSLocalizedString("create_profile_error_title", comment: ""),
+                        message: NSLocalizedString("create_profile_error_message", comment: ""),
+                        buttons: [
+                            HoneyMessageBoxButton(
+                                id: "profile_form_validation_ok",
+                                title: NSLocalizedString("common_ok", comment: "")
+                            ) {
+                                showValidationAlert = false
+                            }
+                        ]
+                    )
+                }
             }
             .onAppear {
                 initializeFormValues()

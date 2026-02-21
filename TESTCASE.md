@@ -39,6 +39,11 @@ In UI testing mode, profile refresh/sync paths are also short-circuited so no Fi
 - Coverage:
   - Join a fixture room in mock mode.
   - Join action path opens expected confirmation feedback (alert flow).
+  - Joined attendee starts in pending-approval state (`AskingToJoin`) until host accepts.
+  - Raid settlement alert supports three attendee responses:
+    - joined success
+    - seat full (no-fault)
+    - missed invitation
 
 ### 4. Postcard buy flow
 - Test: `testBuyPostcardFlow`
@@ -85,7 +90,8 @@ In UI testing mode, profile refresh/sync paths are also short-circuited so no Fi
 - Test: `testPostcardSellerShippingFlow`
 - Coverage:
   - Open seller-owned postcard detail.
-  - Open shipping sheet and mark recipient order as sent.
+  - Open shipping sheet.
+  - Seller can accept/reject pending orders and mark accepted order as sent.
   - Verify shipping success feedback and recipient removal.
 
 ## Covered User Journeys

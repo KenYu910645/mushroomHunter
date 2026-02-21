@@ -1,11 +1,48 @@
+/***************************************/
+/**** Tabs ****/
+/***************************************/
+
 "tab_mushroom" = "Mushroom";
 "tab_postcard" = "Postcard";
 "tab_profile" = "Profile";
 
+/***************************************/
+/**** Common ****/
+/***************************************/
+
+"common_ok" = "OK";
+"common_error" = "Error";
+"common_cancel" = "Cancel";
+"common_confirm" = "Confirm";
+"common_clear" = "Clear";
+"common_done" = "Done";
+"common_save" = "Save";
+"common_join" = "Join";
+"common_close" = "Close";
+"common_yes" = "Yes";
+"common_no" = "No";
+"common_later" = "Later";
+"common_open" = "Open";
+"common_closed" = "Closed";
+"common_sort" = "Sort";
+"common_filters" = "Filters";
+"common_all" = "All";
+"common_more" = "More";
+"common_loading" = "Loading…";
+"common_copied" = "Copied to clipboard";
+
+/***************************************/
+/**** Mushroom Browse ****/
+/***************************************/
+
 "browse_title" = "Mushroom List";
 "browse_join_room_title" = "Join Room";
 "browse_join_bid_placeholder" = "Deposit (honey)";
-"browse_join_message" = "Enter deposit. You have %d 🍯.";
+"browse_join_message" = "Enter deposit. You have %d {honey_icon}.";
+"browse_join_greeting_header" = "Greeting Message";
+"browse_join_greeting_placeholder" = "Hi host, I can join quickly and I will reply your invite.";
+"browse_join_greeting_footer" = "Tell the host why you are joining. Required, up to 100 characters.";
+"browse_join_greeting_default" = "Hi host, I am ready to join your next mushroom raid.";
 "browse_search_title" = "Search";
 "browse_search_placeholder" = "Search title/location";
 "browse_search_message" = "Type to filter rooms.";
@@ -22,20 +59,12 @@
 "browse_attendee_format" = "👤 %d/%d";
 "browse_expires_format" = "Expires: %dm";
 "browse_error_enter_bid" = "Please enter a deposit before joining.";
-"browse_error_not_enough_honey" = "Not enough honey. You have %d 🍯.";
+"browse_error_enter_greeting" = "Please enter a greeting message before joining.";
+"browse_error_not_enough_honey" = "Not enough honey. You have %d {honey_icon}.";
 
-"mushroom_type_all" = "All";
-"mushroom_type_normal" = "Normal";
-"mushroom_type_fire" = "Fire";
-"mushroom_type_water" = "Water";
-"mushroom_type_crystal" = "Crystal";
-"mushroom_type_electric" = "Electric";
-"mushroom_type_poisonous" = "Poisonous";
-
-"target_color" = "color";
-"target_attribute" = "attribute";
-"target_size" = "size";
-"target_all_format" = "all %@";
+/***************************************/
+/**** Mushroom Host Form ****/
+/***************************************/
 
 "host_edit_title" = "Edit Room";
 "host_create_title" = "Create Room";
@@ -73,7 +102,23 @@
 "host_close_room_button" = "Close Room";
 "host_close_room_footer" = "The room will be removed and cannot be recovery.";
 "host_reset_form" = "Reset Form";
+"host_room_default_name" = "Let's fight mushroom";
 
+/***************************************/
+/**** Mushroom Types/Attributes ****/
+/***************************************/
+
+"mushroom_type_all" = "All";
+"mushroom_type_normal" = "Normal";
+"mushroom_type_fire" = "Fire";
+"mushroom_type_water" = "Water";
+"mushroom_type_crystal" = "Crystal";
+"mushroom_type_electric" = "Electric";
+"mushroom_type_poisonous" = "Poisonous";
+"target_color" = "color";
+"target_attribute" = "attribute";
+"target_size" = "size";
+"target_all_format" = "all %@";
 "mushroom_color_red" = "Red";
 "mushroom_color_all" = "All";
 "mushroom_color_yellow" = "Yellow";
@@ -82,7 +127,6 @@
 "mushroom_color_white" = "White";
 "mushroom_color_gray" = "Gray";
 "mushroom_color_pink" = "Pink";
-
 "mushroom_attr_all" = "All";
 "mushroom_attr_normal" = "Normal";
 "mushroom_attr_fire" = "Fire";
@@ -90,113 +134,39 @@
 "mushroom_attr_crystal" = "Crystal";
 "mushroom_attr_electric" = "Electric";
 "mushroom_attr_poisonous" = "Poisonous";
-
 "mushroom_size_all" = "All";
 "mushroom_size_small" = "Small";
 "mushroom_size_normal" = "Normal";
 "mushroom_size_magnificent" = "Magnificent";
 
-"host_room_default_name" = "Let's fight mushroom";
-
-"postcard_title" = "Postcard";
-"postcard_register_title" = "Register Postcard";
-"postcard_empty_title" = "No postcards found";
-"postcard_empty_description" = "Try a different search or clear filters.";
-"postcard_search_title" = "Search";
-"postcard_search_placeholder" = "Search title/location";
-"postcard_search_message" = "Type to filter postcards.";
-"postcard_search_accessibility" = "Search postcards";
-"postcard_search_result_summary_format" = "Search result for '%@'";
-"postcard_search_clear_accessibility" = "Clear search";
-"postcard_register_accessibility" = "Register postcard";
-"postcard_edit_accessibility" = "Edit postcard";
-"postcard_shipping_accessibility" = "Ship postcard";
-"postcard_share_accessibility" = "Share postcard invite";
-"postcard_country" = "Country";
-"postcard_province" = "State/City";
-"postcard_sort" = "Sort";
-"postcard_sort_newest" = "Newest";
-"postcard_sort_lowest_price" = "Lowest Price";
-"postcard_price_honey_format" = "%d 🍯";
-"postcard_stock_format" = "x%d";
-"postcard_seller_format" = "Seller: %@";
-"postcard_price_label" = "Price";
-"postcard_stock_label" = "Stock";
-"postcard_stock_plain_format" = "%d";
-"postcard_buy_button" = "Buy";
-"postcard_confirm_title" = "Confirm Purchase";
-"postcard_confirm_message" = "Honey will be held until you confirm received.";
-"postcard_buy_success_title" = "Purchase Created";
-"postcard_buy_success_message" = "Honey is now on hold. Wait for the seller to mark postcard sent.";
-"postcard_shipping_title" = "Shipping Postcard";
-"postcard_shipping_empty" = "No buyers are waiting for shipment.";
-"postcard_shipping_send_button" = "Postcard Sent";
-"postcard_shipping_friend_code_format" = "Friend code: %@";
-"postcard_shipping_sent_title" = "Shipping Updated";
-"postcard_shipping_sent_message" = "Notification sent to buyer. Honey will transfer to you after buyer confirms receipt.";
-"postcard_receive_prompt" = "Did you receive this postcard?";
-"postcard_receive_yes_button" = "Yes, received";
-"postcard_receive_no_button" = "Not yet";
-"postcard_receive_confirm_title" = "Confirm Received";
-"postcard_receive_confirm_message" = "If confirmed, honey will transfer to the seller and this order will be completed.";
-"postcard_receive_success_title" = "Transaction Completed";
-"postcard_receive_success_message" = "Thanks for confirming. Honey has been transferred to the seller, and a notification was sent.";
-"postcard_receive_wait_title" = "Still In Transit";
-"postcard_receive_wait_message" = "Shipping can take a while. Please check again later. Honey remains on hold until you confirm receipt.";
-"postcard_order_pending_message" = "Your order is in progress. Wait for seller shipping or confirm receipt after delivery.";
-"postcard_invite_title" = "Postcard Invite";
-"postcard_invite_hint" = "Share this QR code to other players\"%@\".";
-"postcard_invite_share_button" = "Share Link";
-"postcard_invite_copy_button" = "Copy Link";
-"postcard_invite_link_unavailable" = "Invite link unavailable. Please try again.";
-"postcard_link_unavailable_title" = "Unable to load postcard";
-"postcard_link_unavailable_message" = "This postcard is unavailable or removed.";
-"postcard_snapshot_section" = "Snapshot";
-"postcard_snapshot_hint" = "Upload postcard snapshot";
-"postcard_select_photo_button" = "Select Photo";
-"postcard_uploading" = "Uploading...";
-"postcard_uploaded_prefix" = "Uploaded:";
-"postcard_upload_load_error" = "Unable to load this image.";
-"postcard_upload_select_error" = "Please select a snapshot first.";
-"postcard_upload_process_error" = "Failed to process image.";
-"postcard_info_section" = "Info";
-"postcard_title_field" = "Title";
-"postcard_default_title" = "Postcard";
-"postcard_price_field" = "Selling Price";
-"postcard_default_price" = "1";
-"postcard_country_field" = "Country";
-"postcard_province_field" = "Province";
-"postcard_default_province" = "Somewhere";
-"postcard_detail_field" = "Description";
-"postcard_detail_placeholder" = "I found this postcard in the forest...";
-"postcard_stock_field" = "Stock";
-"postcard_default_stock" = "1";
-"postcard_submit_button" = "Submit Postcard";
-"postcard_edit_title" = "Edit Postcard";
-"postcard_remove_button" = "Remove from Market";
-"postcard_remove_confirm_title" = "Remove this postcard listing?";
-"postcard_submitted_title" = "Submitted";
-"postcard_submitted_message" = "Postcard listed successfully.";
-"postcard_validation_title_error" = "Please enter a title.";
-"postcard_validation_price_error" = "Please enter a valid price.";
-"postcard_validation_stock_error" = "Please enter valid stock.";
-"postcard_validation_location_error" = "Country and province are required.";
-"postcard_location_unknown" = "Unknown";
+/***************************************/
+/**** Room Main ****/
+/***************************************/
 
 "room_title" = "Room";
-"room_raid_confirm_title" = "Raid Confirmation";
-"room_raid_confirm_message" = "%@ claims to invite you to a mushroom raid. Did you join the raid?";
-"room_next_round_title" = "Not enough honey";
-"room_update_bid" = "Top-up";
-"room_leave_room" = "Leave Room";
-"room_next_round_message" = "You deposit is not enough for the next raid";
+
+/***************************************/
+/**** Room Sheet: Join / Deposit ****/
+/***************************************/
+
+"room_join_title" = "Join Room";
 "room_max_honey_format" = "Max %d";
 "room_bid_header" = "Deposit";
 "room_bid_footer" = "This deposit is held while you stay in the room. It is only spent after a raid finishes and you confirm. Leaving the room returns any unspent deposit.";
-"room_join_title" = "Join Room";
+"room_join_greeting_header" = "Greeting Message";
+"room_join_greeting_placeholder" = "Hi host, I can join quickly and I will reply your invite.";
+"room_join_greeting_footer" = "Tell the host why you are joining. Required, up to 100 characters.";
+"room_join_greeting_default" = "Hi host, I am ready to join your next mushroom raid.";
 "room_update_bid_header" = "Deposit";
 "room_update_bid_footer" = "This deposit is held while you stay in the room. It is only spent after a raid finishes and you confirm. Leaving the room returns any unspent deposit.";
 "room_edit_bid_title" = "Top-up Honey";
+"room_update_bid" = "Top-up";
+"room_leave_room" = "Leave Room";
+
+/***************************************/
+/**** Room Section: Header / Attendees ****/
+/***************************************/
+
 "room_finish_hint" = "Please select players who actually joined the mushroom raid.";
 "room_attendees_header" = "Attendees";
 "room_no_attendees_title" = "No attendees";
@@ -230,21 +200,258 @@
 "room_status_waiting_confirm" = "Wait for confirmation";
 "room_status_rejected" = "Reject confirmation";
 "room_status_ready" = "Ready";
+"room_status_asking_to_join" = "Asking to join";
 "room_status_host" = "Host";
+"room_join_application_accept" = "Accept Application";
+"room_join_application_reject" = "Reject Application";
+"room_join_greeting_label" = "Message:";
 "room_reject_resolve" = "Resend";
-"room_reject_alert_title" = "Confirmation Rejected";
-"room_reject_alert_message" = "%@ rejected the confirmation. Please double confirm that %@ was invited and joined the mushroom raid. Resend confirmation or give up?";
-"room_reject_resend" = "Resend";
-"room_reject_giveup" = "Give up";
+
+/***************************************/
+/**** Room Sheet: Invite Share ****/
+/***************************************/
+
 "room_invite_title" = "Room Invite";
 "room_invite_hint" = "Share this QR code to other player to invite them in \"%@\".";
 "room_invite_share_button" = "Share Link";
 "room_invite_copy_button" = "Copy Link";
 "room_invite_link_unavailable" = "Invite link unavailable. Please try again.";
+
+/***************************************/
+/**** Room Validation Errors ****/
+/***************************************/
+
 "room_error_enter_bid" = "Please enter a deposit before joining.";
-"room_error_min_deposit" = "Please deposit at least %d 🍯.";
-"room_error_not_enough_honey" = "Not enough honey. You have %d 🍯.";
-"room_error_need_more_honey" = "Not enough honey. You need %d more 🍯.";
+"room_error_enter_greeting" = "Please enter a greeting message before joining.";
+"room_error_min_deposit" = "Please deposit at least %d {honey_icon}.";
+"room_error_not_enough_honey" = "Not enough honey. You have %d {honey_icon}.";
+"room_error_need_more_honey" = "Not enough honey. You need %d more {honey_icon}.";
+
+/***************************************/
+/**** Room Message Box: Raid Settlement ****/
+/***************************************/
+
+"room_msg_raid_confirm_title" = "Raid Confirmation";
+"room_msg_raid_confirm_message" = "%@ marked this raid as done. Please pick an escrow settlement result.";
+"room_msg_raid_confirm_joined_success_button" = "Yes, joined success";
+"room_msg_raid_confirm_seat_full_button" = "No, seat full (no-fault race)";
+"room_msg_raid_confirm_missed_invite_button" = "No, I didn't see invitation";
+"room_msg_settlement_no_fault_title" = "Seat-Full Settlement Submitted";
+"room_msg_settlement_no_fault_message" = "Recorded as no-fault seat full. Host receives %d honey effort fee.";
+
+/***************************************/
+/**** Room Message Box: Next Round ****/
+/***************************************/
+
+"room_msg_next_round_title" = "Not enough honey";
+"room_msg_next_round_message" = "You deposit is not enough for the next raid";
+
+/***************************************/
+/**** Room Message Box: Rejected Confirmation ****/
+/***************************************/
+
+"room_msg_reject_alert_title" = "Confirmation Rejected";
+"room_msg_reject_alert_message" = "%@ rejected the confirmation. Please double confirm that %@ was invited and joined the mushroom raid. Resend confirmation or give up?";
+"room_msg_reject_resend_button" = "Resend";
+"room_msg_reject_giveup_button" = "Give up";
+
+/***************************************/
+/**** Room Message Box: Join Confirmation ****/
+/***************************************/
+
+"room_msg_join_confirm_title" = "Confirm Join";
+"room_msg_join_confirm_message" = "You are going to deposit %1$d {honey_icon} in %2$@. Are you sure?";
+"room_msg_join_confirm_confirm_button" = "Sure";
+"room_msg_join_limit_title" = "Room Limit";
+"room_msg_not_enough_honey_title" = "Not enough honey";
+"room_msg_not_enough_honey_message" = "You only have %d {honey_icon}.";
+"room_msg_join_success_title" = "Application Sent";
+"room_msg_join_success_message" = "Applied to %@ with a %d {honey_icon} deposit. Wait for host approval.";
+"room_msg_update_deposit_success_title" = "Deposit Updated";
+"room_msg_update_deposit_success_message" = "Successfully changed your deposit from %d to %d {honey_icon}.";
+
+/***************************************/
+/**** Room Message Box: Leave/Claim ****/
+/***************************************/
+
+"room_msg_leave_confirm_title" = "Leave Room";
+"room_msg_leave_confirm_message" = "Are you sure you want to leave %@?";
+"room_msg_claim_confirm_title" = "Confirm Attendees";
+"room_msg_claim_confirm_message" = "Send escrow settlement request to all joiners in this room?";
+"room_msg_claim_sent_title" = "Confirmation Sent";
+"room_msg_claim_sent_message" = "Sent settlement request to all joiners. You will receive payout based on their escrow responses.";
+"room_msg_claim_confirm_message_with_list" = "Send escrow settlement request to these joiners?\n%@";
+
+/***************************************/
+/**** Room Message Box: Thanks/Rating ****/
+/***************************************/
+
+"room_msg_raid_thanks_title" = "Nice!";
+"room_msg_raid_thanks_message" = "Nice! Enjoy the mushroom. Transfer %d {honey_icon} to the host.";
+"room_msg_rate_host_title" = "Rate the Host: %@";
+"room_msg_rate_attendee_title" = "Rate Attendee: %@?";
+"room_msg_rate_one_star" = "⭐";
+"room_msg_rate_two_stars" = "⭐⭐";
+"room_msg_rate_three_stars" = "⭐⭐⭐";
+
+/***************************************/
+/**** Postcard Main ****/
+/***************************************/
+
+"postcard_title" = "Postcard";
+"postcard_register_title" = "Register Postcard";
+"postcard_empty_title" = "No postcards found";
+"postcard_empty_description" = "Try a different search or clear filters.";
+"postcard_search_title" = "Search";
+"postcard_search_placeholder" = "Search title/location";
+"postcard_search_message" = "Type to filter postcards.";
+"postcard_search_accessibility" = "Search postcards";
+"postcard_search_result_summary_format" = "Search result for '%@'";
+"postcard_search_clear_accessibility" = "Clear search";
+"postcard_register_accessibility" = "Register postcard";
+"postcard_edit_accessibility" = "Edit postcard";
+"postcard_shipping_accessibility" = "Ship postcard";
+"postcard_share_accessibility" = "Share postcard invite";
+"postcard_country" = "Country";
+"postcard_province" = "State/City";
+"postcard_sort" = "Sort";
+"postcard_sort_newest" = "Newest";
+"postcard_sort_lowest_price" = "Lowest Price";
+"postcard_price_honey_format" = "%d {honey_icon}";
+"postcard_stock_format" = "x%d";
+"postcard_seller_format" = "Seller: %@";
+"postcard_price_label" = "Price";
+"postcard_stock_label" = "Stock";
+"postcard_stock_plain_format" = "%d";
+"postcard_buy_button" = "Buy";
+
+/***************************************/
+/**** Postcard Sheet: Order Queue ****/
+/***************************************/
+
+"postcard_shipping_title" = "Orders";
+"postcard_shipping_empty" = "No buyers are waiting for shipment.";
+"postcard_shipping_status_pending" = "Pending your accept/reject";
+"postcard_shipping_ordered_title_format" = "%@ ordered %@";
+"postcard_shipping_friend_request_prefix_format" = "Please send friend request to %@ (";
+"postcard_shipping_friend_request_code_prefix" = "code:";
+"postcard_shipping_friend_request_suffix" = "), and send postcard.";
+"postcard_shipping_accept_button" = "Accept";
+"postcard_shipping_reject_button" = "Reject";
+"postcard_shipping_send_button" = "Shipped";
+"postcard_shipping_friend_code_format" = "Friend code: %@";
+"postcard_action_section_title" = "Transaction";
+"postcard_status_waiting_seller_confirm" = "Waiting for seller confirmation";
+"postcard_status_waiting_seller_ship" = "Waiting for seller to ship the postcard";
+"postcard_status_shipped_on_way" = "Seller shipped; postcard on the way!";
+
+/***************************************/
+/**** Postcard Section: Invite Share ****/
+/***************************************/
+
+"postcard_invite_title" = "Postcard Invite";
+"postcard_invite_hint" = "Share this QR code to other players\"%@\".";
+"postcard_invite_share_button" = "Share Link";
+"postcard_invite_copy_button" = "Copy Link";
+"postcard_invite_link_unavailable" = "Invite link unavailable. Please try again.";
+"postcard_link_unavailable_title" = "Unable to load postcard";
+"postcard_link_unavailable_message" = "This postcard is unavailable or removed.";
+
+/***************************************/
+/**** Postcard Message Box: Purchase Confirmation ****/
+/***************************************/
+
+"postcard_confirm_title" = "Confirm Purchase";
+"postcard_confirm_message" = "Honey will be held until you confirm received.";
+"postcard_msg_purchase_title" = "Purchase Confirm";
+"postcard_msg_purchase_line1_template" = "Spend %d {honey_icon} for %@.";
+"postcard_msg_purchase_line2" = "Are you sure to place order?";
+"postcard_msg_purchase_order_button" = "Order";
+"postcard_msg_purchase_cancel_button" = "Cancel";
+"postcard_msg_buy_success_title" = "Order Sent";
+"postcard_msg_buy_success_message" = "Seller is preparing your postcard. Please check incoming friend request in Pikmin-Bloom";
+
+/***************************************/
+/**** Postcard Shipping Sheet/Message Box ****/
+/***************************************/
+
+"push_postcard_order_created_title" = "New Postcard Order";
+"push_postcard_order_created_body" = "You got one new order on \"%@\". Go to order page to process it.";
+"push_postcard_shipped_title" = "Postcard Sent";
+"push_postcard_shipped_body" = "%@ has sent \"%@\" to you. Please check delivery after 12 hours and mark received in HoneyHub.";
+"push_postcard_rejected_title" = "Order Rejected";
+"push_postcard_rejected_body" = "Your order for \"%@\" was rejected and canceled. %@ honey has been fully refunded to your account.";
+"push_postcard_completed_title" = "Order Completed";
+"push_postcard_completed_body" = "%@ confirmed receipt. %@ honey has been transferred to you.";
+"push_postcard_completed_auto_body" = "%@ postcard received timed out. %@ honey has been transferred to you.";
+"postcard_msg_sent_confirm_title" = "Postcard Sent Confirm";
+"postcard_msg_sent_confirm_message_format" = "Are you sure you have already sent postcard %@ to player %@?";
+"postcard_msg_sent_confirm_yes_button" = "Yes";
+"postcard_msg_reject_confirm_title" = "Reject Order Confirm";
+"postcard_msg_reject_confirm_message" = "Are you sure you want to reject the order?";
+"postcard_msg_reject_confirm_reject_button" = "Reject";
+"postcard_msg_shipping_sent_title" = "Postcard Sent";
+"postcard_msg_shipping_sent_message" = "You will receive the payment after buyer confirms receipt.";
+
+/***************************************/
+/**** Postcard Message Box: Receive Confirmation ****/
+/***************************************/
+
+"postcard_receive_prompt" = "Did you receive this postcard?";
+"postcard_receive_yes_button" = "Yes, received";
+"postcard_receive_complete_button" = "Postcard received";
+"postcard_receive_no_button" = "Not yet";
+"postcard_msg_receive_confirm_title" = "Confirmation";
+"postcard_msg_receive_confirm_message" = "Did you received the postcard?";
+"postcard_msg_receive_confirm_received_button" = "Received";
+"postcard_msg_receive_success_title" = "Order Completed";
+"postcard_msg_receive_success_message" = "Enjoy your postcard!";
+"postcard_receive_wait_title" = "Still In Transit";
+"postcard_receive_wait_message" = "Shipping can take a while. Please check again later. Honey remains on hold until you confirm receipt.";
+"postcard_order_pending_message" = "Your order is in progress. Wait for seller shipping or confirm receipt after delivery.";
+"postcard_order_waiting_seller_confirmation_message" = "Order placed. Waiting for seller to accept or reject.";
+"postcard_order_waiting_shipping_message" = "Seller accepted. Waiting for seller to mark the postcard as shipped.";
+"postcard_order_waiting_buyer_confirm_message" = "Shipped, on-the-way. Confirm after you receive it to complete transaction.";
+"postcard_snapshot_section" = "Snapshot";
+"postcard_snapshot_hint" = "Upload postcard snapshot";
+"postcard_select_photo_button" = "Select Photo";
+"postcard_uploading" = "Uploading...";
+"postcard_uploaded_prefix" = "Uploaded:";
+"postcard_upload_load_error" = "Unable to load this image.";
+"postcard_upload_select_error" = "Please select a snapshot first.";
+"postcard_upload_process_error" = "Failed to process image.";
+"postcard_info_section" = "Info";
+"postcard_title_field" = "Title";
+"postcard_default_title" = "Postcard";
+"postcard_price_field" = "Selling Price";
+"postcard_default_price" = "1";
+"postcard_country_field" = "Country";
+"postcard_province_field" = "Province";
+"postcard_default_province" = "Somewhere";
+"postcard_detail_field" = "Description";
+"postcard_detail_placeholder" = "I found this postcard in the forest...";
+"postcard_stock_field" = "Stock";
+"postcard_default_stock" = "1";
+"postcard_submit_button" = "Submit Postcard";
+"postcard_edit_title" = "Edit Postcard";
+"postcard_remove_button" = "Remove from Market";
+"postcard_msg_remove_confirm_title" = "Remove this postcard listing?";
+"postcard_submitted_title" = "Submitted";
+"postcard_submitted_message" = "Postcard listed successfully.";
+"postcard_validation_title_error" = "Please enter a title.";
+"postcard_validation_price_error" = "Please enter a valid price.";
+"postcard_validation_stock_error" = "Please enter valid stock.";
+"postcard_validation_location_error" = "Country and province are required.";
+"postcard_error_not_enough_honey" = "Not enough honey.";
+"postcard_location_unknown" = "Unknown";
+
+/***************************************/
+/**** Profile Main ****/
+/***************************************/
+
+/***************************************/
+/**** Profile Section: Entry / Form ****/
+/***************************************/
 
 "profile_title" = "Profile";
 "create_profile_title" = "Create Profile";
@@ -254,11 +461,21 @@
 "create_profile_error_title" = "Missing Info";
 "create_profile_error_message" = "Please fill in your name and friend code to continue.";
 "create_profile_name_error_required" = "Name is required.";
+
+/***************************************/
+/**** Profile Section: Settings Menu ****/
+/***************************************/
+
 "settings_title" = "Settings";
 "settings_language_managed" = "Language is managed in iOS Settings.";
 "settings_feedback_button" = "Feedback";
 "settings_help_button" = "Help";
 "settings_about_button" = "About";
+
+/***************************************/
+/**** Profile Section: Feedback ****/
+/***************************************/
+
 "feedback_title" = "Feedback";
 "feedback_message_label" = "Message";
 "feedback_subject_placeholder" = "Subject (optional)";
@@ -268,11 +485,21 @@
 "feedback_submit_success_message" = "Your feedback has been submitted.";
 "feedback_submit_failed_title" = "Submit Failed";
 "feedback_submit_failed_message" = "Please enter a message and try again.";
+
+/***************************************/
+/**** Profile Section: About ****/
+/***************************************/
+
 "about_title" = "About Developer";
 "about_intro" = "Contact information";
 "about_phone_label" = "Phone";
 "about_email_label" = "Email";
 "about_website_label" = "Website";
+
+/***************************************/
+/**** Profile Section: Account Identity ****/
+/***************************************/
+
 "profile_name" = "Name";
 "profile_name_placeholder" = "Pikmin in-game name";
 "profile_name_hint" = "Please type your Pikmin Bloom in-game name";
@@ -282,13 +509,28 @@
 "profile_id_section" = "Your ID";
 "profile_stars" = "Stars";
 "profile_honey" = "Honey";
+
+/***************************************/
+/**** Profile Section: Community ****/
+/***************************************/
+
 "profile_community_section" = "Community";
 "profile_community_footer" = "Stars are reputation points that players award to each other after mushroom raids";
+
+/***************************************/
+/**** Profile Section: Mushroom Lists ****/
+/***************************************/
+
 "profile_loading_joined" = "Loading joined rooms…";
 "profile_joined_empty_title" = "No Joined Room";
 "profile_joined_empty_description" = "Rooms you joined will appear here.";
 "profile_players_format" = "👤 %d/%d";
 "profile_bid_format" = "Deposit: %d";
+"profile_room_status_host" = "Host";
+"profile_room_status_asking_to_join" = "Asking to join";
+"profile_room_status_ready" = "Ready";
+"profile_room_status_waiting_confirmation" = "Waiting confirmation";
+"profile_room_status_rejected" = "Rejected";
 "profile_joined_section" = "Joined Rooms";
 "profile_mushroom_section" = "Mushrooms";
 "profile_joined_footer" = "This list is loaded from Firestore: /rooms/*/attendees where uid == your uid.";
@@ -297,6 +539,11 @@
 "profile_hosted_empty_description" = "Rooms you host will appear here.";
 "profile_hosted_section" = "Host Room";
 "profile_hosted_footer" = "This list is loaded from Firestore: /rooms where hostUid == your uid.";
+
+/***************************************/
+/**** Profile Section: Postcard Lists ****/
+/***************************************/
+
 "profile_postcard_section" = "Postcards";
 "profile_postcard_onshelf_section" = "On-shelf";
 "profile_loading_onshelf_postcards" = "Loading on-shelf postcards…";
@@ -304,11 +551,24 @@
 "profile_postcard_ordered_section" = "Ordered";
 "profile_loading_ordered_postcards" = "Loading ordered postcards…";
 "profile_ordered_empty_title" = "No Ordered Postcard";
+"profile_postcard_status_on_shelf" = "On-shelf";
+"profile_postcard_status_order_received" = "Order Received";
+"profile_postcard_status_wait_for_shipping" = "Ordered";
+"profile_postcard_status_on_the_way" = "Shipped, on-the-way";
+
+/***************************************/
+/**** Profile Section: Sign Out / Validation ****/
+/***************************************/
+
 "profile_sign_out" = "Sign Out";
 "profile_footer_note" = "Profile data is local prototype for now. Later: store name + friend code in Firestore /users/{uid}.";
 "profile_friend_code_error_required" = "Friend code is required.";
 "profile_friend_code_error_length" = "Friend code must be exactly 12 digits.";
 "profile_friend_code_error_digits" = "Friend code must contain digits only.";
+
+/***************************************/
+/**** Login/Auth ****/
+/***************************************/
 
 "login_title" = "HoneyHub";
 "login_subtitle" = "Connect players all around the world";
@@ -320,50 +580,5 @@
 "session_error_apple_nonce" = "Missing Apple sign-in state (nonce).";
 "session_error_apple_token" = "Missing Apple ID token.";
 "session_error_apple_token_format" = "Unable to read Apple ID token.";
-
-"common_ok" = "OK";
-"common_error" = "Error";
-"common_cancel" = "Cancel";
-"common_confirm" = "Confirm";
-"common_clear" = "Clear";
-"common_done" = "Done";
-"common_save" = "Save";
-"common_join" = "Join";
-"common_close" = "Close";
-"common_yes" = "Yes";
-"common_no" = "No";
-"common_later" = "Later";
-"common_open" = "Open";
-"common_closed" = "Closed";
-"common_sort" = "Sort";
-"common_filters" = "Filters";
-"common_all" = "All";
-"common_loading" = "Loading…";
-"common_copied" = "Copied to clipboard";
 "session_error_missing_client_id" = "Missing Firebase clientID.";
 "session_error_missing_id_token" = "Missing Google ID token.";
-"room_join_confirm_title" = "Confirm Join";
-"room_join_confirm_message" = "You are going to deposit %1$d 🍯 in %2$@. Are you sure?";
-"room_join_confirm_sure" = "Sure";
-"room_join_limit_title" = "Room Limit";
-"room_not_enough_honey_title" = "Not enough honey";
-"room_not_enough_honey_message" = "You only have %d 🍯.";
-"room_update_bid_footer" = "This deposit is held while you stay in the room. It is only spent after a raid finishes and you confirm. Leaving the room returns any unspent deposit.";
-"room_join_success_title" = "Joined";
-"room_join_success_message" = "Successfully joined %@ with a %d 🍯 deposit. The host can invite you to a mushroom raid if they find one.";
-"room_update_bid_success_title" = "Deposit Updated";
-"room_update_bid_success_message" = "Successfully changed your deposit from %d to %d 🍯.";
-"room_leave_confirm_title" = "Leave Room";
-"room_leave_confirm_message" = "Are you sure you want to leave %@?";
-"room_claim_confirm_title" = "Confirm Attendees";
-"room_claim_confirm_message" = "Are you sure the following attendees came to the mushroom raid?";
-"room_claim_sent_title" = "Confirmation Sent";
-"room_claim_sent_message" = "Sent notification to the selected attendees. You will receive the honey payment after their confirmation.";
-"room_claim_confirm_message_with_list" = "Are you sure the following attendees came to the mushroom raid?\n%@";
-"room_raid_thanks_title" = "Nice!";
-"room_raid_thanks_message" = "Nice! Enjoy the mushroom. Transfer %d 🍯 to the host.";
-"room_rate_host_title" = "Rate the Host: %@";
-"room_rate_attendee_title" = "Rate Attendee: %@?";
-"room_rate_one_star" = "⭐";
-"room_rate_two_stars" = "⭐⭐";
-"room_rate_three_stars" = "⭐⭐⭐";

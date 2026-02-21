@@ -99,10 +99,14 @@ final class RoomViewModel: ObservableObject {
     }
 
     @discardableResult
-    func respondToRaidConfirmation(accept: Bool) async -> Bool { // Handles respondToRaidConfirmation flow.
+    func respondToRaidConfirmation(settlementOutcome: RaidSettlementOutcome) async -> Bool { // Handles respondToRaidConfirmation flow.
         guard let uid = session.authUid else { return false }
         do {
-            try await actions.respondToRaidConfirmation(roomId: roomId, attendeeUid: uid, accept: accept)
+            try await actions.respondToRaidConfirmation(
+                roomId: roomId,
+                attendeeUid: uid,
+                settlementOutcome: settlementOutcome
+            )
             await load()
             return true
         } catch {
@@ -110,6 +114,14 @@ final class RoomViewModel: ObservableObject {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             return false
         }
+    }
+
+    /// Returns attendee ids that should receive escrow settlement requests for this raid.
+    func raidSettlementTargetAttendeeIds() -> [String] { // Handles raidSettlementTargetAttendeeIds flow.
+        guard let room else { return [] }
+        return room.attendees
+            .filter { $0.status == .ready }
+            .map(\.id)
     }
 
     func rateHost(stars: Int) async { // Handles rateHost flow.
@@ -147,6 +159,10 @@ final class RoomViewModel: ObservableObject {
         rejectedConfirmationAttendeeIds.contains(attendeeId)
     }
 
+    func isAskingToJoin(attendeeId: String) -> Bool { // Handles isAskingToJoin flow.
+        attendeeById(attendeeId)?.status == .askingToJoin
+    }
+
     func attendeeById(_ attendeeId: String) -> RoomAttendee? { // Handles attendeeById flow.
         room?.attendees.first(where: { $0.id == attendeeId })
     }
@@ -170,20 +186,45 @@ final class RoomViewModel: ObservableObject {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
+
+    func approveJoinApplication(attendeeId: String) async { // Handles approveJoinApplication flow.
+        guard let room else { return }
+        do {
+            try await actions.approveJoinApplication(roomId: room.id, attendeeUid: attendeeId)
+            await load()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func rejectJoinApplication(attendeeId: String) async { // Handles rejectJoinApplication flow.
+        guard let room else { return }
+        do {
+            try await actions.rejectJoinApplication(roomId: room.id, attendeeUid: attendeeId)
+            await load()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
     
     // MARK: Actions
     
     /// Viewer -> Attendee
-    func join(initialDeposit: Honey) async { // Handles join flow.
+    func join(initialDeposit: Honey, greetingMessage: String) async { // Handles join flow.
         guard let room else { return }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
+        let trimmedGreetingMessage = greetingMessage.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if AppTesting.useMockRooms, room.id == AppTesting.fixtureRoomId {
             let trimmedDeposit = max(0, initialDeposit)
             guard trimmedDeposit >= max(AppConfig.Mushroom.minFixedRaidCost, room.fixedRaidCost) else {
                 errorMessage = String(format: NSLocalizedString("room_error_min_deposit", comment: ""), room.fixedRaidCost)
+                return
+            }
+            guard !trimmedGreetingMessage.isEmpty else {
+                errorMessage = NSLocalizedString("room_error_enter_greeting", comment: "")
                 return
             }
             guard session.canAffordHoney(trimmedDeposit) else {
@@ -206,6 +247,10 @@ final class RoomViewModel: ObservableObject {
                 errorMessage = String(format: NSLocalizedString("room_error_min_deposit", comment: ""), minimum)
                 return
             }
+            guard !trimmedGreetingMessage.isEmpty else {
+                errorMessage = NSLocalizedString("room_error_enter_greeting", comment: "")
+                return
+            }
             guard session.canAffordHoney(trimmedDeposit) else {
                 errorMessage = String(format: NSLocalizedString("room_error_not_enough_honey", comment: ""), session.honey)
                 return
@@ -215,6 +260,7 @@ final class RoomViewModel: ObservableObject {
             try await actions.joinRoom(
                 roomId: room.id,
                 initialDepositHoney: trimmedDeposit,
+                greetingMessage: trimmedGreetingMessage,
                 userName: session.displayName,
                 friendCode: friendCode,
                 stars: session.stars,
@@ -411,6 +457,15 @@ final class RoomViewModel: ObservableObject {
         guard let room, let uid = currentUserId else { return nil }
         guard uid != room.hostId else { return nil }
         return room.attendees.first(where: { $0.id == uid })?.depositHoney
+    }
+
+    var isCurrentUserAllowedToEditDeposit: Bool {
+        currentUserAttendeeStatus == .ready
+    }
+
+    private var currentUserAttendeeStatus: AttendeeStatus? {
+        guard let room, let uid = currentUserId else { return nil }
+        return room.attendees.first(where: { $0.id == uid })?.status
     }
     
     // MARK: Private helpers

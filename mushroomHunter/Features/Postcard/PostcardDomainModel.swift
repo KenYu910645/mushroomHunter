@@ -87,16 +87,43 @@ enum PostcardSortOrder: String, CaseIterable, Identifiable {
 
 /// Lifecycle states for a postcard order.
 enum PostcardOrderStatus: String {
-    /// Buyer reserved stock and waits for seller shipment.
-    case awaitingSellerSend = "AwaitingSellerSend"
-    /// Seller marked shipped; buyer should wait for delivery.
-    case inTransit = "InTransit"
-    /// Buyer can confirm receipt or mark not received.
-    case awaitingBuyerDecision = "AwaitingBuyerDecision"
+    /// Legacy state where buyer order waited for seller accept/reject.
+    case sellerConfirmPending = "SellerConfirmPending"
+    /// Active pending state where seller should ship or decline.
+    case awaitingShipping = "AwaitingShipping"
+    /// Seller marked shipped and buyer can confirm receipt.
+    case shipped = "Shipped"
     /// Buyer confirmed receipt; order is finished.
     case completed = "Completed"
+    /// System auto-completed because buyer did not confirm before deadline.
+    case completedAuto = "CompletedAuto"
+    /// Seller rejected the order.
+    case rejected = "Rejected"
+    /// Legacy timeout from the previous seller-accept step.
+    case expiredBySellerTimeout = "ExpiredBySellerTimeout"
+    /// Seller accepted but did not ship before deadline.
+    case failedSellerNoShip = "FailedSellerNoShip"
     /// Order was cancelled before completion.
     case cancelled = "Cancelled"
+
+    /// Creates status from Firestore raw value, including legacy migration values.
+    /// - Parameter rawValue: Persisted status string.
+    /// - Returns: Mapped status if supported.
+    static func from(rawValue: String) -> PostcardOrderStatus? {
+        if let status = PostcardOrderStatus(rawValue: rawValue) {
+            return status
+        }
+
+        // Legacy status mapping from old postcard flow.
+        switch rawValue {
+        case "AwaitingSellerSend":
+            return .awaitingShipping
+        case "InTransit", "AwaitingBuyerDecision":
+            return .shipped
+        default:
+            return nil
+        }
+    }
 }
 
 /// Buyer info shown to seller in shipping queue.
@@ -109,6 +136,8 @@ struct PostcardShippingRecipient: Identifiable, Equatable {
     let buyerName: String
     /// Buyer friend code used for shipment handoff.
     let buyerFriendCode: String
+    /// Current order status for seller action rendering.
+    let status: PostcardOrderStatus
 }
 
 /// Latest order snapshot for current buyer and listing.
@@ -123,4 +152,14 @@ struct PostcardBuyerOrder: Identifiable, Equatable {
     let holdHoney: Int
     /// Order creation timestamp.
     let createdAt: Date
+}
+
+/// Ordered postcard summary rendered in profile with latest active order status.
+struct OrderedPostcardSummary: Identifiable, Equatable {
+    /// Uses listing id so profile row navigation can open postcard detail directly.
+    var id: String { listing.id }
+    /// Related postcard listing snapshot.
+    let listing: PostcardListing
+    /// Latest buyer order status for the listing.
+    let status: PostcardOrderStatus
 }

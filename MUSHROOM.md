@@ -12,6 +12,7 @@
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens.
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by host/profile/profile-create forms.
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared auto-select text editor wrapper used by host description input.
+- `mushroomHunter/Features/Shared/HoneyMessageBox.swift`: shared custom confirmation/error dialog used across mushroom room screens.
 - `mushroomHunter/Services/Firebase/RoomBrowseRepo.swift`: Firestore reads for browsing open rooms.
 - `mushroomHunter/Services/Firebase/RoomFormRepo.swift`: Firestore writes for host room lifecycle (create/update/close).
 - `mushroomHunter/Services/Firebase/RoomRepo.swift`: Firestore reads for a single room and attendee list.
@@ -31,6 +32,17 @@
 - UI-test mode (`--ui-testing --mock-rooms`) routes host submit flow through mock success without Firestore writes.
 - Host create/edit description is prefilled with localized default `host_default_description` (`Welcome! Let's play!`) when empty.
 - Host can manage attendees (kick, close room, finish raid/claim cycle).
+- Join request workflow:
+  - Joiner enters deposit + greeting message.
+  - Join request creates attendee with status `AskingToJoin` and occupies a room slot immediately.
+  - Host can approve/reject from attendee row `...` menu.
+  - Rejected application removes attendee and refunds full deposit.
+- Host `Mushroom Raid Done` now sends escrow settlement requests to all non-host joiners in the room (instead of manually selecting attendees).
+- Joining from room details now requires both:
+  - deposit amount
+  - attendee greeting message (required, max 100 chars)
+- Join sheet pre-fills a localized default greeting and blocks submit when greeting is empty.
+- Join confirmation alert now includes both `Sure` and `Cancel` actions.
 - UI-test mode supports room deep-link routing via launch arg `--ui-open-room {roomId}` for deterministic room-entry automation.
 - In UI-test mock mode, attendee leave can execute directly from the bottom action dock (and from edit-bid sheet) without confirmation alert to reduce automation flakiness.
 - In UI-test mock mode, room role/deposit checks fall back to fixture user id (`ui-test-user`) when session auth uid is not yet populated.
@@ -38,6 +50,7 @@
 - Host reject-resolution alert behavior:
   - `Resend`: sets attendee status back to `WaitingConfirmation` and triggers confirmation push again.
   - `Give Up`: sets attendee status back to `Ready`.
+- Room confirmations and errors now use the shared `HoneyMessageBox` component instead of system `Alert`/`confirmationDialog`, so visual style and action layout are consistent across mushroom flows.
 - Room details includes invite share tools for host:
   - QR code sheet.
   - Share/copy room invite link using deep link format `honeyhub://room/{roomId}`.
@@ -54,12 +67,18 @@
   - Host resolved from cached `rooms/{roomId}.hostUid` first, with attendee query fallback where `status=Host`
   - Push target: `rooms/{roomId}.hostFcmToken` first, with `users/{hostUid}.fcmToken` fallback
   - Payload data:
-    - accepted: `type=raid_confirmation_accepted`
-    - rejected: `type=raid_confirmation_rejected`
+    - joined success: `type=raid_confirmation_accepted`
+    - seat full no-fault: `type=raid_confirmation_seat_full`
+    - missed invitation: `type=raid_confirmation_missed_invite`
 
 
 ### Confirmation stars flow
-- Attendee flow: after attendee accepts raid confirmation and pays host (`depositHoney -= fixedRaidCost`, host `honey += fixedRaidCost`), attendee can give host `1`, `2`, or `3` stars.
+- Attendee settlement flow now has three outcomes after host taps `Mushroom Raid Done`:
+  - `Yes, joined success`: host gets full payment (`fixedRaidCost`), attendee deposit deducts full payment, attendee can rate host.
+  - `No, seat full (no-fault race)`: host gets small effort fee (`AppConfig.Mushroom.noFaultEffortFee`), attendee deposit deducts only that effort fee.
+  - `No, I didn't see invitation`: no honey transfer, treated as host-not-invited outcome.
+- Star-selection buttons in rating message boxes use neutral bordered style (non-prominent) to reduce visual glare.
+- Attendee rating is available only for `joined success` settlement.
 - Host flow: when attendee accepts confirmation, attendee doc is marked `needsHostRating = true`; host can then give that attendee `1`, `2`, or `3` stars.
 - Stars updates write to `users/{uid}.stars` and also refresh room attendee stars in the active room so Room Details reflects new totals immediately.
 - Firestore transaction rule reminder: in room raid settlement transactions, read all attendee docs before applying any writes to avoid "all reads must occur before writes" transaction failures.
@@ -113,9 +132,12 @@ Fields:
 - `fcmToken` (String, optional): attendee push token snapshot used by backend push flows before user lookup fallback.
 - `stars` (Int): attendee stars. Set on join.
 - `depositHoney` (Int): current deposit. Set on join; updated on deposit change and raid settlement.
+- `joinGreetingMessage` (String): attendee greeting captured when joining. Required by join flow.
 - `joinedAt` (Timestamp): set on join.
 - `updatedAt` (Timestamp): updated on deposit changes and raid settlement.
-- `status` (String): attendee state. Current values are `Host`, `Ready`, `WaitingConfirmation`, `Rejected`.
+- `status` (String): attendee state. Current values are `Host`, `AskingToJoin`, `Ready`, `WaitingConfirmation`, `Rejected`.
+- `lastSettlementOutcome` (String, optional): latest escrow settlement result (`JoinedSuccess`, `SeatFullNoFault`, `MissedInvitation`).
+- `lastSettlementHoney` (Int, optional): latest settled honey amount moved from attendee escrow to host for that settlement.
 - `attendeeRatedHost` (Bool, optional): whether attendee already rated host for the latest confirmation cycle. Reset to `false` when host sends a new confirmation request.
 - `hostRatedAttendee` (Bool, optional): whether host already rated attendee for the latest confirmation cycle. Reset to `false` when host sends a new confirmation request.
 - `needsHostRating` (Bool, optional): set to `true` when attendee accepts confirmation (host receives honey) so host can rate attendee; set back to `false` after host submits stars.
@@ -151,6 +173,7 @@ Main implementation files:
 ## State Model
 Attendee status values (`rooms/{roomId}/attendees/{uid}.status`):
 - `Host`: room owner row in attendees subcollection
+- `AskingToJoin`: join application pending host moderation
 - `Ready`: normal active state (joined, not waiting)
 - `WaitingConfirmation`: host has claimed this attendee joined raid, waiting attendee decision
 - `Rejected`: attendee rejected host claim
@@ -163,27 +186,17 @@ Rating flags on attendee document:
 ## End-To-End Flowchart
 ```mermaid
 flowchart TD
-    A[Attendee joins room with deposit >= fixedRaidCost] --> B[attendee.status = Ready]
-    B --> C[Host selects attendees and taps Mushroom Raid Done]
-    C --> D[For each selected attendee with deposit >= fixedRaidCost: status -> WaitingConfirmation; reset rating flags]
-    D --> E[Cloud Function: sendRaidConfirmationPush to attendee]
-    E --> F[Attendee sees Raid Confirmation alert in app]
-
-    F -->|Yes| G[respondToRaidConfirmation accept=true]
-    G --> H[Host honey += fixedRaidCost]
-    H --> I[Attendee depositHoney -= fixedRaidCost]
-    I --> J[Attendee status -> Ready; needsHostRating=true]
-    J --> K[Cloud Function: notify host accepted]
-    K --> L[Attendee rates host 1-3 stars optional]
-    L --> M[Host stars += rating; attendeeRatedHost=true]
-    M --> N[Host prompted to rate attendee 1-3 stars]
-    N --> O[Attendee stars += rating; hostRatedAttendee=true; needsHostRating=false]
-
-    F -->|No| P[respondToRaidConfirmation accept=false]
-    P --> Q[Attendee status -> Rejected; needsHostRating=false]
-    Q --> R[Cloud Function: notify host rejected]
-    R --> S[Host taps Resolve]
-    S --> T[resolveRejectedConfirmation -> status Ready]
+    A[Attendee joins with deposit + greeting] --> B[attendee.status = AskingToJoin]
+    B --> C[Host approves or rejects application]
+    C -->|Approve| D[attendee.status = Ready]
+    C -->|Reject| E[attendee removed + full deposit refund]
+    D --> F[Host taps Mushroom Raid Done]
+    F --> G[All Ready attendees -> WaitingConfirmation]
+    G --> H[Cloud Function: sendRaidConfirmationPush]
+    H --> I[Attendee submits escrow settlement]
+    I -->|JoinedSuccess| J[host +fixedRaidCost; attendee deposit -fixedRaidCost; needsHostRating=true]
+    I -->|SeatFullNoFault| K[host +effortFee; attendee deposit -effortFee]
+    I -->|MissedInvitation| L[no honey transfer; attendee -> Ready]
 ```
 
 ## Detailed Lifecycle
@@ -194,9 +207,18 @@ When attendee joins:
 - Require `initialDepositHoney >= fixedRaidCost`
 - Deduct deposit from `users/{uid}.honey`
 - Create attendee row with:
-  - `status = Ready`
+  - `status = AskingToJoin`
   - `depositHoney = initialDepositHoney`
+  - `joinGreetingMessage = joiner input`
 - Increment `rooms.joinedCount`
+
+Host moderation:
+- Host can approve application from attendee `...` menu:
+  - `status = Ready`
+- Host can reject application from attendee `...` menu:
+  - attendee row removed
+  - `rooms.joinedCount - 1`
+  - full deposit refunded to joiner wallet
 
 Important behavior:
 - Deposit is locked while attendee remains in room
@@ -204,8 +226,8 @@ Important behavior:
 
 ### 2. Host Starts Confirmation Cycle
 Host opens Room Details and uses `Mushroom Raid Done`:
-- Host selects attendee IDs
-- `finishRaid(...)` updates each selected attendee if `depositHoney >= fixedRaidCost`:
+- Client auto-targets all `Ready` non-host attendees in room
+- `finishRaid(...)` updates each targeted attendee if `depositHoney >= fixedRaidCost`:
   - `status = WaitingConfirmation`
   - `attendeeRatedHost = false`
   - `hostRatedAttendee = false`
@@ -220,10 +242,10 @@ Cloud Function `sendRaidConfirmationPush` triggers on attendee doc update:
 - Target token: `rooms/{roomId}/attendees/{attendeeUid}.fcmToken` (fallback `users/{attendeeUid}.fcmToken`)
 - Payload data includes: `type=raid_confirmation`, `roomId`, `room_id`
 
-### 4. Attendee Decision
-Room screen shows confirmation alert when current attendee is `WaitingConfirmation`.
+### 4. Attendee Escrow Settlement
+Room screen shows escrow settlement alert when current attendee is `WaitingConfirmation`.
 
-If attendee accepts (`accept=true`):
+If attendee chooses `JoinedSuccess`:
 - Transaction moves honey:
   - Host user honey `+ fixedRaidCost`
   - Attendee `depositHoney - fixedRaidCost`
@@ -231,16 +253,25 @@ If attendee accepts (`accept=true`):
   - `status = Ready`
   - `needsHostRating = true`
 
-If attendee rejects (`accept=false`):
+If attendee chooses `SeatFullNoFault`:
+- Transaction moves small effort fee:
+  - Host user honey `+ noFaultEffortFee`
+  - Attendee `depositHoney - noFaultEffortFee`
+- Attendee status set:
+  - `status = Ready`
+  - `needsHostRating = false`
+
+If attendee chooses `MissedInvitation`:
 - No honey transfer
 - Attendee status set:
-  - `status = Rejected`
+  - `status = Ready`
   - `needsHostRating = false`
 
 ### 5. Push To Host (Result)
 Cloud Function `notifyHostRaidConfirmationResult` triggers when status transitions:
-- `WaitingConfirmation -> Ready`: send accepted message and honey earned
-- `WaitingConfirmation -> Rejected`: send rejected message
+- `WaitingConfirmation -> Ready` with `JoinedSuccess`: send full-payment accepted message.
+- `WaitingConfirmation -> Ready` with `SeatFullNoFault`: send no-fault seat-full effort-fee message.
+- `WaitingConfirmation -> Ready` with `MissedInvitation`: send missed-invitation (no honey moved) message.
 - Host is resolved by attendee row where `status = Host`
 - Host token from `rooms/{roomId}.hostFcmToken` (fallback `users/{hostUid}.fcmToken`)
 
@@ -280,17 +311,21 @@ Push/deeplink routing path:
 
 ## Data Mutation Map (Quick Reference)
 - `joinRoom(...)`
-  - attendee: create `Ready` + deposit
+  - attendee: create `AskingToJoin` + deposit + greeting
   - user: minus deposit honey
   - room: `joinedCount +1`
 - `finishRaid(...)`
-  - selected attendees: `WaitingConfirmation` + reset rating flags
+  - all ready non-host attendees: `WaitingConfirmation` + reset rating flags
   - room: `lastSuccessfulRaidAt`
-- `respondToRaidConfirmation(accept=true)`
+- `respondToRaidConfirmation(JoinedSuccess)`
   - host user: plus raid cost honey
   - attendee row: minus deposit, `Ready`, `needsHostRating=true`
-- `respondToRaidConfirmation(accept=false)`
-  - attendee row: `Rejected`
+- `respondToRaidConfirmation(SeatFullNoFault)`
+  - host user: plus no-fault effort fee honey
+  - attendee row: minus effort fee, `Ready`, `needsHostRating=false`
+- `respondToRaidConfirmation(MissedInvitation)`
+  - no honey movement
+  - attendee row: `Ready`, `needsHostRating=false`
 - `resolveRejectedConfirmation(...)`
   - attendee row: `Ready`
 - `rateHostAfterConfirmation(...)`
@@ -305,7 +340,7 @@ Push/deeplink routing path:
 ## Why This Feels Complex
 Current complexity comes from a mixed set of responsibilities in one room flow:
 - Financial escrow (`depositHoney`, `users.honey`)
-- Attendance lifecycle (`Ready/WaitingConfirmation/Rejected`)
+- Attendance lifecycle (`AskingToJoin/Ready/WaitingConfirmation/Rejected`)
 - Asynchronous signaling (push in both directions)
 - Two-sided reputation flow with separate one-time flags
 

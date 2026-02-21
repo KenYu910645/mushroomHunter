@@ -46,10 +46,9 @@
 //  [W] - `sellerFcmToken`: Writes seller push token snapshot from listing.
 //  [W] - `priceHoney`: Writes transaction price snapshot.
 //  [W] - `holdHoney`: Writes escrow/hold value and releases on completion/cancel paths.
-//  [W] - `sellerReminderAt`: Writes seller reminder deadline.
-//  [W] - `sellerDeadlineAt`: Writes seller send deadline.
+//  [W] - `sellerShippingDeadlineAt`: Writes seller shipping deadline from order creation.
 //  [W] - `buyerReminderAt`: Writes buyer reminder deadline.
-//  [W] - `buyerAutoCompleteAt`: Writes buyer auto-complete deadline.
+//  [W] - `buyerConfirmDeadlineAt`: Writes buyer auto-complete deadline.
 //  [W] - `trackingCode`: Writes shipment tracking code on seller ship flow.
 //  [W] - `createdAt`: Writes order creation timestamp and reads for profile ordering.
 //  [W] - `updatedAt`: Writes update timestamp on every order mutation.
@@ -72,6 +71,7 @@ enum PostcardRepoError: LocalizedError {
     case outOfStock
     case notEnoughHoney
     case cannotBuyOwnListing
+    case activeOrderExists
     case forbidden
     case invalidOrderState
 
@@ -83,6 +83,7 @@ enum PostcardRepoError: LocalizedError {
         case .outOfStock: return "This postcard is out of stock."
         case .notEnoughHoney: return "Not enough honey."
         case .cannotBuyOwnListing: return "You cannot buy your own postcard."
+        case .activeOrderExists: return "You already have an active order for this postcard."
         case .forbidden: return "You don't have access to this action."
         case .invalidOrderState: return "Order is not in a shippable state."
         }
@@ -107,10 +108,9 @@ final class FbPostcardRepo {
     }
 
     private let db = Firestore.firestore()
-    private let sellerSendReminderHours = AppConfig.Postcard.sellerSendReminderHours
-    private let sellerSendDeadlineHours = AppConfig.Postcard.sellerSendDeadlineHours
+    private let sellerShippingDeadlineHours = AppConfig.Postcard.sellerShippingDeadlineHours
     private let buyerReceiveReminderHours = AppConfig.Postcard.buyerReceiveReminderHours
-    private let buyerAutoCompleteHours = AppConfig.Postcard.buyerAutoCompleteHours
+    private let buyerConfirmDeadlineHours = AppConfig.Postcard.buyerConfirmDeadlineHours
 
     func fetchRecent(limit: Int = AppConfig.Postcard.browseListFetchLimit) async throws -> [PostcardListing] { // Handles fetchRecent flow.
         let page = try await fetchRecentPage(limit: limit)
@@ -132,11 +132,43 @@ final class FbPostcardRepo {
         return snap.documents.map(decodeListing)
     }
 
-    func fetchMyOrderedPostcards(userId: String, limit: Int = AppConfig.Postcard.profileListFetchLimit) async throws -> [PostcardListing] { // Handles fetchMyOrderedPostcards flow.
+    /// Loads postcard listing ids that currently have unprocessed seller orders.
+    /// - Parameters:
+    ///   - userId: Seller uid for the current profile.
+    ///   - limit: Max order docs to scan for pending queue status.
+    /// - Returns: Set of postcard ids that should be marked as order-received in profile.
+    func fetchSellerPendingOrderPostcardIds(
+        userId: String,
+        limit: Int = AppConfig.Postcard.profileListFetchLimit * 5
+    ) async throws -> Set<String> { // Handles fetchSellerPendingOrderPostcardIds flow.
+        let pendingStatuses = [
+            PostcardOrderStatus.sellerConfirmPending.rawValue,
+            PostcardOrderStatus.awaitingShipping.rawValue,
+            "AwaitingSellerSend"
+        ]
+        let query = db.collection("postcardOrders")
+            .whereField("sellerId", isEqualTo: userId)
+            .whereField("status", in: pendingStatuses)
+            .limit(to: limit)
+
+        let docs = try await fetchDocuments(query: query)
+        return Set(
+            docs.compactMap { doc in
+                let postcardId = (doc.data()["postcardId"] as? String ?? "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                return postcardId.isEmpty ? nil : postcardId
+            }
+        )
+    }
+
+    func fetchMyOrderedPostcards(userId: String, limit: Int = AppConfig.Postcard.profileListFetchLimit) async throws -> [OrderedPostcardSummary] { // Handles fetchMyOrderedPostcards flow.
         let activeStatuses = [
-            PostcardOrderStatus.awaitingSellerSend.rawValue,
-            PostcardOrderStatus.inTransit.rawValue,
-            PostcardOrderStatus.awaitingBuyerDecision.rawValue
+            PostcardOrderStatus.awaitingShipping.rawValue,
+            PostcardOrderStatus.shipped.rawValue,
+            PostcardOrderStatus.sellerConfirmPending.rawValue,
+            "AwaitingSellerSend",
+            "InTransit",
+            "AwaitingBuyerDecision"
         ]
         let query = db.collection("postcardOrders")
             .whereField("buyerId", isEqualTo: userId)
@@ -145,14 +177,17 @@ final class FbPostcardRepo {
             .limit(to: limit)
         let orderDocs = try await fetchDocuments(query: query)
 
-        let orderedPostcardIds = orderDocs
-            .compactMap { doc -> String? in
+        let orderedPostcardInfos = orderDocs
+            .compactMap { doc -> (postcardId: String, status: PostcardOrderStatus)? in
                 let id = (doc.data()["postcardId"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                return id.isEmpty ? nil : id
+                let statusRaw = (doc.data()["status"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                guard id.isEmpty == false,
+                    let status = PostcardOrderStatus.from(rawValue: statusRaw) else { return nil }
+                return (postcardId: id, status: status)
             }
-        if orderedPostcardIds.isEmpty { return [] }
+        if orderedPostcardInfos.isEmpty { return [] }
 
-        let uniqueIds = Array(Set(orderedPostcardIds))
+        let uniqueIds = Array(Set(orderedPostcardInfos.map { $0.postcardId }))
         var listingById: [String: PostcardListing] = [:]
 
         for chunk in uniqueIds.chunked(into: 10) {
@@ -168,7 +203,10 @@ final class FbPostcardRepo {
             }
         }
 
-        return orderedPostcardIds.compactMap { listingById[$0] }
+        return orderedPostcardInfos.compactMap { postcardInfo in
+            guard let listing = listingById[postcardInfo.postcardId] else { return nil }
+            return OrderedPostcardSummary(listing: listing, status: postcardInfo.status)
+        }
     }
 
     func searchByToken(_ token: String, limit: Int = AppConfig.Postcard.browseListFetchLimit) async throws -> [PostcardListing] { // Handles searchByToken flow.
@@ -343,6 +381,23 @@ final class FbPostcardRepo {
         guard let buyerId = Auth.auth().currentUser?.uid else {
             throw PostcardRepoError.notSignedIn
         }
+        let activeStatuses = [
+            PostcardOrderStatus.sellerConfirmPending.rawValue,
+            PostcardOrderStatus.awaitingShipping.rawValue,
+            PostcardOrderStatus.shipped.rawValue,
+            "AwaitingSellerSend",
+            "InTransit",
+            "AwaitingBuyerDecision"
+        ]
+        let activeOrderQuery = db.collection("postcardOrders")
+            .whereField("buyerId", isEqualTo: buyerId)
+            .whereField("postcardId", isEqualTo: postcardId)
+            .whereField("status", in: activeStatuses)
+            .limit(to: 1)
+        let existingOrderDocs = try await fetchDocuments(query: activeOrderQuery)
+        if existingOrderDocs.isEmpty == false {
+            throw PostcardRepoError.activeOrderExists
+        }
 
         let orderRef = db.collection("postcardOrders").document()
         let postcardRef = db.collection("postcards").document(postcardId)
@@ -350,10 +405,9 @@ final class FbPostcardRepo {
 
         let nowDate = Date()
         let now = Timestamp(date: nowDate)
-        let sellerReminderAt = Timestamp(date: nowDate.addingTimeInterval(TimeInterval(sellerSendReminderHours * 3600)))
-        let sellerDeadlineAt = Timestamp(date: nowDate.addingTimeInterval(TimeInterval(sellerSendDeadlineHours * 3600)))
-        let buyerReminderAt = Timestamp(date: nowDate.addingTimeInterval(TimeInterval(buyerReceiveReminderHours * 3600)))
-        let buyerAutoCompleteAt = Timestamp(date: nowDate.addingTimeInterval(TimeInterval(buyerAutoCompleteHours * 3600)))
+        let sellerShippingDeadlineAt = Timestamp(
+            date: nowDate.addingTimeInterval(TimeInterval(sellerShippingDeadlineHours * 3600))
+        )
 
         _ = try await db.runTransaction { tx, errorPointer in
             let postcardSnap: DocumentSnapshot
@@ -418,7 +472,7 @@ final class FbPostcardRepo {
                 "postcardTitle": title,
                 "postcardImageUrl": imageUrl,
                 "location": location,
-                "status": PostcardOrderStatus.awaitingSellerSend.rawValue,
+                "status": PostcardOrderStatus.awaitingShipping.rawValue,
                 "buyerId": buyerId,
                 "buyerName": buyerName,
                 "buyerFriendCode": buyerFriendCode,
@@ -428,15 +482,13 @@ final class FbPostcardRepo {
                 "sellerFcmToken": sellerFcmToken,
                 "priceHoney": priceHoney,
                 "holdHoney": priceHoney,
-                "sellerReminderAt": sellerReminderAt,
-                "sellerDeadlineAt": sellerDeadlineAt,
-                "buyerReminderAt": buyerReminderAt,
-                "buyerAutoCompleteAt": buyerAutoCompleteAt,
+                "sellerShippingDeadlineAt": sellerShippingDeadlineAt,
+                "buyerReminderAt": NSNull(),
+                "buyerConfirmDeadlineAt": NSNull(),
                 "timeouts": [
-                    "sellerSendReminderHours": self.sellerSendReminderHours,
-                    "sellerSendDeadlineHours": self.sellerSendDeadlineHours,
+                    "sellerShippingDeadlineHours": self.sellerShippingDeadlineHours,
                     "buyerReceiveReminderHours": self.buyerReceiveReminderHours,
-                    "buyerAutoCompleteHours": self.buyerAutoCompleteHours
+                    "buyerConfirmDeadlineHours": self.buyerConfirmDeadlineHours
                 ],
                 "createdAt": now,
                 "updatedAt": now
@@ -453,10 +505,15 @@ final class FbPostcardRepo {
             throw PostcardRepoError.notSignedIn
         }
 
+        let pendingStatuses = [
+            PostcardOrderStatus.awaitingShipping.rawValue,
+            PostcardOrderStatus.sellerConfirmPending.rawValue,
+            "AwaitingSellerSend"
+        ]
         let query = db.collection("postcardOrders")
             .whereField("postcardId", isEqualTo: postcardId)
             .whereField("sellerId", isEqualTo: sellerId)
-            .whereField("status", isEqualTo: PostcardOrderStatus.awaitingSellerSend.rawValue)
+            .whereField("status", in: pendingStatuses)
 
         let candidates = try await fetchDocuments(query: query).map { doc in
             (doc.documentID, doc.data())
@@ -494,7 +551,9 @@ final class FbPostcardRepo {
                 id: orderId,
                 buyerId: buyerId,
                 buyerName: buyerName,
-                buyerFriendCode: cachedFriendCode.isEmpty ? (buyerFriendCodes[buyerId] ?? "") : cachedFriendCode
+                buyerFriendCode: cachedFriendCode.isEmpty ? (buyerFriendCodes[buyerId] ?? "") : cachedFriendCode,
+                status: PostcardOrderStatus.from(rawValue: data["status"] as? String ?? "")
+                    ?? .awaitingShipping
             )
         }
         .sorted { $0.buyerName.localizedCaseInsensitiveCompare($1.buyerName) == .orderedAscending }
@@ -530,23 +589,24 @@ final class FbPostcardRepo {
             }
 
             let statusRaw = order["status"] as? String ?? ""
-            guard statusRaw == PostcardOrderStatus.awaitingSellerSend.rawValue else {
+            guard statusRaw == PostcardOrderStatus.awaitingShipping.rawValue ||
+                statusRaw == "AwaitingSellerSend" else {
                 errorPointer?.pointee = self.makeError(PostcardRepoError.invalidOrderState)
                 return nil
             }
 
             let timeoutMap = order["timeouts"] as? [String: Any] ?? [:]
             let buyerReminderHours = timeoutMap["buyerReceiveReminderHours"] as? Int ?? self.buyerReceiveReminderHours
-            let buyerAutoHours = timeoutMap["buyerAutoCompleteHours"] as? Int ?? self.buyerAutoCompleteHours
+            let buyerConfirmHours = timeoutMap["buyerConfirmDeadlineHours"] as? Int ?? self.buyerConfirmDeadlineHours
 
             tx.updateData([
-                "status": PostcardOrderStatus.inTransit.rawValue,
+                "status": PostcardOrderStatus.shipped.rawValue,
                 "sentAt": now,
                 "buyerReminderAt": Timestamp(
                     date: nowDate.addingTimeInterval(TimeInterval(max(1, buyerReminderHours) * 3600))
                 ),
-                "buyerAutoCompleteAt": Timestamp(
-                    date: nowDate.addingTimeInterval(TimeInterval(max(1, buyerAutoHours) * 3600))
+                "buyerConfirmDeadlineAt": Timestamp(
+                    date: nowDate.addingTimeInterval(TimeInterval(max(1, buyerConfirmHours) * 3600))
                 ),
                 "updatedAt": now
             ], forDocument: orderRef)
@@ -561,9 +621,12 @@ final class FbPostcardRepo {
         }
 
         let activeStatuses = [
-            PostcardOrderStatus.awaitingSellerSend.rawValue,
-            PostcardOrderStatus.inTransit.rawValue,
-            PostcardOrderStatus.awaitingBuyerDecision.rawValue
+            PostcardOrderStatus.awaitingShipping.rawValue,
+            PostcardOrderStatus.shipped.rawValue,
+            PostcardOrderStatus.sellerConfirmPending.rawValue,
+            "AwaitingSellerSend",
+            "InTransit",
+            "AwaitingBuyerDecision"
         ]
         let query = db.collection("postcardOrders")
             .whereField("buyerId", isEqualTo: buyerId)
@@ -606,8 +669,9 @@ final class FbPostcardRepo {
             }
 
             let statusRaw = order["status"] as? String ?? ""
-            guard statusRaw == PostcardOrderStatus.inTransit.rawValue ||
-                statusRaw == PostcardOrderStatus.awaitingBuyerDecision.rawValue else {
+            guard statusRaw == PostcardOrderStatus.shipped.rawValue ||
+                statusRaw == "InTransit" ||
+                statusRaw == "AwaitingBuyerDecision" else {
                 errorPointer?.pointee = self.makeError(PostcardRepoError.invalidOrderState)
                 return nil
             }
@@ -648,14 +712,13 @@ final class FbPostcardRepo {
         }
     }
 
-    func markPostcardNotYetReceived(orderId: String) async throws { // Handles markPostcardNotYetReceived flow.
-        guard let buyerId = Auth.auth().currentUser?.uid else {
+    func sellerRejectOrder(orderId: String) async throws { // Handles sellerRejectOrder flow.
+        guard let sellerId = Auth.auth().currentUser?.uid else {
             throw PostcardRepoError.notSignedIn
         }
 
         let orderRef = db.collection("postcardOrders").document(orderId)
-        let nowDate = Date()
-        let now = Timestamp(date: nowDate)
+        let now = Timestamp(date: Date())
 
         _ = try await db.runTransaction { tx, errorPointer in
             let orderSnap: DocumentSnapshot
@@ -671,32 +734,55 @@ final class FbPostcardRepo {
                 return nil
             }
 
-            let orderBuyerId = order["buyerId"] as? String ?? ""
-            guard orderBuyerId == buyerId else {
+            let orderSellerId = order["sellerId"] as? String ?? ""
+            guard orderSellerId == sellerId else {
                 errorPointer?.pointee = self.makeError(PostcardRepoError.forbidden)
                 return nil
             }
 
             let statusRaw = order["status"] as? String ?? ""
-            guard statusRaw == PostcardOrderStatus.inTransit.rawValue ||
-                statusRaw == PostcardOrderStatus.awaitingBuyerDecision.rawValue else {
+            guard statusRaw == PostcardOrderStatus.awaitingShipping.rawValue ||
+                statusRaw == PostcardOrderStatus.sellerConfirmPending.rawValue ||
+                statusRaw == "AwaitingSellerSend" else {
                 errorPointer?.pointee = self.makeError(PostcardRepoError.invalidOrderState)
                 return nil
             }
 
-            let timeoutMap = order["timeouts"] as? [String: Any] ?? [:]
-            let buyerReminderHours = timeoutMap["buyerReceiveReminderHours"] as? Int ?? self.buyerReceiveReminderHours
-            let buyerAutoHours = timeoutMap["buyerAutoCompleteHours"] as? Int ?? self.buyerAutoCompleteHours
+            let orderBuyerId = order["buyerId"] as? String ?? ""
+            let postcardId = order["postcardId"] as? String ?? ""
+            let holdHoney = order["holdHoney"] as? Int ?? 0
+            if orderBuyerId.isEmpty || postcardId.isEmpty || holdHoney <= 0 {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.invalidListing)
+                return nil
+            }
+
+            let postcardRef = self.db.collection("postcards").document(postcardId)
+            let buyerRef = self.db.collection("users").document(orderBuyerId)
+            let postcardSnap: DocumentSnapshot
+            let buyerSnap: DocumentSnapshot
+            do {
+                postcardSnap = try tx.getDocument(postcardRef)
+                buyerSnap = try tx.getDocument(buyerRef)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+
+            let stock = postcardSnap.data()?["stock"] as? Int ?? 0
+            let buyerHoney = buyerSnap.data()?["honey"] as? Int ?? 0
+            tx.setData([
+                "stock": stock + 1,
+                "updatedAt": now
+            ], forDocument: postcardRef, merge: true)
+            tx.setData([
+                "honey": buyerHoney + holdHoney,
+                "updatedAt": now
+            ], forDocument: buyerRef, merge: true)
 
             tx.updateData([
-                "status": PostcardOrderStatus.awaitingBuyerDecision.rawValue,
-                "buyerReminderAt": Timestamp(
-                    date: nowDate.addingTimeInterval(TimeInterval(max(1, buyerReminderHours) * 3600))
-                ),
-                "buyerAutoCompleteAt": Timestamp(
-                    date: nowDate.addingTimeInterval(TimeInterval(max(1, buyerAutoHours) * 3600))
-                ),
+                "status": PostcardOrderStatus.rejected.rawValue,
                 "updatedAt": now,
+                "completedAt": now
             ], forDocument: orderRef)
 
             return nil
@@ -711,7 +797,7 @@ final class FbPostcardRepo {
         let data = doc.data()
         let postcardId = data["postcardId"] as? String ?? ""
         let statusRaw = data["status"] as? String ?? ""
-        guard let status = PostcardOrderStatus(rawValue: statusRaw) else { return nil }
+        guard let status = PostcardOrderStatus.from(rawValue: statusRaw) else { return nil }
 
         let holdHoney = data["holdHoney"] as? Int ?? 0
         let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date.distantPast

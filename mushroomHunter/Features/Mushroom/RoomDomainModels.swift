@@ -12,7 +12,7 @@ import Foundation
 
 // MARK: - Core types
 
-/// 🍯 Honey deposit stored as Int for MVP (avoid floating point currency)
+/// Honey deposit stored as Int for MVP (avoid floating point currency)
 typealias Honey = Int
 
 /// Role of the current user *with respect to this room*.
@@ -96,6 +96,8 @@ struct RoomAttendee: Identifiable, Equatable {
 
     /// How much honey the attendee has deposited for this room.
     var depositHoney: Honey
+    /// Join greeting message sent by this attendee.
+    var joinGreetingMessage: String
 
     /// When they joined (optional but useful for tie-break sorting)
     var joinedAt: Date?
@@ -108,14 +110,22 @@ struct RoomAttendee: Identifiable, Equatable {
 
 enum AttendeeStatus: String, CaseIterable, Codable {
     case host = "Host"
+    case askingToJoin = "AskingToJoin"
     case ready = "Ready"
     case waitingConfirmation = "WaitingConfirmation"
     case rejected = "Rejected"
 
     /// Status values treated as active room participation for join-limit counting.
     static var activeStatusRawValues: [String] {
-        [host.rawValue, ready.rawValue, waitingConfirmation.rawValue, rejected.rawValue]
+        [host.rawValue, askingToJoin.rawValue, ready.rawValue, waitingConfirmation.rawValue, rejected.rawValue]
     }
+}
+
+/// Attendee escrow settlement result for a raid confirmation request.
+enum RaidSettlementOutcome: String, CaseIterable, Codable {
+    case joinedSuccess = "JoinedSuccess"
+    case seatFullNoFault = "SeatFullNoFault"
+    case missedInvitation = "MissedInvitation"
 }
 
 // MARK: - Utilities

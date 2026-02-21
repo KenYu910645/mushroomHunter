@@ -40,12 +40,15 @@
 //  [W] - `friendCode`: Writes attendee friend code on create path.
 //  [W] - `stars`: Writes and increments stars during join and rating flows.
 //  [W] - `depositHoney`: Reads for validation/refund and writes on join/deposit/confirmation.
-//  [W] - `status`: Reads for authorization/state checks and writes on transitions.
+//  [W] - `joinGreetingMessage`: Writes the attendee greeting entered at join time.
+//  [W] - `status`: Reads for authorization/state checks and writes on transitions (`AskingToJoin`/`Ready`/`WaitingConfirmation`/`Rejected`).
 //  [W] - `joinedAt`: Writes join timestamp when attendee row is created.
 //  [W] - `updatedAt`: Writes attendee mutation timestamp on every state change.
 //  [W] - `needsHostRating`: Reads/writes pending host-rating state after confirmations.
 //  [W] - `attendeeRatedHost`: Reads/writes attendee-to-host rating completion state.
 //  [W] - `hostRatedAttendee`: Reads/writes host-to-attendee rating completion state.
+//  [W] - `lastSettlementOutcome`: Writes latest attendee escrow-settlement result.
+//  [W] - `lastSettlementHoney`: Writes latest honey settled from attendee to host.
 //
 import Foundation
 import FirebaseAuth
@@ -59,6 +62,8 @@ enum RoomActionError: LocalizedError {
     case notInRoom
     case notHost
     case notEnoughHoney
+    case emptyGreetingMessage
+    case invalidJoinApplicationState
     case maxJoinRoomsReached(Int)
     case invalidStars
     case alreadyRated
@@ -73,6 +78,8 @@ enum RoomActionError: LocalizedError {
         case .notInRoom: return "You are not in this room."
         case .notHost: return "Only the host can do this."
         case .notEnoughHoney: return "Not enough honey."
+        case .emptyGreetingMessage: return "Please enter a greeting message."
+        case .invalidJoinApplicationState: return "Invalid join-application state."
         case .maxJoinRoomsReached(let limit): return "You can only join up to \(limit) rooms."
         case .invalidStars: return "Stars must be between 1 and 3."
         case .alreadyRated: return "You already submitted stars for this raid."
@@ -132,6 +139,7 @@ final class FbRoomActionsRepo {
     func joinRoom(
         roomId: String,
         initialDepositHoney: Int,
+        greetingMessage: String,
         userName: String,
         friendCode: String,
         stars: Int,
@@ -210,6 +218,11 @@ final class FbRoomActionsRepo {
                 errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
                 return nil
             }
+            let trimmedGreetingMessage = greetingMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedGreetingMessage.isEmpty {
+                errPtr?.pointee = RoomActionError.emptyGreetingMessage as NSError
+                return nil
+            }
             if currentHoney < deposit {
                 errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
                 return nil
@@ -223,7 +236,8 @@ final class FbRoomActionsRepo {
                 "friendCode": friendCode,
                 "stars": stars,
                 "depositHoney": deposit,
-                "status": AttendeeStatus.ready.rawValue,
+                "joinGreetingMessage": trimmedGreetingMessage,
+                "status": AttendeeStatus.askingToJoin.rawValue,
                 "joinedAt": now,
                 "updatedAt": now
             ], forDocument: attendeeRef)
@@ -313,6 +327,111 @@ final class FbRoomActionsRepo {
                 "honey": newHoney,
                 "updatedAt": now
             ], forDocument: userRef)
+
+            return nil
+        }
+    }
+
+    // MARK: - Join application moderation (host only)
+    func approveJoinApplication(roomId: String, attendeeUid: String) async throws { // Handles approveJoinApplication flow.
+        guard let hostUid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
+
+        let roomRef = db.collection("rooms").document(roomId)
+        let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
+        let now = Timestamp(date: Date())
+
+        try await db.runTransaction { tx, errPtr -> Any? in
+            let roomSnap: DocumentSnapshot
+            let hostSelfSnap: DocumentSnapshot
+            let attendeeSnap: DocumentSnapshot
+            do {
+                roomSnap = try tx.getDocument(roomRef)
+                hostSelfSnap = try tx.getDocument(roomRef.collection("attendees").document(hostUid))
+                attendeeSnap = try tx.getDocument(attendeeRef)
+            } catch {
+                errPtr?.pointee = error as NSError
+                return nil
+            }
+
+            guard roomSnap.data() != nil else {
+                errPtr?.pointee = RoomActionError.roomNotFound as NSError
+                return nil
+            }
+            let hostStatus = hostSelfSnap.data()?["status"] as? String ?? ""
+            guard hostStatus == AttendeeStatus.host.rawValue else {
+                errPtr?.pointee = RoomActionError.notHost as NSError
+                return nil
+            }
+            let attendeeStatus = attendeeSnap.data()?["status"] as? String ?? ""
+            guard attendeeStatus == AttendeeStatus.askingToJoin.rawValue else {
+                errPtr?.pointee = RoomActionError.invalidJoinApplicationState as NSError
+                return nil
+            }
+
+            tx.updateData([
+                "status": AttendeeStatus.ready.rawValue,
+                "updatedAt": now
+            ], forDocument: attendeeRef)
+            tx.updateData([
+                "updatedAt": now
+            ], forDocument: roomRef)
+            return nil
+        }
+    }
+
+    func rejectJoinApplication(roomId: String, attendeeUid: String) async throws { // Handles rejectJoinApplication flow.
+        guard let hostUid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
+
+        let roomRef = db.collection("rooms").document(roomId)
+        let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
+        let userRef = db.collection("users").document(attendeeUid)
+        let now = Timestamp(date: Date())
+
+        try await db.runTransaction { tx, errPtr -> Any? in
+            let roomSnap: DocumentSnapshot
+            let hostSelfSnap: DocumentSnapshot
+            let attendeeSnap: DocumentSnapshot
+            do {
+                roomSnap = try tx.getDocument(roomRef)
+                hostSelfSnap = try tx.getDocument(roomRef.collection("attendees").document(hostUid))
+                attendeeSnap = try tx.getDocument(attendeeRef)
+            } catch {
+                errPtr?.pointee = error as NSError
+                return nil
+            }
+
+            guard roomSnap.data() != nil else {
+                errPtr?.pointee = RoomActionError.roomNotFound as NSError
+                return nil
+            }
+            let hostStatus = hostSelfSnap.data()?["status"] as? String ?? ""
+            guard hostStatus == AttendeeStatus.host.rawValue else {
+                errPtr?.pointee = RoomActionError.notHost as NSError
+                return nil
+            }
+            let attendeeData = attendeeSnap.data() ?? [:]
+            let attendeeStatus = attendeeData["status"] as? String ?? ""
+            guard attendeeStatus == AttendeeStatus.askingToJoin.rawValue else {
+                errPtr?.pointee = RoomActionError.invalidJoinApplicationState as NSError
+                return nil
+            }
+            let depositHoney = attendeeData["depositHoney"] as? Int ?? 0
+
+            tx.deleteDocument(attendeeRef)
+            tx.updateData([
+                "joinedCount": FieldValue.increment(Int64(-1)),
+                "updatedAt": now
+            ], forDocument: roomRef)
+            if depositHoney > 0 {
+                tx.setData([
+                    "honey": FieldValue.increment(Int64(depositHoney)),
+                    "updatedAt": now
+                ], forDocument: userRef, merge: true)
+            } else {
+                tx.setData([
+                    "updatedAt": now
+                ], forDocument: userRef, merge: true)
+            }
 
             return nil
         }
@@ -526,7 +645,7 @@ final class FbRoomActionsRepo {
                 return nil
             }
 
-            let raidCost = (room["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
+            _ = (room["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
 
             var attendeeDocs: [(ref: DocumentReference, data: [String: Any])] = []
             attendeeDocs.reserveCapacity(attendeeUids.count)
@@ -544,14 +663,13 @@ final class FbRoomActionsRepo {
             }
 
             for attendee in attendeeDocs {
-                let deposit = attendee.data["depositHoney"] as? Int ?? 0
-                if deposit < raidCost { continue }
-
                 tx.updateData([
                     "status": AttendeeStatus.waitingConfirmation.rawValue,
                     "attendeeRatedHost": false,
                     "hostRatedAttendee": false,
                     "needsHostRating": false,
+                    "lastSettlementOutcome": "",
+                    "lastSettlementHoney": 0,
                     "updatedAt": now
                 ], forDocument: attendee.ref)
             }
@@ -567,7 +685,11 @@ final class FbRoomActionsRepo {
     }
 
     // MARK: - Confirm raid (attendee only)
-    func respondToRaidConfirmation(roomId: String, attendeeUid: String, accept: Bool) async throws { // Handles respondToRaidConfirmation flow.
+    func respondToRaidConfirmation(
+        roomId: String,
+        attendeeUid: String,
+        settlementOutcome: RaidSettlementOutcome
+    ) async throws { // Handles respondToRaidConfirmation flow.
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
         guard uid == attendeeUid else { throw RoomActionError.notInRoom }
 
@@ -592,26 +714,48 @@ final class FbRoomActionsRepo {
             let hostHoney = hostSnap.data()?["honey"] as? Int ?? 0
             let attendeeDeposit = attendeeSnap.data()?["depositHoney"] as? Int ?? 0
 
-            if accept {
+            switch settlementOutcome {
+            case .joinedSuccess:
                 if attendeeDeposit < hostContext.raidCostHoney {
                     errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
                     return nil
                 }
+                let settlementHoney = max(0, hostContext.raidCostHoney)
                 tx.updateData([
-                    "honey": hostHoney + max(0, hostContext.raidCostHoney),
+                    "honey": hostHoney + settlementHoney,
                     "updatedAt": now
                 ], forDocument: hostRef)
 
                 tx.updateData([
-                    "depositHoney": max(0, attendeeDeposit - hostContext.raidCostHoney),
+                    "depositHoney": max(0, attendeeDeposit - settlementHoney),
                     "status": AttendeeStatus.ready.rawValue,
                     "needsHostRating": true,
+                    "lastSettlementOutcome": settlementOutcome.rawValue,
+                    "lastSettlementHoney": settlementHoney,
                     "updatedAt": now
                 ], forDocument: attendeeRef)
-            } else {
+            case .seatFullNoFault:
+                let noFaultEffortFee = AppConfig.Mushroom.noFaultEffortFee(for: hostContext.raidCostHoney)
+                let settlementHoney = min(attendeeDeposit, max(0, noFaultEffortFee))
                 tx.updateData([
-                    "status": AttendeeStatus.rejected.rawValue,
+                    "honey": hostHoney + settlementHoney,
+                    "updatedAt": now
+                ], forDocument: hostRef)
+
+                tx.updateData([
+                    "depositHoney": max(0, attendeeDeposit - settlementHoney),
+                    "status": AttendeeStatus.ready.rawValue,
                     "needsHostRating": false,
+                    "lastSettlementOutcome": settlementOutcome.rawValue,
+                    "lastSettlementHoney": settlementHoney,
+                    "updatedAt": now
+                ], forDocument: attendeeRef)
+            case .missedInvitation:
+                tx.updateData([
+                    "status": AttendeeStatus.ready.rawValue,
+                    "needsHostRating": false,
+                    "lastSettlementOutcome": settlementOutcome.rawValue,
+                    "lastSettlementHoney": 0,
                     "updatedAt": now
                 ], forDocument: attendeeRef)
             }

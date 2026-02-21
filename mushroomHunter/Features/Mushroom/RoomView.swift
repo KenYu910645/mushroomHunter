@@ -21,6 +21,8 @@ struct RoomView: View {
     @State private var editingRoom: RoomDetail? = nil // State or dependency property.
     @State private var showJoinSheet: Bool = false // State or dependency property.
     @State private var joinDepositAmount: Int = 0 // State or dependency property.
+    @State private var joinGreetingMessage: String = NSLocalizedString("room_join_greeting_default", comment: "") // Greeting message submitted together with join deposit.
+    @State private var isJoinGreetingFocused: Bool = false // Controls first-responder focus for the join greeting editor.
     @State private var showDepositSheet: Bool = false // State or dependency property.
     @State private var updateDepositAmount: Int = 0 // State or dependency property.
     @State private var showJoinConfirmAlert: Bool = false // State or dependency property.
@@ -42,6 +44,8 @@ struct RoomView: View {
     @State private var showNextRoundAlert: Bool = false // State or dependency property.
     @State private var showRaidThanksAlert: Bool = false // State or dependency property.
     @State private var raidThanksHoney: Int = 0 // State or dependency property.
+    @State private var isShowingNoFaultSettlementAlert: Bool = false // Indicates no-fault seat-full settlement result should be shown.
+    @State private var noFaultSettlementHoney: Int = 0 // Latest effort-fee honey transferred from no-fault seat-full settlement.
     @State private var showAttendeeRateHostAlert: Bool = false // State or dependency property.
     @State private var showNextRoundAfterRating: Bool = false // State or dependency property.
     @State private var showHostRateAttendeeAlert: Bool = false // State or dependency property.
@@ -104,190 +108,8 @@ struct RoomView: View {
                     .transition(.opacity)
             }
         }
-        .alert(
-            LocalizedStringKey("room_raid_confirm_title"),
-            isPresented: $showRaidConfirmAlert,
-            presenting: vm.room
-        ) { _ in
-            Button(LocalizedStringKey("common_yes")) {
-                Task {
-                    let didConfirm = await vm.respondToRaidConfirmation(accept: true)
-                    if didConfirm {
-                        raidThanksHoney = vm.room?.fixedRaidCost ?? 0
-                        showRaidThanksAlert = true
-                    }
-                }
-            }
-            Button(LocalizedStringKey("common_no"), role: .cancel) {
-                Task {
-                    await vm.respondToRaidConfirmation(accept: false)
-                }
-            }
-        } message: { room in
-            Text(String(format: NSLocalizedString("room_raid_confirm_message", comment: ""), room.hostName))
-        }
-        .alert(LocalizedStringKey("room_raid_thanks_title"), isPresented: $showRaidThanksAlert) {
-            Button(LocalizedStringKey("common_ok")) {
-                if let room = vm.room,
-                   let deposit = vm.currentUserDepositHoney(),
-                   deposit < room.fixedRaidCost {
-                    showNextRoundAfterRating = true
-                }
-                showAttendeeRateHostAlert = true
-            }
-        } message: {
-            Text(String(format: NSLocalizedString("room_raid_thanks_message", comment: ""), raidThanksHoney))
-        }
-        .alert(
-            Text(String(format: NSLocalizedString("room_rate_host_title", comment: ""), vm.room?.hostName ?? "Host")),
-            isPresented: $showAttendeeRateHostAlert
-        ) {
-            Button(LocalizedStringKey("room_rate_one_star")) {
-                Task {
-                    await vm.rateHost(stars: 1)
-                    presentNextRoundAlertIfNeeded()
-                }
-            }
-            Button(LocalizedStringKey("room_rate_two_stars")) {
-                Task {
-                    await vm.rateHost(stars: 2)
-                    presentNextRoundAlertIfNeeded()
-                }
-            }
-            Button(LocalizedStringKey("room_rate_three_stars")) {
-                Task {
-                    await vm.rateHost(stars: 3)
-                    presentNextRoundAlertIfNeeded()
-                }
-            }
-            Button(LocalizedStringKey("common_cancel"), role: .cancel) {
-                presentNextRoundAlertIfNeeded()
-            }
-        }
-        .alert(
-            Text(String(format: NSLocalizedString("room_rate_attendee_title", comment: ""), hostRateAttendeeName)),
-            isPresented: $showHostRateAttendeeAlert
-        ) {
-            Button(LocalizedStringKey("room_rate_one_star")) {
-                let attendeeId = hostRateAttendeeId
-                Task {
-                    await vm.rateAttendee(attendeeId: attendeeId, stars: 1)
-                    presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
-                }
-            }
-            Button(LocalizedStringKey("room_rate_two_stars")) {
-                let attendeeId = hostRateAttendeeId
-                Task {
-                    await vm.rateAttendee(attendeeId: attendeeId, stars: 2)
-                    presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
-                }
-            }
-            Button(LocalizedStringKey("room_rate_three_stars")) {
-                let attendeeId = hostRateAttendeeId
-                Task {
-                    await vm.rateAttendee(attendeeId: attendeeId, stars: 3)
-                    presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
-                }
-            }
-            Button(LocalizedStringKey("common_cancel"), role: .cancel) {
-                presentNextHostRatingAlertIfNeeded(excluding: hostRateAttendeeId)
-            }
-        }
-        .alert(LocalizedStringKey("room_next_round_title"), isPresented: $showNextRoundAlert) {
-            Button(LocalizedStringKey("room_update_bid")) {
-                showDepositSheet = true
-            }
-            Button {
-                leaveRoomName = vm.room?.title ?? ""
-                showLeaveConfirmAlert = true
-            } label: {
-                Text(LocalizedStringKey("room_leave_room"))
-                    .foregroundStyle(.red)
-            }
-        } message: {
-            Text(LocalizedStringKey("room_next_round_message"))
-        }
-        .alert(LocalizedStringKey("room_join_confirm_title"), isPresented: $showJoinConfirmAlert, presenting: vm.room) { room in
-            Button(LocalizedStringKey("room_join_confirm_sure")) {
-                if joinDepositAmount > session.honey {
-                    showNotEnoughHoneyAlert = true
-                    return
-                }
-                Task {
-                    await vm.join(initialDeposit: joinDepositAmount)
-                    if vm.errorMessage == nil {
-                        joinSuccessRoomName = room.title
-                        joinSuccessHoney = joinDepositAmount
-                        showJoinSuccessAlert = true
-                    }
-                }
-            }
-        } message: { room in
-            Text(String(format: NSLocalizedString("room_join_confirm_message", comment: ""), joinDepositAmount, room.title))
-        }
-        .alert(LocalizedStringKey("room_not_enough_honey_title"), isPresented: $showNotEnoughHoneyAlert) {
-            Button(LocalizedStringKey("common_ok")) {}
-        } message: {
-            Text(String(format: NSLocalizedString("room_not_enough_honey_message", comment: ""), session.honey))
-        }
-        .alert(LocalizedStringKey("room_join_success_title"), isPresented: $showJoinSuccessAlert) {
-            Button(LocalizedStringKey("common_ok")) {}
-        } message: {
-            Text(String(format: NSLocalizedString("room_join_success_message", comment: ""), joinSuccessRoomName, joinSuccessHoney))
-        }
-        .alert(LocalizedStringKey("room_join_limit_title"), isPresented: $vm.showJoinLimitAlert) {
-            Button(LocalizedStringKey("common_ok")) {}
-        } message: {
-            Text(vm.joinLimitMessage)
-        }
-        .alert(LocalizedStringKey("room_update_bid_success_title"), isPresented: $showUpdateDepositSuccessAlert) {
-            Button(LocalizedStringKey("common_ok")) {}
-        } message: {
-            Text(String(format: NSLocalizedString("room_update_bid_success_message", comment: ""), updateDepositOldAmount, updateDepositNewAmount))
-        }
-        .alert(LocalizedStringKey("room_leave_confirm_title"), isPresented: $showLeaveConfirmAlert) {
-            Button(LocalizedStringKey("common_yes"), role: .destructive) {
-                Task {
-                    await vm.leave()
-                }
-            }
-            Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
-        } message: {
-            Text(String(format: NSLocalizedString("room_leave_confirm_message", comment: ""), leaveRoomName))
-        }
-        .alert(LocalizedStringKey("room_claim_confirm_title"), isPresented: $showClaimConfirmAlert) {
-            Button(LocalizedStringKey("common_yes")) {
-                let selected = Array(finishSelection)
-                Task {
-                    await vm.finishRaid(attendeeIds: selected)
-                    finishSelection.removeAll()
-                    showClaimSentAlert = true
-                }
-            }
-            Button(LocalizedStringKey("common_cancel"), role: .cancel) {}
-        } message: {
-            Text(claimConfirmMessage())
-        }
-        .alert(LocalizedStringKey("room_claim_sent_title"), isPresented: $showClaimSentAlert) {
-            Button(LocalizedStringKey("common_ok")) {}
-        } message: {
-            Text(LocalizedStringKey("room_claim_sent_message"))
-        }
-        .alert(LocalizedStringKey("room_reject_alert_title"), isPresented: $showRejectResolveAlert) {
-            Button(LocalizedStringKey("room_reject_resend"), role: .cancel) {
-                let id = rejectAttendeeId
-                Task {
-                    await vm.resendRejectedConfirmation(attendeeId: id)
-                }
-            }
-            Button(LocalizedStringKey("room_reject_giveup")) {
-                let id = rejectAttendeeId
-                Task {
-                    await vm.giveUpRejectedConfirmation(attendeeId: id)
-                }
-            }
-        } message: {
-            Text(String(format: NSLocalizedString("room_reject_alert_message", comment: ""), rejectAttendeeName, rejectAttendeeName))
+        .overlay {
+            messageBoxOverlay
         }
         .sheet(isPresented: $showJoinSheet) {
             NavigationStack {
@@ -322,6 +144,34 @@ struct RoomView: View {
                     } footer: {
                         Text(LocalizedStringKey("room_bid_footer"))
                     }
+
+                    Section {
+                        ZStack(alignment: .topLeading) {
+                            if joinGreetingMessage.isEmpty {
+                                Text(LocalizedStringKey("room_join_greeting_placeholder"))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.top, 8)
+                                    .padding(.leading, 6)
+                            }
+                            SelectAllTextEditor(
+                                text: $joinGreetingMessage,
+                                isFirstResponder: $isJoinGreetingFocused,
+                                autocapitalization: .sentences,
+                                autocorrection: .yes
+                            ) { latestValue in
+                                let maxLength = 100
+                                if latestValue.count > maxLength {
+                                    joinGreetingMessage = String(latestValue.prefix(maxLength))
+                                }
+                            }
+                            .frame(minHeight: 88)
+                            .accessibilityIdentifier("room_join_sheet_greeting_editor")
+                        }
+                    } header: {
+                        Text(LocalizedStringKey("room_join_greeting_header"))
+                    } footer: {
+                        Text(LocalizedStringKey("room_join_greeting_footer"))
+                    }
                 }
                 .navigationTitle(LocalizedStringKey("room_join_title"))
                 .navigationBarTitleDisplayMode(.inline)
@@ -329,16 +179,27 @@ struct RoomView: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button(LocalizedStringKey("common_cancel")) {
                             showJoinSheet = false
+                            isJoinGreetingFocused = false
                         }
                         .accessibilityIdentifier("room_join_sheet_cancel_button")
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button(LocalizedStringKey("common_ok")) {
                             showJoinSheet = false
+                            isJoinGreetingFocused = false
                             showJoinConfirmAlert = true
                         }
-                        .disabled(joinDepositAmount < (vm.room?.fixedRaidCost ?? 0) || joinDepositAmount > session.honey)
+                        .disabled(
+                            joinDepositAmount < (vm.room?.fixedRaidCost ?? 0)
+                            || joinDepositAmount > session.honey
+                            || joinGreetingMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        )
                         .accessibilityIdentifier("room_join_sheet_ok_button")
+                    }
+                }
+                .onAppear {
+                    if joinGreetingMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        joinGreetingMessage = NSLocalizedString("room_join_greeting_default", comment: "")
                     }
                 }
             }
@@ -594,11 +455,22 @@ struct RoomView: View {
                         attendee: attendee,
                         isHostAttendee: attendee.status == .host,
                         isHostViewing: (vm.role == .host),
+                        isAskingToJoin: vm.isAskingToJoin(attendeeId: attendee.id),
                         isPendingConfirmation: vm.isWaitingConfirmation(attendeeId: attendee.id),
                         isRejectedConfirmation: vm.isRejectedConfirmation(attendeeId: attendee.id),
                         onKick: {
                             Task {
                                 await vm.kick(attendeeId: attendee.id)
+                            }
+                        },
+                        onApproveJoinApplication: {
+                            Task {
+                                await vm.approveJoinApplication(attendeeId: attendee.id)
+                            }
+                        },
+                        onRejectJoinApplication: {
+                            Task {
+                                await vm.rejectJoinApplication(attendeeId: attendee.id)
                             }
                         },
                         onResolve: {
@@ -654,7 +526,7 @@ struct RoomView: View {
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
-            if vm.role == .attendee {
+            if vm.role == .attendee, vm.isCurrentUserAllowedToEditDeposit {
                 Button {
                     let currentDeposit = vm.currentUserDepositHoney() ?? 0
                     let fixedCost = vm.room?.fixedRaidCost ?? 0
@@ -686,6 +558,7 @@ struct RoomView: View {
                             let minBid = room.fixedRaidCost
                             let clamped = max(joinDepositAmount, minBid)
                             joinDepositAmount = min(clamped, session.honey)
+                            joinGreetingMessage = NSLocalizedString("room_join_greeting_default", comment: "")
                             showJoinSheet = true
                         } label: {
                             Text(LocalizedStringKey("common_join"))
@@ -699,6 +572,7 @@ struct RoomView: View {
                             let minBid = room.fixedRaidCost
                             let clamped = max(joinDepositAmount, minBid)
                             joinDepositAmount = min(clamped, session.honey)
+                            joinGreetingMessage = NSLocalizedString("room_join_greeting_default", comment: "")
                             showJoinSheet = true
                         } label: {
                             Text(LocalizedStringKey("common_join"))
@@ -711,14 +585,14 @@ struct RoomView: View {
 
                     if vm.role == .host {
                         Button {
-                            finishSelection = []
-                            showFinishSheet = true
+                            finishSelection = Set(vm.raidSettlementTargetAttendeeIds())
+                            showClaimConfirmAlert = true
                         } label: {
                             Text(LocalizedStringKey("room_claim_rewards_title"))
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
-                        .disabled(vm.isLoading)
+                        .disabled(vm.isLoading || vm.raidSettlementTargetAttendeeIds().isEmpty)
                     }
 
                     if AppTesting.useMockRooms {
@@ -746,6 +620,389 @@ struct RoomView: View {
 
     // MARK: - Helpers
 
+    @ViewBuilder
+    private var messageBoxOverlay: some View {
+        if showRaidConfirmAlert, let room = vm.room {
+            HoneyMessageBox(
+                title: NSLocalizedString("room_msg_raid_confirm_title", comment: ""),
+                message: String(format: NSLocalizedString("room_msg_raid_confirm_message", comment: ""), room.hostName),
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_raid_confirm_joined_success",
+                        title: NSLocalizedString("room_msg_raid_confirm_joined_success_button", comment: "")
+                    ) {
+                        showRaidConfirmAlert = false
+                        Task {
+                            let isConfirmed = await vm.respondToRaidConfirmation(settlementOutcome: .joinedSuccess)
+                            if isConfirmed {
+                                raidThanksHoney = vm.room?.fixedRaidCost ?? 0
+                                showRaidThanksAlert = true
+                            }
+                        }
+                    },
+                    HoneyMessageBoxButton(
+                        id: "room_raid_confirm_seat_full",
+                        title: NSLocalizedString("room_msg_raid_confirm_seat_full_button", comment: "")
+                    ) {
+                        showRaidConfirmAlert = false
+                        Task {
+                            let currentDeposit = vm.currentUserDepositHoney() ?? 0
+                            let isConfirmed = await vm.respondToRaidConfirmation(settlementOutcome: .seatFullNoFault)
+                            if isConfirmed {
+                                let fixedRaidCost = vm.room?.fixedRaidCost ?? 0
+                                let noFaultEffortFee = AppConfig.Mushroom.noFaultEffortFee(for: fixedRaidCost)
+                                noFaultSettlementHoney = min(currentDeposit, noFaultEffortFee)
+                                isShowingNoFaultSettlementAlert = true
+                            }
+                        }
+                    },
+                    HoneyMessageBoxButton(
+                        id: "room_raid_confirm_missed_invite",
+                        title: NSLocalizedString("room_msg_raid_confirm_missed_invite_button", comment: ""),
+                        role: .cancel
+                    ) {
+                        showRaidConfirmAlert = false
+                        Task {
+                            await vm.respondToRaidConfirmation(settlementOutcome: .missedInvitation)
+                        }
+                    }
+                ]
+            )
+        } else if showRaidThanksAlert {
+            HoneyMessageBox(
+                title: NSLocalizedString("room_msg_raid_thanks_title", comment: ""),
+                message: String(format: NSLocalizedString("room_msg_raid_thanks_message", comment: ""), raidThanksHoney),
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_raid_thanks_ok",
+                        title: NSLocalizedString("common_ok", comment: "")
+                    ) {
+                        showRaidThanksAlert = false
+                        if let room = vm.room,
+                           let deposit = vm.currentUserDepositHoney(),
+                           deposit < room.fixedRaidCost {
+                            showNextRoundAfterRating = true
+                        }
+                        showAttendeeRateHostAlert = true
+                    }
+                ]
+            )
+        } else if isShowingNoFaultSettlementAlert {
+            HoneyMessageBox(
+                title: NSLocalizedString("room_msg_settlement_no_fault_title", comment: ""),
+                message: String(format: NSLocalizedString("room_msg_settlement_no_fault_message", comment: ""), noFaultSettlementHoney),
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_settlement_no_fault_ok",
+                        title: NSLocalizedString("common_ok", comment: "")
+                    ) {
+                        isShowingNoFaultSettlementAlert = false
+                    }
+                ]
+            )
+        } else if showAttendeeRateHostAlert {
+            HoneyMessageBox(
+                title: String(format: NSLocalizedString("room_msg_rate_host_title", comment: ""), vm.room?.hostName ?? "Host"),
+                message: "",
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_rate_host_one",
+                        title: NSLocalizedString("room_msg_rate_one_star", comment: ""),
+                        role: .quiet
+                    ) {
+                        showAttendeeRateHostAlert = false
+                        Task {
+                            await vm.rateHost(stars: 1)
+                            presentNextRoundAlertIfNeeded()
+                        }
+                    },
+                    HoneyMessageBoxButton(
+                        id: "room_rate_host_two",
+                        title: NSLocalizedString("room_msg_rate_two_stars", comment: ""),
+                        role: .quiet
+                    ) {
+                        showAttendeeRateHostAlert = false
+                        Task {
+                            await vm.rateHost(stars: 2)
+                            presentNextRoundAlertIfNeeded()
+                        }
+                    },
+                    HoneyMessageBoxButton(
+                        id: "room_rate_host_three",
+                        title: NSLocalizedString("room_msg_rate_three_stars", comment: ""),
+                        role: .quiet
+                    ) {
+                        showAttendeeRateHostAlert = false
+                        Task {
+                            await vm.rateHost(stars: 3)
+                            presentNextRoundAlertIfNeeded()
+                        }
+                    },
+                    HoneyMessageBoxButton(
+                        id: "room_rate_host_cancel",
+                        title: NSLocalizedString("common_cancel", comment: ""),
+                        role: .cancel
+                    ) {
+                        showAttendeeRateHostAlert = false
+                        presentNextRoundAlertIfNeeded()
+                    }
+                ]
+            )
+        } else if showHostRateAttendeeAlert {
+            HoneyMessageBox(
+                title: String(format: NSLocalizedString("room_msg_rate_attendee_title", comment: ""), hostRateAttendeeName),
+                message: "",
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_rate_attendee_one",
+                        title: NSLocalizedString("room_msg_rate_one_star", comment: ""),
+                        role: .quiet
+                    ) {
+                        let attendeeId = hostRateAttendeeId
+                        showHostRateAttendeeAlert = false
+                        Task {
+                            await vm.rateAttendee(attendeeId: attendeeId, stars: 1)
+                            presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
+                        }
+                    },
+                    HoneyMessageBoxButton(
+                        id: "room_rate_attendee_two",
+                        title: NSLocalizedString("room_msg_rate_two_stars", comment: ""),
+                        role: .quiet
+                    ) {
+                        let attendeeId = hostRateAttendeeId
+                        showHostRateAttendeeAlert = false
+                        Task {
+                            await vm.rateAttendee(attendeeId: attendeeId, stars: 2)
+                            presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
+                        }
+                    },
+                    HoneyMessageBoxButton(
+                        id: "room_rate_attendee_three",
+                        title: NSLocalizedString("room_msg_rate_three_stars", comment: ""),
+                        role: .quiet
+                    ) {
+                        let attendeeId = hostRateAttendeeId
+                        showHostRateAttendeeAlert = false
+                        Task {
+                            await vm.rateAttendee(attendeeId: attendeeId, stars: 3)
+                            presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
+                        }
+                    },
+                    HoneyMessageBoxButton(
+                        id: "room_rate_attendee_cancel",
+                        title: NSLocalizedString("common_cancel", comment: ""),
+                        role: .cancel
+                    ) {
+                        showHostRateAttendeeAlert = false
+                        presentNextHostRatingAlertIfNeeded(excluding: hostRateAttendeeId)
+                    }
+                ]
+            )
+        } else if showNextRoundAlert {
+            HoneyMessageBox(
+                title: NSLocalizedString("room_msg_next_round_title", comment: ""),
+                message: NSLocalizedString("room_msg_next_round_message", comment: ""),
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_next_round_update_bid",
+                        title: NSLocalizedString("room_update_bid", comment: "")
+                    ) {
+                        showNextRoundAlert = false
+                        showDepositSheet = true
+                    },
+                    HoneyMessageBoxButton(
+                        id: "room_next_round_leave",
+                        title: NSLocalizedString("room_leave_room", comment: ""),
+                        role: .destructive
+                    ) {
+                        showNextRoundAlert = false
+                        leaveRoomName = vm.room?.title ?? ""
+                        showLeaveConfirmAlert = true
+                    }
+                ]
+            )
+        } else if showJoinConfirmAlert, let room = vm.room {
+            HoneyMessageBox(
+                title: NSLocalizedString("room_msg_join_confirm_title", comment: ""),
+                message: String(format: NSLocalizedString("room_msg_join_confirm_message", comment: ""), joinDepositAmount, room.title),
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_join_confirm_yes",
+                        title: NSLocalizedString("room_msg_join_confirm_confirm_button", comment: "")
+                    ) {
+                        showJoinConfirmAlert = false
+                        if joinDepositAmount > session.honey {
+                            showNotEnoughHoneyAlert = true
+                            return
+                        }
+                        Task {
+                            await vm.join(initialDeposit: joinDepositAmount, greetingMessage: joinGreetingMessage)
+                            if vm.errorMessage == nil {
+                                joinSuccessRoomName = room.title
+                                joinSuccessHoney = joinDepositAmount
+                                showJoinSuccessAlert = true
+                            }
+                        }
+                    },
+                    HoneyMessageBoxButton(
+                        id: "room_join_confirm_cancel",
+                        title: NSLocalizedString("common_cancel", comment: ""),
+                        role: .cancel
+                    ) {
+                        showJoinConfirmAlert = false
+                    }
+                ]
+            )
+        } else if showNotEnoughHoneyAlert {
+            HoneyMessageBox(
+                title: NSLocalizedString("room_msg_not_enough_honey_title", comment: ""),
+                message: String(format: NSLocalizedString("room_msg_not_enough_honey_message", comment: ""), session.honey),
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_not_enough_honey_ok",
+                        title: NSLocalizedString("common_ok", comment: "")
+                    ) {
+                        showNotEnoughHoneyAlert = false
+                    }
+                ]
+            )
+        } else if showJoinSuccessAlert {
+            HoneyMessageBox(
+                title: NSLocalizedString("room_msg_join_success_title", comment: ""),
+                message: String(format: NSLocalizedString("room_msg_join_success_message", comment: ""), joinSuccessRoomName, joinSuccessHoney),
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_join_success_ok",
+                        title: NSLocalizedString("common_ok", comment: "")
+                    ) {
+                        showJoinSuccessAlert = false
+                    }
+                ]
+            )
+        } else if vm.showJoinLimitAlert {
+            HoneyMessageBox(
+                title: NSLocalizedString("room_msg_join_limit_title", comment: ""),
+                message: vm.joinLimitMessage,
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_join_limit_ok",
+                        title: NSLocalizedString("common_ok", comment: "")
+                    ) {
+                        vm.showJoinLimitAlert = false
+                    }
+                ]
+            )
+        } else if showUpdateDepositSuccessAlert {
+            HoneyMessageBox(
+                title: NSLocalizedString("room_msg_update_deposit_success_title", comment: ""),
+                message: String(format: NSLocalizedString("room_msg_update_deposit_success_message", comment: ""), updateDepositOldAmount, updateDepositNewAmount),
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_update_deposit_success_ok",
+                        title: NSLocalizedString("common_ok", comment: "")
+                    ) {
+                        showUpdateDepositSuccessAlert = false
+                    }
+                ]
+            )
+        } else if showLeaveConfirmAlert {
+            HoneyMessageBox(
+                title: NSLocalizedString("room_msg_leave_confirm_title", comment: ""),
+                message: String(format: NSLocalizedString("room_msg_leave_confirm_message", comment: ""), leaveRoomName),
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_leave_confirm_yes",
+                        title: NSLocalizedString("common_yes", comment: ""),
+                        role: .destructive
+                    ) {
+                        showLeaveConfirmAlert = false
+                        Task {
+                            await vm.leave()
+                        }
+                    },
+                    HoneyMessageBoxButton(
+                        id: "room_leave_confirm_cancel",
+                        title: NSLocalizedString("common_cancel", comment: ""),
+                        role: .cancel
+                    ) {
+                        showLeaveConfirmAlert = false
+                    }
+                ]
+            )
+        } else if showClaimConfirmAlert {
+            HoneyMessageBox(
+                title: NSLocalizedString("room_msg_claim_confirm_title", comment: ""),
+                message: claimConfirmMessage(),
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_claim_confirm_yes",
+                        title: NSLocalizedString("common_yes", comment: "")
+                    ) {
+                        showClaimConfirmAlert = false
+                        let selected = Array(finishSelection)
+                        Task {
+                            await vm.finishRaid(attendeeIds: selected)
+                            if vm.errorMessage == nil {
+                                finishSelection.removeAll()
+                                showClaimSentAlert = true
+                            }
+                        }
+                    },
+                    HoneyMessageBoxButton(
+                        id: "room_claim_confirm_cancel",
+                        title: NSLocalizedString("common_cancel", comment: ""),
+                        role: .cancel
+                    ) {
+                        showClaimConfirmAlert = false
+                    }
+                ]
+            )
+        } else if showClaimSentAlert {
+            HoneyMessageBox(
+                title: NSLocalizedString("room_msg_claim_sent_title", comment: ""),
+                message: NSLocalizedString("room_msg_claim_sent_message", comment: ""),
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_claim_sent_ok",
+                        title: NSLocalizedString("common_ok", comment: "")
+                    ) {
+                        showClaimSentAlert = false
+                    }
+                ]
+            )
+        } else if showRejectResolveAlert {
+            HoneyMessageBox(
+                title: NSLocalizedString("room_msg_reject_alert_title", comment: ""),
+                message: String(format: NSLocalizedString("room_msg_reject_alert_message", comment: ""), rejectAttendeeName, rejectAttendeeName),
+                buttons: [
+                    HoneyMessageBoxButton(
+                        id: "room_msg_reject_resend_button",
+                        title: NSLocalizedString("room_msg_reject_resend_button", comment: ""),
+                        role: .cancel
+                    ) {
+                        let attendeeId = rejectAttendeeId
+                        showRejectResolveAlert = false
+                        Task {
+                            await vm.resendRejectedConfirmation(attendeeId: attendeeId)
+                        }
+                    },
+                    HoneyMessageBoxButton(
+                        id: "room_reject_give_up",
+                        title: NSLocalizedString("room_msg_reject_giveup_button", comment: ""),
+                        role: .destructive
+                    ) {
+                        let attendeeId = rejectAttendeeId
+                        showRejectResolveAlert = false
+                        Task {
+                            await vm.giveUpRejectedConfirmation(attendeeId: attendeeId)
+                        }
+                    }
+                ]
+            )
+        }
+    }
+
     private func copyFriendCode(_ code: String) {
         let digits = code.filter { $0.isNumber }
         guard !digits.isEmpty else { return }
@@ -759,15 +1016,15 @@ struct RoomView: View {
 
     private func claimConfirmMessage() -> String {
         guard let room = vm.room else {
-            return NSLocalizedString("room_claim_confirm_message", comment: "")
+            return NSLocalizedString("room_msg_claim_confirm_message", comment: "")
         }
         let selected = room.attendees.filter { finishSelection.contains($0.id) }
         let names = selected.map { $0.name }.sorted()
         let list = names.joined(separator: ", ")
         if list.isEmpty {
-            return NSLocalizedString("room_claim_confirm_message", comment: "")
+            return NSLocalizedString("room_msg_claim_confirm_message", comment: "")
         }
-        return String(format: NSLocalizedString("room_claim_confirm_message_with_list", comment: ""), list)
+        return String(format: NSLocalizedString("room_msg_claim_confirm_message_with_list", comment: ""), list)
     }
 
     private func presentNextHostRatingAlertIfNeeded(excluding attendeeId: String? = nil) {
@@ -803,9 +1060,12 @@ private struct AttendeeRow: View {
     let attendee: RoomAttendee // Attendee model rendered by this row.
     let isHostAttendee: Bool // True when this attendee is the room host.
     let isHostViewing: Bool // True when the current user viewing this screen is host.
+    let isAskingToJoin: Bool // True when this attendee is pending host join approval.
     let isPendingConfirmation: Bool // True when attendee has a pending raid confirmation.
     let isRejectedConfirmation: Bool // True when attendee raid confirmation was rejected.
     let onKick: () -> Void // Callback to kick this attendee from the room.
+    let onApproveJoinApplication: () -> Void // Callback to approve join application for this attendee.
+    let onRejectJoinApplication: () -> Void // Callback to reject join application for this attendee.
     let onResolve: () -> Void // Callback to resolve rejected confirmation state.
     let onCopyFriendCode: (String) -> Void // Callback to copy attendee friend code.
 
@@ -839,6 +1099,11 @@ private struct AttendeeRow: View {
                         .font(.footnote)
                         .foregroundStyle(.blue)
                 } else {
+                    if isAskingToJoin {
+                        Text(LocalizedStringKey("room_status_asking_to_join"))
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                    }
                     if isPendingConfirmation {
                         Text(LocalizedStringKey("room_status_waiting_confirm"))
                             .font(.footnote)
@@ -851,7 +1116,7 @@ private struct AttendeeRow: View {
                             .foregroundStyle(.red)
                     }
 
-                    if !isPendingConfirmation, !isRejectedConfirmation {
+                    if !isAskingToJoin, !isPendingConfirmation, !isRejectedConfirmation {
                         Text(LocalizedStringKey("room_status_ready"))
                             .font(.footnote)
                             .foregroundStyle(.green)
@@ -879,10 +1144,24 @@ private struct AttendeeRow: View {
 
                 if isHostViewing && !isHostAttendee {
                     Menu {
-                        Button(role: .destructive) {
-                            onKick()
-                        } label: {
-                            Label(LocalizedStringKey("room_kick"), systemImage: "person.fill.xmark")
+                        if isAskingToJoin {
+                            Button {
+                                onApproveJoinApplication()
+                            } label: {
+                                Label(LocalizedStringKey("room_join_application_accept"), systemImage: "checkmark.circle")
+                            }
+
+                            Button(role: .destructive) {
+                                onRejectJoinApplication()
+                            } label: {
+                                Label(LocalizedStringKey("room_join_application_reject"), systemImage: "xmark.circle")
+                            }
+                        } else {
+                            Button(role: .destructive) {
+                                onKick()
+                            } label: {
+                                Label(LocalizedStringKey("room_kick"), systemImage: "person.fill.xmark")
+                            }
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
@@ -894,13 +1173,24 @@ private struct AttendeeRow: View {
 
             HStack {
                 Spacer()
-                if isHostViewing, isRejectedConfirmation, !isHostAttendee {
+                if isHostViewing, isRejectedConfirmation, !isHostAttendee, !isAskingToJoin {
                     Button(LocalizedStringKey("room_reject_resolve")) {
                         onResolve()
                     }
                     .font(.footnote.weight(.semibold))
                     .buttonStyle(.plain)
                     .foregroundStyle(.red)
+                }
+            }
+
+            if isHostViewing, isAskingToJoin, !attendee.joinGreetingMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                HStack(alignment: .top, spacing: 6) {
+                    Text(LocalizedStringKey("room_join_greeting_label"))
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(attendee.joinGreetingMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
         }

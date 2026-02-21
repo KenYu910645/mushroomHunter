@@ -11,6 +11,7 @@
 - `mushroomHunter/Features/Profile/AboutView.swift`: settings-linked about page with phone/email/website links.
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared `UITextField` bridge used by profile edit/create and mushroom host forms (select-all on focus, keyboard/input configuration).
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared `UITextView` bridge used by multiline fields (select-all on focus).
+- `mushroomHunter/Features/Shared/HoneyMessageBox.swift`: shared custom confirmation/error dialog used by profile and feedback screens.
 - `mushroomHunter/Services/Firebase/ProfileListRepo.swift`: Firestore queries for hosted/joined mushroom rooms shown in profile.
 - `mushroomHunter/Services/Firebase/FeedbackRepo.swift`: writes in-app feedback submissions to Firestore `feedbackSubmissions`.
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`: Firestore queries for on-shelf and ordered postcards shown in profile.
@@ -35,10 +36,29 @@
   - Hosted mushroom rooms
   - On-shelf postcards
   - Ordered postcards
+- Joined mushroom room rows now show the attendee status directly in profile (`Host`, `Asking to join`, `Ready`, `Waiting confirmation`, `Rejected`) so users can instantly see their room state.
+- Joined mushroom room statuses are highlighted with rounded-rectangle badges and urgency color coding:
+  - `Ready`: green
+  - `Asking to join` / `Waiting confirmation`: yellow-orange
+  - `Rejected`: red
+  - `Host`: blue
+- Profile postcard rows display status text on the right side (stock count hidden in profile lists):
+  - On-shelf section:
+    - `Order Received` when seller has unprocessed queue items (`SellerConfirmPending` / `AwaitingShipping` and legacy `AwaitingSellerSend`) for that listing.
+    - `On-shelf` when no unprocessed queue item exists.
+  - Ordered section:
+    - `Wait for shipping` for `SellerConfirmPending` / `AwaitingShipping`
+    - `Shipped, on-the-way` for `Shipped`
+- Profile postcard statuses also use rounded-rectangle urgency badges:
+  - `On-shelf`: green
+  - `Order Received`: yellow-orange
+  - `Wait for shipping`: yellow-orange
+  - `Shipped, on-the-way`: blue
 - Settings includes:
   - `Feedback`: opens in-app compose sheet (subject/message) and submits to Firestore `feedbackSubmissions`.
   - `Help`: opens the in-app tutorial walkthrough (`TutorialView`) so users can revisit onboarding guidance anytime.
   - `About`: shows contact information (phone, email, website).
+- Profile validation, feedback success, and feedback error prompts use shared `HoneyMessageBox` to keep messaging UI consistent with Mushroom/Postcard flows.
 - Feedback compose subject and message both auto-select existing text on focus.
 - Profile hosted-room loading queries `rooms.hostUid`; joined-room loading uses UID-scoped attendee queries.
 - Profile/token sync paths now apply write guards in session scope to skip duplicate `users/{uid}` writes when values have not changed.

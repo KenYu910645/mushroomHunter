@@ -30,7 +30,7 @@
 //
 //  Attendee document (`rooms/{roomId}/attendees/{uid}`):
 //  [R] - `uid`: Reads by `uid` field and legacy document-id fallback for current user matching.
-//  [R] - `status`: Reads to split hosted (`host`) and joined (`ready`/`waitingConfirmation`/`rejected`) lists.
+//  [R] - `status`: Reads to split hosted (`host`) and joined (`askingToJoin`/`ready`/`waitingConfirmation`/`rejected`) lists.
 //  [R] - `depositHoney`: Reads for joined-room summary display.
 //  [X] - `name`: Not required for current profile room summaries.
 //  [X] - `friendCode`: Not required for current profile room summaries.
@@ -59,6 +59,7 @@ struct JoinedRoomSummary: Identifiable, Hashable {
     let joinedCount: Int
     let maxPlayers: Int
     let depositHoney: Int
+    let attendeeStatus: AttendeeStatus
     let updatedAt: Date?
 }
 
@@ -124,6 +125,7 @@ final class FbProfileListRepo {
         let attendeeDocs = try await fetchAttendeeDocs(
             uid: uid,
             statusFilter: .inList([
+                AttendeeStatus.askingToJoin.rawValue,
                 AttendeeStatus.ready.rawValue,
                 AttendeeStatus.waitingConfirmation.rawValue,
                 AttendeeStatus.rejected.rawValue
@@ -140,6 +142,8 @@ final class FbProfileListRepo {
             guard let data = roomMap[roomRef.documentID] else { continue }
 
             let depositHoney = doc.data()["depositHoney"] as? Int ?? 0
+            let rawAttendeeStatus = (doc.data()["status"] as? String) ?? AttendeeStatus.ready.rawValue
+            let attendeeStatus = AttendeeStatus(rawValue: rawAttendeeStatus) ?? .ready
             results.append(
                 JoinedRoomSummary(
                     id: roomRef.documentID,
@@ -147,6 +151,7 @@ final class FbProfileListRepo {
                     joinedCount: (data["joinedCount"] as? Int) ?? 0,
                     maxPlayers: (data["maxPlayers"] as? Int) ?? AppConfig.Mushroom.defaultMaxPlayersPerRoom,
                     depositHoney: depositHoney,
+                    attendeeStatus: attendeeStatus,
                     updatedAt: (data["updatedAt"] as? Timestamp)?.dateValue()
                 )
             )

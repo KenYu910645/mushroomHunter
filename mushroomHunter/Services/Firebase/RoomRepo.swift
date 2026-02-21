@@ -39,6 +39,7 @@
 //  [R] - `friendCode`: Reads attendee friend code for attendee rows.
 //  [R] - `stars`: Reads attendee stars for attendee rows.
 //  [R] - `depositHoney`: Reads attendee deposit and uses it for sort order.
+//  [R] - `joinGreetingMessage`: Reads attendee join greeting for host review.
 //  [R] - `status`: Reads attendee status for role/confirmation UI.
 //  [R] - `joinedAt`: Reads join timestamp for attendee metadata.
 //  [X] - `updatedAt`: Not mapped by detail repo.
@@ -122,6 +123,7 @@ final class FbRoomRepo {
             let friendCode = d["friendCode"] as? String ?? ""
             let stars = d["stars"] as? Int ?? 0
             let deposit = (d["depositHoney"] as? Int) ?? 0
+            let joinGreetingMessage = (d["joinGreetingMessage"] as? String) ?? ""
             let joinedAt = (d["joinedAt"] as? Timestamp)?.dateValue()
             let statusRaw = (d["status"] as? String) ?? AttendeeStatus.ready.rawValue
             let status = AttendeeStatus(rawValue: statusRaw) ?? .ready
@@ -133,6 +135,7 @@ final class FbRoomRepo {
                 friendCode: friendCode,
                 stars: stars,
                 depositHoney: deposit,
+                joinGreetingMessage: joinGreetingMessage,
                 joinedAt: joinedAt,
                 status: status,
                 needsHostRating: needsHostRating

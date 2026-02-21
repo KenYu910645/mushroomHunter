@@ -150,13 +150,21 @@ struct ProfileView: View {
                 ProfileFormView(mode: .edit)
             }
         }
-        .alert(
-            LocalizedStringKey("feedback_submit_success_title"),
-            isPresented: $isFeedbackSubmittedAlertPresented
-        ) {
-            Button(LocalizedStringKey("common_done")) { }
-        } message: {
-            Text(LocalizedStringKey("feedback_submit_success_message"))
+        .overlay {
+            if isFeedbackSubmittedAlertPresented {
+                HoneyMessageBox(
+                    title: NSLocalizedString("feedback_submit_success_title", comment: ""),
+                    message: NSLocalizedString("feedback_submit_success_message", comment: ""),
+                    buttons: [
+                        HoneyMessageBoxButton(
+                            id: "profile_feedback_success_done",
+                            title: NSLocalizedString("common_done", comment: "")
+                        ) {
+                            isFeedbackSubmittedAlertPresented = false
+                        }
+                    ]
+                )
+            }
         }
     }
 
@@ -233,6 +241,7 @@ struct ProfileView: View {
         Section {
             OnShelfPostcardsSection(
                 postcards: viewModel.onShelfPostcards,
+                pendingOrderPostcardIds: viewModel.onShelfPendingOrderPostcardIds,
                 isLoading: viewModel.isOnShelfPostcardsLoading,
                 errorMessage: viewModel.onShelfPostcardsErrorMessage,
                 onSelectPostcard: { selectedPostcard = $0 }
@@ -243,7 +252,7 @@ struct ProfileView: View {
                 postcards: viewModel.orderedPostcards,
                 isLoading: viewModel.isOrderedPostcardsLoading,
                 errorMessage: viewModel.orderedPostcardsErrorMessage,
-                onSelectPostcard: { selectedPostcard = $0 }
+                onSelectPostcard: { selectedPostcard = $0.listing }
             )
             .equatable()
         } header: {
