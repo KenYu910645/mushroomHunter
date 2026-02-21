@@ -43,6 +43,7 @@
   - attendee greeting message (required, max 100 chars)
 - Join sheet pre-fills a localized default greeting and blocks submit when greeting is empty.
 - Join confirmation alert now includes both `Sure` and `Cancel` actions.
+- Top-up honey sheet leave button now shows a footer hint that leaving returns unspent deposit.
 - UI-test mode supports room deep-link routing via launch arg `--ui-open-room {roomId}` for deterministic room-entry automation.
 - In UI-test mock mode, attendee leave can execute directly from the bottom action dock (and from edit-bid sheet) without confirmation alert to reduce automation flakiness.
 - In UI-test mock mode, room role/deposit checks fall back to fixture user id (`ui-test-user`) when session auth uid is not yet populated.
@@ -51,12 +52,27 @@
   - `Resend`: sets attendee status back to `WaitingConfirmation` and triggers confirmation push again.
   - `Give Up`: sets attendee status back to `Ready`.
 - Room confirmations and errors now use the shared `HoneyMessageBox` component instead of system `Alert`/`confirmationDialog`, so visual style and action layout are consistent across mushroom flows.
+- Host raid confirmation prompt uses a generic confirmation message without attendee-name list text.
+- Honey-tokenized message text in shared `HoneyMessageBox` renders `HoneyIcon` as true inline text content, so long localized sentences wrap naturally without pushing the icon to the trailing edge.
+- Inline HoneyIcon size used in message-box tokenized text is owner-tunable via `AppConfig.SharedUI.honeyMessageIconSize`.
 - Room details includes invite share tools for host:
   - QR code sheet.
   - Share/copy room invite link using deep link format `honeyhub://room/{roomId}`.
 - Room details copy-feedback toast (`Copied to clipboard`) now uses the same visual style and timing as postcard screens to keep cross-feature behavior consistent.
 
 ## Cloud Functions (Mushroom Use Cases)
+- `notifyHostJoinRequest`
+  - Trigger: create on `rooms/{roomId}/attendees/{attendeeUid}` with `status = AskingToJoin`
+  - Push target: host (`rooms/{roomId}.hostFcmToken` first, with `users/{hostUid}.fcmToken` fallback)
+  - Payload data: `type=room_join_request`, `roomId`, `room_id`, `attendeeUid`
+- `notifyJoinApplicantAccepted`
+  - Trigger: attendee `status` transitions `AskingToJoin -> Ready`
+  - Push target: join applicant (`rooms/{roomId}/attendees/{attendeeUid}.fcmToken` first, with `users/{attendeeUid}.fcmToken` fallback)
+  - Payload data: `type=room_join_request_accepted`, `roomId`, `room_id`
+- `notifyJoinApplicantRejected`
+  - Trigger: delete on `rooms/{roomId}/attendees/{attendeeUid}` where previous `status = AskingToJoin`
+  - Push target: join applicant (`rooms/{roomId}/attendees/{attendeeUid}.fcmToken` snapshot first, with `users/{attendeeUid}.fcmToken` fallback)
+  - Payload data: `type=room_join_request_rejected`, `roomId`, `room_id`
 - `sendRaidConfirmationPush`
   - Trigger: update on `rooms/{roomId}/attendees/{attendeeUid}`
   - Sends only when attendee status transitions into `WaitingConfirmation`
@@ -71,6 +87,13 @@
     - joined success: `type=raid_confirmation_accepted`
     - seat full no-fault: `type=raid_confirmation_seat_full`
     - missed invitation: `type=raid_confirmation_missed_invite`
+- `notifyMushroomStarReceived`
+  - Trigger: update on `rooms/{roomId}/attendees/{attendeeUid}`
+  - Sends when rating flags transition:
+    - `attendeeRatedHost: false -> true` (host receives stars)
+    - `hostRatedAttendee: false -> true` (attendee receives stars)
+  - Payload data: `type=room_star_received`, `roomId`, `room_id`, `fromUid`, `toUid`, `stars`
+- Mushroom push notification copy is delivered via APNs localization keys in app `Localizable.strings` (no hardcoded-only message text in Cloud Functions).
 
 
 ### Confirmation stars flow
@@ -140,7 +163,9 @@ Fields:
 - `lastSettlementOutcome` (String, optional): latest escrow settlement result (`JoinedSuccess`, `SeatFullNoFault`, `MissedInvitation`).
 - `lastSettlementHoney` (Int, optional): latest settled honey amount moved from attendee escrow to host for that settlement.
 - `attendeeRatedHost` (Bool, optional): whether attendee already rated host for the latest confirmation cycle. Reset to `false` when host sends a new confirmation request.
+- `attendeeRatedHostStars` (Int, optional): attendee-selected star count (1...3) used for host star-received push copy.
 - `hostRatedAttendee` (Bool, optional): whether host already rated attendee for the latest confirmation cycle. Reset to `false` when host sends a new confirmation request.
+- `hostRatedAttendeeStars` (Int, optional): host-selected star count (1...3) used for attendee star-received push copy.
 - `needsHostRating` (Bool, optional): set to `true` when attendee accepts confirmation (host receives honey) so host can rate attendee; set back to `false` after host submits stars.
 
 
@@ -291,6 +316,7 @@ Attendee rates host:
   - `users/{hostUid}.stars += 1..3`
   - Host attendee row stars updated in-room
   - `attendeeRatedHost = true`
+  - `attendeeRatedHostStars = 1..3`
 
 Host rates attendee:
 - Allowed only if caller is host and attendee:
@@ -301,6 +327,7 @@ Host rates attendee:
   - `users/{attendeeUid}.stars += 1..3`
   - attendee row `stars` updated in-room
   - `hostRatedAttendee = true`
+  - `hostRatedAttendeeStars = 1..3`
   - `needsHostRating = false`
 
 ## Push Routing In App
@@ -332,11 +359,11 @@ Push/deeplink routing path:
 - `rateHostAfterConfirmation(...)`
   - host user stars increment
   - host attendee row stars refresh
-  - attendee row `attendeeRatedHost=true`
+  - attendee row `attendeeRatedHost=true`, `attendeeRatedHostStars=1..3`
 - `rateAttendeeAfterConfirmation(...)`
   - attendee user stars increment
   - attendee row stars refresh
-  - attendee row `hostRatedAttendee=true`, `needsHostRating=false`
+  - attendee row `hostRatedAttendee=true`, `hostRatedAttendeeStars=1..3`, `needsHostRating=false`
 
 ## Why This Feels Complex
 Current complexity comes from a mixed set of responsibilities in one room flow:

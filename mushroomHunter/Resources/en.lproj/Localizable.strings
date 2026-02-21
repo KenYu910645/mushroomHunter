@@ -158,10 +158,11 @@
 "room_join_greeting_footer" = "Tell the host why you are joining. Required, up to 100 characters.";
 "room_join_greeting_default" = "Hi host, I am ready to join your next mushroom raid.";
 "room_update_bid_header" = "Deposit";
-"room_update_bid_footer" = "This deposit is held while you stay in the room. It is only spent after a raid finishes and you confirm. Leaving the room returns any unspent deposit.";
+"room_update_bid_footer" = "This deposit is held while you stay in the room. It is only spent after a mushroom raid done.";
 "room_edit_bid_title" = "Top-up Honey";
 "room_update_bid" = "Top-up";
 "room_leave_room" = "Leave Room";
+"room_leave_room_footer" = "Leave the room will return all of your unspent deposit";
 
 /***************************************/
 /**** Room Section: Header / Attendees ****/
@@ -172,7 +173,7 @@
 "room_no_attendees_title" = "No attendees";
 "room_no_attendees_description" = "There are no attendees to select.";
 "room_bid_honey_format" = "%d";
-"room_claim_rewards_title" = "Mushroom Raid Done";
+"room_claim_rewards_title" = "Mushroom Invited";
 "room_load_error_title" = "Unable to load room";
 "room_attendee_count_format" = "👤 %d/%d";
 "room_target_mushroom_format" = "Target Mushroom: %@";
@@ -231,13 +232,13 @@
 /**** Room Message Box: Raid Settlement ****/
 /***************************************/
 
-"room_msg_raid_confirm_title" = "Raid Confirmation";
-"room_msg_raid_confirm_message" = "%@ marked this raid as done. Please pick an escrow settlement result.";
-"room_msg_raid_confirm_joined_success_button" = "Yes, joined success";
-"room_msg_raid_confirm_seat_full_button" = "No, seat full (no-fault race)";
+"room_msg_raid_confirm_title" = "Mushroom Invited";
+"room_msg_raid_confirm_message" = "%@ has invitied attendees to join a mushroom raid. Did you see the invitation?";
+"room_msg_raid_confirm_joined_success_button" = "Yes, I joined the mushroom";
+"room_msg_raid_confirm_seat_full_button" = "Yes, but the mushroom is full";
 "room_msg_raid_confirm_missed_invite_button" = "No, I didn't see invitation";
-"room_msg_settlement_no_fault_title" = "Seat-Full Settlement Submitted";
-"room_msg_settlement_no_fault_message" = "Recorded as no-fault seat full. Host receives %d honey effort fee.";
+"room_msg_settlement_no_fault_title" = "Got it!";
+"room_msg_settlement_no_fault_message" = "Transfer 2 {honey_icon} to host as tips. No worries! You will have better luck next time. The host will keep inviting you.";
 
 /***************************************/
 /**** Room Message Box: Next Round ****/
@@ -268,7 +269,7 @@
 "room_msg_join_success_title" = "Application Sent";
 "room_msg_join_success_message" = "Applied to %@ with a %d {honey_icon} deposit. Wait for host approval.";
 "room_msg_update_deposit_success_title" = "Deposit Updated";
-"room_msg_update_deposit_success_message" = "Successfully changed your deposit from %d to %d {honey_icon}.";
+"room_msg_update_deposit_success_message" = "Successfully changed your deposit from %d {honey_icon} to %d {honey_icon}.";
 
 /***************************************/
 /**** Room Message Box: Leave/Claim ****/
@@ -276,18 +277,17 @@
 
 "room_msg_leave_confirm_title" = "Leave Room";
 "room_msg_leave_confirm_message" = "Are you sure you want to leave %@?";
-"room_msg_claim_confirm_title" = "Confirm Attendees";
-"room_msg_claim_confirm_message" = "Send escrow settlement request to all joiners in this room?";
-"room_msg_claim_sent_title" = "Confirmation Sent";
-"room_msg_claim_sent_message" = "Sent settlement request to all joiners. You will receive payout based on their escrow responses.";
-"room_msg_claim_confirm_message_with_list" = "Send escrow settlement request to these joiners?\n%@";
+"room_msg_claim_confirm_title" = "Confirm Invitation";
+"room_msg_claim_confirm_message" = "Have you invited all attendees to a mushroom raid?";
+"room_msg_claim_sent_title" = "Notified Attendees";
+"room_msg_claim_sent_message" = "Notified attendees to response to the invitation. You will receive payment later.";
 
 /***************************************/
 /**** Room Message Box: Thanks/Rating ****/
 /***************************************/
 
-"room_msg_raid_thanks_title" = "Nice!";
-"room_msg_raid_thanks_message" = "Nice! Enjoy the mushroom. Transfer %d {honey_icon} to the host.";
+"room_msg_raid_thanks_title" = "Enjoy the Mushroom!";
+"room_msg_raid_thanks_message" = "Transfer %d {honey_icon} as tips to the host.";
 "room_msg_rate_host_title" = "Rate the Host: %@";
 "room_msg_rate_attendee_title" = "Rate Attendee: %@?";
 "room_msg_rate_one_star" = "⭐";
@@ -372,7 +372,31 @@
 "postcard_msg_buy_success_message" = "Seller is preparing your postcard. Please check incoming friend request in Pikmin-Bloom";
 
 /***************************************/
-/**** Postcard Shipping Sheet/Message Box ****/
+/**** Notification: Mushroom ****/
+/***************************************/
+
+"push_mushroom_raid_confirmation_title" = "Mushroom Invite";
+"push_mushroom_raid_confirmation_body" = "%@ invited you to a mushroom raid. Tap to respond.";
+"push_mushroom_join_request_title" = "New Join Request";
+"push_mushroom_join_request_body" = "%@ requested to join %@. Tap to respond";
+"push_mushroom_join_request_body_with_message" = "%@ requested to join %@: %@";
+"push_mushroom_join_request_accepted_title" = "Join Request Accepted";
+"push_mushroom_join_request_accepted_body" = "Host accepted your request to join %@.";
+"push_mushroom_join_request_rejected_title" = "Join Request Rejected";
+"push_mushroom_join_request_rejected_body" = "Host rejected your request to join %@.";
+"push_mushroom_raid_result_accepted_title" = "Attendee Confirmed";
+"push_mushroom_raid_result_accepted_body" = "%@ confirmed raid join. You earned %@ honey.";
+"push_mushroom_raid_result_seat_full_title" = "Seat Full";
+"push_mushroom_raid_result_seat_full_body" = "%@ reported seat full. You earned %@ honey tips.";
+"push_mushroom_raid_result_missed_invite_title" = "Attendee Missed Invite";
+"push_mushroom_raid_result_missed_invite_body" = "%@ reported no invitation was seen.";
+"push_mushroom_raid_result_rejected_title" = "Invitation Rejected";
+"push_mushroom_raid_result_rejected_body" = "%@ rejected the invitation.";
+"push_mushroom_star_received_title" = "Stars Received";
+"push_mushroom_star_received_body" = "%@ gave you %@ stars.";
+
+/***************************************/
+/**** Notification: Postcard ****/
 /***************************************/
 
 "push_postcard_order_created_title" = "New Postcard Order";

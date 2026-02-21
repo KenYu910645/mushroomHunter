@@ -223,6 +223,19 @@ service firebase.storage {
 ## Cloud Functions Interaction Summary
 
 ### Mushroom push functions
+- `notifyHostJoinRequest`
+  - Trigger: attendee document created with status `AskingToJoin`.
+  - Sends join-request push to host.
+  - Resolves host from `rooms.hostUid` first.
+  - Uses room snapshot token first (`rooms.hostFcmToken`), user fallback.
+- `notifyJoinApplicantAccepted`
+  - Trigger: attendee status `AskingToJoin -> Ready`.
+  - Sends acceptance push to applicant.
+  - Uses attendee snapshot token first (`attendees/{uid}.fcmToken`), user fallback.
+- `notifyJoinApplicantRejected`
+  - Trigger: attendee document deleted when previous status is `AskingToJoin`.
+  - Sends rejection push to applicant.
+  - Uses attendee snapshot token first (`attendees/{uid}.fcmToken`), user fallback.
 - `sendRaidConfirmationPush`
   - Trigger: attendee status -> `WaitingConfirmation`
   - Uses attendee snapshot token first (`attendees/{uid}.fcmToken`), user lookup fallback.
@@ -230,6 +243,10 @@ service firebase.storage {
   - Trigger: `WaitingConfirmation -> Ready/Rejected`
   - Resolves host from `rooms.hostUid` first.
   - Uses room snapshot token first (`rooms.hostFcmToken`), user lookup fallback.
+- `notifyMushroomStarReceived`
+  - Trigger: attendee rating flags transition to true (`attendeeRatedHost` or `hostRatedAttendee`).
+  - Sends star-received push to the player who received stars (host or attendee).
+  - Uses snapshot token first (`rooms.hostFcmToken` or `attendees/{uid}.fcmToken`), user fallback.
 
 ### Postcard push functions
 - `sendPostcardOrderCreatedPush`
@@ -249,7 +266,7 @@ service firebase.storage {
   - Handles seller no-ship timeout and buyer auto-complete.
 
 This token-snapshot-first approach reduces repeated `users/{uid}` reads in hot notification paths.
-Postcard pushes use APNs localization keys (`title-loc-key` / `loc-key` with args), so notification copy is sourced from app `Localizable.strings` instead of hardcoded-only text.
+All push notifications (mushroom + postcard) now use APNs localization keys (`title-loc-key` / `loc-key` with args), so notification copy is sourced from app `Localizable.strings` instead of hardcoded-only text.
 
 ## Image Download Behavior (Important for Cost)
 - Browse card uses `thumbnailUrl` first, then falls back to `imageUrl` if thumbnail missing.

@@ -1,5 +1,5 @@
 const {setGlobalOptions} = require("firebase-functions/v2");
-const {onDocumentCreated, onDocumentUpdated} = require("firebase-functions/v2/firestore");
+const {onDocumentCreated, onDocumentUpdated, onDocumentDeleted} = require("firebase-functions/v2/firestore");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
@@ -39,6 +39,15 @@ function stringifyValue(value, fallback = "-") {
   if (value === null || value === undefined) return fallback;
   const text = String(value).trim();
   return text ? text : fallback;
+}
+
+function normalizeStarsCount(value, fallback = 1) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  const rounded = Math.trunc(parsed);
+  if (rounded < 1) return 1;
+  if (rounded > 3) return 3;
+  return rounded;
 }
 
 function feedbackEmailSubject(subject) {
@@ -107,6 +116,24 @@ async function sendPushToUser(uid, message, context, snapshotToken = "") {
       },
     },
   });
+}
+
+function localizedPushMessage(titleLocKey, bodyLocKey, locArgs, data) {
+  const serializedLocArgs = (locArgs || []).map((value) => String(value ?? ""));
+  return {
+    apns: {
+      payload: {
+        aps: {
+          alert: {
+            "title-loc-key": titleLocKey,
+            "loc-key": bodyLocKey,
+            "loc-args": serializedLocArgs,
+          },
+        },
+      },
+    },
+    data,
+  };
 }
 
 async function resolveHostUid(roomId, roomData) {
@@ -264,22 +291,181 @@ exports.sendRaidConfirmationPush = onDocumentUpdated(
       const roomTitle = (roomData.title || "your room").toString();
 
       try {
-        await sendPushToUser(attendeeUid, {
-        notification: {
-          title: "Confirmation Require",
-          body: `${hostName} claimed to invite you to mushroom raid. Tap to respond.`,
-        },
-        data: {
-          type: "raid_confirmation",
-          roomId,
-          room_id: roomId,
-        },
-      }, {roomId, attendeeUid}, afterData.fcmToken);
+        await sendPushToUser(
+            attendeeUid,
+            localizedPushMessage(
+                "push_mushroom_raid_confirmation_title",
+                "push_mushroom_raid_confirmation_body",
+                [hostName],
+                {
+                  type: "raid_confirmation",
+                  roomId,
+                  room_id: roomId,
+                },
+            ),
+            {roomId, attendeeUid},
+            afterData.fcmToken,
+        );
         logger.info("Raid confirmation push sent", {attendeeUid, roomId});
       } catch (error) {
         logger.error("Failed to send raid confirmation push", {
           attendeeUid,
           roomId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+);
+
+exports.notifyHostJoinRequest = onDocumentCreated(
+    {
+      document: "rooms/{roomId}/attendees/{attendeeUid}",
+      region: "us-central1",
+    },
+    async (event) => {
+      const afterData = event.data?.data();
+      if (!afterData) return;
+
+      const attendeeStatus = afterData.status ?? null;
+      if (attendeeStatus !== "AskingToJoin") return;
+
+      const roomId = event.params.roomId;
+      const attendeeUid = event.params.attendeeUid;
+      const roomSnap = await db.collection("rooms").doc(roomId).get();
+      const roomData = roomSnap.data() || {};
+      const hostUid = await resolveHostUid(roomId, roomData);
+      if (!hostUid) {
+        logger.warn("Host not found for join request push", {roomId, attendeeUid});
+        return;
+      }
+      if (hostUid === attendeeUid) {
+        return;
+      }
+
+      const attendeeName = stringifyValue(afterData.name, "A player");
+      const roomTitle = stringifyValue(roomData.title, "your room");
+      const joinGreetingMessage = stringifyValue(afterData.joinGreetingMessage, "");
+      const isHasGreetingMessage = joinGreetingMessage.length > 0;
+
+      try {
+        await sendPushToUser(
+            hostUid,
+            localizedPushMessage(
+                "push_mushroom_join_request_title",
+                isHasGreetingMessage ?
+                "push_mushroom_join_request_body_with_message" :
+                "push_mushroom_join_request_body",
+                isHasGreetingMessage ?
+                [attendeeName, roomTitle, joinGreetingMessage] :
+                [attendeeName, roomTitle],
+                {
+                  type: "room_join_request",
+                  roomId,
+                  room_id: roomId,
+                  attendeeUid,
+                },
+            ),
+            {roomId, attendeeUid, hostUid},
+            roomData.hostFcmToken,
+        );
+        logger.info("Host join request push sent", {roomId, attendeeUid, hostUid});
+      } catch (error) {
+        logger.error("Failed to send host join request push", {
+          roomId,
+          attendeeUid,
+          hostUid,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+);
+
+exports.notifyJoinApplicantAccepted = onDocumentUpdated(
+    {
+      document: "rooms/{roomId}/attendees/{attendeeUid}",
+      region: "us-central1",
+    },
+    async (event) => {
+      const beforeData = event.data?.before?.data();
+      const afterData = event.data?.after?.data();
+      if (!beforeData || !afterData) return;
+
+      const oldStatus = beforeData.status ?? null;
+      const newStatus = afterData.status ?? null;
+      if (oldStatus !== "AskingToJoin" || newStatus !== "Ready") return;
+
+      const roomId = event.params.roomId;
+      const attendeeUid = event.params.attendeeUid;
+      const roomSnap = await db.collection("rooms").doc(roomId).get();
+      const roomData = roomSnap.data() || {};
+      const roomTitle = stringifyValue(roomData.title, "the room");
+
+      try {
+        await sendPushToUser(
+            attendeeUid,
+            localizedPushMessage(
+                "push_mushroom_join_request_accepted_title",
+                "push_mushroom_join_request_accepted_body",
+                [roomTitle],
+                {
+                  type: "room_join_request_accepted",
+                  roomId,
+                  room_id: roomId,
+                },
+            ),
+            {roomId, attendeeUid},
+            afterData.fcmToken,
+        );
+        logger.info("Join applicant accepted push sent", {roomId, attendeeUid});
+      } catch (error) {
+        logger.error("Failed to send join applicant accepted push", {
+          roomId,
+          attendeeUid,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+);
+
+exports.notifyJoinApplicantRejected = onDocumentDeleted(
+    {
+      document: "rooms/{roomId}/attendees/{attendeeUid}",
+      region: "us-central1",
+    },
+    async (event) => {
+      const beforeData = event.data?.data();
+      if (!beforeData) return;
+
+      const oldStatus = beforeData.status ?? null;
+      if (oldStatus !== "AskingToJoin") return;
+
+      const roomId = event.params.roomId;
+      const attendeeUid = event.params.attendeeUid;
+      const roomSnap = await db.collection("rooms").doc(roomId).get();
+      const roomData = roomSnap.data() || {};
+      const roomTitle = stringifyValue(roomData.title, "the room");
+
+      try {
+        await sendPushToUser(
+            attendeeUid,
+            localizedPushMessage(
+                "push_mushroom_join_request_rejected_title",
+                "push_mushroom_join_request_rejected_body",
+                [roomTitle],
+                {
+                  type: "room_join_request_rejected",
+                  roomId,
+                  room_id: roomId,
+                },
+            ),
+            {roomId, attendeeUid},
+            beforeData.fcmToken,
+        );
+        logger.info("Join applicant rejected push sent", {roomId, attendeeUid});
+      } catch (error) {
+        logger.error("Failed to send join applicant rejected push", {
+          roomId,
+          attendeeUid,
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -320,55 +506,57 @@ exports.notifyHostRaidConfirmationResult = onDocumentUpdated(
       const attendeeName = (afterData.name || "A player").toString();
       const settlementOutcome = (afterData.lastSettlementOutcome || "").toString();
       const settlementHoney = Number(afterData.lastSettlementHoney || 0);
+      const raidCostHoneyText = String(raidCostHoney);
+      const settlementHoneyText = String(settlementHoney);
 
-      const message = transitionedToReady ? (settlementOutcome === "SeatFullNoFault" ? {
-        notification: {
-          title: "Seat Full (No-Fault)",
-          body: `${attendeeName} reported seat full. You earned ${settlementHoney} honey effort fee.`,
-        },
-        data: {
-          type: "raid_confirmation_seat_full",
-          roomId,
-          room_id: roomId,
-          attendeeUid,
-          honeyEarned: String(settlementHoney),
-        },
-      } : settlementOutcome === "MissedInvitation" ? {
-        notification: {
-          title: "Attendee Missed Invite",
-          body: `${attendeeName} reported no invitation was seen. No honey moved.`,
-        },
-        data: {
-          type: "raid_confirmation_missed_invite",
-          roomId,
-          room_id: roomId,
-          attendeeUid,
-          honeyEarned: "0",
-        },
-      } : {
-        notification: {
-          title: "Attendee Confirmed",
-          body: `${attendeeName} confirmed. You earned ${raidCostHoney} honey.`,
-        },
-        data: {
-          type: "raid_confirmation_accepted",
-          roomId,
-          room_id: roomId,
-          attendeeUid,
-          honeyEarned: String(raidCostHoney),
-        },
-      }) : {
-        notification: {
-          title: "Attendee Missed Invite",
-          body: `${attendeeName} reported no invitation was seen. No honey moved.`,
-        },
-        data: {
-          type: "raid_confirmation_rejected",
-          roomId,
-          room_id: roomId,
-          attendeeUid,
-        },
-      };
+      const message = transitionedToReady ? (settlementOutcome === "SeatFullNoFault" ?
+        localizedPushMessage(
+            "push_mushroom_raid_result_seat_full_title",
+            "push_mushroom_raid_result_seat_full_body",
+            [attendeeName, settlementHoneyText],
+            {
+              type: "raid_confirmation_seat_full",
+              roomId,
+              room_id: roomId,
+              attendeeUid,
+              honeyEarned: settlementHoneyText,
+            },
+        ) : settlementOutcome === "MissedInvitation" ?
+          localizedPushMessage(
+              "push_mushroom_raid_result_missed_invite_title",
+              "push_mushroom_raid_result_missed_invite_body",
+              [attendeeName],
+              {
+                type: "raid_confirmation_missed_invite",
+                roomId,
+                room_id: roomId,
+                attendeeUid,
+                honeyEarned: "0",
+              },
+          ) :
+          localizedPushMessage(
+              "push_mushroom_raid_result_accepted_title",
+              "push_mushroom_raid_result_accepted_body",
+              [attendeeName, raidCostHoneyText],
+              {
+                type: "raid_confirmation_accepted",
+                roomId,
+                room_id: roomId,
+                attendeeUid,
+                honeyEarned: raidCostHoneyText,
+              },
+          )) :
+        localizedPushMessage(
+            "push_mushroom_raid_result_rejected_title",
+            "push_mushroom_raid_result_rejected_body",
+            [attendeeName],
+            {
+              type: "raid_confirmation_rejected",
+              roomId,
+              room_id: roomId,
+              attendeeUid,
+            },
+        );
 
       try {
         await sendPushToUser(hostUid, message, {roomId, attendeeUid, hostUid}, roomData.hostFcmToken);
@@ -386,6 +574,98 @@ exports.notifyHostRaidConfirmationResult = onDocumentUpdated(
           newStatus,
           error: error instanceof Error ? error.message : String(error),
         });
+      }
+    },
+);
+
+exports.notifyMushroomStarReceived = onDocumentUpdated(
+    {
+      document: "rooms/{roomId}/attendees/{attendeeUid}",
+      region: "us-central1",
+    },
+    async (event) => {
+      const beforeData = event.data?.before?.data();
+      const afterData = event.data?.after?.data();
+      if (!beforeData || !afterData) return;
+
+      const roomId = event.params.roomId;
+      const attendeeUid = event.params.attendeeUid;
+      const roomSnap = await db.collection("rooms").doc(roomId).get();
+      const roomData = roomSnap.data() || {};
+      const raterName = stringifyValue(afterData.name, "A player");
+
+      const attendeeRatedHostNow =
+          beforeData.attendeeRatedHost !== true && afterData.attendeeRatedHost === true;
+      if (attendeeRatedHostNow) {
+        const hostUid = await resolveHostUid(roomId, roomData);
+        const awardedStars = normalizeStarsCount(afterData.attendeeRatedHostStars, 1);
+        if (hostUid) {
+          try {
+            await sendPushToUser(
+                hostUid,
+                localizedPushMessage(
+                    "push_mushroom_star_received_title",
+                    "push_mushroom_star_received_body",
+                    [raterName, awardedStars],
+                    {
+                      type: "room_star_received",
+                      roomId,
+                      room_id: roomId,
+                      fromUid: attendeeUid,
+                      toUid: hostUid,
+                      stars: String(awardedStars),
+                    },
+                ),
+                {roomId, attendeeUid, hostUid},
+                roomData.hostFcmToken,
+            );
+            logger.info("Host star received push sent", {roomId, attendeeUid, hostUid});
+          } catch (error) {
+            logger.error("Failed to send host star received push", {
+              roomId,
+              attendeeUid,
+              hostUid,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+      }
+
+      const hostRatedAttendeeNow =
+          beforeData.hostRatedAttendee !== true && afterData.hostRatedAttendee === true;
+      if (hostRatedAttendeeNow) {
+        const hostUid = await resolveHostUid(roomId, roomData);
+        const hostName = stringifyValue(roomData.hostName, "Host");
+        const starDelta = Number(afterData.stars || 0) - Number(beforeData.stars || 0);
+        const awardedStars = normalizeStarsCount(afterData.hostRatedAttendeeStars, starDelta);
+        try {
+          await sendPushToUser(
+              attendeeUid,
+              localizedPushMessage(
+                  "push_mushroom_star_received_title",
+                  "push_mushroom_star_received_body",
+                  [hostName, awardedStars],
+                  {
+                    type: "room_star_received",
+                    roomId,
+                    room_id: roomId,
+                    fromUid: hostUid || "",
+                    toUid: attendeeUid,
+                    stars: String(awardedStars),
+                  },
+              ),
+              {roomId, attendeeUid},
+              afterData.fcmToken,
+          );
+          logger.info("Attendee star received push sent", {roomId, attendeeUid, hostUid});
+        } catch (error) {
+          logger.error("Failed to send attendee star received push", {
+            roomId,
+            attendeeUid,
+            hostUid,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
     },
 );
@@ -418,10 +698,6 @@ exports.sendPostcardShippedPush = onDocumentUpdated(
 
       try {
         await sendPushToUser(buyerUid, {
-          notification: {
-            title: "Postcard Sent",
-            body: `${sellerName} marked "${postcardTitle}" as sent. Please check delivery and confirm receipt in app.`,
-          },
           apns: {
             payload: {
               aps: {
@@ -476,10 +752,6 @@ exports.sendPostcardOrderCreatedPush = onDocumentCreated(
 
       try {
         await sendPushToUser(sellerUid, {
-          notification: {
-            title: "New Postcard Order",
-            body: `${buyerName} ordered "${postcardTitle}". Open postcard detail to process shipping.`,
-          },
           apns: {
             payload: {
               aps: {
@@ -541,12 +813,6 @@ exports.notifySellerPostcardCompleted = onDocumentUpdated(
 
       try {
         await sendPushToUser(sellerUid, {
-          notification: {
-            title: "Order Completed",
-            body: isAutoCompleted ?
-                `Buyer confirmation timed out. ${holdHoney} honey has been automatically transferred to you.` :
-                `${buyerName} confirmed receipt. ${holdHoney} honey has been transferred to you.`,
-          },
           apns: {
             payload: {
               aps: {
@@ -609,10 +875,6 @@ exports.sendPostcardRejectedPush = onDocumentUpdated(
 
       try {
         await sendPushToUser(buyerUid, {
-          notification: {
-            title: "Order Rejected",
-            body: `Your order for "${postcardTitle}" was rejected. ${holdHoney} honey has been fully refunded.`,
-          },
           apns: {
             payload: {
               aps: {

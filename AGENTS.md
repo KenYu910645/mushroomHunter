@@ -66,8 +66,12 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed mushroom defaults, limits, and option sets)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile/room/postcard)
 - Cloud Functions in `functions/index.js`:
+  - `notifyHostJoinRequest`
+  - `notifyJoinApplicantAccepted`
+  - `notifyJoinApplicantRejected`
   - `sendRaidConfirmationPush`
   - `notifyHostRaidConfirmationResult`
+  - `notifyMushroomStarReceived`
 
 ### POSTCARD (`POSTCARD.md`)
 - `mushroomHunter/Features/Postcard/PostcardBrowseView.swift`

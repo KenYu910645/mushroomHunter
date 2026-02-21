@@ -55,7 +55,8 @@
   - In postcard detail buyer action area:
     - Shows explicit status (`Waiting, seller to ship`, `Shipped, on-the-way`).
     - Shows `Buy` only when no active order exists.
-    - Tapping `Buy` opens the shared custom `HoneyMessageBox` dialog with tokenized text parsing (`{honey_icon}`) so inline `HoneyIcon` can be rendered inside the localized message template.
+    - Tapping `Buy` opens the shared custom `HoneyMessageBox` dialog with tokenized text parsing (`{honey_icon}`) rendered as inline text icon content, so text wrapping keeps icon position within sentence flow.
+    - Inline HoneyIcon size used in tokenized message text is owner-tunable via `AppConfig.SharedUI.honeyMessageIconSize`.
     - Shows `Confirm received, complete transaction` when order is `Shipped` (replaces buy action).
 - Postcard create/edit/delete confirmations, shipping confirmations, buyer receive confirmations, success notices, and error notices all use shared `HoneyMessageBox` (no system alerts/confirmation dialogs).
 - Register/edit forms use left-label and right-input rows.

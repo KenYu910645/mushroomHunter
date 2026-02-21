@@ -895,6 +895,7 @@ final class FbRoomActionsRepo {
 
             tx.updateData([
                 "attendeeRatedHost": true,
+                "attendeeRatedHostStars": stars,
                 "updatedAt": now
             ], forDocument: attendeeRef)
 
@@ -963,6 +964,7 @@ final class FbRoomActionsRepo {
             tx.updateData([
                 "stars": FieldValue.increment(Int64(stars)),
                 "hostRatedAttendee": true,
+                "hostRatedAttendeeStars": stars,
                 "needsHostRating": false,
                 "updatedAt": now
             ], forDocument: attendeeRef)

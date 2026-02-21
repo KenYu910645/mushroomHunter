@@ -258,6 +258,8 @@ struct RoomView: View {
                             }
                         }
                         .accessibilityIdentifier("room_leave_button")
+                    } footer: {
+                        Text(LocalizedStringKey("room_leave_room_footer"))
                     }
                 }
                 .navigationTitle(LocalizedStringKey("room_edit_bid_title"))
@@ -1021,16 +1023,7 @@ struct RoomView: View {
     }
 
     private func claimConfirmMessage() -> String {
-        guard let room = vm.room else {
-            return NSLocalizedString("room_msg_claim_confirm_message", comment: "")
-        }
-        let selected = room.attendees.filter { finishSelection.contains($0.id) }
-        let names = selected.map { $0.name }.sorted()
-        let list = names.joined(separator: ", ")
-        if list.isEmpty {
-            return NSLocalizedString("room_msg_claim_confirm_message", comment: "")
-        }
-        return String(format: NSLocalizedString("room_msg_claim_confirm_message_with_list", comment: ""), list)
+        NSLocalizedString("room_msg_claim_confirm_message", comment: "")
     }
 
     private func presentNextHostRatingAlertIfNeeded(excluding attendeeId: String? = nil) {

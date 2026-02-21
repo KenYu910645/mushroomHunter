@@ -44,6 +44,8 @@ struct HoneyMessageBoxButton: Identifiable {
 struct HoneyMessageBox: View {
     /// Message token replaced by inline honey icon when rendering message text.
     private let honeyIconToken: String = "{honey_icon}"
+    /// Inline honey icon square size in points, centralized in app config.
+    private let honeyIconSize: CGFloat = AppConfig.SharedUI.honeyMessageIconSize
     /// Title text shown at the top of the dialog.
     let title: String
     /// Message text shown below title. Supports `{honey_icon}` token.
@@ -89,26 +91,33 @@ struct HoneyMessageBox: View {
         }
     }
 
-    /// Message renderer that supports inline `{honey_icon}` tokens and line breaks.
-    @ViewBuilder
-    private func tokenizedMessage(_ rawMessage: String) -> some View {
-        let lines = rawMessage.components(separatedBy: "\n")
-        VStack(alignment: .leading, spacing: 2) {
-            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                let segments = line.components(separatedBy: honeyIconToken)
-                HStack(alignment: .center, spacing: 0) {
-                    ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
-                        Text(segment)
-                        if index < segments.count - 1 {
-                            Image("HoneyIcon")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(height: 15)
-                        }
-                    }
-                }
+    /// Builds one inline SwiftUI text run where `{honey_icon}` tokens become inline image glyphs.
+    private func tokenizedMessage(_ rawMessage: String) -> Text {
+        let segments = rawMessage.components(separatedBy: honeyIconToken)
+        var combinedText = Text("")
+
+        for (index, segment) in segments.enumerated() {
+            combinedText = combinedText + Text(segment)
+            if index < segments.count - 1 {
+                combinedText = combinedText + Text(honeyInlineImage())
             }
         }
+
+        return combinedText
+    }
+
+    /// Builds one pre-scaled `HoneyIcon` image so inline `Text(Image(...))` respects configured size.
+    private func honeyInlineImage() -> Image {
+        guard let sourceImage = UIImage(named: "HoneyIcon") else {
+            return Image(systemName: "drop.fill")
+        }
+
+        let targetSize = CGSize(width: honeyIconSize, height: honeyIconSize)
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        let resizedImage = renderer.image { _ in
+            sourceImage.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+        return Image(uiImage: resizedImage)
     }
 
     /// Bottom button layout. Renders two buttons in a row; otherwise uses a stacked layout.

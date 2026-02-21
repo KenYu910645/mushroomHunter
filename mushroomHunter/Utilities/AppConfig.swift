@@ -219,4 +219,11 @@ enum AppConfig {
         // Change only if your product rules and backend formats change.
         static let friendCodeDigits: Int = 12
     }
+
+    enum SharedUI {
+        // `honeyMessageIconSize`
+        // Purpose: inline HoneyIcon point size used in shared tokenized message text.
+        // Suggested range: 10...20.
+        static let honeyMessageIconSize: CGFloat = 10
+    }
 }

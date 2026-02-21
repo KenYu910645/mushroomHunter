@@ -162,6 +162,7 @@
 "room_edit_bid_title" = "更新押金";
 "room_update_bid" = "更新押金";
 "room_leave_room" = "離開房間";
+"room_leave_room_footer" = "離開房間將退還任何未使用的押金";
 
 /***************************************/
 /**** Room Section: Header / Attendees ****/
@@ -280,7 +281,6 @@
 "room_msg_claim_confirm_message" = "要對此房間所有加入者送出託管結算請求嗎？";
 "room_msg_claim_sent_title" = "通知已送出";
 "room_msg_claim_sent_message" = "已對所有加入者送出結算請求。你將依據他們的託管回覆收到付款。";
-"room_msg_claim_confirm_message_with_list" = "要對以下加入者送出託管結算請求嗎？\n%@";
 
 /***************************************/
 /**** Room Message Box: Thanks/Rating ****/
@@ -374,7 +374,31 @@
 "postcard_msg_buy_success_message" = "蜂蜜已先保留，請等待賣家標記明信片已寄出。";
 
 /***************************************/
-/**** Postcard Shipping Sheet/Message Box ****/
+/**** Notification: Mushroom ****/
+/***************************************/
+
+"push_mushroom_raid_confirmation_title" = "蘑菇邀請";
+"push_mushroom_raid_confirmation_body" = "%@ 邀請你參加蘑菇戰。點擊以回覆。";
+"push_mushroom_join_request_title" = "新加入申請";
+"push_mushroom_join_request_body" = "%@ 申請加入 %@。";
+"push_mushroom_join_request_body_with_message" = "%@ 申請加入 %@。訊息：%@";
+"push_mushroom_join_request_accepted_title" = "加入申請已接受";
+"push_mushroom_join_request_accepted_body" = "主持人已接受你加入 %@ 的申請。";
+"push_mushroom_join_request_rejected_title" = "加入申請已拒絕";
+"push_mushroom_join_request_rejected_body" = "主持人已拒絕你加入 %@ 的申請。";
+"push_mushroom_raid_result_accepted_title" = "參加者已確認";
+"push_mushroom_raid_result_accepted_body" = "%@ 已確認參加戰鬥。你獲得 %@ 蜂蜜。";
+"push_mushroom_raid_result_seat_full_title" = "滿位（無責）";
+"push_mushroom_raid_result_seat_full_body" = "%@ 回報滿位。你獲得 %@ 蜂蜜辛苦費。";
+"push_mushroom_raid_result_missed_invite_title" = "參加者未看到邀請";
+"push_mushroom_raid_result_missed_invite_body" = "%@ 回報未看到邀請。未有蜂蜜移動。";
+"push_mushroom_raid_result_rejected_title" = "邀請被拒絕";
+"push_mushroom_raid_result_rejected_body" = "%@ 已拒絕邀請。";
+"push_mushroom_star_received_title" = "收到星星";
+"push_mushroom_star_received_body" = "%@ 給了你 %@ 顆星。";
+
+/***************************************/
+/**** Notification: Postcard ****/
 /***************************************/
 
 "push_postcard_order_created_title" = "新明信片訂單";
