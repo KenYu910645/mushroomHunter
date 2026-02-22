@@ -6,6 +6,7 @@
 //  - Provides a shared profile form used by onboarding (create) and profile editing.
 //
 import SwiftUI
+import UIKit
 
 /// Shared profile form used in create and edit flows.
 struct ProfileFormView: View {
@@ -101,6 +102,12 @@ struct ProfileFormView: View {
                     }
                 }
             }
+            .scrollDismissesKeyboard(.immediately)
+            .background(
+                OutsideTapKeyboardDismissBridge {
+                    dismissKeyboard()
+                }
+            )
             .navigationTitle(titleKey)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -111,6 +118,12 @@ struct ProfileFormView: View {
                         }
                         .disabled(isSubmitting)
                         .accessibilityIdentifier("profile_form_cancel_button")
+                    }
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button(LocalizedStringKey("common_done")) {
+                        dismissKeyboard()
                     }
                 }
             }
@@ -256,4 +269,10 @@ struct ProfileFormView: View {
         return nil
     }
 
+    /// Clears profile form focus and asks UIKit to resign the current first responder.
+    private func dismissKeyboard() {
+        nameFieldFocused = false
+        friendCodeFieldFocused = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
 }

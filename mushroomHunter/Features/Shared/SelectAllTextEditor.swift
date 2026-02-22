@@ -70,10 +70,32 @@ struct SelectAllTextEditor: UIViewRepresentable {
             DispatchQueue.main.async {
                 textView.selectAll(nil)
             }
+            scrollInputIntoVisibleArea(textView)
         }
 
         func textViewDidEndEditing(_ textView: UITextView) { // Handles textViewDidEndEditing flow.
             isFirstResponder = false
+        }
+
+        /// Scrolls the enclosing scroll container to keep the focused editor visible above keyboard.
+        private func scrollInputIntoVisibleArea(_ view: UIView) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                guard let scrollView = self.resolveEnclosingScrollView(for: view) else { return }
+                let targetRect = view.convert(view.bounds, to: scrollView).insetBy(dx: 0, dy: -28)
+                scrollView.scrollRectToVisible(targetRect, animated: true)
+            }
+        }
+
+        /// Finds the nearest parent scroll view that contains the edited control.
+        private func resolveEnclosingScrollView(for view: UIView) -> UIScrollView? {
+            var currentSuperview = view.superview
+            while let superview = currentSuperview {
+                if let scrollView = superview as? UIScrollView {
+                    return scrollView
+                }
+                currentSuperview = superview.superview
+            }
+            return nil
         }
     }
 }

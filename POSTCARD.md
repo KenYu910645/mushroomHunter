@@ -10,6 +10,7 @@
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens.
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by postcard form inputs.
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared auto-select text editor wrapper used by postcard description inputs.
+- `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
 - `mushroomHunter/Features/Shared/HoneyMessageBox.swift`: shared custom confirmation/error dialog used across postcard screens.
 - `mushroomHunter/Features/Shared/CachedPostcardImageView.swift`: shared postcard image cache component with memory+disk cache and cache-first loading.
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`: Firestore operations for listings, orders, shipping, and receipt confirmation.
@@ -62,6 +63,7 @@
 - Postcard create/edit/delete confirmations, shipping confirmations, buyer receive confirmations, success notices, and error notices all use shared `HoneyMessageBox` (no system alerts/confirmation dialogs).
 - Register/edit forms use left-label and right-input rows.
 - Register/edit forms start with pre-filled defaults for title, price, province, stock, and description (instead of gray placeholder hints).
+- Register/edit forms dismiss keyboard on outside taps (without collapsing during scroll), on keyboard `Enter`/`Done`, and before submit/delete actions, and auto-scroll focused inputs above keyboard overlap.
 - Register/edit description field auto-selects all content on focus.
 - Country selector is dropdown-based and uses the same country source as room host form.
 - Register form defaults country to Taiwan (`TW`).

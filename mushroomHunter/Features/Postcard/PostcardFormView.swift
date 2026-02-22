@@ -7,6 +7,7 @@
 //
 import SwiftUI
 import PhotosUI
+import UIKit
 
 /// Maximum price accepted by the postcard form inputs.
 private let postcardMaxPriceHoney: Int = AppConfig.Postcard.maxPriceHoney
@@ -237,11 +238,24 @@ struct PostcardFormView: View {
             if isEditMode {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(LocalizedStringKey("common_cancel")) {
+                        dismissKeyboard()
                         dismiss()
                     }
                 }
             }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button(LocalizedStringKey("common_done")) {
+                    dismissKeyboard()
+                }
+            }
         }
+        .scrollDismissesKeyboard(.immediately)
+        .background(
+            OutsideTapKeyboardDismissBridge {
+                dismissKeyboard()
+            }
+        )
     }
 
     /// Snapshot picker section shared by both modes.
@@ -443,6 +457,7 @@ struct PostcardFormView: View {
         Section {
             if isCreateMode {
                 Button(submitButtonTitleKey) {
+                    dismissKeyboard()
                     Task { await submitForm() }
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -451,6 +466,7 @@ struct PostcardFormView: View {
                 .accessibilityIdentifier("postcard_form_submit_button")
             } else {
                 Button(submitButtonTitleKey) {
+                    dismissKeyboard()
                     Task { await submitForm() }
                 }
                 .disabled(isSubmitting)
@@ -463,6 +479,7 @@ struct PostcardFormView: View {
     private var deleteSection: some View {
         Section {
             Button(LocalizedStringKey("postcard_remove_button"), role: .destructive) {
+                dismissKeyboard()
                 isDeleteConfirmPresented = true
             }
             .disabled(isSubmitting)
@@ -697,6 +714,7 @@ struct PostcardFormView: View {
 
     /// Presents the given error text in both inline and alert channels.
     private func presentError(_ message: String) {
+        dismissKeyboard()
         uploadError = message
         errorAlertMessage = message
         isErrorAlertPresented = true
@@ -713,5 +731,15 @@ struct PostcardFormView: View {
         selectedItem = nil
         selectedImage = nil
         uploadedImageURL = nil
+    }
+
+    /// Clears all form field focus flags and resigns the current UIKit first responder.
+    private func dismissKeyboard() {
+        isTitleFieldFocused = false
+        isPriceFieldFocused = false
+        isProvinceFieldFocused = false
+        isStockFieldFocused = false
+        isDetailFieldFocused = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }

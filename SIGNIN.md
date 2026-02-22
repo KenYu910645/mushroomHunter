@@ -5,6 +5,7 @@
 - `mushroomHunter/Features/Profile/ProfileFormView.swift`: shared profile form; signin flow uses create mode for first-time profile completion (name + 12-digit friend code).
 - `mushroomHunter/Features/Profile/TutorialView.swift`: one-time swipe tutorial shown after first successful profile creation.
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by the create-profile form fields.
+- `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift`: shared UIKit bridge used by profile create form to dismiss keyboard on outside taps without collapsing during scroll.
 - `mushroomHunter/User/UserSessionStore.swift`: shared user session state container.
 - `mushroomHunter/User/UserAuth.swift`: authentication and auth state handling.
 - `mushroomHunter/User/UserProfile.swift`: profile-complete persistence/sync.
@@ -27,6 +28,8 @@
   - Signed in and profile complete -> main tab flow
 - First-time user profile completion:
   - Requires display name and 12-digit friend code
+  - Focused form inputs auto-scroll above keyboard overlap; single-line input keyboard dismisses on `Enter`.
+  - Create-profile form dismisses keyboard on outside taps (without collapsing during scroll) and includes keyboard toolbar `Done`.
   - Saves into Firestore `users/{uid}` and local state
   - Sets `profileComplete = true`
   - Immediately presents a one-time full-screen swipe tutorial after successful create-profile submit.

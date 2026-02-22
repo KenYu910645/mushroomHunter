@@ -255,11 +255,6 @@ final class FbProfileListRepo {
             return attendeeStatus
         }
 
-        let isHasReadyAttendee = nonHostAttendeeStatuses.contains(.ready)
-        if isHasReadyAttendee {
-            return .ready
-        }
-
         let isHasAnyNonHostAttendee = !nonHostAttendeeStatuses.isEmpty
         if !isHasAnyNonHostAttendee {
             return .waitingForPlayers
@@ -270,7 +265,8 @@ final class FbProfileListRepo {
             return .waitingConfirmation
         }
 
-        return .waitingForPlayers
+        // Any room that already has non-host attendees should not show "waiting for players".
+        return .ready
     }
 }
 

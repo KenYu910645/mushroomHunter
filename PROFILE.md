@@ -11,6 +11,7 @@
 - `mushroomHunter/Features/Profile/AboutView.swift`: settings-linked about page with phone/email/website links.
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared `UITextField` bridge used by profile edit/create and mushroom host forms (select-all on focus, keyboard/input configuration).
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared `UITextView` bridge used by multiline fields (select-all on focus).
+- `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
 - `mushroomHunter/Features/Shared/HoneyMessageBox.swift`: shared custom confirmation/error dialog used by profile and feedback screens.
 - `mushroomHunter/Services/Firebase/ProfileListRepo.swift`: Firestore queries for hosted/joined mushroom rooms shown in profile.
 - `mushroomHunter/Services/Firebase/FeedbackRepo.swift`: writes in-app feedback submissions to Firestore `feedbackSubmissions`.
@@ -59,16 +60,17 @@
   - `Wait for shipping`: yellow-orange
   - `Shipped, on-the-way`: blue
 - Hosted mushroom room rows now show an aggregate room-status badge so hosts can see room state immediately:
-  - `Ready` when at least one non-host attendee is `Ready`.
+  - `Ready` when there is at least one non-host attendee and the room is not in all-`WaitingConfirmation` state.
   - `Waiting for players` when there is no non-host attendee.
   - `Waiting confirmation` when all non-host attendees are `WaitingConfirmation`.
-  - Any other mixed non-host state currently falls back to `Waiting for players`.
 - Settings includes:
   - `Feedback`: opens in-app compose sheet (subject/message) and submits to Firestore `feedbackSubmissions`.
   - `Help`: opens the in-app tutorial walkthrough (`TutorialView`) so users can revisit onboarding guidance anytime.
   - `About`: shows contact information (phone, email, website).
 - Profile validation, feedback success, and feedback error prompts use shared `HoneyMessageBox` to keep messaging UI consistent with Mushroom/Postcard flows.
 - Feedback compose subject and message both auto-select existing text on focus.
+- Shared profile text inputs now auto-scroll the focused field above keyboard overlap; single-line inputs dismiss keyboard on `Enter`.
+- Profile create/edit form dismisses keyboard on outside taps (without collapsing during scroll) and includes keyboard toolbar `Done`.
 - Profile hosted-room loading queries `rooms.hostUid`; joined-room loading uses UID-scoped attendee queries.
 - Profile/token sync paths now apply write guards in session scope to skip duplicate `users/{uid}` writes when values have not changed.
 - FCM token sync also refreshes hosted room snapshots (`rooms.hostFcmToken` and host attendee `fcmToken`) so mushroom push flows can avoid per-push user reads.

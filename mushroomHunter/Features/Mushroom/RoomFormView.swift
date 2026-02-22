@@ -10,6 +10,7 @@
 //
 import SwiftUI
 import Combine
+import UIKit
 
 // MARK: - ViewModel
 import Foundation
@@ -440,6 +441,7 @@ struct RoomFormView: View {
                 // Create button
                 Section {
                     Button {
+                        dismissKeyboard()
                         Task { await vm.submit() }
                     } label: {
                         HStack {
@@ -474,6 +476,12 @@ struct RoomFormView: View {
                     }
                 }
             }
+            .scrollDismissesKeyboard(.immediately)
+            .background(
+                OutsideTapKeyboardDismissBridge {
+                    dismissKeyboard()
+                }
+            )
             .navigationTitle(vm.navigationTitle)
             .scrollContentBackground(.hidden)
             .background(Theme.backgroundGradient(for: scheme))
@@ -487,6 +495,12 @@ struct RoomFormView: View {
                     }
                     .accessibilityLabel(LocalizedStringKey("common_close"))
                     .accessibilityIdentifier("host_close_button")
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button(LocalizedStringKey("common_done")) {
+                        dismissKeyboard()
+                    }
                 }
             }
             .overlay {
@@ -535,4 +549,11 @@ struct RoomFormView: View {
         }
     }
 
+    /// Clears all field focus flags and asks UIKit to end editing in the active window.
+    private func dismissKeyboard() {
+        isNameFirstResponder = false
+        isAreaFirstResponder = false
+        isDescriptionFirstResponder = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
 }

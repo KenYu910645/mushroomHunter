@@ -30,6 +30,8 @@ struct SelectAllTextField: UIViewRepresentable {
         tf.autocapitalizationType = autocapitalization
         tf.textContentType = textContentType
         tf.keyboardType = keyboardType
+        tf.returnKeyType = .done
+        tf.enablesReturnKeyAutomatically = true
         tf.placeholder = NSLocalizedString(placeholderKey, comment: "")
         tf.addTarget(context.coordinator, action: #selector(Coordinator.textChanged), for: .editingChanged)
         tf.delegate = context.coordinator
@@ -76,10 +78,38 @@ struct SelectAllTextField: UIViewRepresentable {
             DispatchQueue.main.async {
                 textField.selectAll(nil)
             }
+            scrollInputIntoVisibleArea(textField)
         }
 
         func textFieldDidEndEditing(_ textField: UITextField) { // Handles textFieldDidEndEditing flow.
             isFirstResponder = false
+        }
+
+        func textFieldShouldReturn(_ textField: UITextField) -> Bool { // Handles textFieldShouldReturn flow.
+            textField.resignFirstResponder()
+            isFirstResponder = false
+            return true
+        }
+
+        /// Scrolls the enclosing scroll container to keep the focused field visible above keyboard.
+        private func scrollInputIntoVisibleArea(_ view: UIView) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                guard let scrollView = self.resolveEnclosingScrollView(for: view) else { return }
+                let targetRect = view.convert(view.bounds, to: scrollView).insetBy(dx: 0, dy: -28)
+                scrollView.scrollRectToVisible(targetRect, animated: true)
+            }
+        }
+
+        /// Finds the nearest parent scroll view that contains the edited control.
+        private func resolveEnclosingScrollView(for view: UIView) -> UIScrollView? {
+            var currentSuperview = view.superview
+            while let superview = currentSuperview {
+                if let scrollView = superview as? UIScrollView {
+                    return scrollView
+                }
+                currentSuperview = superview.superview
+            }
+            return nil
         }
     }
 }
