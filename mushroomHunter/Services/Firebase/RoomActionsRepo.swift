@@ -98,8 +98,7 @@ final class FbRoomActionsRepo {
         return userSnap.data()?["maxJoinRoom"] as? Int ?? defaultMaxJoinRooms
     }
 
-    private func countActiveJoinedRooms(uid: String, threshold: Int) async throws -> Int {
-        _ = threshold
+    private func countActiveJoinedRooms(uid: String) async throws -> Int {
         let byUidField = try await db.collectionGroup("attendees")
             .whereField("uid", isEqualTo: uid)
             .whereField("status", in: AttendeeStatus.activeStatusRawValues)
@@ -148,7 +147,7 @@ final class FbRoomActionsRepo {
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
         let maxJoinRooms = try await fetchMaxJoinRooms(uid: uid)
-        let currentJoined = try await countActiveJoinedRooms(uid: uid, threshold: maxJoinRooms)
+        let currentJoined = try await countActiveJoinedRooms(uid: uid)
         if currentJoined >= maxJoinRooms {
             throw RoomActionError.maxJoinRoomsReached(maxJoinRooms)
         }

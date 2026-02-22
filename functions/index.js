@@ -288,7 +288,6 @@ exports.sendRaidConfirmationPush = onDocumentUpdated(
 
       const roomData = roomSnap.data() || {};
       const hostName = (roomData.hostName || "Host").toString();
-      const roomTitle = (roomData.title || "your room").toString();
 
       try {
         await sendPushToUser(
@@ -747,7 +746,6 @@ exports.sendPostcardOrderCreatedPush = onDocumentCreated(
         return;
       }
 
-      const buyerName = (orderData.buyerName || "A buyer").toString();
       const postcardTitle = (orderData.postcardTitle || "postcard").toString();
 
       try {

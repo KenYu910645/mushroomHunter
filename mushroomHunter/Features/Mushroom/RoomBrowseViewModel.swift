@@ -10,7 +10,6 @@
 //
 import Foundation
 import Combine
-import Combine
 
 /// View model for the Mushroom browse screen.
 @MainActor

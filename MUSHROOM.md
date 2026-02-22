@@ -43,6 +43,9 @@
 - Mushroom browse uses `ScrollView + LazyVStack` (same pattern as Postcard browse), so the top action bar (honey/search/create) moves with page scroll and matches postcard visual style.
 - UI-test mode (`--ui-testing --mock-rooms`) routes host submit flow through mock success without Firestore writes.
 - Host create/edit description is prefilled with localized default `host_default_description` (`Welcome! Let's play!`) when empty.
+- Owner config `AppConfig.Mushroom.isRaidPaymentAdjustmentEnabled` controls whether host room form shows the raid payment adjustment option:
+  - `false`: adjustment UI is hidden in room form and create flow uses fixed payment `10` honey (`AppConfig.Mushroom.disabledRaidPaymentHoney`).
+  - `true`: host can adjust payment via stepper from min value to `AppConfig.Mushroom.enabledRaidPaymentMaxHoney` (currently `10`).
 - Host create/edit form now dismisses keyboard on outside taps (without collapsing during scroll), on keyboard `Enter`/`Done`, and before submit, and auto-scrolls the focused input above keyboard overlap.
 - Host can manage attendees (kick, close room, finish raid/claim cycle).
 - Join request workflow:

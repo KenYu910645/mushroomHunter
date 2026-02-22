@@ -36,6 +36,21 @@ enum AppConfig {
     }
 
     enum Mushroom {
+        // `isRaidPaymentAdjustmentEnabled`
+        // Purpose: controls whether hosts can adjust fixed raid payment in room form.
+        // When false, room form hides the adjustment option and uses `disabledRaidPaymentHoney` default.
+        static let isRaidPaymentAdjustmentEnabled: Bool = true
+
+        // `disabledRaidPaymentHoney`
+        // Purpose: fixed raid payment used when adjustment option is disabled.
+        // Keep aligned with product policy copy.
+        static let disabledRaidPaymentHoney: Int = 10
+
+        // `enabledRaidPaymentMaxHoney`
+        // Purpose: max adjustable payment used by room form when adjustment option is enabled.
+        // Keep aligned with product policy copy.
+        static let enabledRaidPaymentMaxHoney: Int = 10
+
         // `browseListFetchLimit`
         // Purpose: max rooms fetched for Mushroom browse.
         // Higher = more data shown, but slower initial load.

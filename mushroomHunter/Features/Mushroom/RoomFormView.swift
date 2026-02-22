@@ -38,7 +38,7 @@ final class HostViewModel: ObservableObject {
     @Published var countryCode: String = Locale.current.region?.identifier ?? AppConfig.Mushroom.defaultHostCountryCode // Selected ISO country code for room location.
     @Published var city: String = NSLocalizedString("host_city_default", comment: "") // User-entered city/area portion of room location.
     @Published var otherMessage: String = NSLocalizedString("host_default_description", comment: "") // Optional room description displayed to joiners.
-    @Published var fixedRaidCost: Int = AppConfig.Mushroom.defaultFixedRaidCost // Minimum honey deposit required for joining.
+    @Published var fixedRaidCost: Int = HostViewModel.resolvedInitialFixedRaidCost() // Minimum honey deposit required for joining.
     // UI State
     @Published var showSuccessAlert: Bool = false // Presents success alert after create/update request finishes.
     @Published var successRoomId: String? = nil // Stores created/updated room id for downstream actions.
@@ -65,6 +65,7 @@ final class HostViewModel: ObservableObject {
         self.session = session
         self.repo = repo
         self.mode = .create
+        self.fixedRaidCost = Self.resolvedInitialFixedRaidCost()
     }
 
     init(session: UserSessionStore, room: RoomDetail, repo: FbRoomFormRepo = FbRoomFormRepo()) { // Initializes this type.
@@ -193,7 +194,7 @@ final class HostViewModel: ObservableObject {
         countryCode = Locale.current.region?.identifier ?? AppConfig.Mushroom.defaultHostCountryCode
         city = NSLocalizedString("host_city_default", comment: "")
         otherMessage = NSLocalizedString("host_default_description", comment: "")
-        fixedRaidCost = AppConfig.Mushroom.defaultFixedRaidCost
+        fixedRaidCost = Self.resolvedInitialFixedRaidCost()
         errorMessage = nil
         successRoomId = nil
         showSuccessAlert = false
@@ -225,6 +226,14 @@ final class HostViewModel: ObservableObject {
     static func trimToChars(_ text: String, maxChars: Int) -> String {
         if text.count <= maxChars { return text }
         return String(text.prefix(maxChars))
+    }
+
+    /// Resolves create-form fixed raid payment default based on owner config.
+    static func resolvedInitialFixedRaidCost() -> Int {
+        if AppConfig.Mushroom.isRaidPaymentAdjustmentEnabled {
+            return AppConfig.Mushroom.defaultFixedRaidCost
+        }
+        return AppConfig.Mushroom.disabledRaidPaymentHoney
     }
 
     // MARK: Location helpers
@@ -410,24 +419,26 @@ struct RoomFormView: View {
                     Text(LocalizedStringKey("host_description_header"))
                 }
 
-                Section {
-                    Stepper(
-                        value: $vm.fixedRaidCost,
-                        in: AppConfig.Mushroom.minFixedRaidCost...AppConfig.Mushroom.maxFixedRaidCost,
-                        step: 1
-                    ) {
-                        HStack {
-                            Text(LocalizedStringKey("host_min_bid_label"))
-                            Spacer()
-                            Text("\(vm.fixedRaidCost)")
-                                .monospacedDigit()
-                                .foregroundStyle(.secondary)
+                if AppConfig.Mushroom.isRaidPaymentAdjustmentEnabled {
+                    Section {
+                        Stepper(
+                            value: $vm.fixedRaidCost,
+                            in: AppConfig.Mushroom.minFixedRaidCost...AppConfig.Mushroom.enabledRaidPaymentMaxHoney,
+                            step: 1
+                        ) {
+                            HStack {
+                                Text(LocalizedStringKey("host_min_bid_label"))
+                                Spacer()
+                                Text("\(vm.fixedRaidCost)")
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                    } header: {
+                        Text(LocalizedStringKey("host_min_bid_header"))
+                    } footer: {
+                        Text(LocalizedStringKey("host_min_bid_footer"))
                     }
-                } header: {
-                    Text(LocalizedStringKey("host_min_bid_header"))
-                } footer: {
-                    Text(LocalizedStringKey("host_min_bid_footer"))
                 }
 
                 // Error
