@@ -34,9 +34,11 @@ final class RoomBrowseViewModel: ObservableObject {
     }
 
     /// Loads browse listings with stale-first strategy.
-    /// Uses cache on enter and refreshes from server only when cache is unavailable.
+    /// Uses cache on enter and always follows with a server refresh.
     func loadListingsOnAppear() async { // Handles loadListingsOnAppear flow.
-        if await loadListingsFromCache() {
+        let isCacheLoaded = await loadListingsFromCache()
+        if isCacheLoaded {
+            await fetchListings(forceRefresh: true)
             return
         }
         await fetchListings(forceRefresh: true)

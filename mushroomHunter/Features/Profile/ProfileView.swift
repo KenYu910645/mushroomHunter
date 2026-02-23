@@ -10,6 +10,12 @@ import SwiftUI
 
 /// Profile landing screen that surfaces user identity, reputation, owned rooms, and postcard activity.
 struct ProfileView: View {
+    /// Route model used to push room detail from profile mushroom rows.
+    private struct RoomRoute: Identifiable, Hashable {
+        /// Room id used by navigation destination and room detail loader.
+        let id: String
+    }
+
     /// Sheet routes presented from profile toolbar and settings actions.
     private enum ActiveSheet: String, Identifiable {
         /// Settings menu sheet.
@@ -41,6 +47,8 @@ struct ProfileView: View {
 
     /// Selected postcard used to push into postcard detail.
     @State private var selectedPostcard: PostcardListing? = nil
+    /// Selected room used to push into room detail from profile mushroom lists.
+    @State private var selectedRoomRoute: RoomRoute? = nil
 
     /// Currently presented profile sheet route.
     @State private var activeSheet: ActiveSheet? = nil
@@ -60,6 +68,7 @@ struct ProfileView: View {
             Form {
                 BrowseViewTopActionBar(
                     honey: session.honey,
+                    stars: session.stars,
                     onSearch: nil,
                     onCreate: nil,
                     searchAccessibilityLabel: nil,
@@ -75,7 +84,6 @@ struct ProfileView: View {
                 .listRowBackground(Color.clear)
 
                 accountSection
-                communitySection
                 mushroomSection
                 postcardSection
                 signOutSection
@@ -83,6 +91,14 @@ struct ProfileView: View {
             .navigationTitle(LocalizedStringKey("profile_title"))
             .navigationDestination(item: $selectedPostcard) { postcard in
                 PostcardView(listing: postcard)
+            }
+            .navigationDestination(item: $selectedRoomRoute) { route in
+                RoomView(
+                    vm: RoomViewModel(roomId: route.id, session: session),
+                    onRoomClosed: {
+                        Task { await viewModel.loadHostedRooms(session: session, forceRefresh: true) }
+                    }
+                )
             }
             .scrollContentBackground(.hidden)
             .background(Theme.backgroundGradient(for: colorScheme))
@@ -195,41 +211,23 @@ struct ProfileView: View {
         }
     }
 
-    /// Section that shows the stars value accumulated by community activity.
-    private var communitySection: some View {
-        Section {
-            HStack {
-                Label(LocalizedStringKey("profile_stars"), systemImage: "star.fill")
-                    .foregroundStyle(.yellow)
-
-                Spacer()
-
-                Text("\(session.stars)")
-                    .font(.headline)
-                    .monospacedDigit()
-            }
-        } header: {
-            Text(LocalizedStringKey("profile_community_section"))
-        } footer: {
-            Text(LocalizedStringKey("profile_community_footer"))
-        }
-    }
-
     /// Section that displays mushroom rooms the user has joined or hosted.
     private var mushroomSection: some View {
         Section {
             JoinedRoomsSection(
                 rooms: viewModel.joinedRooms,
                 isLoading: viewModel.isJoinedRoomsLoading,
-                errorMessage: viewModel.joinedRoomsErrorMessage
+                errorMessage: viewModel.joinedRoomsErrorMessage,
+                onSelectRoom: { selectedRoomRoute = .init(id: $0) }
             )
             .equatable()
 
             HostedRoomsSection(
                 rooms: viewModel.hostedRooms,
+                pendingJoinRequestCountsByRoomId: viewModel.hostedPendingJoinRequestCountsByRoomId,
                 isLoading: viewModel.isHostedRoomsLoading,
                 errorMessage: viewModel.hostedRoomsErrorMessage,
-                onRoomClosed: { Task { await viewModel.loadHostedRooms(session: session, forceRefresh: true) } }
+                onSelectRoom: { selectedRoomRoute = .init(id: $0) }
             )
             .equatable()
         } header: {
@@ -243,6 +241,7 @@ struct ProfileView: View {
             OnShelfPostcardsSection(
                 postcards: viewModel.onShelfPostcards,
                 pendingOrderPostcardIds: viewModel.onShelfPendingOrderPostcardIds,
+                pendingOrderCountsByPostcardId: viewModel.onShelfPendingOrderCountsByPostcardId,
                 isLoading: viewModel.isOnShelfPostcardsLoading,
                 errorMessage: viewModel.onShelfPostcardsErrorMessage,
                 onSelectPostcard: { selectedPostcard = $0 }

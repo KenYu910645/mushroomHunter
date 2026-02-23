@@ -141,6 +141,22 @@ final class FbPostcardRepo {
         userId: String,
         limit: Int = AppConfig.Postcard.profileListFetchLimit * 5
     ) async throws -> Set<String> { // Handles fetchSellerPendingOrderPostcardIds flow.
+        let pendingCountByPostcardId = try await fetchSellerPendingOrderCountsByPostcardId(
+            userId: userId,
+            limit: limit
+        )
+        return Set(pendingCountByPostcardId.keys)
+    }
+
+    /// Loads pending seller-order counts grouped by postcard listing id.
+    /// - Parameters:
+    ///   - userId: Seller uid for the current profile.
+    ///   - limit: Max order docs to scan for pending queue status.
+    /// - Returns: Dictionary keyed by postcard id with pending seller-order counts.
+    func fetchSellerPendingOrderCountsByPostcardId(
+        userId: String,
+        limit: Int = 250
+    ) async throws -> [String: Int] {
         let pendingStatuses = [
             PostcardOrderStatus.sellerConfirmPending.rawValue,
             PostcardOrderStatus.awaitingShipping.rawValue,
@@ -152,13 +168,33 @@ final class FbPostcardRepo {
             .limit(to: limit)
 
         let docs = try await fetchDocuments(query: query)
-        return Set(
-            docs.compactMap { doc in
-                let postcardId = (doc.data()["postcardId"] as? String ?? "")
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                return postcardId.isEmpty ? nil : postcardId
-            }
-        )
+        return docs.reduce(into: [String: Int]()) { partial, doc in
+            let postcardId = (doc.data()["postcardId"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard postcardId.isEmpty == false else { return }
+            partial[postcardId, default: 0] += 1
+        }
+    }
+
+    /// Counts buyer orders that are waiting for buyer receipt confirmation.
+    /// - Parameters:
+    ///   - userId: Buyer uid for the current profile.
+    ///   - limit: Max active order docs to scan for buyer-side receive actions.
+    /// - Returns: Number of orders currently waiting buyer confirmation.
+    func fetchBuyerPendingReceiveCount(
+        userId: String,
+        limit: Int = 250
+    ) async throws -> Int {
+        let waitingStatuses = [
+            PostcardOrderStatus.shipped.rawValue,
+            "InTransit",
+            "AwaitingBuyerDecision"
+        ]
+        let query = db.collection("postcardOrders")
+            .whereField("buyerId", isEqualTo: userId)
+            .whereField("status", in: waitingStatuses)
+            .limit(to: limit)
+        return try await fetchDocuments(query: query).count
     }
 
     func fetchMyOrderedPostcards(userId: String, limit: Int = AppConfig.Postcard.profileListFetchLimit) async throws -> [OrderedPostcardSummary] { // Handles fetchMyOrderedPostcards flow.

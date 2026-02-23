@@ -70,6 +70,56 @@ struct ProfileStatusBadge: View {
     }
 }
 
+/// Tiny red dot indicator used to mark actionable list rows.
+struct ProfileActionDot: View {
+    /// Dot diameter used for compact slot-level notification markers.
+    private let dotSize: CGFloat = 8
+
+    /// Renders the red dot marker.
+    var body: some View {
+        Circle()
+            .fill(Color.red)
+            .frame(width: dotSize, height: dotSize)
+            .accessibilityHidden(true)
+    }
+}
+
+/// Row container that prepends a red dot for actionable profile items.
+struct ProfileActionHighlightContainer<Content: View>: View {
+    /// Actionable item count for the row.
+    let actionCount: Int
+    /// Row content rendered inside the highlight container.
+    let content: () -> Content
+
+    /// Creates a highlight container around row content.
+    /// - Parameters:
+    ///   - actionCount: Actionable count for this row.
+    ///   - content: Row content builder.
+    init(
+        actionCount: Int,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.actionCount = actionCount
+        self.content = content
+    }
+
+    /// Whether this row should show the red dot indicator.
+    private var isActionHighlighted: Bool {
+        actionCount > 0
+    }
+
+    /// Renders row shell with optional leading red dot marker.
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            if isActionHighlighted {
+                ProfileActionDot()
+            }
+            content()
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 /// Generic container that renders error, loading, empty, and content states for profile lists.
 struct ProfileSectionStateView<Content: View, Empty: View>: View {
     /// Loading state for current section fetch.

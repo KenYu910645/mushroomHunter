@@ -172,6 +172,7 @@ struct PostcardBrowseView: View {
     private var headerBar: some View {
         BrowseViewTopActionBar(
             honey: session.honey,
+            stars: session.stars,
             onSearch: {
                 isSearchFieldVisible.toggle()
                 if isSearchFieldVisible {
@@ -184,7 +185,8 @@ struct PostcardBrowseView: View {
             searchAccessibilityLabel: "postcard_search_accessibility",
             createAccessibilityLabel: "postcard_register_accessibility",
             searchButtonIdentifier: "postcard_search_button",
-            createButtonIdentifier: "postcard_create_button"
+            createButtonIdentifier: "postcard_create_button",
+            isStarsVisible: false
         )
         .padding(.horizontal)
     }

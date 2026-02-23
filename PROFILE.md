@@ -7,6 +7,7 @@
 - `mushroomHunter/Features/Profile/ProfileMushroom.swift`: joined/hosted mushroom list sections used by profile.
 - `mushroomHunter/Features/Profile/ProfilePostcard.swift`: on-shelf/ordered postcard list sections and shared postcard summary row used by profile.
 - `mushroomHunter/Features/Profile/ProfileSectionStateView.swift`: shared loading/error/empty/content state renderer reused by profile list sections.
+- `mushroomHunter/App/ContentView.swift`: profile tab badge aggregation and app-icon badge sync.
 - `mushroomHunter/Features/Profile/FeedbackView.swift`: in-app feedback compose view and submission payload model.
 - `mushroomHunter/Features/Profile/AboutView.swift`: settings-linked about page with phone/email/website links.
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared `UITextField` bridge used by profile edit/create and mushroom host forms (select-all on focus, keyboard/input configuration).
@@ -29,24 +30,35 @@
 - User can view and edit profile data:
   - Display name
   - Friend code
-  - Stars/reputation (displayed community value)
+  - Stars/reputation (shown in top action bar)
 - Profile identity values are read-only in profile section rows; editing is triggered by the top-right pencil button and presented in a dedicated edit-profile sheet.
-- Profile tab top area now uses shared `BrowseViewTopActionBar` in honey-only mode (no search/create actions).
+- Profile tab top area now uses shared `BrowseViewTopActionBar` in honey+stars mode (no search/create actions).
 - Profile top action bar is rendered inside the scrolling form content so it moves with the page while scrolling.
-- Community section no longer includes a separate honey row.
 - Profile tab includes user-related content views:
   - Joined mushroom rooms
   - Hosted mushroom rooms
   - On-shelf postcards
   - Ordered postcards
 - Joined mushroom room rows now show the attendee status directly in profile (`Host`, `Asking to join`, `Ready`, `Waiting confirmation`, `Rejected`) so users can instantly see their room state.
+- Profile mushroom rows are tap-to-open without default list disclosure chevrons, so row visuals stay clean while preserving room-detail navigation.
+- Mushroom lists now include subsection titles (`Joined`, `Hosted`) styled the same way as postcard subsection titles.
 - Profile list loading is now cache-first plus immediate forced backend refresh on appear, so attendee/host room-status changes (for example `Ready -> Waiting confirmation`) are updated promptly after entering Profile.
 - Joined mushroom room statuses are highlighted with rounded-rectangle badges and urgency color coding:
   - `Ready`: green
   - `Asking to join` / `Waiting confirmation`: yellow-orange
   - `Rejected`: red
 - `Host`: blue
-- Joined mushroom room deposit now renders as `<deposit number> + honey icon` instead of plain text label format.
+- Profile tab icon shows a numeric badge count for actionable items, and the iOS app icon badge keeps the same numeric total count.
+- Profile actionable total is the sum of:
+  - Joined-room rows in `Waiting confirmation` (joiner needs to respond to host confirmation prompt).
+  - Hosted-room pending join applications (`AskingToJoin` attendees).
+  - Seller pending postcard orders (`SellerConfirmPending` / `AwaitingShipping`, plus legacy aliases).
+  - Buyer orders waiting receipt confirmation (`Shipped`, plus legacy aliases).
+- Joined mushroom rows now show a tiny red dot marker when attendee status is `Waiting confirmation`.
+- Hosted mushroom rows now show a tiny red dot marker when that room has pending join applications.
+- On-shelf postcard rows now show a tiny red dot marker when that listing has pending seller actions.
+- Profile actionable row markers are dot-only (no red rounded rectangle and no per-row numeric count rendering).
+- Joined mushroom room deposit now renders as an orange rounded honey chip (`HoneyIcon + deposit`) matching top action bar honey styling.
 - Profile postcard rows display status text on the right side (stock count hidden in profile lists):
   - On-shelf section:
     - `Order Received` when seller has unprocessed queue items (`SellerConfirmPending` / `AwaitingShipping` and legacy `AwaitingSellerSend`) for that listing.
@@ -59,6 +71,12 @@
   - `Order Received`: yellow-orange
   - `Wait for shipping`: yellow-orange
   - `Shipped, on-the-way`: blue
+- Profile postcard rows use actionable markers:
+  - On-shelf rows: tiny red dot when pending seller-order count for that listing is greater than `0`.
+  - Ordered rows: tiny red dot when order status is `Shipped` (waiting buyer receive confirmation).
+- Profile postcard slots no longer show `HoneyIcon` in the right metadata column.
+- On-shelf postcard rows hide both location text and honey price.
+- Ordered postcard rows keep honey price chip but without `HoneyIcon`.
 - Hosted mushroom room rows now show an aggregate room-status badge so hosts can see room state immediately:
   - `Ready` when there is at least one non-host attendee and the room is not in all-`WaitingConfirmation` state.
   - `Waiting for players` when there is no non-host attendee.

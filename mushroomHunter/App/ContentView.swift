@@ -10,6 +10,7 @@
 //
 import SwiftUI
 import Combine
+import UIKit
 
 // MARK: - App Root
 
@@ -147,6 +148,11 @@ private struct PostcardLinkDestinationView: View {
 
 struct MainTabView: View {
     @EnvironmentObject private var session: UserSessionStore // State or dependency property.
+    /// Repository for profile room queries used by tab/app-icon badge aggregation.
+    private let profileRepo = FbProfileListRepo()
+    /// Repository for postcard order queries used by tab/app-icon badge aggregation.
+    private let postcardRepo = FbPostcardRepo()
+
     var body: some View {
         TabView {
             RoomBrowseView(session: session)
@@ -165,7 +171,71 @@ struct MainTabView: View {
                 .tabItem {
                     Label("tab_profile", systemImage: "person.circle")
                 }
+                .badge(session.profileActionBadgeCount > 0 ? "\(session.profileActionBadgeCount)" : nil)
                 .accessibilityIdentifier("tab_profile")
+        }
+        .task(id: session.authUid) {
+            await refreshProfileActionBadgeCount()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            Task {
+                await refreshProfileActionBadgeCount()
+            }
+        }
+        .onChange(of: session.profileActionBadgeCount) { _, latestCount in
+            UIApplication.shared.applicationIconBadgeNumber = latestCount
+        }
+    }
+
+    /// Recomputes profile actionable counts and applies them to tab/app icon badges.
+    private func refreshProfileActionBadgeCount() async {
+        if AppTesting.isUITesting || !session.isLoggedIn {
+            session.updateProfileActionBadgeCount(0)
+            return
+        }
+
+        guard let userId = session.authUid, userId.isEmpty == false else {
+            session.updateProfileActionBadgeCount(0)
+            return
+        }
+
+        do {
+            async let joinedRoomsLoad: [JoinedRoomSummary] = profileRepo.fetchMyJoinedRooms(
+                limit: AppConfig.Mushroom.profileListFetchLimit
+            )
+            async let hostedRoomsLoad: [HostedRoomSummary] = profileRepo.fetchMyHostedRooms(
+                limit: AppConfig.Mushroom.profileListFetchLimit
+            )
+            async let sellerOrderCountsLoad: [String: Int] = postcardRepo.fetchSellerPendingOrderCountsByPostcardId(
+                userId: userId
+            )
+            async let buyerPendingReceiveCountLoad: Int = postcardRepo.fetchBuyerPendingReceiveCount(
+                userId: userId
+            )
+
+            let joinedRooms = try await joinedRoomsLoad
+            let hostedRooms = try await hostedRoomsLoad
+            let sellerOrderCountsByPostcardId = try await sellerOrderCountsLoad
+            let buyerPendingReceiveCount = try await buyerPendingReceiveCountLoad
+
+            let hostedRoomIds = hostedRooms.map { $0.id }
+            let pendingJoinRequestCountsByRoomId = try await profileRepo.fetchHostPendingJoinRequestCounts(
+                roomIds: hostedRoomIds
+            )
+
+            let joinerPendingConfirmationCount = joinedRooms.reduce(0) { partial, room in
+                let isWaitingConfirmation = room.attendeeStatus == .waitingConfirmation
+                return partial + (isWaitingConfirmation ? 1 : 0)
+            }
+            let hostPendingJoinRequestCount = pendingJoinRequestCountsByRoomId.values.reduce(0, +)
+            let sellerPendingOrderCount = sellerOrderCountsByPostcardId.values.reduce(0, +)
+            let totalBadgeCount = joinerPendingConfirmationCount
+                + hostPendingJoinRequestCount
+                + sellerPendingOrderCount
+                + buyerPendingReceiveCount
+            session.updateProfileActionBadgeCount(totalBadgeCount)
+        } catch {
+            // Keep current badge count when refresh fails.
         }
     }
 }

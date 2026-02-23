@@ -524,21 +524,15 @@ struct PostcardView: View {
         }
     }
 
-    /// Toolbar shipping icon with a compact pending-order badge for sellers.
+    /// Toolbar shipping icon with a red dot indicator when seller has pending orders.
     @ViewBuilder
     private var shippingToolbarIcon: some View {
         ZStack(alignment: .topTrailing) {
             Image(systemName: "shippingbox")
 
             if pendingShippingCount > 0 {
-                Text(pendingShippingCount > 99 ? "99+" : "\(pendingShippingCount)")
-                    .font(.caption2)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, pendingShippingCount > 9 ? 5 : 6)
-                    .padding(.vertical, 1)
-                    .background(Capsule().fill(Color.red))
-                    .offset(x: 10, y: -8)
+                ProfileActionDot()
+                    .offset(x: 6, y: -4)
             }
         }
         .accessibilityValue(

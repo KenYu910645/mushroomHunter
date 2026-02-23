@@ -188,6 +188,27 @@ final class FbProfileListRepo {
             .map { $0 }
     }
 
+    /// Loads pending join-request counts for each hosted room id.
+    /// - Parameter roomIds: Hosted room document ids owned by current host.
+    /// - Returns: Dictionary keyed by room id with attendee counts in `AskingToJoin`.
+    func fetchHostPendingJoinRequestCounts(roomIds: [String]) async throws -> [String: Int] {
+        let uniqueRoomIds = Array(Set(roomIds.filter { !$0.isEmpty }))
+        guard uniqueRoomIds.isEmpty == false else { return [:] }
+
+        var pendingCountByRoomId: [String: Int] = [:]
+        pendingCountByRoomId.reserveCapacity(uniqueRoomIds.count)
+
+        for roomId in uniqueRoomIds {
+            let query = db.collection("rooms")
+                .document(roomId)
+                .collection("attendees")
+                .whereField("status", isEqualTo: AttendeeStatus.askingToJoin.rawValue)
+            let documentCount = try await fetchDocuments(query: query).count
+            pendingCountByRoomId[roomId] = documentCount
+        }
+        return pendingCountByRoomId
+    }
+
     private enum StatusFilter {
         case equal(String)
         case inList([String])

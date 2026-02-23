@@ -7,7 +7,7 @@
 - `mushroomHunter/Features/Postcard/PostcardFormView.swift`: consolidated postcard create/edit form implementation.
 - `mushroomHunter/Features/Postcard/PostcardBrowseViewModel.swift`: browse filtering, sorting, and refresh state logic.
 - `mushroomHunter/Features/Postcard/PostcardDomainModel.swift`: postcard listing/order/location models and status enums.
-- `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens.
+- `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens (stars hidden on postcard browse).
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by postcard form inputs.
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared auto-select text editor wrapper used by postcard description inputs.
 - `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
@@ -39,7 +39,7 @@
 - Register success dismisses the sheet and refreshes browse list.
 - Pull-to-refresh is supported in postcard browse, detail, and shipping flows.
 - Seller can open shipping sheet in postcard detail to see waiting buyers and mark each order as sent.
-- Seller shipping toolbar button in postcard detail shows a red badge count when there are pending orders that need seller processing.
+- Seller shipping toolbar button in postcard detail shows a tiny red dot when there are pending orders that need seller processing.
 - Seller shipping queue rows show `Buyer ordered Postcard` title text plus a friend-request instruction line with inline copy icon for buyer friend code.
 - Seller shipping queue action order is `Postcard Sent` on the left and `Reject` on the right.
 - Seller shipping queue copy icon shows the shared `Copied to clipboard` toast feedback used across postcard screens.

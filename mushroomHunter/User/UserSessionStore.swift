@@ -25,6 +25,7 @@ final class UserSessionStore: ObservableObject {
     @Published var fcmToken: String? = nil // State or dependency property.
     @Published var isProfileComplete: Bool = false // State or dependency property.
     @Published var isShowingOnboardingTutorial: Bool = false // Tracks whether the first-time tutorial sheet is currently presented.
+    @Published var profileActionBadgeCount: Int = 0 // Actionable item count used by profile tab/app icon badges.
     @Published var isLoading: Bool = false // State or dependency property.
     @Published var errorMessage: String? = nil // State or dependency property.
 
@@ -131,6 +132,13 @@ final class UserSessionStore: ObservableObject {
         maxJoinRoom = AppConfig.Mushroom.defaultJoinRoomLimit
         isProfileComplete = false
         isShowingOnboardingTutorial = false
+        profileActionBadgeCount = 0
+    }
+
+    /// Stores a sanitized actionable badge count for profile/tab/app-icon updates.
+    /// - Parameter count: Raw actionable count from profile/mushroom/postcard queries.
+    func updateProfileActionBadgeCount(_ count: Int) {
+        profileActionBadgeCount = max(0, count)
     }
 
     private func loadLocalProfile(for uid: String) { // Loads user-scoped profile values from local persistence.

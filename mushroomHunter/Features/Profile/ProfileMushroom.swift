@@ -9,9 +9,6 @@ import SwiftUI
 
 /// Joined-room list content shown in profile mushroom section.
 struct JoinedRoomsSection: View, Equatable {
-    /// Shared session used to build room detail view models.
-    @EnvironmentObject private var session: UserSessionStore
-
     /// Joined rooms to render.
     let rooms: [JoinedRoomSummary]
 
@@ -20,6 +17,8 @@ struct JoinedRoomsSection: View, Equatable {
 
     /// Optional fetch error message for joined rooms.
     let errorMessage: String?
+    /// Callback fired when a joined-room row is tapped.
+    let onSelectRoom: (String) -> Void
 
     /// Equality gate used by `.equatable()` to skip unnecessary redraws.
     static func == (lhs: JoinedRoomsSection, rhs: JoinedRoomsSection) -> Bool {
@@ -30,59 +29,77 @@ struct JoinedRoomsSection: View, Equatable {
 
     /// Joined-room list rendering, including loading, empty, and error states.
     var body: some View {
-        ProfileSectionStateView(
-            isLoading: isLoading,
-            isEmpty: rooms.isEmpty,
-            errorMessage: errorMessage,
-            loadingTextKey: LocalizedStringKey("profile_loading_joined")
-        ) {
-            ForEach(rooms) { room in
-                NavigationLink {
-                    RoomView(vm: RoomViewModel(roomId: room.id, session: session))
-                } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(room.title)
-                            .font(.headline)
-                            .lineLimit(1)
+        Group {
+            Text(LocalizedStringKey("profile_mushroom_joined_section"))
+                .font(.subheadline.weight(.semibold))
 
-                        HStack(spacing: 8) {
-                            Text(
-                                String(
-                                    format: NSLocalizedString("profile_players_format", comment: ""),
-                                    room.joinedCount,
-                                    room.maxPlayers
-                                )
-                            )
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+            ProfileSectionStateView(
+                isLoading: isLoading,
+                isEmpty: rooms.isEmpty,
+                errorMessage: errorMessage,
+                loadingTextKey: LocalizedStringKey("profile_loading_joined")
+            ) {
+                ForEach(rooms) { room in
+                    Button {
+                        onSelectRoom(room.id)
+                    } label: {
+                        ProfileActionHighlightContainer(actionCount: actionCount(for: room.attendeeStatus)) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(room.title)
+                                    .font(.headline)
+                                    .lineLimit(1)
 
-                            HStack(spacing: 4) {
-                                Image("HoneyIcon")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 14, height: 14)
-                                Text("\(room.depositHoney)")
+                                HStack(spacing: 8) {
+                                    Text(
+                                        String(
+                                            format: NSLocalizedString("profile_players_format", comment: ""),
+                                            room.joinedCount,
+                                            room.maxPlayers
+                                        )
+                                    )
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
-                                    .monospacedDigit()
+
+                                    HStack(spacing: 4) {
+                                        Image("HoneyIcon")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 12, height: 12)
+                                        Text("\(room.depositHoney)")
+                                            .foregroundStyle(Color.orange)
+                                            .monospacedDigit()
+                                    }
+                                    .font(.footnote.weight(.semibold))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(Color.orange.opacity(0.14))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .stroke(Color.orange.opacity(0.35), lineWidth: 1)
+                                    )
+
+                                    Spacer(minLength: 0)
+
+                                    ProfileStatusBadge(
+                                        titleKey: statusKey(for: room.attendeeStatus),
+                                        urgency: statusUrgency(for: room.attendeeStatus)
+                                    )
+                                }
                             }
-
-                            Spacer(minLength: 0)
-
-                            ProfileStatusBadge(
-                                titleKey: statusKey(for: room.attendeeStatus),
-                                urgency: statusUrgency(for: room.attendeeStatus)
-                            )
                         }
                     }
+                    .buttonStyle(.plain)
                 }
-            }
-        } emptyContent: {
+            } emptyContent: {
                 ContentUnavailableView(
                     LocalizedStringKey("profile_joined_empty_title"),
                     systemImage: "person.2"
                 )
                 .listRowBackground(Color.clear)
+            }
         }
     }
 
@@ -119,15 +136,22 @@ struct JoinedRoomsSection: View, Equatable {
             return .neutral
         }
     }
+
+    /// Maps attendee status to actionable badge count for joined-room confirmation tasks.
+    /// - Parameter status: Current attendee status in this room.
+    /// - Returns: `1` when waiting host confirmation response, otherwise `0`.
+    private func actionCount(for status: AttendeeStatus) -> Int {
+        let isWaitingConfirmation = status == .waitingConfirmation
+        return isWaitingConfirmation ? 1 : 0
+    }
 }
 
 /// Hosted-room list content shown in profile mushroom section.
 struct HostedRoomsSection: View, Equatable {
-    /// Shared session used to build room detail view models.
-    @EnvironmentObject private var session: UserSessionStore
-
     /// Hosted rooms to render.
     let rooms: [HostedRoomSummary]
+    /// Pending attendee join-request counts grouped by hosted room id.
+    let pendingJoinRequestCountsByRoomId: [String: Int]
 
     /// Loading state for hosted-room fetch.
     let isLoading: Bool
@@ -135,63 +159,69 @@ struct HostedRoomsSection: View, Equatable {
     /// Optional fetch error message for hosted rooms.
     let errorMessage: String?
 
-    /// Callback invoked when a hosted room closes from the room detail view.
-    let onRoomClosed: () -> Void
+    /// Callback fired when a hosted-room row is tapped.
+    let onSelectRoom: (String) -> Void
 
     /// Equality gate used by `.equatable()` to skip unnecessary redraws.
     static func == (lhs: HostedRoomsSection, rhs: HostedRoomsSection) -> Bool {
         lhs.rooms == rhs.rooms
+            && lhs.pendingJoinRequestCountsByRoomId == rhs.pendingJoinRequestCountsByRoomId
             && lhs.isLoading == rhs.isLoading
             && lhs.errorMessage == rhs.errorMessage
     }
 
     /// Hosted-room list rendering, including loading, empty, and error states.
     var body: some View {
-        ProfileSectionStateView(
-            isLoading: isLoading,
-            isEmpty: rooms.isEmpty,
-            errorMessage: errorMessage,
-            loadingTextKey: LocalizedStringKey("profile_loading_hosted")
-        ) {
-            ForEach(rooms) { room in
-                NavigationLink {
-                    RoomView(
-                        vm: RoomViewModel(roomId: room.id, session: session),
-                        onRoomClosed: onRoomClosed
-                    )
-                } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(room.title)
-                            .font(.headline)
-                            .lineLimit(1)
+        Group {
+            Text(LocalizedStringKey("profile_mushroom_hosted_section"))
+                .font(.subheadline.weight(.semibold))
 
-                        HStack(spacing: 8) {
-                            Text(
-                                String(
-                                    format: NSLocalizedString("profile_players_format", comment: ""),
-                                    room.joinedCount,
-                                    room.maxPlayers
-                                )
-                            )
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+            ProfileSectionStateView(
+                isLoading: isLoading,
+                isEmpty: rooms.isEmpty,
+                errorMessage: errorMessage,
+                loadingTextKey: LocalizedStringKey("profile_loading_hosted")
+            ) {
+                ForEach(rooms) { room in
+                    Button {
+                        onSelectRoom(room.id)
+                    } label: {
+                        ProfileActionHighlightContainer(actionCount: pendingJoinRequestCountsByRoomId[room.id] ?? 0) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(room.title)
+                                    .font(.headline)
+                                    .lineLimit(1)
 
-                            Spacer(minLength: 0)
+                                HStack(spacing: 8) {
+                                    Text(
+                                        String(
+                                            format: NSLocalizedString("profile_players_format", comment: ""),
+                                            room.joinedCount,
+                                            room.maxPlayers
+                                        )
+                                    )
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
 
-                            ProfileStatusBadge(
-                                titleKey: hostedStatusKey(for: room.roomStatus),
-                                urgency: hostedStatusUrgency(for: room.roomStatus)
-                            )
+                                    Spacer(minLength: 0)
+
+                                    ProfileStatusBadge(
+                                        titleKey: hostedStatusKey(for: room.roomStatus),
+                                        urgency: hostedStatusUrgency(for: room.roomStatus)
+                                    )
+                                }
+                            }
                         }
                     }
+                    .buttonStyle(.plain)
                 }
-            }
-        } emptyContent: {
+            } emptyContent: {
                 ContentUnavailableView(
                     LocalizedStringKey("profile_hosted_empty_title"),
                     systemImage: "house"
                 )
                 .listRowBackground(Color.clear)
+            }
         }
     }
 

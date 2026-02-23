@@ -9,7 +9,7 @@
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift`: shared invite QR sheet component used by room and postcard screens.
 - `mushroomHunter/Features/Mushroom/RoomViewModel.swift`: room details state, role/join gating logic, and action orchestration.
 - `mushroomHunter/Features/Mushroom/RoomDomainModels.swift`: room/attendee data models and status enums.
-- `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens.
+- `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens (stars hidden on mushroom browse).
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by host/profile/profile-create forms.
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared auto-select text editor wrapper used by host description input.
 - `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
@@ -36,7 +36,8 @@
   - Dormant hours are measured from `lastSuccessfulRaidAt` (fallback `createdAt` when never raided).
   - No dormancy penalty is applied until elapsed time exceeds `AppConfig.Mushroom.browsePriorityDormantThresholdHours` (default 48h).
 - Mushroom browse list now uses app-level stale-first cache:
-  - Entering Mushroom tab reads cached browse list first.
+  - Entering Mushroom tab reads cached browse list first, then immediately refreshes from Firestore and overwrites cache.
+  - Browse fetch uses server-first query (with local/default fallback only on server failure) so attendee count (`joinedCount`) is aligned with room detail more consistently.
   - Pull-to-refresh forces latest Firestore query and overwrites cache.
   - Tapping keyboard search submit forces latest Firestore query before applying local filter.
 - Inline search field includes an `x` clear button only; pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
@@ -51,7 +52,8 @@
 - Join request workflow:
   - Joiner enters deposit + greeting message.
   - Join request creates attendee with status `AskingToJoin` and occupies a room slot immediately.
-  - Host can approve/reject from attendee row `...` menu.
+  - Host can approve/reject from two inline buttons shown under the joiner greeting message (`Accept` on left in green, `Reject` on right in red).
+  - Attendee row `...` menu is used for non-join-request host actions like `Kick`.
   - Rejected application removes attendee and refunds full deposit.
 - Host `Mushroom Raid Done` now sends escrow settlement requests to all non-host joiners in the room (instead of manually selecting attendees).
 - Joining from room details now requires both:
@@ -59,6 +61,7 @@
   - attendee greeting message (required, max 100 chars)
 - Join sheet pre-fills a localized default greeting and blocks submit when greeting is empty.
 - Join confirmation alert now includes both `Sure` and `Cancel` actions.
+- Join confirmation message is generic and no longer includes room title text.
 - Top-up honey sheet leave button now shows a footer hint that leaving returns unspent deposit.
 - UI-test mode supports room deep-link routing via launch arg `--ui-open-room {roomId}` for deterministic room-entry automation.
 - In UI-test mock mode, attendee leave can execute directly from the bottom action dock (and from edit-bid sheet) without confirmation alert to reduce automation flakiness.
@@ -76,6 +79,9 @@
   - Share/copy room invite link using deep link format `honeyhub://room/{roomId}`.
 - Room details copy-feedback toast (`Copied to clipboard`) now uses the same visual style and timing as postcard screens to keep cross-feature behavior consistent.
 - Room attendee list statuses now use the same rounded-rectangle urgency badge style as Profile status labels (`Host` blue, `Asking/Waiting` orange, `Rejected` red, `Ready` green).
+- Room attendee star display now uses a yellow rounded badge with star icon to improve readability.
+- Room attendee deposit honey display now uses a rounded orange HoneyIcon badge style to match the star badge treatment.
+- In Room details, host-visible `AskingToJoin` attendee rows now show a tiny red dot before the attendee name to identify the notification source quickly.
 - Room details now uses app-level stale-first cache for room header + attendee data:
   - Opening room shows cached payload first.
   - Pull-to-refresh forces latest `rooms/{roomId}` + `attendees` query and overwrites cache.
@@ -261,9 +267,9 @@ When attendee joins:
 - Increment `rooms.joinedCount`
 
 Host moderation:
-- Host can approve application from attendee `...` menu:
+- Host can approve application from inline `Accept` button (shown under joiner message):
   - `status = Ready`
-- Host can reject application from attendee `...` menu:
+- Host can reject application from inline `Reject` button (shown under joiner message):
   - attendee row removed
   - `rooms.joinedCount - 1`
   - full deposit refunded to joiner wallet

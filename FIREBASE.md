@@ -72,6 +72,14 @@ service firebase.storage {
 - Open profile tab:
   - Uses app-level cache first for hosted/joined/on-shelf/ordered lists.
   - Firestore queries run when cache is missing or when user pull-to-refreshes.
+- Profile/app-icon actionable badge refresh:
+  - Joined rooms query for attendee statuses (`collectionGroup(attendees)` by `uid`).
+  - Hosted rooms query (`rooms where hostUid == uid`), then per-room attendee query:
+    - `rooms/{roomId}/attendees where status == AskingToJoin` (count pending join applications).
+  - Seller pending-order query:
+    - `postcardOrders where sellerId == uid and status in [SellerConfirmPending, AwaitingShipping, AwaitingSellerSend]`.
+  - Buyer pending-receive query:
+    - `postcardOrders where buyerId == uid and status in [Shipped, InTransit, AwaitingBuyerDecision]`.
 - On-shelf postcard status badges:
   - Firestore query: `postcardOrders where sellerId == uid and status in [SellerConfirmPending, AwaitingShipping, AwaitingSellerSend]` to flag listings with unprocessed seller queue items as `Order Received`.
 - Hosted rooms list:
@@ -303,7 +311,7 @@ This section documents app-level cache behavior for Postcard, Mushroom, and Prof
   - Postcard: image URL cache (`thumbnailUrl` / `imageUrl`) for postcard browse/detail/form previews.
   - Mushroom browse: one cached room-list payload for browse page.
   - Mushroom room detail: one cached payload per `roomId` (room header + attendees list).
-  - Profile: one cached payload per user (`authUid`) for hosted rooms, joined rooms, on-shelf postcards, ordered postcards, and pending seller-order badge ids.
+  - Profile: one cached payload per user (`authUid`) for hosted rooms, joined rooms, hosted pending-join counts, on-shelf postcards, ordered postcards, and pending seller-order badge counts.
 
 ### Cache hit / miss behavior
 - Postcard image cache:
@@ -323,7 +331,7 @@ This section documents app-level cache behavior for Postcard, Mushroom, and Prof
 - User pull-to-refresh (upscroll) always forces backend refresh:
   - Mushroom browse list (`rooms` query).
   - Mushroom room detail (`rooms/{roomId}` + attendees query).
-  - Profile lists (hosted/joined/on-shelf/ordered + seller pending-order ids).
+  - Profile lists (hosted/joined/on-shelf/ordered + hosted pending-join counts + seller pending-order counts).
 - Mushroom browse search submit forces backend refresh before applying local text filtering.
 - Mushroom room state-changing actions force backend refresh and cache overwrite, including:
   - join / leave / update deposit

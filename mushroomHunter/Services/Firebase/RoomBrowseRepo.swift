@@ -74,7 +74,12 @@ final class FbRoomBrowseRepo {
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
 
-        let snap = try await q.getDocuments()
+        let snap: QuerySnapshot
+        do {
+            snap = try await q.getDocuments(source: .server)
+        } catch {
+            snap = try await q.getDocuments(source: .default)
+        }
 
         return snap.documents.map { doc in
             let data = doc.data()

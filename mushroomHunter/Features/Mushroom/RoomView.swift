@@ -166,8 +166,6 @@ struct RoomView: View {
                         }
                     } header: {
                         Text(LocalizedStringKey("room_join_greeting_header"))
-                    } footer: {
-                        Text(LocalizedStringKey("room_join_greeting_footer"))
                     }
                 }
                 .navigationTitle(LocalizedStringKey("room_join_title"))
@@ -820,7 +818,7 @@ struct RoomView: View {
         } else if showJoinConfirmAlert, let room = vm.room {
             HoneyMessageBox(
                 title: NSLocalizedString("room_msg_join_confirm_title", comment: ""),
-                message: String(format: NSLocalizedString("room_msg_join_confirm_message", comment: ""), joinDepositAmount, room.title),
+                message: String(format: NSLocalizedString("room_msg_join_confirm_message", comment: ""), joinDepositAmount),
                 buttons: [
                     HoneyMessageBoxButton(
                         id: "room_join_confirm_yes",
@@ -1066,6 +1064,11 @@ private struct AttendeeRow: View {
     let onResolve: () -> Void // Callback to resolve rejected confirmation state.
     let onCopyFriendCode: (String) -> Void // Callback to copy attendee friend code.
 
+    /// True when this attendee row is the host-visible source of a join-request notification.
+    private var isJoinRequestNotificationSource: Bool {
+        isHostViewing && isAskingToJoin && !isHostAttendee
+    }
+
     /// Localized status key displayed in attendee status badge.
     private var statusTitleKey: LocalizedStringKey {
         if isHostAttendee {
@@ -1100,6 +1103,10 @@ private struct AttendeeRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
+                if isJoinRequestNotificationSource {
+                    ProfileActionDot()
+                }
+
                 Text(attendee.name)
                     .font(.headline)
                     .lineLimit(1)
@@ -1134,38 +1141,49 @@ private struct AttendeeRow: View {
                         Image("HoneyIcon")
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 20, height: 20)
+                            .frame(width: 16, height: 16)
                         Text(String(format: NSLocalizedString("room_bid_honey_format", comment: ""), attendee.depositHoney))
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.orange)
                             .monospacedDigit()
                     }
+                    .font(.footnote.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.orange.opacity(0.14))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Color.orange.opacity(0.35), lineWidth: 1)
+                    )
                 }
 
-                Label("\(attendee.stars)", systemImage: "star.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Image(systemName: "star.fill")
+                        .foregroundStyle(Color.yellow)
+                    Text("\(attendee.stars)")
+                        .foregroundStyle(Color.yellow)
+                        .monospacedDigit()
+                }
+                .font(.footnote.weight(.semibold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.yellow.opacity(0.14))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Color.yellow.opacity(0.35), lineWidth: 1)
+                )
 
-                if isHostViewing && !isHostAttendee {
+                if isHostViewing && !isHostAttendee && !isAskingToJoin {
                     Menu {
-                        if isAskingToJoin {
-                            Button {
-                                onApproveJoinApplication()
-                            } label: {
-                                Label(LocalizedStringKey("room_join_application_accept"), systemImage: "checkmark.circle")
-                            }
-
-                            Button(role: .destructive) {
-                                onRejectJoinApplication()
-                            } label: {
-                                Label(LocalizedStringKey("room_join_application_reject"), systemImage: "xmark.circle")
-                            }
-                        } else {
-                            Button(role: .destructive) {
-                                onKick()
-                            } label: {
-                                Label(LocalizedStringKey("room_kick"), systemImage: "person.fill.xmark")
-                            }
+                        Button(role: .destructive) {
+                            onKick()
+                        } label: {
+                            Label(LocalizedStringKey("room_kick"), systemImage: "person.fill.xmark")
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
@@ -1197,8 +1215,57 @@ private struct AttendeeRow: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            if isHostViewing, isAskingToJoin, !isHostAttendee {
+                HStack(spacing: 10) {
+                    Button {
+                        onApproveJoinApplication()
+                    } label: {
+                        Text(LocalizedStringKey("room_join_application_accept"))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(StatusBadgeLikeActionButtonStyle(urgency: .success))
+                    .accessibilityIdentifier("room_join_application_accept_button_\(attendee.id)")
+
+                    Button {
+                        onRejectJoinApplication()
+                    } label: {
+                        Text(LocalizedStringKey("room_join_application_reject"))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(StatusBadgeLikeActionButtonStyle(urgency: .critical))
+                    .accessibilityIdentifier("room_join_application_reject_button_\(attendee.id)")
+                }
+                .padding(.top, 2)
+            }
         }
         .padding(.vertical, 4)
+    }
+}
+
+/// Button style that mirrors `ProfileStatusBadge` rounded label appearance for action chips.
+private struct StatusBadgeLikeActionButtonStyle: ButtonStyle {
+    /// Shared urgency palette used by status badges and these action buttons.
+    let urgency: ProfileStatusUrgency
+
+    /// Renders the button as a rounded badge-like action chip.
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.caption.weight(.semibold))
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .foregroundStyle(urgency.foregroundColor)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(urgency.backgroundColor.opacity(configuration.isPressed ? 0.8 : 1))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(urgency.borderColor, lineWidth: 1)
+            )
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

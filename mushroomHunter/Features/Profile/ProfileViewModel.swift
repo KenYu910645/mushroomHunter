@@ -19,6 +19,8 @@ final class ProfileViewModel: ObservableObject {
 
     /// Hosted-room summaries shown in profile.
     @Published var hostedRooms: [HostedRoomSummary] = []
+    /// Pending join-request counts grouped by hosted room id.
+    @Published var hostedPendingJoinRequestCountsByRoomId: [String: Int] = [:]
 
     /// Joined-room loading indicator state.
     @Published var isJoinedRoomsLoading: Bool = false
@@ -40,6 +42,8 @@ final class ProfileViewModel: ObservableObject {
 
     /// On-shelf listing ids that currently have pending seller orders.
     @Published var onShelfPendingOrderPostcardIds: Set<String> = []
+    /// Pending seller-order counts grouped by on-shelf postcard id.
+    @Published var onShelfPendingOrderCountsByPostcardId: [String: Int] = [:]
 
     /// Ordered postcard loading indicator state.
     @Published var isOrderedPostcardsLoading: Bool = false
@@ -64,10 +68,14 @@ final class ProfileViewModel: ObservableObject {
         let hostedRooms: [HostedRoomSummary]
         /// Joined-room summaries.
         let joinedRooms: [JoinedRoomSummary]
+        /// Pending join-request counts grouped by hosted room id.
+        let hostedPendingJoinRequestCountsByRoomId: [String: Int]
         /// On-shelf postcard listings.
         let onShelfPostcards: [PostcardListing]
         /// On-shelf postcard ids that currently have pending seller orders.
         let onShelfPendingOrderPostcardIds: [String]
+        /// Pending seller-order counts grouped by on-shelf postcard id.
+        let onShelfPendingOrderCountsByPostcardId: [String: Int]
         /// Ordered postcard summaries.
         let orderedPostcards: [OrderedPostcardSummary]
     }
@@ -80,6 +88,7 @@ final class ProfileViewModel: ObservableObject {
             return
         }
         _ = await loadListsFromCache(session: session)
+        updateProfileActionBadgeCount(session: session)
         await refreshAllProfileData(session: session, forceRefresh: true)
     }
 
@@ -95,6 +104,7 @@ final class ProfileViewModel: ObservableObject {
         async let onShelfPostcardsLoad: Void = loadOnShelfPostcards(session: session, forceRefresh: isForceRefresh)
         async let orderedPostcardsLoad: Void = loadOrderedPostcards(session: session, forceRefresh: isForceRefresh)
         _ = await (joinedRoomsLoad, hostedRoomsLoad, onShelfPostcardsLoad, orderedPostcardsLoad)
+        updateProfileActionBadgeCount(session: session)
         await persistListsCache(session: session)
     }
 
@@ -110,12 +120,17 @@ final class ProfileViewModel: ObservableObject {
 
         do {
             hostedRooms = try await hostRepo.fetchMyHostedRooms(limit: AppConfig.Mushroom.profileListFetchLimit)
+            hostedPendingJoinRequestCountsByRoomId = try await hostRepo.fetchHostPendingJoinRequestCounts(
+                roomIds: hostedRooms.map { $0.id }
+            )
+            updateProfileActionBadgeCount(session: session)
             await persistListsCache(session: session)
         } catch is CancellationError {
             return
         } catch {
             print("❌ loadHostedRooms error:", error)
             hostedRoomsErrorMessage = resolvedErrorMessage(from: error)
+            hostedPendingJoinRequestCountsByRoomId = [:]
         }
     }
 
@@ -131,6 +146,7 @@ final class ProfileViewModel: ObservableObject {
 
         do {
             joinedRooms = try await hostRepo.fetchMyJoinedRooms(limit: AppConfig.Mushroom.profileListFetchLimit)
+            updateProfileActionBadgeCount(session: session)
             await persistListsCache(session: session)
         } catch is CancellationError {
             return
@@ -155,11 +171,13 @@ final class ProfileViewModel: ObservableObject {
                 userId: userId,
                 limit: AppConfig.Postcard.profileListFetchLimit
             )
-            async let pendingOrderIdsLoad: Set<String> = postcardRepo.fetchSellerPendingOrderPostcardIds(
+            async let pendingOrderCountsLoad: [String: Int] = postcardRepo.fetchSellerPendingOrderCountsByPostcardId(
                 userId: userId
             )
             onShelfPostcards = try await listingsLoad
-            onShelfPendingOrderPostcardIds = try await pendingOrderIdsLoad
+            onShelfPendingOrderCountsByPostcardId = try await pendingOrderCountsLoad
+            onShelfPendingOrderPostcardIds = Set(onShelfPendingOrderCountsByPostcardId.keys)
+            updateProfileActionBadgeCount(session: session)
             await persistListsCache(session: session)
         } catch is CancellationError {
             return
@@ -167,6 +185,7 @@ final class ProfileViewModel: ObservableObject {
             print("❌ loadOnShelfPostcards error:", error)
             onShelfPostcardsErrorMessage = resolvedErrorMessage(from: error)
             onShelfPendingOrderPostcardIds = []
+            onShelfPendingOrderCountsByPostcardId = [:]
         }
     }
 
@@ -185,6 +204,7 @@ final class ProfileViewModel: ObservableObject {
                 userId: userId,
                 limit: AppConfig.Postcard.profileListFetchLimit
             )
+            updateProfileActionBadgeCount(session: session)
             await persistListsCache(session: session)
         } catch is CancellationError {
             return
@@ -205,6 +225,8 @@ final class ProfileViewModel: ObservableObject {
         joinedRooms = []
         onShelfPostcards = []
         onShelfPendingOrderPostcardIds = []
+        onShelfPendingOrderCountsByPostcardId = [:]
+        hostedPendingJoinRequestCountsByRoomId = [:]
         orderedPostcards = []
         hostedRoomsErrorMessage = nil
         joinedRoomsErrorMessage = nil
@@ -225,8 +247,10 @@ final class ProfileViewModel: ObservableObject {
         }
         hostedRooms = payload.value.hostedRooms
         joinedRooms = payload.value.joinedRooms
+        hostedPendingJoinRequestCountsByRoomId = payload.value.hostedPendingJoinRequestCountsByRoomId
         onShelfPostcards = payload.value.onShelfPostcards
         onShelfPendingOrderPostcardIds = Set(payload.value.onShelfPendingOrderPostcardIds)
+        onShelfPendingOrderCountsByPostcardId = payload.value.onShelfPendingOrderCountsByPostcardId
         orderedPostcards = payload.value.orderedPostcards
 
         hostedRoomsErrorMessage = nil
@@ -242,8 +266,10 @@ final class ProfileViewModel: ObservableObject {
         let payload = ProfileListsCachePayload(
             hostedRooms: hostedRooms,
             joinedRooms: joinedRooms,
+            hostedPendingJoinRequestCountsByRoomId: hostedPendingJoinRequestCountsByRoomId,
             onShelfPostcards: onShelfPostcards,
             onShelfPendingOrderPostcardIds: Array(onShelfPendingOrderPostcardIds),
+            onShelfPendingOrderCountsByPostcardId: onShelfPendingOrderCountsByPostcardId,
             orderedPostcards: orderedPostcards
         )
         await cache.save(payload, key: cacheKey(session: session))
@@ -254,6 +280,26 @@ final class ProfileViewModel: ObservableObject {
     /// - Returns: Stable cache key string.
     private func cacheKey(session: UserSessionStore) -> String {
         let userId = session.authUid ?? "anonymous"
-        return "profile.lists.\(userId).v2"
+        return "profile.lists.\(userId).v3"
+    }
+
+    /// Recomputes aggregated actionable item count for profile-tab and app-icon badges.
+    /// - Parameter session: Session object that stores the shared badge count.
+    private func updateProfileActionBadgeCount(session: UserSessionStore) {
+        let joinerPendingConfirmationCount = joinedRooms.reduce(0) { partial, room in
+            let isWaitingConfirmation = room.attendeeStatus == .waitingConfirmation
+            return partial + (isWaitingConfirmation ? 1 : 0)
+        }
+        let hostPendingJoinRequestCount = hostedPendingJoinRequestCountsByRoomId.values.reduce(0, +)
+        let sellerPendingOrderCount = onShelfPendingOrderCountsByPostcardId.values.reduce(0, +)
+        let buyerPendingReceiveCount = orderedPostcards.reduce(0) { partial, summary in
+            let isWaitingBuyerReceive = summary.status == .shipped
+            return partial + (isWaitingBuyerReceive ? 1 : 0)
+        }
+        let totalActionableCount = joinerPendingConfirmationCount
+            + hostPendingJoinRequestCount
+            + sellerPendingOrderCount
+            + buyerPendingReceiveCount
+        session.updateProfileActionBadgeCount(totalActionableCount)
     }
 }

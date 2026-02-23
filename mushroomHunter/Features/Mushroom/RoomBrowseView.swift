@@ -100,8 +100,6 @@ struct RoomBrowseView: View {
                         }
                     } header: {
                         Text(LocalizedStringKey("browse_join_greeting_header"))
-                    } footer: {
-                        Text(LocalizedStringKey("browse_join_greeting_footer"))
                     }
 
                     Section {
@@ -173,6 +171,7 @@ struct RoomBrowseView: View {
 
                     BrowseViewTopActionBar(
                         honey: session.honey,
+                        stars: session.stars,
                         onSearch: {
                             isSearchFieldVisible.toggle()
                             if isSearchFieldVisible {
@@ -185,7 +184,8 @@ struct RoomBrowseView: View {
                         searchAccessibilityLabel: "browse_search_accessibility",
                         createAccessibilityLabel: "browse_create_accessibility",
                         searchButtonIdentifier: "browse_search_button",
-                        createButtonIdentifier: "browse_create_button"
+                        createButtonIdentifier: "browse_create_button",
+                        isStarsVisible: false
                     )
                     .padding(.horizontal)
 

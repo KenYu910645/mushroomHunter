@@ -193,7 +193,7 @@
 /***************************************/
 
 "room_msg_join_confirm_title" = "確認加入";
-"room_msg_join_confirm_message" = "你將在 %2$@ 存入 %1$d {honey_icon}，是否確定？";
+"room_msg_join_confirm_message" = "你將存入 %1$d {honey_icon}，是否確定？";
 "room_msg_join_confirm_confirm_button" = "確定";
 "room_msg_join_limit_title" = "房間上限";
 "room_msg_not_enough_honey_title" = "蜂蜜不足";
@@ -459,7 +459,9 @@
 "profile_room_status_waiting_confirmation" = "等待確認";
 "profile_room_status_rejected" = "已拒絕";
 "profile_mushroom_section" = "蘑菇";
+"profile_mushroom_joined_section" = "已加入";
 "profile_loading_hosted" = "載入主持的房間…";
+"profile_mushroom_hosted_section" = "已主持";
 "profile_hosted_empty_title" = "尚未主持";
 
 /***************************************/

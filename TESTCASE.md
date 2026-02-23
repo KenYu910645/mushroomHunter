@@ -94,6 +94,22 @@ In UI testing mode, profile refresh/sync paths are also short-circuited so no Fi
   - Seller can accept/reject pending orders and mark accepted order as sent.
   - Verify shipping success feedback and recipient removal.
 
+### 11. Badge counters (manual validation pending automation)
+- Current automation status:
+  - No dedicated UI test currently asserts profile tab/app-icon badge counters.
+  - No dedicated UI test currently asserts per-row actionable count badges in Profile mushroom/postcard lists.
+- Manual verification focus:
+  - Profile actionable total equals the sum of:
+    - joined `WaitingConfirmation`
+    - hosted `AskingToJoin`
+    - seller pending postcard orders
+    - buyer shipped-awaiting-receipt orders
+  - Profile tab icon shows a red dot when actionable total is greater than `0`.
+  - App icon badge shows the numeric actionable total.
+  - Postcard detail seller shipping icon shows a tiny red dot when pending shipping count is greater than `0`.
+  - Profile actionable rows (mushroom + postcard lists) show a tiny red dot marker at row-leading edge when actionable count is greater than `0`.
+  - Room attendee rows show a tiny red dot before attendee name for host-visible `AskingToJoin` notification sources.
+
 ## Covered User Journeys
 - Main app shell sanity (signed-in state + tab routing).
 - Mushroom core actions: host create submit, join, leave, and deep-link room entry.

@@ -12,6 +12,7 @@ import SwiftUI
 
 struct BrowseViewTopActionBar: View {
     let honey: Int
+    let stars: Int
     let onSearch: (() -> Void)?
     let onCreate: (() -> Void)?
     let searchAccessibilityLabel: LocalizedStringKey?
@@ -19,18 +20,22 @@ struct BrowseViewTopActionBar: View {
     let searchButtonIdentifier: String?
     let createButtonIdentifier: String?
     let showActions: Bool
+    let isStarsVisible: Bool
 
     init(
         honey: Int,
+        stars: Int,
         onSearch: (() -> Void)?,
         onCreate: (() -> Void)?,
         searchAccessibilityLabel: LocalizedStringKey?,
         createAccessibilityLabel: LocalizedStringKey?,
         searchButtonIdentifier: String?,
         createButtonIdentifier: String?,
-        showActions: Bool = true
+        showActions: Bool = true,
+        isStarsVisible: Bool = true
     ) {
         self.honey = honey
+        self.stars = stars
         self.onSearch = onSearch
         self.onCreate = onCreate
         self.searchAccessibilityLabel = searchAccessibilityLabel
@@ -38,17 +43,53 @@ struct BrowseViewTopActionBar: View {
         self.searchButtonIdentifier = searchButtonIdentifier
         self.createButtonIdentifier = createButtonIdentifier
         self.showActions = showActions
+        self.isStarsVisible = isStarsVisible
     }
 
     var body: some View {
         HStack {
-            HStack(spacing: 6) {
-                Image("HoneyIcon")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 20, height: 20)
-                Text("\(honey)")
+            HStack(spacing: 8) {
+                HStack(spacing: 4) {
+                    Image("HoneyIcon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 16, height: 16)
+                    Text("\(honey)")
+                        .foregroundStyle(Color.orange)
+                        .monospacedDigit()
+                }
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.orange.opacity(0.14))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Color.orange.opacity(0.35), lineWidth: 1)
+                )
+
+                if isStarsVisible {
+                    HStack(spacing: 4) {
+                        Image(systemName: "star.fill")
+                            .foregroundStyle(Color.yellow)
+                        Text("\(stars)")
+                            .foregroundStyle(Color.yellow)
+                            .monospacedDigit()
+                    }
                     .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.yellow.opacity(0.14))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Color.yellow.opacity(0.35), lineWidth: 1)
+                    )
+                }
             }
 
             Spacer()
