@@ -19,6 +19,7 @@
 - `mushroomHunter/Services/Firebase/RoomRepo.swift`: Firestore reads for a single room and attendee list.
 - `mushroomHunter/Services/Firebase/RoomActionsRepo.swift`: Firestore transactions for join/leave/deposit/raid confirmation/rating.
 - `mushroomHunter/Utilities/RoomInviteLink.swift`: deep link generation/parsing for `honeyhub://room/{roomId}`.
+- `mushroomHunter/Utilities/CountryLocalization.swift`: shared locale-aware country + room-location display resolver used by mushroom/postcard labels.
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed mushroom settings (attribute lists, fixed raid defaults, room limits, query limits).
 - `mushroomHunter/Utilities/AppDataCache.swift`: shared app-level memory+disk Codable cache used by mushroom browse/detail stale-first loading.
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used across profile, room, and postcard flows.
@@ -40,7 +41,7 @@
   - Browse fetch uses server-first query (with local/default fallback only on server failure) so attendee count (`joinedCount`) is aligned with room detail more consistently.
   - Pull-to-refresh forces latest Firestore query and overwrites cache.
   - Tapping keyboard search submit forces latest Firestore query before applying local filter.
-- Inline search field includes an `x` clear button only; pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
+- Inline search field includes an `x` clear button; tapping `x` clears query and collapses the search field. Pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
 - Mushroom browse uses `ScrollView + LazyVStack` (same pattern as Postcard browse), so the top action bar (honey/search/create) moves with page scroll and matches postcard visual style.
 - UI-test mode (`--ui-testing --mock-rooms`) routes host submit flow through mock success without Firestore writes.
 - Host create/edit description is prefilled with localized default `host_default_description` (`Welcome! Let's play!`) when empty.
@@ -48,6 +49,8 @@
   - `false`: adjustment UI is hidden in room form and create flow uses fixed payment `10` honey (`AppConfig.Mushroom.disabledRaidPaymentHoney`).
   - `true`: host can adjust payment via stepper from min value to `AppConfig.Mushroom.enabledRaidPaymentMaxHoney` (currently `10`).
 - Host create/edit form now dismisses keyboard on outside taps (without collapsing during scroll), on keyboard `Enter`/`Done`, and before submit, and auto-scrolls the focused input above keyboard overlap.
+- Host location parser now recognizes both current-locale and English country names (plus ISO country codes), so existing room/postcard location values still map correctly after language changes.
+- Room browse/detail location labels now localize the country segment to the viewer locale while preserving stored city text (including legacy English country values).
 - Host can manage attendees (kick, close room, finish raid/claim cycle).
 - Join request workflow:
   - Joiner enters deposit + greeting message.

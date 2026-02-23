@@ -203,6 +203,8 @@ struct RoomBrowseView: View {
 
                             Button {
                                 vm.query = ""
+                                isSearchFieldFocused = false
+                                isSearchFieldVisible = false
                             } label: {
                                 Image(systemName: "xmark")
                                     .font(.caption.weight(.semibold))
@@ -312,7 +314,7 @@ struct RoomBrowseView: View {
                         if !listing.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             HStack(spacing: 4) {
                                 Image(systemName: "mappin.and.ellipse")
-                                Text(listing.location)
+                                Text(RoomLocationLocalization.displayLabel(forStoredLocation: listing.location))
                             }
                             .font(.subheadline)
                             .foregroundStyle(.secondary)

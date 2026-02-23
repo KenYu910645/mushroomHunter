@@ -66,6 +66,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Utilities/RoomInviteLink.swift`
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed mushroom defaults, limits, and option sets)
 - `mushroomHunter/Utilities/AppDataCache.swift` (shared app-level memory+disk Codable cache used by mushroom browse/detail and profile list stale-first loading)
+- `mushroomHunter/Utilities/CountryLocalization.swift` (shared locale-aware country + room-location display resolver used by mushroom/postcard views/forms)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile/room/postcard)
 - Cloud Functions in `functions/index.js`:
   - `notifyHostJoinRequest`
@@ -96,6 +97,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Utilities/RoomInviteLink.swift` (postcard invite link generation/parsing)
 - `mushroomHunter/Utilities/SearchTokens.swift`
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed postcard caps, list limits, and timeout windows)
+- `mushroomHunter/Utilities/CountryLocalization.swift` (shared locale-aware country + room-location display resolver used by mushroom/postcard views/forms)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile/room/postcard)
 - Cloud Functions in `functions/index.js`:
   - `sendPostcardOrderCreatedPush`

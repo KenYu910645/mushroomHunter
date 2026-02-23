@@ -17,6 +17,7 @@
 - `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`: image crop/encode/upload to Firebase Storage.
 - `mushroomHunter/Utilities/RoomInviteLink.swift`: postcard invite link generation/parsing for `honeyhub://postcard/{postcardId}`.
 - `mushroomHunter/Utilities/SearchTokens.swift`: normalized token generation for postcard search fields.
+- `mushroomHunter/Utilities/CountryLocalization.swift`: shared locale-aware country + room-location display resolver used by postcard/room labels.
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed postcard settings (price/stock/text caps, fetch limits, image cache limits, order timeout windows).
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used across profile, room, and postcard flows.
 - `mushroomHunter/App/HoneyHubApp.swift`: handles postcard deep-link routing from invite links.
@@ -30,10 +31,11 @@
 - Browse search is opened from the top action bar as an inline search field above the listing grid (no dedicated sheet/alert).
 - Postcard browse search matches postcard title and location text (country/city).
 - Postcard browse search applies local filtering while typing; backend paged query runs only when user taps `Search`.
-- Inline search field includes an `x` clear button only; pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
+- Inline search field includes an `x` clear button; tapping `x` clears query and collapses the search field. Pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
 - Postcard browse card thumbnail overlays the honey price badge (value + honey icon) at the top-right corner; stock count is not shown on browse cards.
 - Postcard browse thumbnails and postcard detail/form preview images use shared cache-first loading (`memory -> disk -> network`) so revisiting recently viewed images avoids repeated Firebase Storage downloads when cache is hit.
 - Postcard browse card title stays single-line, scales down for longer names, then truncates with trailing ellipsis.
+- Postcard location country labels are rendered in the current user locale when possible (including legacy listings that stored English country names).
 - Postcard detail view hides the navigation title so the postcard snapshot is the first visible content at the top.
 - Register flow uploads full image + thumbnail to Firebase Storage, then creates Firestore listing.
 - Register success dismisses the sheet and refreshes browse list.

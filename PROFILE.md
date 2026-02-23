@@ -63,20 +63,20 @@
   - On-shelf section:
     - `Order Received` when seller has unprocessed queue items (`SellerConfirmPending` / `AwaitingShipping` and legacy `AwaitingSellerSend`) for that listing.
     - `On-shelf` when no unprocessed queue item exists.
-  - Ordered section:
+- Ordered section:
     - `Wait for shipping` for `SellerConfirmPending` / `AwaitingShipping`
     - `Shipped, on-the-way` for `Shipped`
 - Profile postcard statuses also use rounded-rectangle urgency badges:
   - `On-shelf`: green
   - `Order Received`: yellow-orange
-  - `Wait for shipping`: yellow-orange
+  - `Wait for shipping`: green
   - `Shipped, on-the-way`: blue
 - Profile postcard rows use actionable markers:
   - On-shelf rows: tiny red dot when pending seller-order count for that listing is greater than `0`.
   - Ordered rows: tiny red dot when order status is `Shipped` (waiting buyer receive confirmation).
 - Profile postcard slots no longer show `HoneyIcon` in the right metadata column.
 - On-shelf postcard rows hide both location text and honey price.
-- Ordered postcard rows keep honey price chip but without `HoneyIcon`.
+- Ordered postcard rows hide both location text and honey price to align with on-shelf row style.
 - Hosted mushroom room rows now show an aggregate room-status badge so hosts can see room state immediately:
   - `Ready` when there is at least one non-host attendee and the room is not in all-`WaitingConfirmation` state.
   - `Waiting for players` when there is no non-host attendee.

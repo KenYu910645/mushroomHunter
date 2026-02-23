@@ -64,16 +64,16 @@
 "host_country_label" = "國家";
 "host_area_label" = "區域";
 "host_city_placeholder" = "城市／區域／州";
-"host_city_default" = "某處";
+"host_city_default" = "某個地方";
 "host_field_required" = "此欄位必填。";
 "host_required_title" = "缺少必填欄位";
 "host_required_message" = "請先填寫房間名稱與區域後再建立房間。";
 "host_words_label" = "字元";
-"host_description_header" = "更多描述";
+"host_description_header" = "描述";
 "host_default_description" = "歡迎！大家一起來玩吧！";
-"host_min_bid_label" = "固定費用";
-"host_min_bid_header" = "蘑菇戰費用";
-"host_min_bid_footer" = "每位參加者在蘑菇戰後需支付的蜂蜜。";
+"host_min_bid_label" = "{honey_icon}";
+"host_min_bid_header" = "小費";
+"host_min_bid_footer" = "參加者在受邀參加蘑菇戰後，提供給主持人的獎勵。";
 "host_close_room_button" = "刪除房間";
 "host_close_room_footer" = "即將刪除房間並且無法恢復。";
 "host_room_default_name" = "一起來打蘑菇吧";
@@ -94,18 +94,18 @@
 
 "room_join_title" = "加入房間";
 "room_max_honey_format" = "上限 %d";
-"room_bid_header" = "押金";
-"room_bid_footer" = "您的儲值蜂蜜會暫時存放在房間內。只有在主持人戰鬥完成且你確認後才會扣除。離開房間會退還未使用的押金。";
-"room_join_greeting_header" = "打招呼訊息";
+"room_bid_header" = "儲值";
+"room_bid_footer" = "儲值蜂蜜會暫時存放在房間內。只有在主持人邀請你參加蘑菇後才會扣除。離開房間會退還所有儲值蜂蜜。";
+"room_join_greeting_header" = "跟主持人說聲Hi";
 "room_join_greeting_placeholder" = "嗨主持人，我可以快速加入，也會即時回覆你的邀請。";
 "room_join_greeting_footer" = "告訴主持人你要加入的原因。必填，最多 100 字。";
-"room_join_greeting_default" = "嗨主持人，我準備好參加你下一場蘑菇戰。";
-"room_update_bid_header" = "押金";
-"room_update_bid_footer" = "押金會在你待在房間期間保留。只有在蘑菇戰完成後才會扣除。";
-"room_edit_bid_title" = "更新押金";
-"room_update_bid" = "更新押金";
+"room_join_greeting_default" = "Hi 皮友們，一起來打蘑菇吧。";
+"room_update_bid_header" = "儲值";
+"room_update_bid_footer" = "儲值會在你待在房間期間保留。只有在蘑菇戰完成後才會扣除。";
+"room_edit_bid_title" = "更新儲值";
+"room_update_bid" = "更新儲值";
 "room_leave_room" = "離開房間";
-"room_leave_room_footer" = "離開房間將退還任何未使用的押金";
+"room_leave_room_footer" = "離開房間將退還任何未使用的儲值";
 
 /***************************************/
 /**** Room Section: Header / Attendees ****/
@@ -123,12 +123,12 @@
 "room_copy_host_code_accessibility" = "複製主持人好友碼";
 "room_attendees_empty_title" = "尚無參加者";
 "room_attendees_empty_description" = "成為第一位加入此房間的人。";
-"room_sort_bid" = "押金（高 → 低）";
+"room_sort_bid" = "儲值（高 → 低）";
 "room_sort_stars" = "星數（高 → 低）";
 "room_sort_joined" = "加入時間（舊 → 新）";
 "room_edit_room_accessibility" = "編輯房間";
 "room_share_accessibility" = "分享房間邀請";
-"room_edit_bid_accessibility" = "編輯押金";
+"room_edit_bid_accessibility" = "編輯儲值";
 "room_kick" = "踢除";
 "room_copy_attendee_code_accessibility" = "複製參加者好友碼";
 "room_status_waiting_confirm" = "等待確認";
@@ -198,10 +198,10 @@
 "room_msg_join_limit_title" = "房間上限";
 "room_msg_not_enough_honey_title" = "蜂蜜不足";
 "room_msg_not_enough_honey_message" = "你目前只有 %d {honey_icon}。";
-"room_msg_join_success_title" = "申請已送出";
-"room_msg_join_success_message" = "已用 %2$d {honey_icon} 向 %1$@ 送出加入申請。請等待主持人審核。";
-"room_msg_update_deposit_success_title" = "押金已更新";
-"room_msg_update_deposit_success_message" = "已成功將押金從 %d 改為 %d {honey_icon}。";
+"room_msg_join_success_title" = "加入申請已送出";
+"room_msg_join_success_message" = "已送出加入申請。請等待主持人審核。";
+"room_msg_update_deposit_success_title" = "儲值已更新";
+"room_msg_update_deposit_success_message" = "已成功將儲值從 %d 改為 %d {honey_icon}。";
 
 /***************************************/
 /**** Room Message Box: Leave/Claim ****/
@@ -366,8 +366,8 @@
 "postcard_default_stock" = "1";
 "postcard_submit_button" = "送出明信片";
 "postcard_edit_title" = "編輯明信片";
-"postcard_remove_button" = "從市集移除";
-"postcard_msg_remove_confirm_title" = "要移除此明信片上架嗎？";
+"postcard_remove_button" = "移除明信片";
+"postcard_msg_remove_confirm_title" = "要移除此明信片嗎？";
 "postcard_validation_title_error" = "請輸入標題。";
 "postcard_validation_price_error" = "請輸入有效價格。";
 "postcard_validation_stock_error" = "請輸入有效庫存。";
@@ -387,7 +387,7 @@
 "create_profile_title" = "建立個人資料";
 "create_profile_button" = "建立個人資料";
 "edit_profile_title" = "編輯個人資料";
-"edit_profile_button" = "儲存個人資料";
+"edit_profile_button" = "儲存";
 "create_profile_error_title" = "資料未完成";
 "create_profile_error_message" = "請填寫名稱與好友碼以繼續。";
 "create_profile_name_error_required" = "需要填寫名稱。";
@@ -407,7 +407,7 @@
 
 "feedback_title" = "意見回饋";
 "feedback_message_label" = "內容";
-"feedback_subject_placeholder" = "主旨（可選）";
+"feedback_subject_placeholder" = "主旨";
 "feedback_send_button" = "送出";
 "feedback_subject_default" = "HoneyHub 意見回饋";
 "feedback_submit_success_title" = "感謝回饋";
@@ -434,7 +434,7 @@
 "profile_name_hint" = "建議使用 Pikmin Bloom 遊戲名稱";
 "profile_friend_code" = "好友碼";
 "profile_friend_code_placeholder" = "12 位數字";
-"profile_friend_code_hint" = "在 Pikmin Bloom 中複製貼上好友碼";
+"profile_friend_code_hint" = "請輸入Pikmin Bloom中的好友碼";
 "profile_id_section" = "你的 ID";
 "profile_stars" = "星數";
 
@@ -450,7 +450,7 @@
 /***************************************/
 
 "profile_loading_joined" = "載入已加入的房間…";
-"profile_joined_empty_title" = "尚未加入";
+"profile_joined_empty_title" = "無";
 "profile_players_format" = "👤 %d/%d";
 "profile_room_status_host" = "主持人";
 "profile_room_status_asking_to_join" = "申請加入中";
@@ -459,23 +459,23 @@
 "profile_room_status_waiting_confirmation" = "等待確認";
 "profile_room_status_rejected" = "已拒絕";
 "profile_mushroom_section" = "蘑菇";
-"profile_mushroom_joined_section" = "已加入";
+"profile_mushroom_joined_section" = "已加入的房間";
 "profile_loading_hosted" = "載入主持的房間…";
-"profile_mushroom_hosted_section" = "已主持";
-"profile_hosted_empty_title" = "尚未主持";
+"profile_mushroom_hosted_section" = "已主持的房間";
+"profile_hosted_empty_title" = "無";
 
 /***************************************/
 /**** Profile Section: Postcard Lists ****/
 /***************************************/
 
 "profile_postcard_section" = "明信片";
-"profile_postcard_onshelf_section" = "上架中";
+"profile_postcard_onshelf_section" = "已上架的明信片";
 "profile_loading_onshelf_postcards" = "載入上架中的明信片…";
-"profile_onshelf_empty_title" = "尚未上架明信片";
-"profile_postcard_ordered_section" = "已下單";
+"profile_onshelf_empty_title" = "無";
+"profile_postcard_ordered_section" = "已下單的明信片";
 "profile_loading_ordered_postcards" = "載入已下單的明信片…";
-"profile_ordered_empty_title" = "尚未下單明信片";
-"profile_postcard_status_on_shelf" = "上架中";
+"profile_ordered_empty_title" = "無";
+"profile_postcard_status_on_shelf" = "已上架";
 "profile_postcard_status_order_received" = "已收到訂單";
 "profile_postcard_status_wait_for_shipping" = "等待出貨";
 "profile_postcard_status_on_the_way" = "已出貨，運送中";
@@ -503,3 +503,24 @@
 "session_error_apple_token_format" = "無法讀取 Apple ID 權杖。";
 "session_error_missing_client_id" = "缺少 Firebase clientID。";
 "session_error_missing_id_token" = "缺少 Google ID 權杖。";
+
+/***************************************/
+/**** Tutorial ****/
+/***************************************/
+
+"tutorial_navigation_title" = "歡迎使用 HoneyHub";
+"tutorial_skip" = "略過";
+"tutorial_next" = "下一步";
+"tutorial_get_started" = "開始使用";
+"tutorial_mushroom_description" = "在這個頁面可以瀏覽蘑菇房間、開啟房間細節，並用蜂蜜儲值加入。";
+"tutorial_mushroom_callout_host" = "主持蘑菇戰可獲得蜂蜜";
+"tutorial_mushroom_callout_honey" = "你的蜂蜜";
+"tutorial_mushroom_callout_join" = "加入蘑菇戰需要蜂蜜";
+"tutorial_mushroom_callout_list" = "蘑菇戰列表";
+"tutorial_postcard_description" = "瀏覽上架、查看細節，並可買賣明信片且追蹤寄送狀態。";
+"tutorial_postcard_callout_buy" = "購買明信片需要蜂蜜";
+"tutorial_postcard_callout_sell" = "賣出明信片可獲得蜂蜜";
+"tutorial_postcard_callout_list" = "明信片列表";
+"tutorial_profile_description" = "在這裡管理帳號、檢視活動紀錄，並更新顯示名稱或好友碼。";
+"tutorial_profile_callout_manage" = "在個人資料管理你的蘑菇戰與明信片";
+"tutorial_profile_callout_profile" = "你的個人資料";

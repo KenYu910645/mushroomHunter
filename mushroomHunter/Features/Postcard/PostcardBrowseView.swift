@@ -55,6 +55,8 @@ struct PostcardBrowseView: View {
                             Spacer(minLength: 0)
 
                             Button {
+                                isSearchFieldFocused = false
+                                isSearchFieldVisible = false
                                 Task { await vm.clearConfirmedSearch() }
                             } label: {
                                 Image(systemName: "xmark")

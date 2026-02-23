@@ -70,9 +70,9 @@
 "host_words_label" = "Characters";
 "host_description_header" = "Other Description";
 "host_default_description" = "Welcome! Let's play!";
-"host_min_bid_label" = "Honey";
-"host_min_bid_header" = "Mushroom Raid Payment";
-"host_min_bid_footer" = "Honey each participant pays after a raid.";
+"host_min_bid_label" = "{honey_icon}";
+"host_min_bid_header" = "Tips";
+"host_min_bid_footer" = "The tips attendees will pay after been invited and join the mushroom.";
 "host_close_room_button" = "Close Room";
 "host_close_room_footer" = "The room will be removed and cannot be recovery.";
 "host_room_default_name" = "Let's fight mushroom";
@@ -197,8 +197,8 @@
 "room_msg_join_limit_title" = "Room Limit";
 "room_msg_not_enough_honey_title" = "Not enough honey";
 "room_msg_not_enough_honey_message" = "You only have %d {honey_icon}.";
-"room_msg_join_success_title" = "Application Sent";
-"room_msg_join_success_message" = "Applied to %@ with a %d {honey_icon} deposit. Wait for host approval.";
+"room_msg_join_success_title" = "Join Application Sent";
+"room_msg_join_success_message" = "Wait for host approval.";
 "room_msg_update_deposit_success_title" = "Deposit Updated";
 "room_msg_update_deposit_success_message" = "Successfully changed your deposit from %d {honey_icon} to %d {honey_icon}.";
 
@@ -258,6 +258,27 @@
 "postcard_shipping_friend_request_suffix" = "), and send postcard.";
 "postcard_shipping_reject_button" = "Reject";
 "postcard_shipping_send_button" = "Shipped";
+
+/***************************************/
+/**** Tutorial ****/
+/***************************************/
+
+"tutorial_navigation_title" = "Welcome to HoneyHub";
+"tutorial_skip" = "Skip";
+"tutorial_next" = "Next";
+"tutorial_get_started" = "Get Started";
+"tutorial_mushroom_description" = "Use this screen to browse raids, open room details, and join with honey deposit.";
+"tutorial_mushroom_callout_host" = "Host mushroom raid to earn honey";
+"tutorial_mushroom_callout_honey" = "Your honey";
+"tutorial_mushroom_callout_join" = "Join mushroom raids require honey";
+"tutorial_mushroom_callout_list" = "Mushroom raid list";
+"tutorial_postcard_description" = "Browse listings, open details, and buy/sell with shipping status updates.";
+"tutorial_postcard_callout_buy" = "Buy postcards require honey";
+"tutorial_postcard_callout_sell" = "Sell your postcard to earn honey";
+"tutorial_postcard_callout_list" = "Postcard list";
+"tutorial_profile_description" = "Manage your account, review your activity, and update display name or friend code.";
+"tutorial_profile_callout_manage" = "Manage your mushroom raids and postcards in profile";
+"tutorial_profile_callout_profile" = "Your profile";
 "postcard_status_waiting_seller_ship" = "Waiting for seller to ship the postcard";
 "postcard_status_shipped_on_way" = "Seller shipped; postcard on the way!";
 
@@ -406,7 +427,7 @@
 
 "feedback_title" = "Feedback";
 "feedback_message_label" = "Message";
-"feedback_subject_placeholder" = "Subject (optional)";
+"feedback_subject_placeholder" = "Subject";
 "feedback_send_button" = "Send";
 "feedback_subject_default" = "HoneyHub Feedback";
 "feedback_submit_success_title" = "Thank You";
@@ -458,9 +479,9 @@
 "profile_room_status_waiting_confirmation" = "Waiting confirmation";
 "profile_room_status_rejected" = "Rejected";
 "profile_mushroom_section" = "Mushrooms";
-"profile_mushroom_joined_section" = "Joined";
+"profile_mushroom_joined_section" = "Joined Room";
 "profile_loading_hosted" = "Loading hosted rooms…";
-"profile_mushroom_hosted_section" = "Hosted";
+"profile_mushroom_hosted_section" = "Hosted Room";
 "profile_hosted_empty_title" = "No Hosted Room";
 
 /***************************************/
@@ -468,10 +489,10 @@
 /***************************************/
 
 "profile_postcard_section" = "Postcards";
-"profile_postcard_onshelf_section" = "On-shelf";
+"profile_postcard_onshelf_section" = "On-shelf Postcard";
 "profile_loading_onshelf_postcards" = "Loading on-shelf postcards…";
 "profile_onshelf_empty_title" = "No On-shelf Postcard";
-"profile_postcard_ordered_section" = "Ordered";
+"profile_postcard_ordered_section" = "Ordered Postcard";
 "profile_loading_ordered_postcards" = "Loading ordered postcards…";
 "profile_ordered_empty_title" = "No Ordered Postcard";
 "profile_postcard_status_on_shelf" = "On-shelf";

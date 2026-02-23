@@ -52,8 +52,8 @@ private struct TutorialLabel {
     /// Label center Y in normalized coordinates (0...1).
     let y: CGFloat
 
-    /// Label text shown to users.
-    let text: String
+    /// Localization key for the label text shown to users.
+    let textKey: String
 }
 
 /// One callout item composed of a highlight and its label.
@@ -73,8 +73,8 @@ private struct TutorialCard: Identifiable {
     /// Stable card identity for list rendering.
     let id: Int
 
-    /// Card description explaining the value for first-time users.
-    let description: String
+    /// Localization key for the card description explaining the value for first-time users.
+    let descriptionKey: String
 
     /// Screenshot asset name stored in `Assets.xcassets`.
     let imageName: String
@@ -98,7 +98,7 @@ struct TutorialView: View {
     private let cards: [TutorialCard] = [
         TutorialCard(
             id: 0,
-            description: "Use this screen to browse raids, open room details, and join with honey deposit.",
+            descriptionKey: "tutorial_mushroom_description",
             imageName: "Mushroom",
             callouts: [
                 TutorialCallout(
@@ -112,7 +112,7 @@ struct TutorialView: View {
                         heightRatio: 0.1,
                         color: .red
                     ),
-                    label: TutorialLabel(x: 0.56, y: 0.14, text: "Host mushroom raid to earn honey")
+                    label: TutorialLabel(x: 0.56, y: 0.14, textKey: "tutorial_mushroom_callout_host")
                 ),
                 TutorialCallout(
                     id: 1,
@@ -125,7 +125,7 @@ struct TutorialView: View {
                         heightRatio: 0.05,
                         color: .red
                     ),
-                    label: TutorialLabel(x: 0.50, y: 0.25, text: "Your honey")
+                    label: TutorialLabel(x: 0.50, y: 0.25, textKey: "tutorial_mushroom_callout_honey")
                 ),
                 TutorialCallout(
                     id: 2,
@@ -138,7 +138,7 @@ struct TutorialView: View {
                         heightRatio: 0.12,
                         color: .red
                     ),
-                    label: TutorialLabel(x: 0.50, y: 0.62, text: "Join mushroom raids require honey")
+                    label: TutorialLabel(x: 0.50, y: 0.62, textKey: "tutorial_mushroom_callout_join")
                 ),
                 TutorialCallout(
                     id: 3,
@@ -151,13 +151,13 @@ struct TutorialView: View {
                         heightRatio: 0.2,
                         color: .red
                     ),
-                    label: TutorialLabel(x: 0.50, y: 0.8, text: "Mushroom raid list")
+                    label: TutorialLabel(x: 0.50, y: 0.8, textKey: "tutorial_mushroom_callout_list")
                 )
             ]
         ),
         TutorialCard(
             id: 1,
-            description: "Browse listings, open details, and buy/sell with shipping status updates.",
+            descriptionKey: "tutorial_postcard_description",
             imageName: "Postcard",
             callouts: [
                 TutorialCallout(
@@ -171,7 +171,7 @@ struct TutorialView: View {
                         heightRatio: 0.32,
                         color: .red
                     ),
-                    label: TutorialLabel(x: 0.4, y: 0.22, text: "Buy postcards require honey")
+                    label: TutorialLabel(x: 0.4, y: 0.22, textKey: "tutorial_postcard_callout_buy")
                 ),
                 TutorialCallout(
                     id: 1,
@@ -184,7 +184,7 @@ struct TutorialView: View {
                         heightRatio: 0.1,
                         color: .red
                     ),
-                    label: TutorialLabel(x: 0.55, y: 0.13, text: "Sell your postcard to earn honey")
+                    label: TutorialLabel(x: 0.55, y: 0.13, textKey: "tutorial_postcard_callout_sell")
                 ),
                 TutorialCallout(
                     id: 2,
@@ -197,13 +197,13 @@ struct TutorialView: View {
                         heightRatio: 0.2,
                         color: .red
                     ),
-                    label: TutorialLabel(x: 0.50, y: 0.8, text: "Postcard List")
+                    label: TutorialLabel(x: 0.50, y: 0.8, textKey: "tutorial_postcard_callout_list")
                 )
             ]
         ),
         TutorialCard(
             id: 2,
-            description: "Manage your account, review your activity, and update display name or friend code.",
+            descriptionKey: "tutorial_profile_description",
             imageName: "Profile",
             callouts: [
                 TutorialCallout(
@@ -217,7 +217,7 @@ struct TutorialView: View {
                         heightRatio: 0.68,
                         color: .red
                     ),
-                    label: TutorialLabel(x: 0.6, y: 0.17, text: "Manage your mushroom raids and postcards in profile")
+                    label: TutorialLabel(x: 0.6, y: 0.17, textKey: "tutorial_profile_callout_manage")
                 ),
                 TutorialCallout(
                     id: 2,
@@ -230,7 +230,7 @@ struct TutorialView: View {
                         heightRatio: 0.2,
                         color: .red
                     ),
-                    label: TutorialLabel(x: 0.50, y: 0.8, text: "Your profile")
+                    label: TutorialLabel(x: 0.50, y: 0.8, textKey: "tutorial_profile_callout_profile")
                 )
             ]
         )
@@ -256,12 +256,12 @@ struct TutorialView: View {
                 .indexViewStyle(.page(backgroundDisplayMode: .always))
 
                 HStack(spacing: 12) {
-                    Button("Skip") {
+                    Button(LocalizedStringKey("tutorial_skip")) {
                         completeTutorial()
                     }
                     .buttonStyle(.bordered)
 
-                    Button(isLastCard ? "Get Started" : "Next") {
+                    Button(isLastCard ? String(localized: "tutorial_get_started") : String(localized: "tutorial_next")) {
                         if isLastCard {
                             completeTutorial()
                         } else {
@@ -273,7 +273,7 @@ struct TutorialView: View {
                 .padding(.bottom, 12)
             }
             .padding(.top, 16)
-            .navigationTitle("Welcome to HoneyHub")
+            .navigationTitle(LocalizedStringKey("tutorial_navigation_title"))
             .navigationBarTitleDisplayMode(.inline)
         }
     }
@@ -296,7 +296,7 @@ private struct TutorialCardView: View {
             TutorialAnnotatedImageView(card: card)
                 .frame(maxWidth: .infinity)
                 .frame(height: 560)
-            Text(card.description)
+            Text(LocalizedStringKey(card.descriptionKey))
                 .font(.body)
                 .foregroundStyle(.red)
                 .multilineTextAlignment(.center)
@@ -376,7 +376,7 @@ private struct TutorialAnnotatedImageView: View {
 
     /// Renders a callout text label at normalized coordinates.
     private func labelView(_ label: TutorialLabel, in frame: CGRect, textColor: Color) -> some View {
-        Text(label.text)
+        Text(LocalizedStringKey(label.textKey))
             .font(.caption.bold())
             .padding(.horizontal, 10)
             .padding(.vertical, 6)

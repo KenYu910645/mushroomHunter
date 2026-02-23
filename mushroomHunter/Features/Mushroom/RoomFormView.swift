@@ -275,15 +275,9 @@ final class HostViewModel: ObservableObject {
     }
 
     static func countryCode(forName name: String) -> String? {
-        let target = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if target.isEmpty { return nil }
-        for code in Locale.isoRegionCodes {
-            let display = Locale.current.localizedString(forRegionCode: code) ?? ""
-            if display.lowercased() == target {
-                return code
-            }
-        }
-        return nil
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return nil }
+        return CountryLocalization.resolvedCountryCode(forStoredCountryValue: trimmedName)
     }
 
     // MARK: Validation

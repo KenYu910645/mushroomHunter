@@ -29,8 +29,6 @@ struct RoomView: View {
     @State private var showNotEnoughHoneyAlert: Bool = false // State or dependency property.
     @State private var showJoinSuccessAlert: Bool = false // State or dependency property.
     @State private var showUpdateDepositSuccessAlert: Bool = false // State or dependency property.
-    @State private var joinSuccessRoomName: String = "" // State or dependency property.
-    @State private var joinSuccessHoney: Int = 0 // State or dependency property.
     @State private var updateDepositOldAmount: Int = 0 // State or dependency property.
     @State private var updateDepositNewAmount: Int = 0 // State or dependency property.
     @State private var showLeaveConfirmAlert: Bool = false // State or dependency property.
@@ -411,7 +409,7 @@ struct RoomView: View {
                 if !room.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     HStack(spacing: 4) {
                         Image(systemName: "mappin.and.ellipse")
-                        Text(room.location)
+                        Text(RoomLocationLocalization.displayLabel(forStoredLocation: room.location))
                     }
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -832,8 +830,6 @@ struct RoomView: View {
                         Task {
                             await vm.join(initialDeposit: joinDepositAmount, greetingMessage: joinGreetingMessage)
                             if vm.errorMessage == nil {
-                                joinSuccessRoomName = room.title
-                                joinSuccessHoney = joinDepositAmount
                                 showJoinSuccessAlert = true
                             }
                         }
@@ -863,7 +859,7 @@ struct RoomView: View {
         } else if showJoinSuccessAlert {
             HoneyMessageBox(
                 title: NSLocalizedString("room_msg_join_success_title", comment: ""),
-                message: String(format: NSLocalizedString("room_msg_join_success_message", comment: ""), joinSuccessRoomName, joinSuccessHoney),
+                message: NSLocalizedString("room_msg_join_success_message", comment: ""),
                 buttons: [
                     HoneyMessageBoxButton(
                         id: "room_join_success_ok",

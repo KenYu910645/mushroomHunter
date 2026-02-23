@@ -41,6 +41,7 @@
   - Tutorial cards support screenshot overlays with circles, arrows, and text labels rendered in-app.
   - Tutorial callouts now support both circle and rectangle highlights.
   - Tutorial annotation highlights and text labels use a unified red style across all cards.
+  - Tutorial navigation text, descriptions, and callout labels are localized via `Localizable.strings` keys.
   - Arrow geometry is auto-generated from label location to nearest highlight border, so tuning only needs:
     - highlight location
     - highlight size

@@ -129,8 +129,8 @@ struct OrderedPostcardsSection: View, Equatable {
                         statusKey: statusKey(for: postcardSummary.status),
                         statusUrgency: statusUrgency(for: postcardSummary.status),
                         actionCount: actionCount(for: postcardSummary.status),
-                        isLocationVisible: true,
-                        isPriceVisible: true
+                        isLocationVisible: false,
+                        isPriceVisible: false
                     ) {
                         onSelectPostcard(postcardSummary)
                     }
@@ -165,11 +165,11 @@ struct OrderedPostcardsSection: View, Equatable {
     private func statusUrgency(for status: PostcardOrderStatus) -> ProfileStatusUrgency {
         switch status {
         case .sellerConfirmPending, .awaitingShipping:
-            return .warning
+            return .success
         case .shipped:
             return .neutral
         default:
-            return .warning
+            return .success
         }
     }
 

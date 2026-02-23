@@ -165,8 +165,10 @@ final class RoomBrowseViewModel: ObservableObject {
             let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
             if q.isEmpty { return true }
             let qq = q.lowercased()
+            let localizedLocation = RoomLocationLocalization.displayLabel(forStoredLocation: listing.location).lowercased()
             return listing.title.lowercased().contains(qq)
                 || listing.location.lowercased().contains(qq)
+                || localizedLocation.contains(qq)
                 || (listing.hostName ?? "").lowercased().contains(qq)
         }
         return visibleListings.sorted(by: comparePriority)

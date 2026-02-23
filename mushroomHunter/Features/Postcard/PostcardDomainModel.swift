@@ -22,7 +22,7 @@ struct PostcardLocation: Equatable, Hashable, Codable {
     /// Compact `country, province` label shown in list cards.
     var shortLabel: String {
         let unknown = NSLocalizedString("postcard_location_unknown", comment: "")
-        let c = country.trimmingCharacters(in: .whitespacesAndNewlines)
+        let c = CountryLocalization.displayName(forStoredCountryValue: country)
         let p = province.trimmingCharacters(in: .whitespacesAndNewlines)
         if c.isEmpty && p.isEmpty { return unknown }
         if c.isEmpty { return p }
