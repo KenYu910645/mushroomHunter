@@ -11,6 +11,10 @@ import SwiftUI
 
 /// Postcard detail screen with buyer/seller actions for one listing.
 struct PostcardView: View {
+    /// Indicates push/deep-link should open order context immediately after first refresh.
+    private let isOpeningOrderPageOnAppear: Bool
+    /// Indicates first load should force latest backend state.
+    private let isForceRefreshOnAppear: Bool
     /// Controls buy confirmation dialog visibility.
     @State private var isBuyConfirmDialogPresented: Bool = false
     /// Controls seller edit sheet visibility.
@@ -43,6 +47,10 @@ struct PostcardView: View {
     @State private var sellerFriendCode: String = ""
     /// Controls temporary copied toast visibility.
     @State private var isCopyToastVisible: Bool = false
+    /// Tracks whether first-load refresh has already run.
+    @State private var isDidRunInitialRefresh: Bool = false
+    /// Tracks whether order-context jump is still pending after first refresh.
+    @State private var isPendingOpenOrderPageOnAppear: Bool
     /// Current color scheme used for themed background.
     @Environment(\.colorScheme) private var scheme
     /// Dismiss action for this detail screen.
@@ -57,10 +65,20 @@ struct PostcardView: View {
     private let detailImageMaxWidth: CGFloat = 300
 
     /// Initializes the screen with an initial listing payload.
-    /// - Parameter listing: Listing selected from browse.
-    init(listing: PostcardListing) {
+    /// - Parameters:
+    ///   - listing: Listing selected from browse.
+    ///   - isOpeningOrderPageOnAppear: True when route comes from order push and should open order context.
+    ///   - isForceRefreshOnAppear: True when first refresh should prioritize latest backend state.
+    init(
+        listing: PostcardListing,
+        isOpeningOrderPageOnAppear: Bool = false,
+        isForceRefreshOnAppear: Bool = false
+    ) {
+        self.isOpeningOrderPageOnAppear = isOpeningOrderPageOnAppear
+        self.isForceRefreshOnAppear = isForceRefreshOnAppear
         _currentListing = State(initialValue: listing)
         _sellerFriendCode = State(initialValue: listing.sellerFriendCode)
+        _isPendingOpenOrderPageOnAppear = State(initialValue: isOpeningOrderPageOnAppear)
     }
 
     /// Indicates whether the current user owns this listing.
@@ -253,23 +271,36 @@ struct PostcardView: View {
             }
         }
         .task {
-            await refreshListing()
+            guard !isDidRunInitialRefresh else { return }
+            isDidRunInitialRefresh = true
+            await refreshListing(isForceRefresh: isForceRefreshOnAppear)
+            if isPendingOpenOrderPageOnAppear, isSeller {
+                isShippingSheetPresented = true
+            }
+            isPendingOpenOrderPageOnAppear = false
         }
         .refreshable {
-            await refreshListing()
+            await refreshListing(isForceRefresh: true)
         }
         .sheet(isPresented: $isEditSheetPresented, onDismiss: {
-            Task { await refreshListing() }
+            Task { await refreshListing(isForceRefresh: true) }
         }) {
             NavigationStack {
-                PostcardFormView(listing: currentListing) {
-                    dismiss()
-                }
+                PostcardFormView(
+                    listing: currentListing,
+                    onDeleted: {
+                        dismiss()
+                    },
+                    onUpdated: { updatedListing in
+                        currentListing = updatedListing
+                        sellerFriendCode = updatedListing.sellerFriendCode
+                    }
+                )
                 .navigationTitle(LocalizedStringKey("postcard_edit_title"))
             }
         }
         .sheet(isPresented: $isShippingSheetPresented, onDismiss: {
-            Task { await refreshListing() }
+            Task { await refreshListing(isForceRefresh: true) }
         }) {
             NavigationStack {
                 PostcardShippingView(postcard: currentListing)
@@ -384,7 +415,7 @@ struct PostcardView: View {
     }
 
     /// Refreshes listing data, seller friend code, and buyer order state.
-    private func refreshListing() async {
+    private func refreshListing(isForceRefresh: Bool = false) async {
         if AppTesting.useMockPostcards {
             currentListing = currentListing.sellerId == AppTesting.userId
                 ? AppTesting.fixtureOwnedPostcardListing()
@@ -395,6 +426,9 @@ struct PostcardView: View {
         }
 
         do {
+            if isForceRefresh {
+                await session.refreshProfileFromBackend()
+            }
             if let refreshed = try await repo.fetchPostcard(postcardId: currentListing.id) {
                 currentListing = refreshed
                 let cachedFriendCode = refreshed.sellerFriendCode.trimmingCharacters(in: .whitespacesAndNewlines)

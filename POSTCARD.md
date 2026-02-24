@@ -49,6 +49,9 @@
 - Seller can open a top-right share action in postcard detail to show an invite sheet with QR code, share link, and copy link actions.
 - Postcard invite links use deep link format `honeyhub://postcard/{postcardId}`.
 - Opening a postcard invite link routes to postcard detail in-app when the listing still exists.
+- Tapping postcard order-related push notifications (`postcard_order_created`, `postcard_shipped`, `postcard_rejected`, `postcard_order_completed`) now opens the related postcard detail route directly.
+- Postcard order push route marks order context open on first appearance (seller auto-opens shipping queue) and forces first-load refresh so latest order state is shown immediately.
+- Push routing now opens Postcard tab and pushes the normal Postcard page inside the tab navigation stack (non-sheet flow).
 - Buyer order lifecycle:
   - Buyer places order -> order enters `AwaitingShipping`; seller receives push to ship or decline.
   - Seller can decline -> order enters `Rejected` with buyer refund and stock restore.
@@ -70,6 +73,9 @@
 - Country selector is dropdown-based and uses the same country source as room host form.
 - Register form defaults country to Taiwan (`TW`).
 - Snapshot area itself opens photo picker (no separate upload button).
+- Register form snapshot section shows a user instruction hint for Pikmin Bloom snapshot export (`Postcard -> pick card -> tap snapshot -> Save -> upload here`).
+- Postcard snapshot is immutable after create; edit flow does not allow snapshot replacement.
+- Edit save now applies updated listing fields to detail screen immediately before background refresh.
 - UI-test mock postcard mode (`--mock-postcards`) shows a quick submit button in create flow to bypass image upload and backend writes.
 - UI-test mock postcard mode also mocks seller shipping recipients and "mark sent" flow without Firestore writes.
 - UI-test mode hides seller share/edit toolbar actions so shipping action remains directly tappable in automated UI runs.
@@ -110,6 +116,7 @@
 - Uploaded postcard images are tagged with `Cache-Control: public,max-age=86400` metadata, and client also persists local memory+disk cache for cache-first rendering.
 - Cache sizing/TTL is owner-tunable in `AppConfig.Postcard` (`imageMemoryCacheEntryLimit`, `imageDiskCacheMaxBytes`, `imageDiskCachePruneTargetRatio`, `imageDiskCacheMaxAgeSeconds`).
 - Client-side upload preprocessing crops postcard snapshots to fixed pixel rect `(x:20, y:20) -> (x:665, y:655)` before JPEG encoding/upload.
+- Client-side upload now requires original snapshot size to be exactly `1023x684`; otherwise upload is rejected with `Image size error, Please upload postcard snapshot`.
 - If the selected source image cannot safely contain that crop rect, client shows an error and skips upload.
 
 #### `postcards/{postcardId}`

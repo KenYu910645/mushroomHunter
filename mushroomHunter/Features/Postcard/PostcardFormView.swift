@@ -67,6 +67,8 @@ struct PostcardFormView: View {
     private let onSubmitted: () -> Void
     /// Callback when delete flow succeeds.
     private let onDeleted: () -> Void
+    /// Callback when edit flow succeeds and returns the updated listing snapshot.
+    private let onUpdated: ((PostcardListing) -> Void)?
 
     /// Title input state.
     @State private var title: String
@@ -121,6 +123,7 @@ struct PostcardFormView: View {
         self.listing = nil
         self.onSubmitted = onSubmitted
         self.onDeleted = {}
+        self.onUpdated = nil
         _title = State(initialValue: NSLocalizedString("postcard_default_title", comment: ""))
         _priceText = State(initialValue: "10")
         _countryCode = State(initialValue: "TW")
@@ -130,11 +133,16 @@ struct PostcardFormView: View {
     }
 
     /// Initializes the unified form in edit mode.
-    init(listing: PostcardListing, onDeleted: @escaping () -> Void) {
+    init(
+        listing: PostcardListing,
+        onDeleted: @escaping () -> Void,
+        onUpdated: ((PostcardListing) -> Void)? = nil
+    ) {
         self.mode = .edit
         self.listing = listing
         self.onSubmitted = {}
         self.onDeleted = onDeleted
+        self.onUpdated = onUpdated
         _title = State(initialValue: listing.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? NSLocalizedString("postcard_default_title", comment: "")
             : listing.title)
@@ -172,7 +180,9 @@ struct PostcardFormView: View {
     /// Builds the shared create/edit form UI.
     var body: some View {
         Form {
-            snapshotSection
+            if isCreateMode {
+                snapshotSection
+            }
             infoSection
             submitSection
             if isEditMode { deleteSection }
@@ -258,7 +268,7 @@ struct PostcardFormView: View {
         )
     }
 
-    /// Snapshot picker section shared by both modes.
+    /// Snapshot picker section shown only in create mode.
     private var snapshotSection: some View {
         Section(LocalizedStringKey("postcard_snapshot_section")) {
             VStack(alignment: .leading, spacing: 12) {
@@ -284,6 +294,11 @@ struct PostcardFormView: View {
                         .font(.footnote)
                         .foregroundStyle(.red)
                 }
+
+                Text(LocalizedStringKey("postcard_snapshot_upload_instruction"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if isCreateMode, let uploadedImageURL {
                     Text("\(NSLocalizedString("postcard_uploaded_prefix", comment: "")) \(uploadedImageURL.absoluteString)")
@@ -637,29 +652,7 @@ struct PostcardFormView: View {
         isSubmitting = true
         defer { isSubmitting = false }
 
-        var uploadedImageURLToRollback: URL? = nil
-        var uploadedThumbnailURLToRollback: URL? = nil
         do {
-            var newImageUrl: String? = nil
-            var newThumbnailUrl: String? = nil
-            if let image = selectedImage {
-                let data: Data
-                let thumbnailData: Data
-                do {
-                    data = try uploader.prepareUploadJPEGData(from: image)
-                    thumbnailData = try uploader.prepareThumbnailJPEGData(from: image)
-                } catch {
-                    presentError((error as? LocalizedError)?.errorDescription ?? NSLocalizedString("postcard_upload_process_error", comment: ""))
-                    return
-                }
-                let uploaded = try await uploader.uploadPostcardImage(data: data, ownerId: listing.sellerId)
-                let uploadedThumbnail = try await uploader.uploadPostcardThumbnail(data: thumbnailData, ownerId: listing.sellerId)
-                uploadedImageURLToRollback = uploaded
-                uploadedThumbnailURLToRollback = uploadedThumbnail
-                newImageUrl = uploaded.absoluteString
-                newThumbnailUrl = uploadedThumbnail.absoluteString
-            }
-
             try await repo.updatePostcard(
                 postcardId: listing.id,
                 title: cleanTitle,
@@ -673,26 +666,29 @@ struct PostcardFormView: View {
                 sellerName: listing.sellerName,
                 sellerFriendCode: session.friendCode,
                 sellerFcmToken: session.fcmToken ?? "",
-                imageUrl: newImageUrl,
-                thumbnailUrl: newThumbnailUrl
+                imageUrl: nil,
+                thumbnailUrl: nil
             )
-
-            if newImageUrl != nil, let oldImageUrl = listing.imageUrl, let oldImage = URL(string: oldImageUrl) {
-                await uploader.deleteUploadedImage(at: oldImage)
-            }
-            if newThumbnailUrl != nil,
-               let oldThumbnailUrl = listing.thumbnailUrl,
-               let oldThumbnail = URL(string: oldThumbnailUrl) {
-                await uploader.deleteUploadedImage(at: oldThumbnail)
-            }
+            let updatedListing = PostcardListing(
+                id: listing.id,
+                sellerId: listing.sellerId,
+                title: cleanTitle,
+                priceHoney: price,
+                location: PostcardLocation(
+                    country: cleanCountry,
+                    province: cleanProvince,
+                    detail: detail.trimmingCharacters(in: .whitespacesAndNewlines)
+                ),
+                sellerName: listing.sellerName,
+                sellerFriendCode: session.friendCode,
+                stock: stock,
+                imageUrl: listing.imageUrl,
+                thumbnailUrl: listing.thumbnailUrl,
+                createdAt: listing.createdAt
+            )
+            onUpdated?(updatedListing)
             dismiss()
         } catch {
-            if let uploadedImageURLToRollback {
-                await uploader.deleteUploadedImage(at: uploadedImageURLToRollback)
-            }
-            if let uploadedThumbnailURLToRollback {
-                await uploader.deleteUploadedImage(at: uploadedThumbnailURLToRollback)
-            }
             presentError((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
         }
     }

@@ -79,6 +79,9 @@
 - Host raid confirmation prompt uses a generic confirmation message without attendee-name list text.
 - Joiner room details now shows a top-right confirmation-queue icon with a red dot when there are pending room confirmations.
 - Joiner confirmation queue page shows all unprocessed confirmations for the current room and renders newest-first ordering.
+- Tapping a raid-confirmation push notification now opens the related room and auto-presents the joiner confirmation queue page directly.
+- Room opened from push now forces a server refresh on first load so latest confirmation state appears immediately.
+- Push routing now opens Mushroom tab and pushes the normal Room page inside the tab navigation stack (non-sheet flow).
 - Joiner confirmation queue row content is compact:
   - host invitation sentence.
   - relative elapsed text only (`Xm ago` / `Xh ago`), with no extra prefix and no room-title line.

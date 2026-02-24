@@ -10,10 +10,23 @@
 //
 import SwiftUI
 
+/// Push/deep-link route consumed by Mushroom browse navigation stack.
+struct RoomBrowsePushRoute: Identifiable, Hashable {
+    /// Unique id so repeated route payloads can still navigate.
+    let id: UUID = UUID()
+    /// Target room id to open.
+    let roomId: String
+    /// Indicates destination should auto-open confirmation queue.
+    let isOpeningConfirmationQueue: Bool
+    /// Indicates destination should force backend refresh on first load.
+    let isForceRefresh: Bool
+}
+
 // MARK: - View
 
 struct RoomBrowseView: View {
     private let session: UserSessionStore // Session object passed from tab root (honey/profile refresh + child view models).
+    @Binding private var pendingPushRoute: RoomBrowsePushRoute? // Pending route provided by app-level notification router.
     @StateObject private var vm: RoomBrowseViewModel // Owns loading/filter/join state for this screen.
     @State private var showHostSheet: Bool = false // Controls host-room sheet presentation.
     @State private var pendingJoinListing: RoomListing? = nil // Selected listing for join prompt context.
@@ -24,9 +37,11 @@ struct RoomBrowseView: View {
     @State private var bidFieldFocused: Bool = false // Controls first-responder focus for the bid entry field.
     @FocusState private var isSearchFieldFocused: Bool // Controls keyboard focus for inline search field.
     @Environment(\.colorScheme) private var scheme // Used for themed background.
+    @State private var activePushRoute: RoomBrowsePushRoute? = nil // Active push route currently being pushed in navigation stack.
 
-    init(session: UserSessionStore) { // Initializes this type.
+    init(session: UserSessionStore, pendingPushRoute: Binding<RoomBrowsePushRoute?> = .constant(nil)) { // Initializes this type.
         self.session = session
+        _pendingPushRoute = pendingPushRoute
         _vm = StateObject(wrappedValue: RoomBrowseViewModel(session: session))
     }
     
@@ -39,6 +54,13 @@ struct RoomBrowseView: View {
         NavigationStack {
             content
                 .navigationTitle(LocalizedStringKey("browse_title"))
+                .navigationDestination(item: $activePushRoute) { route in
+                    RoomView(
+                        vm: RoomViewModel(roomId: route.roomId, session: session),
+                        isOpeningConfirmationQueueOnAppear: route.isOpeningConfirmationQueue,
+                        isForceRefreshOnAppear: route.isForceRefresh
+                    )
+                }
                 .onAppear {
                     // Keep honey/profile fields fresh when entering tab.
                     if !AppTesting.isUITesting {
@@ -46,6 +68,11 @@ struct RoomBrowseView: View {
                     }
                     // Load cache-first room list on screen entry.
                     Task { await vm.loadListingsOnAppear() }
+                }
+                .onChange(of: pendingPushRoute) { _, route in
+                    guard let route else { return }
+                    activePushRoute = route
+                    pendingPushRoute = nil
                 }
         }
         .sheet(isPresented: $showHostSheet) {

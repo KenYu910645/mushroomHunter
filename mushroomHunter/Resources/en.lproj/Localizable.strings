@@ -220,8 +220,8 @@
 
 "room_msg_leave_confirm_title" = "Leave Room";
 "room_msg_leave_confirm_message" = "Are you sure you want to leave %@?";
-"room_msg_claim_confirm_title" = "Confirm Invitation";
-"room_msg_claim_confirm_message" = "Have you invited all attendees to a mushroom raid?";
+"room_msg_claim_confirm_title" = "Confirmation";
+"room_msg_claim_confirm_message" = "Make sure you have invited all attendees to mushroom.\nAfter clicking 'Yes', all attendees will need to confirm your invitation.";
 "room_msg_claim_sent_title" = "Notified Attendees";
 "room_msg_claim_sent_message" = "You will receive payment after they respond.";
 
@@ -381,6 +381,7 @@
 "postcard_snapshot_hint" = "Upload postcard snapshot";
 "postcard_uploading" = "Uploading...";
 "postcard_uploaded_prefix" = "Uploaded:";
+"postcard_snapshot_upload_instruction" = "In Pikmin Bloom, Postcard -> pick the one you want to sell -> Tap postcard snapshot -> Save -> Upload the saved snapshot here";
 "postcard_upload_load_error" = "Unable to load this image.";
 "postcard_upload_select_error" = "Please select a snapshot first.";
 "postcard_upload_process_error" = "Failed to process image.";

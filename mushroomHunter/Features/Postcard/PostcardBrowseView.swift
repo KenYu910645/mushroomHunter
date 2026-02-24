@@ -7,6 +7,18 @@
 //
 import SwiftUI
 
+/// Push/deep-link route consumed by Postcard browse navigation stack.
+struct PostcardBrowsePushRoute: Identifiable, Hashable {
+    /// Unique id so repeated route payloads can still navigate.
+    let id: UUID = UUID()
+    /// Target postcard listing id to open.
+    let postcardId: String
+    /// Indicates destination should auto-open order context.
+    let isOpeningOrderPage: Bool
+    /// Indicates destination should force backend refresh on first load.
+    let isForceRefresh: Bool
+}
+
 // MARK: - Browse
 
 /// Root postcard browse screen used by the Postcard tab.
@@ -25,8 +37,16 @@ struct PostcardBrowseView: View {
     @Environment(\.colorScheme) private var scheme
     /// Controls keyboard focus for inline search field.
     @FocusState private var isSearchFieldFocused: Bool
+    /// Pending push route provided by app-level notification router.
+    @Binding private var pendingPushRoute: PostcardBrowsePushRoute?
+    /// Active push route currently pushed in postcard navigation stack.
+    @State private var activePushRoute: PostcardBrowsePushRoute? = nil
     /// Spacing used between postcard grid columns.
     private let cardColumnSpacing: CGFloat = 8
+
+    init(pendingPushRoute: Binding<PostcardBrowsePushRoute?> = .constant(nil)) { // Initializes this type.
+        _pendingPushRoute = pendingPushRoute
+    }
 
     /// Main postcard browse UI tree.
     var body: some View {
@@ -120,6 +140,9 @@ struct PostcardBrowseView: View {
                 .padding(.vertical, 8)
             }
             .navigationTitle(LocalizedStringKey("postcard_title"))
+            .navigationDestination(item: $activePushRoute) { route in
+                PostcardBrowseDestinationView(route: route)
+            }
             .background(Theme.backgroundGradient(for: scheme))
             .overlay {
                 if vm.isLoading && vm.filteredListings.isEmpty {
@@ -153,6 +176,11 @@ struct PostcardBrowseView: View {
                 await session.refreshProfileFromBackend()
                 await vm.refresh()
             }
+        }
+        .onChange(of: pendingPushRoute) { _, route in
+            guard let route else { return }
+            activePushRoute = route
+            pendingPushRoute = nil
         }
         .task(id: browseDataRefreshToken) {
             await vm.refresh()
@@ -191,6 +219,58 @@ struct PostcardBrowseView: View {
             isStarsVisible: false
         )
         .padding(.horizontal)
+    }
+}
+
+/// Postcard push destination loader that opens normal postcard detail route in-stack.
+private struct PostcardBrowseDestinationView: View {
+    /// Route payload to resolve postcard detail destination.
+    let route: PostcardBrowsePushRoute
+    /// Loaded postcard listing document.
+    @State private var listing: PostcardListing? = nil
+    /// Indicates listing fetch is in progress.
+    @State private var isLoading: Bool = false
+    /// Repository used to load listing by id.
+    private let repo = FbPostcardRepo()
+
+    var body: some View {
+        Group {
+            if let listing {
+                PostcardView(
+                    listing: listing,
+                    isOpeningOrderPageOnAppear: route.isOpeningOrderPage,
+                    isForceRefreshOnAppear: route.isForceRefresh
+                )
+            } else if isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ContentUnavailableView(
+                    LocalizedStringKey("postcard_link_unavailable_title"),
+                    systemImage: "qrcode",
+                    description: Text(LocalizedStringKey("postcard_link_unavailable_message"))
+                )
+            }
+        }
+        .task {
+            await loadPostcard()
+        }
+    }
+
+    /// Loads the route postcard id from backend (or fixtures in UI-test mode).
+    private func loadPostcard() async {
+        guard !route.postcardId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        if AppTesting.useMockPostcards {
+            if route.postcardId == AppTesting.fixturePostcardId {
+                listing = AppTesting.fixturePostcardListing()
+            } else if route.postcardId == AppTesting.fixtureOwnedPostcardListing().id {
+                listing = AppTesting.fixtureOwnedPostcardListing()
+            }
+            return
+        }
+        isLoading = true
+        defer { isLoading = false }
+        listing = try? await repo.fetchPostcard(postcardId: route.postcardId)
     }
 }
 

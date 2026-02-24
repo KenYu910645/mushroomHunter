@@ -16,6 +16,10 @@ struct RoomView: View {
     @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     @Environment(\.colorScheme) private var scheme // State or dependency property.
     let onRoomClosed: (() -> Void)?
+    /// Indicates push/deep-link should open attendee confirmation queue on first appearance.
+    private let isOpeningConfirmationQueueOnAppear: Bool
+    /// Indicates first load should force latest backend payload.
+    private let isForceRefreshOnAppear: Bool
 
     @StateObject private var vm: RoomViewModel // State or dependency property.
     @State private var editingRoom: RoomDetail? = nil // State or dependency property.
@@ -55,10 +59,20 @@ struct RoomView: View {
     @State private var rejectAttendeeId: String = "" // State or dependency property.
     @State private var rejectAttendeeName: String = "" // State or dependency property.
     @State private var showInviteSheet: Bool = false // State or dependency property.
+    @State private var isDidRunInitialLoad: Bool = false // Ensures first-load sequence executes only once.
+    @State private var isPendingOpenConfirmationQueueOnAppear: Bool // Tracks one-time auto-open request for attendee confirmation queue.
     /// ✅ New initializer: pass VM from caller (RoomBrowseView already does this)
-    init(vm: RoomViewModel, onRoomClosed: (() -> Void)? = nil) { // Initializes this type.
+    init(
+        vm: RoomViewModel,
+        onRoomClosed: (() -> Void)? = nil,
+        isOpeningConfirmationQueueOnAppear: Bool = false,
+        isForceRefreshOnAppear: Bool = false
+    ) { // Initializes this type.
+        self.isOpeningConfirmationQueueOnAppear = isOpeningConfirmationQueueOnAppear
+        self.isForceRefreshOnAppear = isForceRefreshOnAppear
         _vm = StateObject(wrappedValue: vm)
         self.onRoomClosed = onRoomClosed
+        _isPendingOpenConfirmationQueueOnAppear = State(initialValue: isOpeningConfirmationQueueOnAppear)
     }
 
     var body: some View {
@@ -68,7 +82,13 @@ struct RoomView: View {
                 .toolbar { toolbarContent }
                 .safeAreaInset(edge: .bottom) { actionDock }
                 .task {
-                    await vm.load()
+                    guard !isDidRunInitialLoad else { return }
+                    isDidRunInitialLoad = true
+                    await vm.load(forceRefresh: isForceRefreshOnAppear)
+                    if isPendingOpenConfirmationQueueOnAppear, vm.role == .attendee {
+                        isRaidConfirmationQueueSheetPresented = true
+                    }
+                    isPendingOpenConfirmationQueueOnAppear = false
                 }
                 .onChange(of: vm.hostPendingRatingAttendeeIds) { _, _ in
                     presentNextHostRatingAlertIfNeeded()

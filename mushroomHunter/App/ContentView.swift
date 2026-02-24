@@ -16,7 +16,6 @@ import UIKit
 
 struct ContentView: View {
     @EnvironmentObject private var session: UserSessionStore // State or dependency property.
-    @State private var pendingRoute: DeepLinkRoute? = nil // State or dependency property.
     var body: some View {
         ZStack {
             ThemedBackground()
@@ -32,29 +31,112 @@ struct ContentView: View {
                 }
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .didOpenRoomFromPush)) { notif in
-            guard let roomId = notif.object as? String else { return }
-            pendingRoute = .room(id: roomId)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .didOpenPostcardFromLink)) { notif in
-            guard let postcardId = notif.object as? String else { return }
-            pendingRoute = .postcard(id: postcardId)
-        }
-        .sheet(item: $pendingRoute) { route in
-            switch route {
-            case .room(let id):
-                NavigationStack {
-                    RoomView(vm: RoomViewModel(roomId: id, session: session))
-                        .environmentObject(session)
-                }
-            case .postcard(let id):
-                PostcardLinkDestinationView(postcardId: id)
-                    .environmentObject(session)
-            }
-        }
         .fullScreenCover(isPresented: $session.isShowingOnboardingTutorial) {
             TutorialView()
                 .environmentObject(session)
+        }
+    }
+}
+
+// MARK: - Tabs
+
+struct MainTabView: View {
+    /// Tab ids used by tab-selection routing from deep links and pushes.
+    private enum RootTab: Hashable {
+        case mushroom
+        case postcard
+        case profile
+    }
+
+    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
+    /// Repository for profile room queries used by tab/app-icon badge aggregation.
+    private let profileRepo = FbProfileListRepo()
+    /// Repository for postcard order queries used by tab/app-icon badge aggregation.
+    private let postcardRepo = FbPostcardRepo()
+    /// Currently selected tab in app shell.
+    @State private var selectedTab: RootTab = .mushroom
+    /// Pending mushroom push-link route consumed by Room browse navigation stack.
+    @State private var pendingRoomPushRoute: RoomBrowsePushRoute? = nil
+    /// Pending postcard push-link route consumed by Postcard browse navigation stack.
+    @State private var pendingPostcardPushRoute: PostcardBrowsePushRoute? = nil
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            RoomBrowseView(
+                session: session,
+                pendingPushRoute: $pendingRoomPushRoute
+            )
+                .tabItem {
+                    Label("tab_mushroom", systemImage: "person.3.fill")
+                }
+                .tag(RootTab.mushroom)
+                .accessibilityIdentifier("tab_browse")
+
+            PostcardBrowseView(
+                pendingPushRoute: $pendingPostcardPushRoute
+            )
+                .tabItem {
+                    Label("tab_postcard", systemImage: "mail")
+                }
+                .tag(RootTab.postcard)
+                .accessibilityIdentifier("tab_postcard")
+
+            ProfileView()
+                .tabItem {
+                    Label("tab_profile", systemImage: "person.circle")
+                }
+                .tag(RootTab.profile)
+                .badge(session.profileActionBadgeCount > 0 ? "\(session.profileActionBadgeCount)" : nil)
+                .accessibilityIdentifier("tab_profile")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .didOpenRoomFromPush)) { notif in
+            guard let roomId = notif.object as? String else { return }
+            selectedTab = .mushroom
+            pendingRoomPushRoute = RoomBrowsePushRoute(
+                roomId: roomId,
+                isOpeningConfirmationQueue: false,
+                isForceRefresh: true
+            )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .didOpenRoomConfirmationFromPush)) { notif in
+            guard let roomId = notif.object as? String else { return }
+            selectedTab = .mushroom
+            pendingRoomPushRoute = RoomBrowsePushRoute(
+                roomId: roomId,
+                isOpeningConfirmationQueue: true,
+                isForceRefresh: true
+            )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .didOpenPostcardFromLink)) { notif in
+            guard let postcardId = notif.object as? String else { return }
+            selectedTab = .postcard
+            pendingPostcardPushRoute = PostcardBrowsePushRoute(
+                postcardId: postcardId,
+                isOpeningOrderPage: false,
+                isForceRefresh: true
+            )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .didOpenPostcardOrderFromPush)) { notif in
+            guard let payload = notif.object as? [String: String] else { return }
+            let postcardId = (payload["postcardId"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard postcardId.isEmpty == false else { return }
+            selectedTab = .postcard
+            pendingPostcardPushRoute = PostcardBrowsePushRoute(
+                postcardId: postcardId,
+                isOpeningOrderPage: true,
+                isForceRefresh: true
+            )
+        }
+        .task(id: session.authUid) {
+            await refreshProfileActionBadgeCount()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            Task {
+                await refreshProfileActionBadgeCount()
+            }
+        }
+        .onChange(of: session.profileActionBadgeCount) { _, latestCount in
+            UIApplication.shared.applicationIconBadgeNumber = latestCount
         }
         .onAppear {
             if AppTesting.isUITesting {
@@ -68,122 +150,21 @@ struct ContentView: View {
                 session.isShowingOnboardingTutorial = false
 
                 if let postcardId = AppTesting.launchArgumentValue(after: AppTesting.openPostcardArgument) {
-                    pendingRoute = .postcard(id: postcardId)
+                    selectedTab = .postcard
+                    pendingPostcardPushRoute = PostcardBrowsePushRoute(
+                        postcardId: postcardId,
+                        isOpeningOrderPage: false,
+                        isForceRefresh: true
+                    )
                 } else if let roomId = AppTesting.launchArgumentValue(after: AppTesting.openRoomArgument) {
-                    pendingRoute = .room(id: roomId)
-                }
-            }
-        }
-    }
-}
-
-private enum DeepLinkRoute: Identifiable {
-    case room(id: String)
-    case postcard(id: String)
-
-    var id: String {
-        switch self {
-        case .room(let id):
-            return "room:\(id)"
-        case .postcard(let id):
-            return "postcard:\(id)"
-        }
-    }
-}
-
-private struct PostcardLinkDestinationView: View {
-    let postcardId: String
-
-    @Environment(\.dismiss) private var dismiss // State or dependency property.
-    @State private var listing: PostcardListing? // State or dependency property.
-    @State private var isLoading: Bool = false // State or dependency property.
-    private let repo = FbPostcardRepo()
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if let listing {
-                    PostcardView(listing: listing)
-                } else if isLoading {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    ContentUnavailableView(
-                        LocalizedStringKey("postcard_link_unavailable_title"),
-                        systemImage: "qrcode",
-                        description: Text(LocalizedStringKey("postcard_link_unavailable_message"))
+                    selectedTab = .mushroom
+                    pendingRoomPushRoute = RoomBrowsePushRoute(
+                        roomId: roomId,
+                        isOpeningConfirmationQueue: false,
+                        isForceRefresh: true
                     )
                 }
             }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(LocalizedStringKey("common_close")) {
-                        dismiss()
-                    }
-                }
-            }
-            .task {
-                await loadPostcard()
-            }
-        }
-    }
-
-    private func loadPostcard() async {
-        guard !postcardId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        if AppTesting.useMockPostcards {
-            if postcardId == AppTesting.fixturePostcardId {
-                listing = AppTesting.fixturePostcardListing()
-            } else if postcardId == AppTesting.fixtureOwnedPostcardListing().id {
-                listing = AppTesting.fixtureOwnedPostcardListing()
-            }
-            return
-        }
-        isLoading = true
-        defer { isLoading = false }
-        listing = try? await repo.fetchPostcard(postcardId: postcardId)
-    }
-}
-
-// MARK: - Tabs
-
-struct MainTabView: View {
-    @EnvironmentObject private var session: UserSessionStore // State or dependency property.
-    /// Repository for profile room queries used by tab/app-icon badge aggregation.
-    private let profileRepo = FbProfileListRepo()
-    /// Repository for postcard order queries used by tab/app-icon badge aggregation.
-    private let postcardRepo = FbPostcardRepo()
-
-    var body: some View {
-        TabView {
-            RoomBrowseView(session: session)
-                .tabItem {
-                    Label("tab_mushroom", systemImage: "person.3.fill")
-                }
-                .accessibilityIdentifier("tab_browse")
-
-            PostcardBrowseView()
-                .tabItem {
-                    Label("tab_postcard", systemImage: "mail")
-                }
-                .accessibilityIdentifier("tab_postcard")
-
-            ProfileView()
-                .tabItem {
-                    Label("tab_profile", systemImage: "person.circle")
-                }
-                .badge(session.profileActionBadgeCount > 0 ? "\(session.profileActionBadgeCount)" : nil)
-                .accessibilityIdentifier("tab_profile")
-        }
-        .task(id: session.authUid) {
-            await refreshProfileActionBadgeCount()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            Task {
-                await refreshProfileActionBadgeCount()
-            }
-        }
-        .onChange(of: session.profileActionBadgeCount) { _, latestCount in
-            UIApplication.shared.applicationIconBadgeNumber = latestCount
         }
     }
 

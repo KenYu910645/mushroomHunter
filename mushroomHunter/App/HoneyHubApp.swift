@@ -93,10 +93,35 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        let userInfo = response.notification.request.content.userInfo
-        if let roomId = userInfo["roomId"] as? String ?? userInfo["room_id"] as? String {
-            NotificationCenter.default.post(name: .didOpenRoomFromPush, object: roomId)
-        }
+        routePushNavigation(userInfo: response.notification.request.content.userInfo)
         completionHandler()
+    }
+
+    /// Routes push-tap payload into room/postcard deep-link channels.
+    /// - Parameter userInfo: APNs custom payload dictionary.
+    private func routePushNavigation(userInfo: [AnyHashable: Any]) {
+        let type = (userInfo["type"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let roomId = (userInfo["roomId"] as? String ?? userInfo["room_id"] as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let postcardId = (userInfo["postcardId"] as? String ?? userInfo["postcard_id"] as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let orderId = (userInfo["orderId"] as? String ?? userInfo["order_id"] as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if roomId.isEmpty == false {
+            if type.hasPrefix("raid_confirmation") {
+                NotificationCenter.default.post(name: .didOpenRoomConfirmationFromPush, object: roomId)
+            } else {
+                NotificationCenter.default.post(name: .didOpenRoomFromPush, object: roomId)
+            }
+            return
+        }
+
+        if type.hasPrefix("postcard_"), postcardId.isEmpty == false {
+            NotificationCenter.default.post(
+                name: .didOpenPostcardOrderFromPush,
+                object: ["postcardId": postcardId, "orderId": orderId]
+            )
+        }
     }
 }

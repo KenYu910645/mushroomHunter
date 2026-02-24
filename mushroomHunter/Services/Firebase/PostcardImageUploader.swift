@@ -32,6 +32,7 @@ import UIKit
 enum PostcardImageUploadError: LocalizedError {
     case unauthenticated
     case missingDownloadURL
+    case invalidSnapshotSize
     case cropOutOfBounds
     case imageEncodeFailed
 
@@ -41,6 +42,8 @@ enum PostcardImageUploadError: LocalizedError {
             return "Please sign in before uploading a postcard image."
         case .missingDownloadURL:
             return "Image uploaded, but failed to get a public download URL."
+        case .invalidSnapshotSize:
+            return "Image size error, Please upload postcard snapshot"
         case .cropOutOfBounds:
             return "Image is too small for postcard crop area. Please select another image."
         case .imageEncodeFailed:
@@ -51,6 +54,10 @@ enum PostcardImageUploadError: LocalizedError {
 
 final class PostcardImageUploader {
     private let storage = Storage.storage()
+    // Required original snapshot pixel width from Pikmin Bloom export.
+    private let requiredSnapshotPixelWidth = 1023
+    // Required original snapshot pixel height from Pikmin Bloom export.
+    private let requiredSnapshotPixelHeight = 684
     // Fixed crop rectangle requested by product requirement.
     private let requiredCropRect = CGRect(x: 20, y: 20, width: 645, height: 635)
     // Default thumbnail edge size for browse-card rendering.
@@ -62,6 +69,12 @@ final class PostcardImageUploader {
         let normalized = normalizedImage(image)
         guard let cgImage = normalized.cgImage else {
             throw PostcardImageUploadError.imageEncodeFailed
+        }
+
+        let isSnapshotSizeValid = cgImage.width == requiredSnapshotPixelWidth
+            && cgImage.height == requiredSnapshotPixelHeight
+        guard isSnapshotSizeValid else {
+            throw PostcardImageUploadError.invalidSnapshotSize
         }
 
         let imageRect = CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height)

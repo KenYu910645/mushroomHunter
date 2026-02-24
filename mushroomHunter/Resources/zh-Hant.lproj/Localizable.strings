@@ -222,7 +222,7 @@
 "room_msg_leave_confirm_title" = "離開房間";
 "room_msg_leave_confirm_message" = "確定要離開 %@ 嗎？";
 "room_msg_claim_confirm_title" = "確認邀請";
-"room_msg_claim_confirm_message" = "你已邀請所有參加者參加蘑菇戰了嗎？";
+"room_msg_claim_confirm_message" = "請確認你已邀請所有參加者參加蘑菇戰。\n點擊「是」後，所有參加者都需要確認你的邀請。";
 "room_msg_claim_sent_title" = "已通知參加者";
 "room_msg_claim_sent_message" = "他們回覆後你會收到付款。";
 
@@ -361,6 +361,7 @@
 "postcard_snapshot_hint" = "上傳明信片照片";
 "postcard_uploading" = "上傳中...";
 "postcard_uploaded_prefix" = "已上傳：";
+"postcard_snapshot_upload_instruction" = "在 Pikmin Bloom 中，前往 Postcard -> 選擇你要販售的明信片 -> 點擊明信片快照 -> Save -> 將儲存的快照上傳到這裡";
 "postcard_upload_load_error" = "無法載入此圖片。";
 "postcard_upload_select_error" = "請先選擇一張照片。";
 "postcard_upload_process_error" = "圖片處理失敗。";

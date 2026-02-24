@@ -124,7 +124,9 @@ extension UserSessionStore {
 extension Notification.Name {
     static let didReceiveFcmToken = Notification.Name("mh.didReceiveFcmToken") // Notification for newly received FCM token.
     static let didOpenRoomFromPush = Notification.Name("mh.didOpenRoomFromPush") // Notification for room deep-link routing.
+    static let didOpenRoomConfirmationFromPush = Notification.Name("mh.didOpenRoomConfirmationFromPush") // Notification for room confirmation queue deep-link routing.
     static let didOpenPostcardFromLink = Notification.Name("mh.didOpenPostcardFromLink") // Notification for postcard deep-link routing.
+    static let didOpenPostcardOrderFromPush = Notification.Name("mh.didOpenPostcardOrderFromPush") // Notification for postcard order deep-link routing.
 }
 
 private func randomNonceString(length: Int = 32) -> String { // Generates a cryptographically secure random nonce string.
