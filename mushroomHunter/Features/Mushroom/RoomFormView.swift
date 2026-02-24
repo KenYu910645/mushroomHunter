@@ -294,6 +294,10 @@ final class HostViewModel: ObservableObject {
 // MARK: - View
 
 struct RoomFormView: View {
+    /// Text token replaced by inline honey icon in form labels.
+    private let honeyIconToken: String = "{honey_icon}"
+    /// Inline honey icon size used in tokenized host-form labels.
+    private let honeyInlineIconSize: CGFloat = 16
     @Environment(\.dismiss) private var dismiss // Dismiss action for closing the modal form.
     @EnvironmentObject private var session: UserSessionStore // Shared user session injected from app root.
     @Environment(\.colorScheme) private var scheme // Color scheme used to pick themed background gradient.
@@ -421,7 +425,7 @@ struct RoomFormView: View {
                             step: 1
                         ) {
                             HStack {
-                                Text(LocalizedStringKey("host_min_bid_label"))
+                                tokenizedHostMinBidLabel
                                 Spacer()
                                 Text("\(vm.fixedRaidCost)")
                                     .monospacedDigit()
@@ -560,5 +564,43 @@ struct RoomFormView: View {
         isAreaFirstResponder = false
         isDescriptionFirstResponder = false
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    /// Localized host min-bid label where `{honey_icon}` tokens render as inline icon.
+    private var tokenizedHostMinBidLabel: Text {
+        let rawLabel = NSLocalizedString("host_min_bid_label", comment: "")
+        return tokenizedHoneyLabel(rawLabel)
+    }
+
+    /// Builds one inline text run that replaces `{honey_icon}` with `HoneyIcon`.
+    /// - Parameter rawText: Source localized text that may contain icon tokens.
+    /// - Returns: Tokenized SwiftUI `Text` ready for inline rendering.
+    private func tokenizedHoneyLabel(_ rawText: String) -> Text {
+        let segments = rawText.components(separatedBy: honeyIconToken)
+        var combinedText = Text("")
+
+        for (index, segment) in segments.enumerated() {
+            combinedText = combinedText + Text(segment)
+            if index < segments.count - 1 {
+                combinedText = combinedText + Text(honeyInlineImage())
+            }
+        }
+
+        return combinedText
+    }
+
+    /// Generates a pre-scaled honey icon image for inline tokenized text rendering.
+    /// - Returns: Resized `HoneyIcon` image with fallback symbol when asset is missing.
+    private func honeyInlineImage() -> Image {
+        guard let sourceImage = UIImage(named: "HoneyIcon") else {
+            return Image(systemName: "drop.fill")
+        }
+
+        let targetSize = CGSize(width: honeyInlineIconSize, height: honeyInlineIconSize)
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        let resizedImage = renderer.image { _ in
+            sourceImage.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+        return Image(uiImage: resizedImage)
     }
 }

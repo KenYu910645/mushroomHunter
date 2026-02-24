@@ -58,7 +58,7 @@
   - Host can approve/reject from two inline buttons shown under the joiner greeting message (`Accept` on left in green, `Reject` on right in red).
   - Attendee row `...` menu is used for non-join-request host actions like `Kick`.
   - Rejected application removes attendee and refunds full deposit.
-- Host `Mushroom Raid Done` now sends escrow settlement requests to all non-host joiners in the room (instead of manually selecting attendees).
+- Host `Mushroom Raid Done` now sends escrow settlement requests to all eligible non-host joiners in the room (instead of manually selecting attendees), including attendees who already have unresolved pending confirmations.
 - Joining from room details now requires both:
   - deposit amount
   - attendee greeting message (required, max 100 chars)
@@ -71,16 +71,36 @@
 - In UI-test mock mode, room role/deposit checks fall back to fixture user id (`ui-test-user`) when session auth uid is not yet populated.
 - UI-test mock mode supports forcing fixture room attendee state at launch with `--mock-room-joined`.
 - Host reject-resolution alert behavior:
-  - `Resend`: sets attendee status back to `WaitingConfirmation` and triggers confirmation push again.
+  - `Resend`: appends a new pending confirmation request and keeps attendee in `WaitingConfirmation`.
   - `Give Up`: sets attendee status back to `Ready`.
-- Room confirmations and errors now use the shared `HoneyMessageBox` component instead of system `Alert`/`confirmationDialog`, so visual style and action layout are consistent across mushroom flows.
+- Room confirmation/error feedback uses shared patterns:
+  - attendee raid settlement now uses a dedicated queue page opened from a top-right toolbar icon in room details.
+  - join/leave/claim/rating and other confirmations still use shared `HoneyMessageBox` for consistent action layout.
 - Host raid confirmation prompt uses a generic confirmation message without attendee-name list text.
+- Joiner room details now shows a top-right confirmation-queue icon with a red dot when there are pending room confirmations.
+- Joiner confirmation queue page shows all unprocessed confirmations for the current room and renders newest-first ordering.
+- Joiner confirmation queue row content is compact:
+  - host invitation sentence.
+  - relative elapsed text only (`Xm ago` / `Xh ago`), with no extra prefix and no room-title line.
+- Host room details now shows a top-right `Raid History` icon (`list.clipboard`), matching joiner confirmation-list icon style.
+- Host raid history page is read-only and lists confirmation records from latest to oldest.
+- Each host history record shows all non-host attendees in the room snapshot with rounded status pills:
+  - `Confirming` (yellow)
+  - `Joined` (green)
+  - `Seat full` (yellow)
+  - `No invite` (red)
+- Each queue row provides the same three settlement actions used previously in the attendee confirmation message box:
+  - `Yes, I joined the mushroom`
+  - `Yes, but the mushroom is full`
+  - `No, I didn't see invitation`
 - Honey-tokenized message text in shared `HoneyMessageBox` renders `HoneyIcon` as true inline text content, so long localized sentences wrap naturally without pushing the icon to the trailing edge.
 - Inline HoneyIcon size used in message-box tokenized text is owner-tunable via `AppConfig.SharedUI.honeyMessageIconSize`.
+- Host room form minimum-payment row now token-renders `host_min_bid_label` so `{honey_icon}` displays as inline `HoneyIcon` instead of raw text.
 - Room details includes invite share tools for host:
   - QR code sheet.
   - Share/copy room invite link using deep link format `honeyhub://room/{roomId}`.
 - Room details copy-feedback toast (`Copied to clipboard`) now uses the same visual style and timing as postcard screens to keep cross-feature behavior consistent.
+- Room header no longer shows `Last Successful Raid`; header now focuses on title, attendee count, location, and description.
 - Room attendee list statuses now use the same rounded-rectangle urgency badge style as Profile status labels (`Host` blue, `Asking/Waiting` orange, `Rejected` red, `Ready` green).
 - Room attendee star display now uses a yellow rounded badge with star icon to improve readability.
 - Room attendee deposit honey display now uses a rounded orange HoneyIcon badge style to match the star badge treatment.
@@ -171,6 +191,13 @@ Fields:
 - `createdAt` (Timestamp): set on create.
 - `updatedAt` (Timestamp): updated on any room or attendee change.
 - `lastSuccessfulRaidAt` (Timestamp, optional): set when host finishes a raid.
+- `raidConfirmationHistory` (Array<Map>, optional): host read-only confirmation history records sorted latest-first. Each record stores:
+  - `id` (String): shared confirmation id for that cycle.
+  - `requestedAt` (Timestamp): host request time.
+  - `attendeeResults` (Array<Map>): non-host attendee snapshot list with:
+    - `uid` (String)
+    - `name` (String)
+    - `status` (String): `Confirming` / `Joined` / `SeatFull` / `NoInvite`
 - `expiresAt` (Timestamp, optional/future): not currently written by client; reserved.
 Notes:
 - Host identity and info are stored in `attendees/{uid}` with `status = Host` (the host is just an attendee).
@@ -191,6 +218,7 @@ Fields:
 - `joinedAt` (Timestamp): set on join.
 - `updatedAt` (Timestamp): updated on deposit changes and raid settlement.
 - `status` (String): attendee state. Current values are `Host`, `AskingToJoin`, `Ready`, `WaitingConfirmation`, `Rejected`.
+- `pendingConfirmationRequests` (Map<String, Timestamp>, optional): pending confirmation queue keyed by confirmation id. Each key/value pair is one unprocessed confirmation request timestamp for joiner queue rendering and response.
 - `lastSettlementOutcome` (String, optional): latest escrow settlement result (`JoinedSuccess`, `SeatFullNoFault`, `MissedInvitation`).
 - `lastSettlementHoney` (Int, optional): latest settled honey amount moved from attendee escrow to host for that settlement.
 - `attendeeRatedHost` (Bool, optional): whether attendee already rated host for the latest confirmation cycle. Reset to `false` when host sends a new confirmation request.
@@ -232,7 +260,7 @@ Attendee status values (`rooms/{roomId}/attendees/{uid}.status`):
 - `Host`: room owner row in attendees subcollection
 - `AskingToJoin`: join application pending host moderation
 - `Ready`: normal active state (joined, not waiting)
-- `WaitingConfirmation`: host has claimed this attendee joined raid, waiting attendee decision
+- `WaitingConfirmation`: attendee has at least one unprocessed confirmation request in queue
 - `Rejected`: attendee rejected host claim
 
 Rating flags on attendee document:
@@ -248,7 +276,7 @@ flowchart TD
     C -->|Approve| D[attendee.status = Ready]
     C -->|Reject| E[attendee removed + full deposit refund]
     D --> F[Host taps Mushroom Raid Done]
-    F --> G[All Ready attendees -> WaitingConfirmation]
+    F --> G[Eligible attendees append pending request and remain/become WaitingConfirmation]
     G --> H[Cloud Function: sendRaidConfirmationPush]
     H --> I[Attendee submits escrow settlement]
     I -->|JoinedSuccess| J[host +fixedRaidCost; attendee deposit -fixedRaidCost; needsHostRating=true]
@@ -283,14 +311,19 @@ Important behavior:
 
 ### 2. Host Starts Confirmation Cycle
 Host opens Room Details and uses `Mushroom Raid Done`:
-- Client auto-targets all `Ready` non-host attendees in room
-- `finishRaid(...)` updates each targeted attendee if `depositHoney >= fixedRaidCost`:
+- Client auto-targets all eligible non-host attendees in room (`depositHoney >= fixedRaidCost`, excluding `AskingToJoin`)
+- Client also sends all non-host attendee ids so backend can create a full-room history snapshot.
+- `finishRaid(...)` updates each targeted attendee:
+  - append one entry into `pendingConfirmationRequests` using one shared confirmation id for this cycle
   - `status = WaitingConfirmation`
   - `attendeeRatedHost = false`
   - `hostRatedAttendee = false`
   - `needsHostRating = false`
 - Room updates:
   - `lastSuccessfulRaidAt = now`
+  - prepend one `raidConfirmationHistory` entry:
+    - invited attendees start as `Confirming`
+    - non-invited attendees in that room snapshot are marked `NoInvite`
   - `updatedAt = now`
 
 ### 3. Push To Attendee (Request)
@@ -300,29 +333,38 @@ Cloud Function `sendRaidConfirmationPush` triggers on attendee doc update:
 - Payload data includes: `type=raid_confirmation`, `roomId`, `room_id`
 
 ### 4. Attendee Escrow Settlement
-Room screen shows escrow settlement alert when current attendee is `WaitingConfirmation`.
+When current attendee has pending confirmations, Room Details exposes a top-right confirmation queue icon. Tapping it opens the attendee confirmation queue page for that room.
 
 If attendee chooses `JoinedSuccess`:
 - Transaction moves honey:
   - Host user honey `+ fixedRaidCost`
   - Attendee `depositHoney - fixedRaidCost`
 - Attendee status set:
-  - `status = Ready`
+  - remove selected confirmation id from `pendingConfirmationRequests`
+  - `status = WaitingConfirmation` if queue still has pending entries, otherwise `Ready`
   - `needsHostRating = true`
+- Room history update:
+  - matching `raidConfirmationHistory[id == confirmationId].attendeeResults[uid == attendeeUid].status = Joined`
 
 If attendee chooses `SeatFullNoFault`:
 - Transaction moves small effort fee:
   - Host user honey `+ noFaultEffortFee`
   - Attendee `depositHoney - noFaultEffortFee`
 - Attendee status set:
-  - `status = Ready`
+  - remove selected confirmation id from `pendingConfirmationRequests`
+  - `status = WaitingConfirmation` if queue still has pending entries, otherwise `Ready`
   - `needsHostRating = false`
+- Room history update:
+  - matching `raidConfirmationHistory[id == confirmationId].attendeeResults[uid == attendeeUid].status = SeatFull`
 
 If attendee chooses `MissedInvitation`:
 - No honey transfer
 - Attendee status set:
-  - `status = Ready`
+  - remove selected confirmation id from `pendingConfirmationRequests`
+  - `status = WaitingConfirmation` if queue still has pending entries, otherwise `Ready`
   - `needsHostRating = false`
+- Room history update:
+  - matching `raidConfirmationHistory[id == confirmationId].attendeeResults[uid == attendeeUid].status = NoInvite`
 
 ### 5. Push To Host (Result)
 Cloud Function `notifyHostRaidConfirmationResult` triggers when status transitions:
@@ -374,17 +416,20 @@ Push/deeplink routing path:
   - user: minus deposit honey
   - room: `joinedCount +1`
 - `finishRaid(...)`
-  - all ready non-host attendees: `WaitingConfirmation` + reset rating flags
-  - room: `lastSuccessfulRaidAt`
+  - all eligible non-host attendees: append pending request in `pendingConfirmationRequests`, set/keep `WaitingConfirmation`, reset rating flags
+  - room: `lastSuccessfulRaidAt`, prepend one `raidConfirmationHistory` record
 - `respondToRaidConfirmation(JoinedSuccess)`
   - host user: plus raid cost honey
   - attendee row: minus deposit, `Ready`, `needsHostRating=true`
+  - room history attendee result: `Joined`
 - `respondToRaidConfirmation(SeatFullNoFault)`
   - host user: plus no-fault effort fee honey
   - attendee row: minus effort fee, `Ready`, `needsHostRating=false`
+  - room history attendee result: `SeatFull`
 - `respondToRaidConfirmation(MissedInvitation)`
   - no honey movement
   - attendee row: `Ready`, `needsHostRating=false`
+  - room history attendee result: `NoInvite`
 - `resolveRejectedConfirmation(...)`
   - attendee row: `Ready`
 - `rateHostAfterConfirmation(...)`

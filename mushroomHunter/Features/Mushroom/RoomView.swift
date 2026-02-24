@@ -38,7 +38,9 @@ struct RoomView: View {
     @State private var isCopyToastVisible: Bool = false // Controls temporary copied-toast visibility.
     @State private var showFinishSheet: Bool = false // State or dependency property.
     @State private var finishSelection: Set<String> = [] // State or dependency property.
-    @State private var showRaidConfirmAlert: Bool = false // State or dependency property.
+    @State private var isRaidConfirmationQueueSheetPresented: Bool = false // Controls attendee confirmation queue sheet visibility.
+    @State private var isRaidHistorySheetPresented: Bool = false // Controls host raid-history sheet visibility.
+    @State private var isRaidConfirmationResponding: Bool = false // Indicates attendee confirmation response transaction is currently running.
     @State private var showNextRoundAlert: Bool = false // State or dependency property.
     @State private var showRaidThanksAlert: Bool = false // State or dependency property.
     @State private var raidThanksHoney: Int = 0 // State or dependency property.
@@ -67,9 +69,6 @@ struct RoomView: View {
                 .safeAreaInset(edge: .bottom) { actionDock }
                 .task {
                     await vm.load()
-                }
-                .onChange(of: vm.pendingConfirmationForCurrentUser) { _, newValue in
-                    showRaidConfirmAlert = newValue
                 }
                 .onChange(of: vm.hostPendingRatingAttendeeIds) { _, _ in
                     presentNextHostRatingAlertIfNeeded()
@@ -315,7 +314,7 @@ struct RoomView: View {
                                                 .foregroundStyle(.secondary)
                                         }
                                     }
-                                    .disabled(attendee.depositHoney < room.fixedRaidCost || vm.isWaitingConfirmation(attendeeId: attendee.id))
+                                    .disabled(attendee.depositHoney < room.fixedRaidCost)
                                 }
                             }
                         }
@@ -347,6 +346,33 @@ struct RoomView: View {
                     onCopyInviteLink: { link in
                         UIPasteboard.general.string = link
                         showCopiedToast()
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: $isRaidConfirmationQueueSheetPresented) {
+            NavigationStack {
+                RoomRaidConfirmationQueueView(
+                    queueItems: pendingRaidConfirmationQueueItems,
+                    isResponding: isRaidConfirmationResponding,
+                    onClose: { isRaidConfirmationQueueSheetPresented = false },
+                    onRefresh: {
+                        await vm.load(forceRefresh: true)
+                    },
+                    onRespond: { queueItem, settlementOutcome in
+                        isRaidConfirmationQueueSheetPresented = false
+                        Task { await respondToRaidConfirmation(queueItem: queueItem, settlementOutcome: settlementOutcome) }
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: $isRaidHistorySheetPresented) {
+            NavigationStack {
+                RoomRaidHistoryView(
+                    historyItems: raidHistoryItemsLatestFirst,
+                    onClose: { isRaidHistorySheetPresented = false },
+                    onRefresh: {
+                        await vm.load(forceRefresh: true)
                     }
                 )
             }
@@ -413,12 +439,6 @@ struct RoomView: View {
                     }
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                }
-
-                HStack(spacing: 10) {
-                    Text(String(format: NSLocalizedString("room_last_successful_raid_format", comment: ""), room.lastSuccessfulRaidAt.relativeShortString()))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
                 }
 
                 if !room.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -517,6 +537,19 @@ struct RoomView: View {
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
+            if vm.role == .host {
+                Button {
+                    isRaidHistorySheetPresented = true
+                } label: {
+                    Image(systemName: "list.clipboard")
+                        .font(.headline)
+                }
+                .accessibilityLabel(LocalizedStringKey("room_raid_history_accessibility"))
+                .accessibilityIdentifier("room_raid_history_button")
+                .disabled(vm.isLoading)
+            }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
             if vm.role == .attendee, vm.isCurrentUserAllowedToEditDeposit {
                 Button {
                     let currentDeposit = vm.currentUserDepositHoney() ?? 0
@@ -530,6 +563,18 @@ struct RoomView: View {
                 }
                 .accessibilityLabel(LocalizedStringKey("room_edit_bid_accessibility"))
                 .accessibilityIdentifier("room_edit_bid_button")
+                .disabled(vm.isLoading)
+            }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            if vm.role == .attendee {
+                Button {
+                    isRaidConfirmationQueueSheetPresented = true
+                } label: {
+                    raidConfirmationToolbarIcon
+                }
+                .accessibilityLabel(LocalizedStringKey("room_confirmation_queue_accessibility"))
+                .accessibilityIdentifier("room_confirmation_queue_button")
                 .disabled(vm.isLoading)
             }
         }
@@ -613,53 +658,7 @@ struct RoomView: View {
 
     @ViewBuilder
     private var messageBoxOverlay: some View {
-        if showRaidConfirmAlert, let room = vm.room {
-            HoneyMessageBox(
-                title: NSLocalizedString("room_msg_raid_confirm_title", comment: ""),
-                message: String(format: NSLocalizedString("room_msg_raid_confirm_message", comment: ""), room.hostName),
-                buttons: [
-                    HoneyMessageBoxButton(
-                        id: "room_raid_confirm_joined_success",
-                        title: NSLocalizedString("room_msg_raid_confirm_joined_success_button", comment: "")
-                    ) {
-                        showRaidConfirmAlert = false
-                        Task {
-                            let isConfirmed = await vm.respondToRaidConfirmation(settlementOutcome: .joinedSuccess)
-                            if isConfirmed {
-                                raidThanksHoney = vm.room?.fixedRaidCost ?? 0
-                                showRaidThanksAlert = true
-                            }
-                        }
-                    },
-                    HoneyMessageBoxButton(
-                        id: "room_raid_confirm_seat_full",
-                        title: NSLocalizedString("room_msg_raid_confirm_seat_full_button", comment: "")
-                    ) {
-                        showRaidConfirmAlert = false
-                        Task {
-                            let currentDeposit = vm.currentUserDepositHoney() ?? 0
-                            let isConfirmed = await vm.respondToRaidConfirmation(settlementOutcome: .seatFullNoFault)
-                            if isConfirmed {
-                                let fixedRaidCost = vm.room?.fixedRaidCost ?? 0
-                                let noFaultEffortFee = AppConfig.Mushroom.noFaultEffortFee(for: fixedRaidCost)
-                                noFaultSettlementHoney = min(currentDeposit, noFaultEffortFee)
-                                isShowingNoFaultSettlementAlert = true
-                            }
-                        }
-                    },
-                    HoneyMessageBoxButton(
-                        id: "room_raid_confirm_missed_invite",
-                        title: NSLocalizedString("room_msg_raid_confirm_missed_invite_button", comment: ""),
-                        role: .cancel
-                    ) {
-                        showRaidConfirmAlert = false
-                        Task {
-                            await vm.respondToRaidConfirmation(settlementOutcome: .missedInvitation)
-                        }
-                    }
-                ]
-            )
-        } else if showRaidThanksAlert {
+        if showRaidThanksAlert {
             HoneyMessageBox(
                 title: NSLocalizedString("room_msg_raid_thanks_title", comment: ""),
                 message: String(format: NSLocalizedString("room_msg_raid_thanks_message", comment: ""), raidThanksHoney),
@@ -1044,6 +1043,303 @@ struct RoomView: View {
         guard showNextRoundAfterRating else { return }
         showNextRoundAfterRating = false
         showNextRoundAlert = true
+    }
+
+    /// Host-visible raid history items sorted from latest confirmation to oldest confirmation.
+    private var raidHistoryItemsLatestFirst: [RoomRaidHistoryItem] {
+        guard let room = vm.room else { return [] }
+        return room.raidConfirmationHistory
+            .sorted(by: { lhs, rhs in
+                lhs.requestedAt > rhs.requestedAt
+            })
+            .map { historyRecord in
+                RoomRaidHistoryItem(
+                    id: historyRecord.id,
+                    requestedAt: historyRecord.requestedAt,
+                    attendeeResults: historyRecord.attendeeResults.map { attendeeResult in
+                        RoomRaidHistoryAttendeeResultItem(
+                            id: attendeeResult.id,
+                            attendeeName: attendeeResult.name,
+                            status: attendeeResult.status
+                        )
+                    }
+                )
+            }
+    }
+
+    /// Queue items visible in attendee confirmation queue, sorted from latest to oldest.
+    private var pendingRaidConfirmationQueueItems: [RoomRaidConfirmationQueueItem] {
+        guard vm.pendingConfirmationForCurrentUser, let room = vm.room else { return [] }
+        return vm.currentUserPendingConfirmationQueueLatestFirst()
+            .map { pending in
+                RoomRaidConfirmationQueueItem(
+                    id: pending.id,
+                    hostName: room.hostName,
+                    requestedAt: pending.requestedAt
+                )
+            }
+            .sorted(by: { lhs, rhs in
+                lhs.requestedAt > rhs.requestedAt
+            })
+    }
+
+    /// Pending attendee confirmation count used by toolbar badge.
+    private var pendingRaidConfirmationCount: Int {
+        pendingRaidConfirmationQueueItems.count
+    }
+
+    /// Toolbar icon with a red dot indicator when attendee has pending confirmations.
+    @ViewBuilder
+    private var raidConfirmationToolbarIcon: some View {
+        ZStack(alignment: .topTrailing) {
+            Image(systemName: "list.clipboard")
+            if pendingRaidConfirmationCount > 0 {
+                ProfileActionDot()
+                    .offset(x: 6, y: -4)
+            }
+        }
+        .accessibilityValue(
+            Text(
+                pendingRaidConfirmationCount > 0
+                    ? "\(pendingRaidConfirmationCount)"
+                    : "0"
+            )
+        )
+    }
+
+    /// Handles one attendee confirmation selection from the queue page.
+    /// - Parameters:
+    ///   - queueItem: Queue row that triggered this response.
+    ///   - settlementOutcome: Selected settlement outcome submitted to backend.
+    private func respondToRaidConfirmation(
+        queueItem: RoomRaidConfirmationQueueItem,
+        settlementOutcome: RaidSettlementOutcome
+    ) async {
+        guard isRaidConfirmationResponding == false else { return }
+        isRaidConfirmationResponding = true
+        defer { isRaidConfirmationResponding = false }
+
+        switch settlementOutcome {
+        case .joinedSuccess:
+            let isConfirmed = await vm.respondToRaidConfirmation(confirmationId: queueItem.id, settlementOutcome: .joinedSuccess)
+            if isConfirmed {
+                raidThanksHoney = vm.room?.fixedRaidCost ?? 0
+                showRaidThanksAlert = true
+            }
+        case .seatFullNoFault:
+            let currentDeposit = vm.currentUserDepositHoney() ?? 0
+            let isConfirmed = await vm.respondToRaidConfirmation(confirmationId: queueItem.id, settlementOutcome: .seatFullNoFault)
+            if isConfirmed {
+                let fixedRaidCost = vm.room?.fixedRaidCost ?? 0
+                let noFaultEffortFee = AppConfig.Mushroom.noFaultEffortFee(for: fixedRaidCost)
+                noFaultSettlementHoney = min(currentDeposit, noFaultEffortFee)
+                isShowingNoFaultSettlementAlert = true
+            }
+        case .missedInvitation:
+            _ = await vm.respondToRaidConfirmation(confirmationId: queueItem.id, settlementOutcome: .missedInvitation)
+        }
+
+        if pendingRaidConfirmationQueueItems.isEmpty == false,
+           pendingRaidConfirmationQueueItems.contains(where: { $0.id == queueItem.id }) {
+            isRaidConfirmationQueueSheetPresented = true
+        }
+    }
+}
+
+/// One attendee raid-confirmation queue entry rendered by the room confirmation page.
+private struct RoomRaidConfirmationQueueItem: Identifiable, Equatable {
+    /// Stable queue entry identifier.
+    let id: String
+    /// Host display name used in confirmation text.
+    let hostName: String
+    /// Most recent raid confirmation request timestamp.
+    let requestedAt: Date
+}
+
+/// Attendee-facing queue page that lists pending room confirmation actions.
+private struct RoomRaidConfirmationQueueView: View {
+    /// Pending confirmation items that still need attendee responses.
+    let queueItems: [RoomRaidConfirmationQueueItem]
+    /// True while a confirmation response transaction is in flight.
+    let isResponding: Bool
+    /// Callback used to close this queue page.
+    let onClose: () -> Void
+    /// Pull-to-refresh callback for loading latest queue state.
+    let onRefresh: () async -> Void
+    /// Callback when attendee selects one settlement outcome.
+    let onRespond: (RoomRaidConfirmationQueueItem, RaidSettlementOutcome) -> Void
+
+    /// Main queue list layout.
+    var body: some View {
+        List {
+            if queueItems.isEmpty {
+                Text(LocalizedStringKey("room_confirmation_queue_empty"))
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(queueItems) { queueItem in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(
+                            String(
+                                format: NSLocalizedString("room_confirmation_queue_item_title_format", comment: ""),
+                                queueItem.hostName
+                            )
+                        )
+                        .font(.headline)
+
+                        Text(Optional(queueItem.requestedAt).relativeShortString())
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+
+                        VStack(spacing: 8) {
+                            Button {
+                                onRespond(queueItem, .joinedSuccess)
+                            } label: {
+                                Text(LocalizedStringKey("room_msg_raid_confirm_joined_success_button"))
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isResponding)
+                            .accessibilityIdentifier("room_confirmation_joined_success_button_\(queueItem.id)")
+
+                            Button {
+                                onRespond(queueItem, .seatFullNoFault)
+                            } label: {
+                                Text(LocalizedStringKey("room_msg_raid_confirm_seat_full_button"))
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isResponding)
+                            .accessibilityIdentifier("room_confirmation_seat_full_button_\(queueItem.id)")
+
+                            Button {
+                                onRespond(queueItem, .missedInvitation)
+                            } label: {
+                                Text(LocalizedStringKey("room_msg_raid_confirm_missed_invite_button"))
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isResponding)
+                            .accessibilityIdentifier("room_confirmation_missed_invite_button_\(queueItem.id)")
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .navigationTitle(LocalizedStringKey("room_confirmation_queue_title"))
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(LocalizedStringKey("common_close")) {
+                    onClose()
+                }
+                .accessibilityIdentifier("room_confirmation_queue_close_button")
+            }
+        }
+        .refreshable {
+            await onRefresh()
+        }
+    }
+}
+
+/// One host-visible raid history confirmation entry.
+private struct RoomRaidHistoryItem: Identifiable, Equatable {
+    /// Stable confirmation id.
+    let id: String
+    /// Host invitation request timestamp.
+    let requestedAt: Date
+    /// All non-host attendee status rows captured for this confirmation.
+    let attendeeResults: [RoomRaidHistoryAttendeeResultItem]
+}
+
+/// One attendee response row inside host raid history.
+private struct RoomRaidHistoryAttendeeResultItem: Identifiable, Equatable {
+    /// Attendee uid.
+    let id: String
+    /// Attendee display name.
+    let attendeeName: String
+    /// Invitation response status shown in host history.
+    let status: RoomRaidConfirmationAttendeeStatus
+}
+
+/// Host-facing read-only raid history page.
+private struct RoomRaidHistoryView: View {
+    /// Confirmation history entries sorted latest to oldest.
+    let historyItems: [RoomRaidHistoryItem]
+    /// Callback used to dismiss this sheet.
+    let onClose: () -> Void
+    /// Pull-to-refresh callback for reloading latest history.
+    let onRefresh: () async -> Void
+
+    /// Main history list composition.
+    var body: some View {
+        List {
+            if historyItems.isEmpty {
+                Text(LocalizedStringKey("room_raid_history_empty"))
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(historyItems) { historyItem in
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(Optional(historyItem.requestedAt).relativeShortString())
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+
+                        ForEach(historyItem.attendeeResults) { attendeeResult in
+                            HStack(spacing: 10) {
+                                Text(attendeeResult.attendeeName)
+                                    .font(.headline)
+                                    .lineLimit(1)
+                                Spacer()
+                                ProfileStatusBadge(
+                                    titleKey: attendeeResult.status.statusTitleKey,
+                                    urgency: attendeeResult.status.statusUrgency
+                                )
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .navigationTitle(LocalizedStringKey("room_raid_history_title"))
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(LocalizedStringKey("common_close")) {
+                    onClose()
+                }
+                .accessibilityIdentifier("room_raid_history_close_button")
+            }
+        }
+        .refreshable {
+            await onRefresh()
+        }
+    }
+}
+
+extension RoomRaidConfirmationAttendeeStatus {
+    /// Localized status label key for host raid history pill.
+    fileprivate var statusTitleKey: LocalizedStringKey {
+        switch self {
+        case .confirming:
+            return LocalizedStringKey("room_raid_history_status_confirming")
+        case .joined:
+            return LocalizedStringKey("room_raid_history_status_joined")
+        case .seatFull:
+            return LocalizedStringKey("room_raid_history_status_seat_full")
+        case .noInvite:
+            return LocalizedStringKey("room_raid_history_status_no_invite")
+        }
+    }
+
+    /// Badge urgency that maps status to existing rounded-rectangle badge colors.
+    fileprivate var statusUrgency: ProfileStatusUrgency {
+        switch self {
+        case .confirming, .seatFull:
+            return .warning
+        case .joined:
+            return .success
+        case .noInvite:
+            return .critical
+        }
     }
 }
 

@@ -27,6 +27,7 @@
 //  [X] - `createdAt`: Not used by detail mapping.
 //  [X] - `updatedAt`: Not used by detail mapping.
 //  [R] - `lastSuccessfulRaidAt`: Reads last raid timestamp for detail status.
+//  [R] - `raidConfirmationHistory`: Reads host raid-confirmation history snapshots.
 //  [R] - `targetColor`: Reads target color into `MushroomTarget`.
 //  [R] - `targetAttribute`: Reads target attribute into `MushroomTarget`.
 //  [X] - `attribute` (legacy fallback): Detail repo does not use legacy attribute key.
@@ -46,6 +47,7 @@
 //  [R] - `needsHostRating`: Reads host-rating pending flag for detail actions.
 //  [X] - `attendeeRatedHost`: Not mapped by detail repo.
 //  [X] - `hostRatedAttendee`: Not mapped by detail repo.
+//  [R] - `pendingConfirmationRequests`: Reads joiner pending confirmation queue for room detail confirmation UI.
 //
 import Foundation
 import FirebaseFirestore
@@ -87,6 +89,38 @@ final class FbRoomRepo {
         let maxPlayers = data["maxPlayers"] as? Int ?? AppConfig.Mushroom.defaultMaxPlayersPerRoom
 
         let lastRaidAt = (data["lastSuccessfulRaidAt"] as? Timestamp)?.dateValue()
+        let raidHistoryRaw = data["raidConfirmationHistory"] as? [[String: Any]] ?? []
+        let raidConfirmationHistory: [RoomRaidConfirmationRecord] = raidHistoryRaw.compactMap { entry -> RoomRaidConfirmationRecord? in
+            guard
+                let confirmationId = entry["id"] as? String,
+                let requestedAt = (entry["requestedAt"] as? Timestamp)?.dateValue()
+            else {
+                return nil
+            }
+            let attendeeResultsRaw = entry["attendeeResults"] as? [[String: Any]] ?? []
+            let attendeeResults: [RoomRaidConfirmationAttendeeResult] = attendeeResultsRaw.compactMap { attendeeResult -> RoomRaidConfirmationAttendeeResult? in
+                guard
+                    let attendeeId = attendeeResult["uid"] as? String,
+                    let attendeeName = attendeeResult["name"] as? String,
+                    let statusRaw = attendeeResult["status"] as? String,
+                    let status = RoomRaidConfirmationAttendeeStatus(rawValue: statusRaw)
+                else {
+                    return nil
+                }
+                return RoomRaidConfirmationAttendeeResult(
+                    id: attendeeId,
+                    name: attendeeName,
+                    status: status
+                )
+            }
+            return RoomRaidConfirmationRecord(
+                id: confirmationId,
+                requestedAt: requestedAt,
+                attendeeResults: attendeeResults
+            )
+        }.sorted(by: { (lhs: RoomRaidConfirmationRecord, rhs: RoomRaidConfirmationRecord) in
+            lhs.requestedAt > rhs.requestedAt
+        })
 
         // attendees will be filled by fetchAttendees()
         return RoomDetail(
@@ -97,6 +131,7 @@ final class FbRoomRepo {
             targetMushroom: target,
             fixedRaidCost: fixedRaidCost,
             lastSuccessfulRaidAt: lastRaidAt,
+            raidConfirmationHistory: raidConfirmationHistory,
             attendees: [],
             maxPlayers: maxPlayers
         )
@@ -128,6 +163,12 @@ final class FbRoomRepo {
             let statusRaw = (d["status"] as? String) ?? AttendeeStatus.ready.rawValue
             let status = AttendeeStatus(rawValue: statusRaw) ?? .ready
             let needsHostRating = d["needsHostRating"] as? Bool ?? false
+            let pendingConfirmationRequestsRaw = d["pendingConfirmationRequests"] as? [String: Any] ?? [:]
+            let pendingConfirmationRequests = pendingConfirmationRequestsRaw.reduce(into: [String: Date]()) { partialResult, entry in
+                if let timestamp = entry.value as? Timestamp {
+                    partialResult[entry.key] = timestamp.dateValue()
+                }
+            }
 
             return RoomAttendee(
                 id: doc.documentID,
@@ -138,7 +179,8 @@ final class FbRoomRepo {
                 joinGreetingMessage: joinGreetingMessage,
                 joinedAt: joinedAt,
                 status: status,
-                needsHostRating: needsHostRating
+                needsHostRating: needsHostRating,
+                pendingConfirmationRequests: pendingConfirmationRequests
             )
         }
     }

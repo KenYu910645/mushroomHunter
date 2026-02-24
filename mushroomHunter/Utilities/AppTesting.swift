@@ -71,7 +71,8 @@ enum AppTesting {
                 joinGreetingMessage: "Host fixture attendee.",
                 joinedAt: Date().addingTimeInterval(-300),
                 status: .host,
-                needsHostRating: false
+                needsHostRating: false,
+                pendingConfirmationRequests: [:]
             )
         ]
 
@@ -86,7 +87,8 @@ enum AppTesting {
                     joinGreetingMessage: "UI fixture join greeting.",
                     joinedAt: Date(),
                     status: .ready,
-                    needsHostRating: false
+                    needsHostRating: false,
+                    pendingConfirmationRequests: [:]
                 )
             )
         }
@@ -99,6 +101,7 @@ enum AppTesting {
             targetMushroom: MushroomTarget(color: .Red, attribute: .Fire, size: .Normal),
             fixedRaidCost: AppConfig.Mushroom.defaultFixedRaidCost,
             lastSuccessfulRaidAt: Date().addingTimeInterval(-3600),
+            raidConfirmationHistory: [],
             attendees: attendees,
             maxPlayers: AppConfig.Mushroom.defaultMaxPlayersPerRoom
         )

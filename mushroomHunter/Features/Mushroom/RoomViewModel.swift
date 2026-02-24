@@ -105,12 +105,13 @@ final class RoomViewModel: ObservableObject {
     }
 
     @discardableResult
-    func respondToRaidConfirmation(settlementOutcome: RaidSettlementOutcome) async -> Bool { // Handles respondToRaidConfirmation flow.
+    func respondToRaidConfirmation(confirmationId: String, settlementOutcome: RaidSettlementOutcome) async -> Bool { // Handles respondToRaidConfirmation flow.
         guard let uid = session.authUid else { return false }
         do {
             try await actions.respondToRaidConfirmation(
                 roomId: roomId,
                 attendeeUid: uid,
+                confirmationId: confirmationId,
                 settlementOutcome: settlementOutcome
             )
             await load(forceRefresh: true)
@@ -126,7 +127,11 @@ final class RoomViewModel: ObservableObject {
     func raidSettlementTargetAttendeeIds() -> [String] { // Handles raidSettlementTargetAttendeeIds flow.
         guard let room else { return [] }
         return room.attendees
-            .filter { $0.status == .ready }
+            .filter { attendee in
+                attendee.status != .host &&
+                attendee.status != .askingToJoin &&
+                attendee.depositHoney >= room.fixedRaidCost
+            }
             .map(\.id)
     }
 
@@ -407,9 +412,13 @@ final class RoomViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
+            let allNonHostAttendeeUids = room.attendees
+                .filter { $0.status != .host }
+                .map(\.id)
             try await actions.finishRaid(
                 roomId: room.id,
-                attendeeUids: attendeeIds
+                attendeeUids: attendeeIds,
+                allNonHostAttendeeUids: allNonHostAttendeeUids
             )
             await load(forceRefresh: true)
         } catch is CancellationError {
@@ -474,6 +483,22 @@ final class RoomViewModel: ObservableObject {
         guard let room, let uid = currentUserId else { return nil }
         return room.attendees.first(where: { $0.id == uid })?.status
     }
+
+    /// Returns current user pending confirmation queue from latest to oldest.
+    func currentUserPendingConfirmationQueueLatestFirst() -> [(id: String, requestedAt: Date)] {
+        guard let room, let uid = currentUserId else { return [] }
+        guard let attendee = room.attendees.first(where: { $0.id == uid }) else { return [] }
+        let queue = attendee.pendingConfirmationQueueLatestFirst
+        if queue.isEmpty, attendee.status == .waitingConfirmation {
+            return [
+                (
+                    id: "legacy-\(attendee.id)",
+                    requestedAt: room.lastSuccessfulRaidAt ?? attendee.joinedAt ?? Date.distantPast
+                )
+            ]
+        }
+        return queue
+    }
     
     // MARK: Private helpers
     private func recomputeRole() {
@@ -503,7 +528,7 @@ final class RoomViewModel: ObservableObject {
         }
 
         let pending = room.attendees
-            .filter { $0.status == .waitingConfirmation }
+            .filter { $0.isWaitingConfirmation }
             .map { $0.id }
         let rejected = room.attendees
             .filter { $0.status == .rejected }
@@ -519,7 +544,7 @@ final class RoomViewModel: ObservableObject {
 
         if let uid = currentUserId,
            let me = room.attendees.first(where: { $0.id == uid }) {
-            pendingConfirmationForCurrentUser = (me.status == .waitingConfirmation)
+            pendingConfirmationForCurrentUser = me.isWaitingConfirmation
         } else {
             pendingConfirmationForCurrentUser = false
         }

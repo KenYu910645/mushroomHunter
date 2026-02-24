@@ -41,10 +41,40 @@ struct RoomDetail: Identifiable, Equatable, Codable {
     /// When the room last completed a successful raid.
     /// We’ll display as “24h ago” style in the UI.
     var lastSuccessfulRaidAt: Date?
+    /// Historical raid confirmation snapshots, latest first.
+    var raidConfirmationHistory: [RoomRaidConfirmationRecord]
 
     // Attendance
     var attendees: [RoomAttendee]
     var maxPlayers: Int
+}
+
+/// One room-level raid confirmation record with attendee-level statuses.
+struct RoomRaidConfirmationRecord: Identifiable, Equatable, Codable {
+    /// Stable confirmation id shared across invited attendees.
+    let id: String
+    /// Time when this confirmation cycle was created by the host.
+    let requestedAt: Date
+    /// Snapshot of attendee statuses for this confirmation cycle.
+    var attendeeResults: [RoomRaidConfirmationAttendeeResult]
+}
+
+/// One attendee status row inside a raid confirmation history record.
+struct RoomRaidConfirmationAttendeeResult: Identifiable, Equatable, Codable {
+    /// Attendee uid.
+    let id: String
+    /// Attendee display name snapshot captured when record was created.
+    var name: String
+    /// Host-visible invitation response status for this attendee.
+    var status: RoomRaidConfirmationAttendeeStatus
+}
+
+/// Host-visible attendee response state used by raid history.
+enum RoomRaidConfirmationAttendeeStatus: String, CaseIterable, Codable {
+    case confirming = "Confirming"
+    case joined = "Joined"
+    case seatFull = "SeatFull"
+    case noInvite = "NoInvite"
 }
 
 /// Mushroom targeting info (align with your Host tab)
@@ -106,6 +136,8 @@ struct RoomAttendee: Identifiable, Equatable, Codable {
     var status: AttendeeStatus
     /// Host should rate this attendee for the latest confirmed raid.
     var needsHostRating: Bool
+    /// Pending confirmation queue keyed by confirmation id with request timestamp.
+    var pendingConfirmationRequests: [String: Date]
 }
 
 enum AttendeeStatus: String, CaseIterable, Codable {
@@ -148,6 +180,20 @@ extension RoomAttendee {
     /// Format friend code as "1234 5678 2345"
     var friendCodeFormatted: String {
         FriendCode.formatted(friendCode)
+    }
+
+    /// Whether this attendee has at least one unprocessed raid confirmation request.
+    var isWaitingConfirmation: Bool {
+        !pendingConfirmationRequests.isEmpty || status == .waitingConfirmation
+    }
+
+    /// Pending confirmation queue sorted from latest request to oldest request.
+    var pendingConfirmationQueueLatestFirst: [(id: String, requestedAt: Date)] {
+        pendingConfirmationRequests
+            .map { (id: $0.key, requestedAt: $0.value) }
+            .sorted { lhs, rhs in
+                lhs.requestedAt > rhs.requestedAt
+            }
     }
 }
 

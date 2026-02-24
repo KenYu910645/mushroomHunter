@@ -129,6 +129,9 @@
 "room_edit_room_accessibility" = "編輯房間";
 "room_share_accessibility" = "分享房間邀請";
 "room_edit_bid_accessibility" = "編輯儲值";
+"room_confirmation_queue_accessibility" = "開啟房間確認";
+"room_raid_history_button" = "戰鬥紀錄";
+"room_raid_history_accessibility" = "開啟戰鬥紀錄";
 "room_kick" = "踢除";
 "room_copy_attendee_code_accessibility" = "複製參加者好友碼";
 "room_status_waiting_confirm" = "等待確認";
@@ -171,6 +174,15 @@
 "room_msg_raid_confirm_missed_invite_button" = "沒有，我沒看到邀請";
 "room_msg_settlement_no_fault_title" = "感謝你的更新！";
 "room_msg_settlement_no_fault_message" = "轉給主持人 2 {honey_icon} 作為小費。沒關係！主持人下次會再邀請你。";
+"room_confirmation_queue_title" = "確認佇列";
+"room_confirmation_queue_empty" = "此房間目前沒有待處理確認。";
+"room_confirmation_queue_item_title_format" = "%@ 已邀請你參加蘑菇戰。";
+"room_raid_history_title" = "戰鬥紀錄";
+"room_raid_history_empty" = "目前沒有確認紀錄。";
+"room_raid_history_status_confirming" = "確認中";
+"room_raid_history_status_joined" = "已加入";
+"room_raid_history_status_seat_full" = "已滿位";
+"room_raid_history_status_no_invite" = "未邀請";
 
 /***************************************/
 /**** Room Message Box: Next Round ****/

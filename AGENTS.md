@@ -151,11 +151,12 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - Server-side notifications/email: Firebase Cloud Functions (`functions/index.js`)
 
 ## Always Build/Install/Run After Code Changes
-After any code change, you must build, install, and launch on Ken's connected iPhone unless explicitly told to "skip build".
+After any code change, you must build, install, and launch on both connected iPhones (Ken's iPhone and Doris's phone) unless explicitly told to "skip build".
 If build/install/launch fails, read errors and fix before handing off.
 
 ### Current device and bundle
-- Device (CoreDevice UUID): `664E44A2-57C7-5319-B871-EB1D380FBC1B` (Ken's iPhone)
+- Ken's iPhone (CoreDevice UUID): `664E44A2-57C7-5319-B871-EB1D380FBC1B`
+- Doris's phone (CoreDevice UUID): `A87D1488-6006-5E4F-9332-A8E6205A4373`
 - Build destination device id: `00008150-00021D26028A401C`
 - Bundle ID: `com.kenyu.mushroomHunter`
 - Project: `/Users/ken/Desktop/mushroomHunter/mushroomHunter.xcodeproj`
@@ -169,8 +170,15 @@ xcodebuild -project /Users/ken/Desktop/mushroomHunter/mushroomHunter.xcodeproj \
 
 APP_PATH=$(ls -dt /Users/ken/Library/Developer/Xcode/DerivedData/mushroomHunter-*/Build/Products/Debug-iphoneos/HoneyHub.app | head -n 1)
 
-xcrun devicectl device install app --device 664E44A2-57C7-5319-B871-EB1D380FBC1B "$APP_PATH"
-xcrun devicectl device process launch --device 664E44A2-57C7-5319-B871-EB1D380FBC1B com.kenyu.mushroomHunter
+(
+  xcrun devicectl device install app --device 664E44A2-57C7-5319-B871-EB1D380FBC1B "$APP_PATH" &&
+  xcrun devicectl device process launch --device 664E44A2-57C7-5319-B871-EB1D380FBC1B com.kenyu.mushroomHunter
+) &
+(
+  xcrun devicectl device install app --device A87D1488-6006-5E4F-9332-A8E6205A4373 "$APP_PATH" &&
+  xcrun devicectl device process launch --device A87D1488-6006-5E4F-9332-A8E6205A4373 com.kenyu.mushroomHunter
+) &
+wait
 ```
 
 ## Push To GitHub Workflow

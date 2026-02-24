@@ -28,6 +28,7 @@
 //  [X] - `createdAt`: Not used by actions logic.
 //  [W] - `updatedAt`: Updates timestamp on every room mutation.
 //  [W] - `lastSuccessfulRaidAt`: Writes when host finishes raid confirmation cycle.
+//  [W] - `raidConfirmationHistory`: Writes and updates host read-only raid confirmation history snapshots.
 //  [X] - `targetColor`: Not used by actions logic.
 //  [X] - `targetAttribute`: Not used by actions logic.
 //  [X] - `attribute` (legacy fallback): Not used by actions logic.
@@ -47,6 +48,7 @@
 //  [W] - `needsHostRating`: Reads/writes pending host-rating state after confirmations.
 //  [W] - `attendeeRatedHost`: Reads/writes attendee-to-host rating completion state.
 //  [W] - `hostRatedAttendee`: Reads/writes host-to-attendee rating completion state.
+//  [W] - `pendingConfirmationRequests`: Reads/writes per-attendee pending confirmation queue entries.
 //  [W] - `lastSettlementOutcome`: Writes latest attendee escrow-settlement result.
 //  [W] - `lastSettlementHoney`: Writes latest honey settled from attendee to host.
 //
@@ -617,12 +619,19 @@ final class FbRoomActionsRepo {
     }
 
     // MARK: - Finish raid (host only)
-    func finishRaid(roomId: String, attendeeUids: [String]) async throws { // Handles finishRaid flow.
+    func finishRaid(
+        roomId: String,
+        attendeeUids: [String],
+        allNonHostAttendeeUids: [String]
+    ) async throws { // Handles finishRaid flow.
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
         guard !attendeeUids.isEmpty else { return }
 
         let roomRef = db.collection("rooms").document(roomId)
         let now = Timestamp(date: Date())
+        let confirmationId = UUID().uuidString
+        let invitedAttendeeUids = Set(attendeeUids)
+        let historyLimit = 50
 
         _ = try await db.runTransaction { [self] tx, errPtr -> Any? in
             let roomSnap: DocumentSnapshot
@@ -646,10 +655,10 @@ final class FbRoomActionsRepo {
 
             _ = (room["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
 
-            var attendeeDocs: [(ref: DocumentReference, data: [String: Any])] = []
-            attendeeDocs.reserveCapacity(attendeeUids.count)
+            var attendeeDocsForHistory: [(uid: String, ref: DocumentReference, data: [String: Any])] = []
+            attendeeDocsForHistory.reserveCapacity(allNonHostAttendeeUids.count)
 
-            for attendeeUid in attendeeUids {
+            for attendeeUid in allNonHostAttendeeUids {
                 let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
                 let attendeeSnap: DocumentSnapshot
                 do { attendeeSnap = try tx.getDocument(attendeeRef) }
@@ -658,23 +667,52 @@ final class FbRoomActionsRepo {
                 guard attendeeSnap.exists, let data = attendeeSnap.data() else {
                     continue
                 }
-                attendeeDocs.append((ref: attendeeRef, data: data))
+                attendeeDocsForHistory.append((uid: attendeeUid, ref: attendeeRef, data: data))
             }
 
-            for attendee in attendeeDocs {
+            for attendee in attendeeDocsForHistory where invitedAttendeeUids.contains(attendee.uid) {
+                let existingQueueRaw = attendee.data["pendingConfirmationRequests"] as? [String: Any] ?? [:]
+                var pendingConfirmationRequests = existingQueueRaw.reduce(into: [String: Timestamp]()) { partialResult, entry in
+                    if let timestamp = entry.value as? Timestamp {
+                        partialResult[entry.key] = timestamp
+                    }
+                }
+                pendingConfirmationRequests[confirmationId] = now
                 tx.updateData([
                     "status": AttendeeStatus.waitingConfirmation.rawValue,
                     "attendeeRatedHost": false,
                     "hostRatedAttendee": false,
                     "needsHostRating": false,
+                    "pendingConfirmationRequests": pendingConfirmationRequests,
                     "lastSettlementOutcome": "",
                     "lastSettlementHoney": 0,
                     "updatedAt": now
                 ], forDocument: attendee.ref)
             }
 
+            let attendeeResultsForHistory = attendeeDocsForHistory.map { attendee in
+                let attendeeName = attendee.data["name"] as? String ?? "Unknown"
+                let isInvited = invitedAttendeeUids.contains(attendee.uid)
+                return [
+                    "uid": attendee.uid,
+                    "name": attendeeName,
+                    "status": isInvited
+                        ? RoomRaidConfirmationAttendeeStatus.confirming.rawValue
+                        : RoomRaidConfirmationAttendeeStatus.noInvite.rawValue
+                ]
+            }
+
+            let existingHistory = room["raidConfirmationHistory"] as? [[String: Any]] ?? []
+            let createdHistoryEntry: [String: Any] = [
+                "id": confirmationId,
+                "requestedAt": now,
+                "attendeeResults": attendeeResultsForHistory
+            ]
+            let updatedHistory = Array(([createdHistoryEntry] + existingHistory).prefix(historyLimit))
+
             let roomUpdates: [String: Any] = [
                 "lastSuccessfulRaidAt": now,
+                "raidConfirmationHistory": updatedHistory,
                 "updatedAt": now
             ]
             tx.updateData(roomUpdates, forDocument: roomRef)
@@ -687,6 +725,7 @@ final class FbRoomActionsRepo {
     func respondToRaidConfirmation(
         roomId: String,
         attendeeUid: String,
+        confirmationId: String,
         settlementOutcome: RaidSettlementOutcome
     ) async throws { // Handles respondToRaidConfirmation flow.
         guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
@@ -700,9 +739,11 @@ final class FbRoomActionsRepo {
         try await db.runTransaction { [self] tx, errPtr -> Any? in
             let hostRef = self.db.collection("users").document(hostContext.hostUid)
 
+            let roomSnap: DocumentSnapshot
             let hostSnap: DocumentSnapshot
             let attendeeSnap: DocumentSnapshot
             do {
+                roomSnap = try tx.getDocument(roomRef)
                 hostSnap = try tx.getDocument(hostRef)
                 attendeeSnap = try tx.getDocument(attendeeRef)
             } catch {
@@ -710,11 +751,40 @@ final class FbRoomActionsRepo {
                 return nil
             }
 
+            let roomData = roomSnap.data() ?? [:]
             let hostHoney = hostSnap.data()?["honey"] as? Int ?? 0
-            let attendeeDeposit = attendeeSnap.data()?["depositHoney"] as? Int ?? 0
+            let attendeeData = attendeeSnap.data() ?? [:]
+            let attendeeDeposit = attendeeData["depositHoney"] as? Int ?? 0
+            let attendeeStatus = attendeeData["status"] as? String ?? ""
+            let pendingQueueRaw = attendeeData["pendingConfirmationRequests"] as? [String: Any] ?? [:]
+            var pendingConfirmationRequests = pendingQueueRaw.reduce(into: [String: Timestamp]()) { partialResult, entry in
+                if let timestamp = entry.value as? Timestamp {
+                    partialResult[entry.key] = timestamp
+                }
+            }
 
+            if pendingConfirmationRequests.isEmpty {
+                if attendeeStatus != AttendeeStatus.waitingConfirmation.rawValue {
+                    errPtr?.pointee = RoomActionError.notInRoom as NSError
+                    return nil
+                }
+            } else {
+                guard pendingConfirmationRequests[confirmationId] != nil else {
+                    errPtr?.pointee = RoomActionError.notInRoom as NSError
+                    return nil
+                }
+                pendingConfirmationRequests.removeValue(forKey: confirmationId)
+            }
+
+            let hasPendingConfirmation = pendingConfirmationRequests.isEmpty == false
+            let nextStatusRaw = hasPendingConfirmation
+                ? AttendeeStatus.waitingConfirmation.rawValue
+                : AttendeeStatus.ready.rawValue
+
+            let historyStatus: RoomRaidConfirmationAttendeeStatus
             switch settlementOutcome {
             case .joinedSuccess:
+                historyStatus = .joined
                 if attendeeDeposit < hostContext.raidCostHoney {
                     errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
                     return nil
@@ -727,13 +797,15 @@ final class FbRoomActionsRepo {
 
                 tx.updateData([
                     "depositHoney": max(0, attendeeDeposit - settlementHoney),
-                    "status": AttendeeStatus.ready.rawValue,
+                    "status": nextStatusRaw,
                     "needsHostRating": true,
+                    "pendingConfirmationRequests": pendingConfirmationRequests,
                     "lastSettlementOutcome": settlementOutcome.rawValue,
                     "lastSettlementHoney": settlementHoney,
                     "updatedAt": now
                 ], forDocument: attendeeRef)
             case .seatFullNoFault:
+                historyStatus = .seatFull
                 let noFaultEffortFee = AppConfig.Mushroom.noFaultEffortFee(for: hostContext.raidCostHoney)
                 let settlementHoney = min(attendeeDeposit, max(0, noFaultEffortFee))
                 tx.updateData([
@@ -743,20 +815,44 @@ final class FbRoomActionsRepo {
 
                 tx.updateData([
                     "depositHoney": max(0, attendeeDeposit - settlementHoney),
-                    "status": AttendeeStatus.ready.rawValue,
+                    "status": nextStatusRaw,
                     "needsHostRating": false,
+                    "pendingConfirmationRequests": pendingConfirmationRequests,
                     "lastSettlementOutcome": settlementOutcome.rawValue,
                     "lastSettlementHoney": settlementHoney,
                     "updatedAt": now
                 ], forDocument: attendeeRef)
             case .missedInvitation:
+                historyStatus = .noInvite
                 tx.updateData([
-                    "status": AttendeeStatus.ready.rawValue,
+                    "status": nextStatusRaw,
                     "needsHostRating": false,
+                    "pendingConfirmationRequests": pendingConfirmationRequests,
                     "lastSettlementOutcome": settlementOutcome.rawValue,
                     "lastSettlementHoney": 0,
                     "updatedAt": now
                 ], forDocument: attendeeRef)
+            }
+
+            var raidConfirmationHistory = roomData["raidConfirmationHistory"] as? [[String: Any]] ?? []
+            if let historyIndex = raidConfirmationHistory.firstIndex(where: { historyEntry in
+                (historyEntry["id"] as? String) == confirmationId
+            }) {
+                var historyEntry = raidConfirmationHistory[historyIndex]
+                var attendeeResults = historyEntry["attendeeResults"] as? [[String: Any]] ?? []
+                if let attendeeIndex = attendeeResults.firstIndex(where: { attendeeEntry in
+                    (attendeeEntry["uid"] as? String) == attendeeUid
+                }) {
+                    var attendeeEntry = attendeeResults[attendeeIndex]
+                    attendeeEntry["status"] = historyStatus.rawValue
+                    attendeeResults[attendeeIndex] = attendeeEntry
+                    historyEntry["attendeeResults"] = attendeeResults
+                    raidConfirmationHistory[historyIndex] = historyEntry
+                    tx.updateData([
+                        "raidConfirmationHistory": raidConfirmationHistory,
+                        "updatedAt": now
+                    ], forDocument: roomRef)
+                }
             }
 
             return nil
@@ -791,11 +887,24 @@ final class FbRoomActionsRepo {
                 return nil
             }
 
+            let attendeeSnap: DocumentSnapshot
+            do { attendeeSnap = try tx.getDocument(attendeeRef) }
+            catch { errPtr?.pointee = error as NSError; return nil }
+            let attendeeData = attendeeSnap.data() ?? [:]
+            let pendingQueueRaw = attendeeData["pendingConfirmationRequests"] as? [String: Any] ?? [:]
+            var pendingConfirmationRequests = pendingQueueRaw.reduce(into: [String: Timestamp]()) { partialResult, entry in
+                if let timestamp = entry.value as? Timestamp {
+                    partialResult[entry.key] = timestamp
+                }
+            }
+            pendingConfirmationRequests[UUID().uuidString] = now
+
             tx.updateData([
                 "status": AttendeeStatus.waitingConfirmation.rawValue,
                 "attendeeRatedHost": false,
                 "hostRatedAttendee": false,
                 "needsHostRating": false,
+                "pendingConfirmationRequests": pendingConfirmationRequests,
                 "updatedAt": now
             ], forDocument: attendeeRef)
 

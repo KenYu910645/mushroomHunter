@@ -128,6 +128,9 @@
 "room_edit_room_accessibility" = "Edit Room";
 "room_share_accessibility" = "Share room invite";
 "room_edit_bid_accessibility" = "Edit Deposit";
+"room_confirmation_queue_accessibility" = "Open room confirmations";
+"room_raid_history_button" = "Raid History";
+"room_raid_history_accessibility" = "Open raid history";
 "room_kick" = "Kick";
 "room_copy_attendee_code_accessibility" = "Copy attendee friend code";
 "room_status_waiting_confirm" = "Confirming";
@@ -170,6 +173,15 @@
 "room_msg_raid_confirm_missed_invite_button" = "No, I didn't see invitation";
 "room_msg_settlement_no_fault_title" = "Thanks for the update!";
 "room_msg_settlement_no_fault_message" = "Transfer 2 {honey_icon} to host as tips. No worries! The host will invite you next time.";
+"room_confirmation_queue_title" = "Confirmations";
+"room_confirmation_queue_empty" = "No pending confirmations in this room.";
+"room_confirmation_queue_item_title_format" = "%@ invited you to a mushroom.";
+"room_raid_history_title" = "Raid History";
+"room_raid_history_empty" = "No raid confirmations yet.";
+"room_raid_history_status_confirming" = "Confirming";
+"room_raid_history_status_joined" = "Joined";
+"room_raid_history_status_seat_full" = "Seat full";
+"room_raid_history_status_no_invite" = "No invite";
 
 /***************************************/
 /**** Room Message Box: Next Round ****/

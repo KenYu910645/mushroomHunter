@@ -38,12 +38,17 @@ In UI testing mode, profile refresh/sync paths are also short-circuited so no Fi
 - Test: `testJoinFlowCanOpenRoomAndJoinFixture`
 - Coverage:
   - Join a fixture room in mock mode.
-  - Join action path opens expected confirmation feedback (alert flow).
+  - Join action path opens expected confirmation feedback.
   - Joined attendee starts in pending-approval state (`AskingToJoin`) until host accepts.
-  - Raid settlement alert supports three attendee responses:
+  - Raid settlement confirmation queue supports multiple pending confirmations (latest first) and three attendee responses per queue item:
     - joined success
     - seat full (no-fault)
     - missed invitation
+  - Host room view provides a read-only `Raid History` page sorted latest to oldest confirmation records.
+  - Each host raid-history record displays all non-host attendees with status-pill colors:
+    - `Confirming` and `Seat full` (warning/yellow)
+    - `Joined` (success/green)
+    - `No invite` (critical/red)
 
 ### 4. Postcard buy flow
 - Test: `testBuyPostcardFlow`
@@ -107,6 +112,8 @@ In UI testing mode, profile refresh/sync paths are also short-circuited so no Fi
   - Profile tab icon shows a red dot when actionable total is greater than `0`.
   - App icon badge shows the numeric actionable total.
   - Postcard detail seller shipping icon shows a tiny red dot when pending shipping count is greater than `0`.
+  - Room detail attendee confirmation-queue icon shows a tiny red dot when attendee has pending `WaitingConfirmation` in that room.
+  - Room detail host `Raid History` icon opens a read-only history list and does not offer settlement action buttons.
   - Profile actionable rows (mushroom + postcard lists) show a tiny red dot marker at row-leading edge when actionable count is greater than `0`.
   - Room attendee rows show a tiny red dot before attendee name for host-visible `AskingToJoin` notification sources.
 
