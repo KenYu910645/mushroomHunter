@@ -24,7 +24,7 @@
 - `mushroomHunter/Utilities/RoomInviteLink.swift`: deep link generation/parsing for `honeyhub://room/{roomId}`.
 - `mushroomHunter/Utilities/CountryLocalization.swift`: shared locale-aware country + room-location display resolver used by mushroom/postcard labels.
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed mushroom settings (attribute lists, fixed raid defaults, room limits, query limits).
-- `mushroomHunter/Utilities/AppDataCache.swift`: shared app-level memory+disk Codable cache used by mushroom browse/detail stale-first loading.
+- `mushroomHunter/Utilities/AppDataCache.swift`: shared app-level Codable payload cache utility.
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used across profile, room, and postcard flows.
 - `mushroomHunter/User/NotificationInboxStore.swift`: shared Firestore-backed notification event history pagination, Action/Record state handling, and deep-link route metadata.
 - `functions/index.js`: server-side push triggers used by mushroom confirmation flows.
@@ -55,12 +55,8 @@
   - Score penalty: `dormantHoursBeyondThreshold * AppConfig.Mushroom.browsePriorityDormantHourPenalty`.
   - Dormant hours are measured from `lastSuccessfulRaidAt` (fallback `createdAt` when never raided).
   - No dormancy penalty is applied until elapsed time exceeds `AppConfig.Mushroom.browsePriorityDormantThresholdHours` (default 48h).
-- Mushroom browse list now uses app-level stale-first cache:
-  - Entering Mushroom tab reads cached browse list first, then immediately refreshes from Firestore and overwrites cache.
-  - Browse fetch uses server-first query (with local/default fallback only on server failure) so attendee count (`joinedCount`) is aligned with room detail more consistently.
-  - Pull-to-refresh forces latest Firestore query and overwrites cache.
-  - Tapping keyboard search submit forces latest Firestore query before applying local filter.
-- Inline search field includes an `x` clear button; tapping `x` clears query and collapses the search field. Keyboard submit uses `Search` and triggers backend search. Top-bar search icon toggles field show/hide.
+- Mushroom browse fetch uses server-first query (with local/default fallback only on server failure) so attendee count (`joinedCount`) is aligned with room detail more consistently.
+- Inline search field includes an `x` clear button; tapping `x` clears query and collapses the search field. Keyboard submit uses `Search` and triggers backend search. Top-bar search icon toggles field show/hide, and hiding the search field also clears query.
 - Mushroom browse uses `ScrollView + LazyVStack` (same pattern as Postcard browse), so the top action bar (honey/search/create) moves with page scroll and matches postcard visual style.
 - UI-test mode (`--ui-testing --mock-rooms`) routes host submit flow through mock success without Firestore writes.
 - Host create/edit description is prefilled with localized default `host_default_description` (`Welcome! Let's play!`) when empty.
@@ -68,6 +64,7 @@
   - `false`: adjustment UI is hidden in room form and create flow uses fixed payment `10` honey (`AppConfig.Mushroom.disabledRaidPaymentHoney`).
   - `true`: host can adjust payment via stepper from min value to `AppConfig.Mushroom.enabledRaidPaymentMaxHoney` (currently `10`).
 - Host create/edit form now dismisses keyboard on outside taps (without collapsing during scroll), on keyboard `Enter`/`Done`, and before submit, and auto-scrolls the focused input above keyboard overlap.
+- Dismissing host create sheet (create success or manual close) now triggers a forced Mushroom browse refresh so the latest room list is reloaded immediately.
 - Host location parser now recognizes both current-locale and English country names (plus ISO country codes), so existing room/postcard location values still map correctly after language changes.
 - Room browse/detail location labels now localize the country segment to the viewer locale while preserving stored city text (including legacy English country values).
 - Host can manage attendees (kick, close room, finish raid/claim cycle).
@@ -129,49 +126,10 @@
 - Room attendee star display now uses a yellow rounded badge with star icon to improve readability.
 - Room attendee deposit honey display now uses a rounded orange HoneyIcon badge style to match the star badge treatment.
 - In Room details, host-visible `AskingToJoin` attendee rows now show a tiny red dot before the attendee name to identify the notification source quickly.
-- Room details now uses app-level stale-first cache for room header + attendee data:
-  - Opening room shows cached payload first.
-  - Pull-to-refresh forces latest `rooms/{roomId}` + `attendees` query and overwrites cache.
-  - Room state-changing actions (join/leave/deposit update/kick/approve/reject/finish/confirm/rating) force latest backend reload and refresh cache.
 - Room detail toolbar role now accepts a browse-seeded initial role (`host`/`attendee`) before async detail fetch completes, so top-right host/joined action buttons no longer pop in late after first render.
 - Room detail top-right buttons now follow postcard-style slot rendering: host/attendee icon slots are shown immediately from role state, and actions that require loaded room payload stay disabled until room data is ready.
 - Room detail view hides the navigation title so content starts directly with room snapshot/details.
-
-## Cloud Functions (Mushroom Use Cases)
-- `recordRoomCreatedEvent`
-  - Trigger: create on `rooms/{roomId}`
-  - Writes host-side notification history event (`ROOM_CREATED_HOST`) for mushroom-room creation.
-- `recordRoomClosedEvent`
-  - Trigger: delete on `rooms/{roomId}`
-  - Writes host-side notification history event (`ROOM_CLOSED_HOST`) when host closes a mushroom room.
-- `recordHostRaidInviteEvent`
-  - Trigger: update on `rooms/{roomId}` when `raidConfirmationHistory` receives a new head record.
-  - Writes host-side notification history event (`RAID_INVITED_HOST`) for each raid invitation cycle.
-- `notifyHostJoinRequest`
-  - Trigger: create on `rooms/{roomId}/attendees/{attendeeUid}` with `status = AskingToJoin`
-  - Push target: host (`rooms/{roomId}.hostFcmToken` first, with `users/{hostUid}.fcmToken` fallback)
-  - Payload data: `type=room_join_request`, `roomId`, `room_id`, `attendeeUid`, `eventId`
-  - Also writes join-request history events for both joiner and host.
-- `handleRoomAttendeeUpdatedEvents`
-  - Trigger: update on `rooms/{roomId}/attendees/{attendeeUid}`.
-  - This single update trigger routes internally by transition and now covers:
-    - attendee enters `WaitingConfirmation` (old `sendRaidConfirmationPush` behavior),
-    - join applicant `AskingToJoin -> Ready` (old `notifyJoinApplicantAccepted` behavior),
-    - confirmation result `WaitingConfirmation -> Ready` (old `notifyHostRaidConfirmationResult` behavior),
-    - rating flag transitions (old `notifyMushroomStarReceived` behavior).
-  - Push and event-history payload behavior for each routed event remains unchanged.
-- `notifyJoinApplicantRejected`
-  - Trigger: delete on `rooms/{roomId}/attendees/{attendeeUid}` where previous `status = AskingToJoin`
-  - Push target: join applicant (`rooms/{roomId}/attendees/{attendeeUid}.fcmToken` snapshot first, with `users/{attendeeUid}.fcmToken` fallback)
-  - Payload data: `type=room_join_request_rejected`, `roomId`, `room_id`, `eventId`
-  - Also writes rejection history events for both joiner and host.
-- Routed behavior details inside `handleRoomAttendeeUpdatedEvents`:
-  - `RAID_CONFIRM`: sends attendee push (`type=raid_confirmation`) and writes attendee-side action event.
-  - `JOIN_REQUEST_ACCEPTED`: sends applicant push and writes acceptance history events for applicant + host.
-  - `REPLY_HOST`: sends host push with outcome-specific payload type and writes host + attendee history events.
-  - `STAR_RECEIVED`: sends receiver push and writes receiver history event (with mirrored sender-side history where applicable).
-- Mushroom push notification copy is delivered via APNs localization keys in app `Localizable.strings` (no hardcoded-only message text in Cloud Functions).
-
+- Cache behavior and refresh/invalidation rules are documented only in `CACHE.md`.
 
 ### Confirmation stars flow
 - Attendee settlement flow now has three outcomes after host taps `Mushroom Raid Done`:

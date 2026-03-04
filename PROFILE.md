@@ -2,7 +2,7 @@
 
 ## Related Files
 - `mushroomHunter/Features/Profile/ProfileView.swift`: profile container UI, account identity section, edit/settings sheets, feedback success handling, and sign-out action.
-- `mushroomHunter/Features/Profile/ProfileFormView.swift`: shared profile form used by profile edit and onboarding profile creation.
+- `mushroomHunter/Features/Profile/ProfileCreateEditView.swift`: shared profile form used by profile edit and onboarding profile creation.
 - `mushroomHunter/Features/Profile/ProfileViewModel.swift`: background room/postcard list refresh used to keep app-icon badge counts in sync.
 - `mushroomHunter/Features/Profile/FeedbackView.swift`: in-app feedback compose view and submission payload model.
 - `mushroomHunter/Features/Profile/AboutView.swift`: settings-linked about page with contact links.
@@ -29,18 +29,6 @@
   - friend-code updates,
   - honey balance deltas (spend/gain/refund from room/postcard flows).
 - UI testing mode (`--ui-testing`) keeps profile backend reads/writes disabled for deterministic offline test execution.
-
-## Cloud Functions (Profile Use Cases)
-- `recordUserProfileAndWalletEvents`
-  - Trigger: update on `users/{uid}`
-  - Writes profile/wallet event history rows in `users/{uid}/events/{eventId}` for `displayName`, `friendCode`, and `honey` changes
-- `sendFeedbackNotificationEmail`
-  - Trigger: create on `feedbackSubmissions/{feedbackId}`
-  - Sends one SMTP email per feedback submission
-  - Defaults:
-    - recipient `FEEDBACK_TO` -> `kenyu910645@gmail.com` if unset
-  - Required env vars: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
-  - Optional env vars: `SMTP_SECURE`, `FEEDBACK_FROM`
 
 #### `feedbackSubmissions/{feedbackId}`
 User feedback submitted from profile settings.

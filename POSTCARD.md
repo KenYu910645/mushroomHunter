@@ -14,13 +14,13 @@
 - `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
 - `mushroomHunter/Features/Shared/HoneyMessageBox.swift`: shared custom confirmation/error dialog used across postcard screens.
 - `mushroomHunter/Features/Shared/ProfileStatusBadge.swift`: shared urgency badge + red action-dot UI primitives used by room/postcard status rows.
-- `mushroomHunter/Features/Shared/CachedPostcardImageView.swift`: shared postcard image cache component with memory+disk cache and cache-first loading.
+- `mushroomHunter/Features/Shared/CachedPostcardImageView.swift`: shared postcard image rendering component.
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`: Firestore operations for listings, orders, shipping, and receipt confirmation.
 - `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`: image crop/encode/upload to Firebase Storage.
 - `mushroomHunter/Utilities/RoomInviteLink.swift`: postcard invite link generation/parsing for `honeyhub://postcard/{postcardId}`.
 - `mushroomHunter/Utilities/SearchTokens.swift`: normalized token generation for postcard search fields.
 - `mushroomHunter/Utilities/CountryLocalization.swift`: shared locale-aware country + room-location display resolver used by postcard/room labels.
-- `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed postcard settings (price/stock/text caps, fetch limits, image cache limits, order timeout windows).
+- `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed postcard settings (price/stock/text caps, fetch limits, and order timeout windows).
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used across profile, room, and postcard flows.
 - `mushroomHunter/User/NotificationInboxStore.swift`: shared Firestore-backed notification event history pagination, Action/Record state handling, and deep-link route metadata.
 - `mushroomHunter/App/HoneyHubApp.swift`: handles postcard deep-link routing from invite links.
@@ -49,10 +49,10 @@
 - Postcard browse search applies local filtering while typing; backend paged query also runs after typing pauses briefly (debounced) or when user taps keyboard `Search`.
 - Inline search field includes an `x` clear button; tapping `x` clears query and collapses the search field. Pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
 - Postcard browse card thumbnail overlays the honey price badge (value + honey icon) at the top-right corner; stock count is not shown on browse cards.
-- Postcard browse thumbnails and postcard detail/form preview images use shared cache-first loading (`memory -> disk -> network`) so revisiting recently viewed images avoids repeated Firebase Storage downloads when cache is hit.
 - Postcard browse card title stays single-line, scales down for longer names, then truncates with trailing ellipsis.
 - Postcard location country labels are rendered in the current user locale when possible (including legacy listings that stored English country names).
 - Postcard detail view hides the navigation title so the postcard snapshot is the first visible content at the top.
+- Cache behavior and refresh/invalidation rules are documented only in `CACHE.md`.
 - Register flow uploads full image + thumbnail to Firebase Storage, then creates Firestore listing.
 - Register success dismisses the sheet and refreshes browse list.
 - Pull-to-refresh is supported in postcard browse, detail, and shipping flows.
@@ -100,37 +100,10 @@
 - Detail text field is capped at 100 characters.
 - Detail placeholder text is localized via `postcard_detail_placeholder`.
 
-## Cloud Functions (Postcard Use Cases)
-- `recordPostcardCreatedEvent`
-  - Trigger: create on `postcards/{postcardId}`
-  - Writes seller-side notification history event (`POSTCARD_CREATED_SELLER`) for postcard registration.
-- `recordPostcardClosedEvent`
-  - Trigger: delete on `postcards/{postcardId}`
-  - Writes seller-side notification history event (`POSTCARD_CLOSED_SELLER`) when seller removes a postcard from market.
-- `sendPostcardOrderCreatedPush`
-  - Trigger: create on `postcardOrders/{orderId}`
-  - Sends only when new order status is `AwaitingShipping`
-  - Push target: `postcardOrders/{orderId}.sellerFcmToken` first, with `users/{sellerId}.fcmToken` fallback
-  - Payload data: `type=postcard_order_created`, `orderId`, `postcardId`, `eventId`
-  - Also writes history events for both seller (`POSTCARD_ORDER_RECEIVED`) and buyer (`POSTCARD_ORDER_SENT`).
-- `handlePostcardOrderUpdatedEvents`
-  - Trigger: update on `postcardOrders/{orderId}`.
-  - This single update trigger routes internally by status transition and now covers:
-    - order -> `Shipped` (old `sendPostcardShippedPush` behavior),
-    - order -> `Rejected` (old `sendPostcardRejectedPush` behavior),
-    - order -> `Completed`/`CompletedAuto` (old `notifySellerPostcardCompleted` behavior).
-  - Push targets, payload fields, and event-history writes for each routed event remain unchanged.
-- `processPostcardOrderTimeouts`
-  - Trigger: scheduler every 15 minutes
-  - Processes order deadline transitions:
-    - `AwaitingShipping` timeout -> `FailedSellerNoShip` (+ buyer refund, stock restore)
-    - `Shipped` timeout -> `CompletedAuto` (+ seller payout)
-
 ### Firebase Storage
 - Path: `postcards/{ownerId}/{uuid}.jpg` where `ownerId` is the authenticated uploader uid.
 - Image is uploaded with `image/jpeg` metadata and the download URL is stored in `postcards.imageUrl`.
-- Uploaded postcard images are tagged with `Cache-Control: public,max-age=86400` metadata, and client also persists local memory+disk cache for cache-first rendering.
-- Cache sizing/TTL is owner-tunable in `AppConfig.Postcard` (`imageMemoryCacheEntryLimit`, `imageDiskCacheMaxBytes`, `imageDiskCachePruneTargetRatio`, `imageDiskCacheMaxAgeSeconds`).
+- Uploaded postcard images are tagged with `Cache-Control: public,max-age=86400` metadata.
 - Client-side upload preprocessing crops postcard snapshots to fixed pixel rect `(x:20, y:20) -> (x:665, y:655)` before JPEG encoding/upload.
 - Client-side upload now requires original snapshot size to be exactly `1023x684`; otherwise upload is rejected with `Image size error, Please upload postcard snapshot`.
 - If the selected source image cannot safely contain that crop rect, client shows an error and skips upload.

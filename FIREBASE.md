@@ -2,7 +2,7 @@
 
 ## Firebase Effeiciency
 
-This document explains how HoneyHub interacts with Firebase, and what UI actions trigger Firestore/Storage/Functions read-write activity.
+This document explains how HoneyHub interacts with Firebase, and what UI actions trigger Firestore and Storage read-write activity.
 
 ## Current Firestore Database Rule
 ```js
@@ -32,7 +32,8 @@ service firebase.storage {
 - Authentication: Firebase Auth (Apple/Google)
 - Database: Cloud Firestore
 - File Storage: Firebase Storage (postcard images)
-- Server events: Firebase Cloud Functions (push/email)
+- Event-history and push routing details: `EVENTS.md`
+- Cache behavior source of truth: `CACHE.md`
 
 ## Cost Model Quick Reminder
 - Firestore cost is mainly from:
@@ -43,10 +44,6 @@ service firebase.storage {
   - stored GB-month
   - download/egress bandwidth
   - upload/download operations
-- Cloud Functions cost is from:
-  - invocation count
-  - compute/runtime
-  - network and dependent service calls
 
 ## Core Data Collections
 - `users/{uid}`: profile, wallet, limits, push token
@@ -71,8 +68,8 @@ service firebase.storage {
 
 ### Profile Tab
 - Open profile tab:
-  - Uses app-level cache first for hosted/joined/on-shelf/ordered lists.
-  - Firestore queries run when cache is missing or when user pull-to-refreshes.
+  - Firestore queries load hosted/joined/on-shelf/ordered lists.
+  - See `CACHE.md` for cache-hit/miss and refresh trigger behavior.
 - Profile/app-icon actionable badge refresh:
   - Joined rooms query for attendee statuses (`collectionGroup(attendees)` by `uid`).
   - Hosted rooms query (`rooms where hostUid == uid`), then per-room attendee query:
@@ -92,7 +89,7 @@ service firebase.storage {
 - Save profile (name/friend code):
   - Firestore write: `users/{uid}` (guarded by changed fields).
   - Firestore batch writes: host attendee snapshot fields across active hosted rooms.
-  - Cloud Function write: `users/{uid}/events/{eventId}` for display-name/friend-code update history.
+  - Event history write behavior is documented in `EVENTS.md`.
 
 ### Notification Inbox (Bell)
 - Open inbox from Mushroom/Postcard top-right bell:
@@ -104,24 +101,24 @@ service firebase.storage {
   - Record event row does not route.
 - Inbox has no `Read All` action.
 - Event text storage:
-  - Cloud Functions write localized snapshot `title` + `message` into each event doc at creation time.
+  - Server event pipeline writes localized snapshot `title` + `message` into each event doc at creation time.
   - iOS inbox reads stored `title`/`message` first, with `event_type_*` fallback for legacy rows.
 
 ### Mushroom Tab
 
 #### Browse rooms
 - Enter Mushroom browse:
-  - Uses app-level cache first for browse list.
-  - Firestore query runs when cache is missing.
+  - Firestore query read on `rooms` list.
+  - See `CACHE.md` for cache-hit/miss and refresh trigger behavior.
 - Pull-to-refresh:
-  - Firestore query read on `rooms` list, then cache overwrite.
+  - Firestore query read on `rooms` list.
 - Search submit:
   - Forces Firestore query read on `rooms` list before applying local text filter.
 
 #### Open room detail
 - Tap a room:
-  - Uses app-level cache first for room header + attendee list.
-  - Firestore reads run when cache is missing.
+  - Firestore read/query for room header + attendee list.
+  - See `CACHE.md` for cache-hit/miss and refresh trigger behavior.
 - Pull-to-refresh:
   - Firestore read: `rooms/{roomId}`
   - Firestore query read: `rooms/{roomId}/attendees`
@@ -137,7 +134,6 @@ service firebase.storage {
       - `joinGreetingMessage`
     - decrement user honey
     - increment room joinedCount
-  - Cloud Function write: `users/{uid}/events/{eventId}` for honey balance delta history.
 
 #### Host approve/reject join application
 - Host opens room attendee row menu (`...`) for pending applicant (`AskingToJoin`):
@@ -152,26 +148,21 @@ service firebase.storage {
 - Tap update deposit:
   - Firestore transaction reads attendee+room+user docs
   - Firestore transaction writes attendee deposit and user honey delta
-  - Cloud Function write: `users/{uid}/events/{eventId}` for honey balance delta history.
 
 #### Leave room / Kick attendee / Close room
 - Host or attendee action:
   - Firestore transaction reads required docs
   - Firestore writes attendee/room/user fields and status transitions
   - Room close removes room + attendees (delete operations)
-  - Cloud Function write: `users/{uid}/events/{eventId}` for honey balance delta history when applicable.
 
 #### Finish raid / confirmation flows
 - Host taps raid done:
   - Firestore transaction writes all non-host attendee statuses to `WaitingConfirmation` and room timestamps
-  - Triggers Cloud Function push flow
 - Attendee submits escrow settlement:
   - `JoinedSuccess`: full raid cost transferred to host, attendee escrow deducts full cost.
   - `SeatFullNoFault`: small effort fee transferred to host, attendee escrow deducts only effort fee.
   - `MissedInvitation`: no honey transfer.
   - Firestore transaction writes status/deposit/honey/rating flags and settlement snapshot fields.
-  - Triggers Cloud Function push flow
-  - Cloud Function write: `users/{uid}/events/{eventId}` for host/attendee honey balance delta history.
 - Host/attendee rating:
   - Firestore transaction updates user stars + attendee flags
 
@@ -232,7 +223,6 @@ service firebase.storage {
     - decrement buyer honey
     - create `postcardOrders/{orderId}`
   - Order document snapshots seller/buyer metadata including push tokens for function efficiency.
-  - Cloud Function write: `users/{uid}/events/{eventId}` for buyer honey balance delta history.
 
 #### Seller shipping queue
 - Open shipping sheet:
@@ -241,7 +231,6 @@ service firebase.storage {
 - Seller reject:
   - Firestore transaction write:
     - reject -> `status: Rejected` + buyer refund + stock restore
-  - Cloud Function write: `users/{uid}/events/{eventId}` for buyer honey refund history.
 - Mark sent:
   - Firestore transaction write: order status/timeouts -> `Shipped`.
 
@@ -249,137 +238,28 @@ service firebase.storage {
 - Confirm received:
   - Firestore transaction reads order + seller user
   - Firestore writes seller honey and order completion state
-  - Cloud Function write: `users/{uid}/events/{eventId}` for seller honey balance delta history.
 - Auto-complete fallback:
-  - Cloud Scheduler function sweeps `Shipped` orders past `buyerConfirmDeadlineAt`
+  - Scheduled backend sweep processes `Shipped` orders past `buyerConfirmDeadlineAt`
   - Firestore transaction writes seller honey and order status -> `CompletedAuto`
-  - Cloud Function write: `users/{uid}/events/{eventId}` for seller honey balance delta history.
 
 ### Feedback
 - Submit feedback from profile:
   - Firestore write: `feedbackSubmissions/{feedbackId}`
-  - Cloud Function trigger sends email (SMTP path)
-
-## Cloud Functions Interaction Summary
-
-### Mushroom push functions
-- `recordRoomCreatedEvent`
-  - Trigger: room create.
-  - Writes host-side `users/{uid}/events/{eventId}` history event (`ROOM_CREATED_HOST`).
-- `recordHostRaidInviteEvent`
-  - Trigger: room update when `raidConfirmationHistory` prepends a new record.
-  - Writes host-side history event (`RAID_INVITED_HOST`).
-- `notifyHostJoinRequest`
-  - Trigger: attendee document created with status `AskingToJoin`.
-  - Sends join-request push to host.
-  - Writes history events for both host and joiner.
-  - Resolves host from `rooms.hostUid` first.
-  - Uses room snapshot token first (`rooms.hostFcmToken`), user fallback.
-- `handleRoomAttendeeUpdatedEvents`
-  - Trigger: update on `rooms/{roomId}/attendees/{attendeeUid}`.
-  - Single routed handler for attendee update events:
-    - attendee enters `WaitingConfirmation`,
-    - applicant `AskingToJoin -> Ready`,
-    - confirmation result `WaitingConfirmation -> Ready`,
-    - star-rating flag transitions.
-  - Sends corresponding push notifications and writes corresponding history events for each routed event type.
-- `notifyJoinApplicantRejected`
-  - Trigger: attendee document deleted when previous status is `AskingToJoin`.
-  - Sends rejection push to applicant.
-  - Writes history events for both host and joiner.
-  - Uses attendee snapshot token first (`attendees/{uid}.fcmToken`), user fallback.
-
-### Postcard push functions
-- `recordPostcardCreatedEvent`
-  - Trigger: postcard create.
-  - Writes seller-side history event (`POSTCARD_CREATED_SELLER`).
-- `sendPostcardOrderCreatedPush`
-  - Trigger: order created in `AwaitingShipping`
-  - Uses `postcardOrders.sellerFcmToken` first, user fallback.
-  - Writes history events for both seller (`POSTCARD_ORDER_SELLER`) and buyer (`POSTCARD_ORDER_BUYER`).
-- `handlePostcardOrderUpdatedEvents`
-  - Trigger: update on `postcardOrders/{orderId}`.
-  - Single routed handler for order status transitions:
-    - order -> `Shipped`,
-    - order -> `Rejected`,
-    - order -> `Completed` or `CompletedAuto`.
-  - Uses `postcardOrders` snapshot token first, user fallback.
-  - Sends corresponding push and writes corresponding history events for each routed event type.
-- `processPostcardOrderTimeouts`
-  - Trigger: scheduler every 15 minutes
-  - Handles seller no-ship timeout and buyer auto-complete.
-
-### User profile event function
-- `recordUserProfileAndWalletEvents`
-  - Trigger: update on `users/{uid}`.
-  - Writes event-history entries in `users/{uid}/events/{eventId}` when:
-    - `displayName` changes,
-    - `friendCode` changes.
-
-This token-snapshot-first approach reduces repeated `users/{uid}` reads in hot notification paths.
-Push notifications (mushroom + postcard) now use the same server-side localized snapshot text as event history (`title`/`message`) so push copy and inbox copy stay identical for each created event.
+  - Server email delivery behavior is documented in `EVENTS.md`.
 
 ## Image Download Behavior (Important for Cost)
 - Browse card uses `thumbnailUrl` first, then falls back to `imageUrl` if thumbnail missing.
 - Detail screen uses full `imageUrl`.
-- Postcard image UI now uses cache-first local image loading (`memory -> disk -> network`) for browse thumbnails, detail hero image, and form preview fallback images.
 - Bigger user base + more browsing mainly increases Storage download bandwidth cost.
 - Pagination (20 per page) limits one-time burst download compared with loading 50+ cards at once.
 
 ## Current Efficiency Patterns Already in Place
 - Cursor pagination for postcard browse/search.
 - Thumbnail pipeline (`256x256` default, compressed) for browse images.
-- App-level postcard image cache (memory+disk) with cache-first image rendering to reduce repeated Firebase Storage egress.
-- App-level mushroom/profile list caches (memory+disk) with stale-first rendering and explicit refresh on pull-to-refresh/state-changing actions.
 - Conditional legacy fallback queries (only when primary query is insufficient).
 - Snapshot fields (`sellerFriendCode`, `hostUid`, push token snapshots) to avoid extra reads.
 - Write guards for token/profile sync paths to avoid duplicate writes.
-
-## App-Level Data Cache Scope
-
-This section documents app-level cache behavior for Postcard, Mushroom, and Profile views.
-
-### Cache storage scope
-- Cache type: app-level memory + disk cache (persisted across view transitions; disk survives app restarts until evicted/overwritten).
-- Cache granularity:
-  - Postcard: image URL cache (`thumbnailUrl` / `imageUrl`) for postcard browse/detail/form previews.
-  - Mushroom browse: one cached room-list payload for browse page.
-  - Mushroom room detail: one cached payload per `roomId` (room header + attendees list).
-  - Profile: one cached payload per user (`authUid`) for hosted rooms, joined rooms, hosted pending-join counts, on-shelf postcards, ordered postcards, and pending seller-order badge counts.
-
-### Cache hit / miss behavior
-- Postcard image cache:
-  - Hit: memory or disk has image bytes for the URL; UI renders without Firebase Storage fetch.
-  - Miss: no cached bytes (or expired/evicted); network fetch runs, then cache is filled.
-- Mushroom browse data cache:
-  - Hit: cached browse list exists; entering Mushroom tab uses cached list immediately (no immediate Firestore read).
-  - Miss: no cached list; entering Mushroom tab queries Firestore and writes returned list into cache.
-- Mushroom room detail cache:
-  - Hit: cached room payload exists for that `roomId`; opening room uses cached header/attendees immediately.
-  - Miss: no cached payload for that `roomId`; opening room queries Firestore (`rooms/{roomId}` + `attendees`) and caches result.
-- Profile list cache:
-  - Hit: cached profile payload exists for current user; opening Profile uses cached sections immediately.
-  - Miss: no cached payload for current user; Profile queries Firestore lists and caches results.
-
-### Forced update triggers (refresh from Firebase)
-- User pull-to-refresh (upscroll) always forces backend refresh:
-  - Mushroom browse list (`rooms` query).
-  - Mushroom room detail (`rooms/{roomId}` + attendees query).
-  - Profile lists (hosted/joined/on-shelf/ordered + hosted pending-join counts + seller pending-order counts).
-- Mushroom browse search submit forces backend refresh before applying local text filtering.
-- Mushroom room state-changing actions force backend refresh and cache overwrite, including:
-  - join / leave / update deposit
-  - approve / reject join application
-  - kick attendee
-  - finish raid
-  - attendee confirmation responses
-  - host/attendee rating actions
-- Profile hosted-room close callback forces hosted-room refresh to keep profile host list consistent after room lifecycle changes.
-
-### Practical behavior summary
-- Default navigation is stale-first (cache-first) for faster UX and fewer reads.
-- Pull-to-refresh (user upscroll) is the explicit "get latest from Firebase now" action.
-- Mutating actions refresh and overwrite cache so post-action UI state is backend-consistent.
+- Cache behavior details are centralized in `CACHE.md`.
 
 ## When Cost Usually Spikes
 - Heavy browse traffic with many image impressions (Storage egress).
@@ -389,10 +269,8 @@ This section documents app-level cache behavior for Postcard, Mushroom, and Prof
 
 ## Operational Suggestions
 - Keep thumbnail size/compression tuned in `AppConfig.Postcard` based on visual quality vs bandwidth.
-- Keep image cache limits tuned in `AppConfig.Postcard` (`imageMemoryCacheEntryLimit`, `imageDiskCacheMaxBytes`, `imageDiskCachePruneTargetRatio`, `imageDiskCacheMaxAgeSeconds`) to balance instant reloads vs local storage use.
 - Keep browse page size conservative (currently 20).
 - Periodically backfill missing snapshot fields (`thumbnailUrl`, token snapshots) to reduce fallback reads.
 - Track Firebase usage dashboard by product area:
   - Firestore reads/writes by path
   - Storage egress by object prefix (`postcards/`)
-  - Function invocation and execution time

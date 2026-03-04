@@ -103,7 +103,12 @@ struct RoomBrowseView: View {
                     }
                 }
         }
-        .sheet(isPresented: $showHostSheet) {
+        .sheet(
+            isPresented: $showHostSheet,
+            onDismiss: {
+                Task { await vm.fetchListings(forceRefresh: true) }
+            }
+        ) {
             // Opens room creation flow from browse header.
             RoomCreateEditView(vm: HostViewModel(session: session))
                 .environmentObject(session)
@@ -239,6 +244,7 @@ struct RoomBrowseView: View {
                                 isSearchFieldFocused = true
                             } else {
                                 isSearchFieldFocused = false
+                                vm.query = ""
                             }
                         },
                         onCreate: { showHostSheet = true },
