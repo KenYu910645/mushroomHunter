@@ -498,6 +498,8 @@
 /***************************************/
 
 "profile_sign_out" = "登出";
+"profile_sign_out_confirm_title" = "登出";
+"profile_sign_out_confirm_message" = "確定要登出嗎？";
 "profile_friend_code_error_required" = "好友碼為必填。";
 "profile_friend_code_error_length" = "好友碼必須是 12 位數。";
 "profile_friend_code_error_digits" = "好友碼只能包含數字。";

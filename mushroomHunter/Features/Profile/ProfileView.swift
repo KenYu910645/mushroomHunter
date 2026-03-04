@@ -59,6 +59,9 @@ struct ProfileView: View {
     /// Shows success alert after feedback submission.
     @State private var isFeedbackSubmittedAlertPresented: Bool = false
 
+    /// Controls whether the sign-out confirmation message box is visible.
+    @State private var isSignOutConfirmationPresented: Bool = false
+
     /// Repository that submits feedback payloads.
     private let feedbackRepo = FbFeedbackRepo()
 
@@ -182,6 +185,30 @@ struct ProfileView: View {
                     ]
                 )
             }
+
+            if isSignOutConfirmationPresented {
+                HoneyMessageBox(
+                    title: NSLocalizedString("profile_sign_out_confirm_title", comment: ""),
+                    message: NSLocalizedString("profile_sign_out_confirm_message", comment: ""),
+                    buttons: [
+                        HoneyMessageBoxButton(
+                            id: "profile_sign_out_confirm_action",
+                            title: NSLocalizedString("profile_sign_out", comment: ""),
+                            role: .destructive
+                        ) {
+                            isSignOutConfirmationPresented = false
+                            session.signOut()
+                        },
+                        HoneyMessageBoxButton(
+                            id: "profile_sign_out_cancel_action",
+                            title: NSLocalizedString("common_cancel", comment: ""),
+                            role: .cancel
+                        ) {
+                            isSignOutConfirmationPresented = false
+                        }
+                    ]
+                )
+            }
         }
     }
 
@@ -264,7 +291,7 @@ struct ProfileView: View {
     private var signOutSection: some View {
         Section {
             Button(role: .destructive) {
-                session.signOut()
+                isSignOutConfirmationPresented = true
             } label: {
                 Text(LocalizedStringKey("profile_sign_out"))
             }

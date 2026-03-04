@@ -518,6 +518,8 @@
 /***************************************/
 
 "profile_sign_out" = "Sign Out";
+"profile_sign_out_confirm_title" = "Sign Out";
+"profile_sign_out_confirm_message" = "Are you sure you want to sign out?";
 "profile_friend_code_error_required" = "Friend code is required.";
 "profile_friend_code_error_length" = "Friend code must be exactly 12 digits.";
 "profile_friend_code_error_digits" = "Friend code must contain digits only.";
