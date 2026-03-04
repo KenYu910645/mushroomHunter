@@ -214,6 +214,10 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
       en: ["Mushroom Room Created", "You created a mushroom room: %@."],
       zh: ["已建立蘑菇房", "你已建立蘑菇房間：%@。"],
     },
+    ROOM_CLOSED_HOST: {
+      en: ["Mushroom Room Closed", "You closed a mushroom room: %@."],
+      zh: ["已關閉蘑菇房", "你已關閉蘑菇房間：%@。"],
+    },
     RAID_INVITED_HOST: {
       en: ["Mushroom Raid Invited", "Raid confirmation invitations were sent to all attendees, wait for them to confirm."],
       zh: ["已發送蘑菇邀請", "你已發送蘑菇邀請確認，等待所有參加者確認。"],
@@ -221,6 +225,10 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
     POSTCARD_CREATED_SELLER: {
       en: ["Postcard Registered", "You registered a postcard: %@."],
       zh: ["已上架明信片", "你已上架明信片：%@。"],
+    },
+    POSTCARD_CLOSED_SELLER: {
+      en: ["Postcard Removed", "You removed a postcard from market: %@."],
+      zh: ["明信片已下架", "你已將明信片從市場下架：%@。"],
     },
     NAME_UPDATED: {
       en: ["Display Name Updated", "Your display name was updated."],
@@ -361,6 +369,30 @@ async function resolveEventSnapshot(uid, type, messageArgs = []) {
 // Event doc id is scoped by cloud event id and receiver uid to make writes idempotent.
 function resolveEventDocumentId(cloudEventId, uid) {
   return `${stringifyValue(cloudEventId, "event")}_${stringifyValue(uid, "unknown")}`;
+}
+
+// Resolve host uid from room document payload across current + legacy field names.
+function resolveRoomHostUidFromData(roomData) {
+  const normalizedRoomData = roomData || {};
+  return stringifyValue(
+      normalizedRoomData.hostUid ||
+      normalizedRoomData.hostId ||
+      normalizedRoomData.ownerUid ||
+      normalizedRoomData.createdByUid,
+      "",
+  );
+}
+
+// Resolve postcard seller uid from postcard payload across current + legacy field names.
+function resolvePostcardSellerUidFromData(postcardData) {
+  const normalizedPostcardData = postcardData || {};
+  return stringifyValue(
+      normalizedPostcardData.sellerId ||
+      normalizedPostcardData.sellerUid ||
+      normalizedPostcardData.ownerId ||
+      normalizedPostcardData.ownerUid,
+      "",
+  );
 }
 
 const ACTION_EVENT_TYPES = new Set([
@@ -634,11 +666,42 @@ exports.recordRoomCreatedEvent = onDocumentCreated(
       if (!roomData) return;
 
       const roomId = event.params.roomId;
-      const hostUid = stringifyValue(roomData.hostUid, "");
+      const hostUid = resolveRoomHostUidFromData(roomData);
+      if (!hostUid) {
+        logger.warn("Skipping ROOM_CREATED_HOST event because host uid is missing", {roomId});
+        return;
+      }
       await recordUserEvent({
         uid: hostUid,
         cloudEventId: event.id,
         type: "ROOM_CREATED_HOST",
+        roomId,
+        messageArgs: [stringifyValue(roomData.title, "Untitled Room")],
+      });
+    },
+);
+
+// Record host-side room-closed history event when room document is deleted.
+// Event: ROOM_CLOSED_HOST
+exports.recordRoomClosedEvent = onDocumentDeleted(
+    {
+      document: "rooms/{roomId}",
+      region: "us-central1",
+    },
+    async (event) => {
+      const roomData = event.data?.data();
+      if (!roomData) return;
+
+      const roomId = event.params.roomId;
+      const hostUid = resolveRoomHostUidFromData(roomData);
+      if (!hostUid) {
+        logger.warn("Skipping ROOM_CLOSED_HOST event because host uid is missing", {roomId});
+        return;
+      }
+      await recordUserEvent({
+        uid: hostUid,
+        cloudEventId: event.id,
+        type: "ROOM_CLOSED_HOST",
         roomId,
         messageArgs: [stringifyValue(roomData.title, "Untitled Room")],
       });
@@ -669,7 +732,14 @@ exports.recordHostRaidInviteEvent = onDocumentUpdated(
       }
 
       const roomId = event.params.roomId;
-      const hostUid = stringifyValue(afterData.hostUid, "");
+      const hostUid = resolveRoomHostUidFromData(afterData);
+      if (!hostUid) {
+        logger.warn("Skipping RAID_INVITED_HOST event because host uid is missing", {
+          roomId,
+          confirmationId: newFirstId,
+        });
+        return;
+      }
       await recordUserEvent({
         uid: hostUid,
         cloudEventId: `${event.id}_${newFirstId}`,
@@ -691,11 +761,42 @@ exports.recordPostcardCreatedEvent = onDocumentCreated(
       if (!postcardData) return;
 
       const postcardId = event.params.postcardId;
-      const sellerUid = stringifyValue(postcardData.sellerId, "");
+      const sellerUid = resolvePostcardSellerUidFromData(postcardData);
+      if (!sellerUid) {
+        logger.warn("Skipping POSTCARD_CREATED_SELLER event because seller uid is missing", {postcardId});
+        return;
+      }
       await recordUserEvent({
         uid: sellerUid,
         cloudEventId: event.id,
         type: "POSTCARD_CREATED_SELLER",
+        postcardId,
+        messageArgs: [stringifyValue(postcardData.title, "postcard")],
+      });
+    },
+);
+
+// Record seller-side postcard-removed history event when listing is deleted.
+// Event: POSTCARD_CLOSED_SELLER
+exports.recordPostcardClosedEvent = onDocumentDeleted(
+    {
+      document: "postcards/{postcardId}",
+      region: "us-central1",
+    },
+    async (event) => {
+      const postcardData = event.data?.data();
+      if (!postcardData) return;
+
+      const postcardId = event.params.postcardId;
+      const sellerUid = resolvePostcardSellerUidFromData(postcardData);
+      if (!sellerUid) {
+        logger.warn("Skipping POSTCARD_CLOSED_SELLER event because seller uid is missing", {postcardId});
+        return;
+      }
+      await recordUserEvent({
+        uid: sellerUid,
+        cloudEventId: event.id,
+        type: "POSTCARD_CLOSED_SELLER",
         postcardId,
         messageArgs: [stringifyValue(postcardData.title, "postcard")],
       });

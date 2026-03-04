@@ -83,7 +83,10 @@ struct RoomBrowseView: View {
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button {
-                            isNotificationInboxPresented = true
+                            Task { @MainActor in
+                                await notificationInbox.refreshFromServer()
+                                isNotificationInboxPresented = true
+                            }
                         } label: {
                             ZStack(alignment: .topTrailing) {
                                 Image(systemName: "bell")

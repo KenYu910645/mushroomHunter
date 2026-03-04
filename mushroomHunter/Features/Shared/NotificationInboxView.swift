@@ -72,9 +72,6 @@ struct NotificationInboxView: View {
 
             }
         }
-        .onAppear {
-            notificationInbox.loadInitialPageIfNeeded()
-        }
     }
 }
 

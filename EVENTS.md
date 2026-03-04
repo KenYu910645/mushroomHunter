@@ -4,6 +4,8 @@
 - `functions/index.js`: event producers, event-history writes, Action Event resolution, and push emission.
 - `mushroomHunter/User/NotificationInboxStore.swift`: event-history reads, pagination, Action/Record rendering semantics.
 - `mushroomHunter/Features/Shared/NotificationInboxView.swift`: inbox list UI and row tap behavior.
+- `mushroomHunter/Features/Mushroom/RoomBrowseView.swift`: mushroom-tab bell tap handler that refreshes inbox before presenting it.
+- `mushroomHunter/Features/Postcard/PostcardBrowseView.swift`: postcard-tab bell tap handler that refreshes inbox before presenting it.
 - `mushroomHunter/App/HoneyHubApp.swift`: APNs tap routing (`room`/`postcard`) and inbox refresh hooks.
 - `mushroomHunter/Resources/en.lproj/Localizable.strings`: English `event_type_*` and `push_*` localization keys.
 - `mushroomHunter/Resources/zh-Hant.lproj/Localizable.strings`: Traditional Chinese `event_type_*` and `push_*` localization keys.
@@ -12,6 +14,11 @@
 - This file is the single review doc for event history and event-driven push notification behavior.
 - Event history storage target: `users/{uid}/events/{eventId}`.
 - Event display text is stored as snapshot text in each event document (`title`, `message`) when the event is created.
+
+## Client Refresh Timing (Current Policy)
+- Bell tap refresh: when user taps the top-right bell icon, app must call `refreshFromServer()` first, then open the inbox sheet so the list is the latest from Firestore.
+- Action Event push refresh: when app receives a push whose `type` is an Action Event (`JOIN_REQUESTED_HOST`, `RAID_CONFIRM_ATTENDEE`, `POSTCARD_ORDER_SELLER`, `POSTCARD_SENT_BUYER`), app must force `refreshFromServer()` so badge count stays accurate.
+- No other automatic refresh timing is enabled for inbox list sync.
 
 ## Event History Collection
 
@@ -55,6 +62,17 @@ Current event document fields:
   - Title(Chinese): `已建立蘑菇房`
   - Message(Eng): `You created a mushroom room: %@.`
   - Message(Chinese): `你已建立蘑菇房間：%@。`
+  - Push: none.
+
+- `ROOM_CLOSED_HOST`
+  - Class: Record Event.
+  - Producer: `recordRoomClosedEvent`.
+  - Trigger: room document deleted (host closes room).
+  - Target: host
+  - Title(Eng): `Mushroom Room Closed`
+  - Title(Chinese): `已關閉蘑菇房`
+  - Message(Eng): `You closed a mushroom room: %@.`
+  - Message(Chinese): `你已關閉蘑菇房間：%@。`
   - Push: none.
 
 - `JOIN_REQUESTED_ATTENDEE`
@@ -178,6 +196,17 @@ Current event document fields:
   - Title(Chinese): `已上架明信片`
   - Message(Eng): `You registered a postcard: %@.`
   - Message(Chinese): `你已上架明信片：%@。`
+  - Push: none.
+
+- `POSTCARD_CLOSED_SELLER`
+  - Class: Record Event.
+  - Producer: `recordPostcardClosedEvent`.
+  - Trigger: postcard listing deleted (seller removes from market).
+  - Target: seller
+  - Title(Eng): `Postcard Removed`
+  - Title(Chinese): `明信片已下架`
+  - Message(Eng): `You removed a postcard from market: %@.`
+  - Message(Chinese): `你已將明信片從市場下架：%@。`
   - Push: none.
 
 - `POSTCARD_ORDER_SELLER`

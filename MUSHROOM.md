@@ -140,10 +140,13 @@
 ## Cloud Functions (Mushroom Use Cases)
 - `recordRoomCreatedEvent`
   - Trigger: create on `rooms/{roomId}`
-  - Writes host-side notification history event (`ROOM_CREATED`) for mushroom-room creation.
+  - Writes host-side notification history event (`ROOM_CREATED_HOST`) for mushroom-room creation.
+- `recordRoomClosedEvent`
+  - Trigger: delete on `rooms/{roomId}`
+  - Writes host-side notification history event (`ROOM_CLOSED_HOST`) when host closes a mushroom room.
 - `recordHostRaidInviteEvent`
   - Trigger: update on `rooms/{roomId}` when `raidConfirmationHistory` receives a new head record.
-  - Writes host-side notification history event (`RAID_INVITED`) for each raid invitation cycle.
+  - Writes host-side notification history event (`RAID_INVITED_HOST`) for each raid invitation cycle.
 - `notifyHostJoinRequest`
   - Trigger: create on `rooms/{roomId}/attendees/{attendeeUid}` with `status = AskingToJoin`
   - Push target: host (`rooms/{roomId}.hostFcmToken` first, with `users/{hostUid}.fcmToken` fallback)

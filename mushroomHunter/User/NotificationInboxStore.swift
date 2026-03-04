@@ -108,14 +108,6 @@ final class NotificationInboxStore: ObservableObject {
         }
     }
 
-    /// Loads first page (latest 10 events) when inbox opens.
-    func loadInitialPageIfNeeded() {
-        guard items.isEmpty else { return }
-        Task {
-            await refreshFromServer()
-        }
-    }
-
     /// Forces latest page refresh from Firestore.
     func refreshFromServer() async {
         guard let currentUserId, currentUserId.isEmpty == false else {
@@ -163,10 +155,12 @@ final class NotificationInboxStore: ObservableObject {
         title: String,
         message: String
     ) {
-        let _ = userInfo
+        let type = (userInfo["type"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let _ = title
         let _ = message
 
+        // Action events must force-refresh so the badge count stays accurate.
+        guard isActionEventType(type: type) else { return }
         Task {
             await refreshFromServer()
         }
@@ -178,10 +172,6 @@ final class NotificationInboxStore: ObservableObject {
         if currentUserId != userId {
             currentUserId = userId
             resetState()
-        }
-        guard userId?.isEmpty == false else { return }
-        Task {
-            await refreshFromServer()
         }
     }
 

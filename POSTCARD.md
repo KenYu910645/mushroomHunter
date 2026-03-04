@@ -103,7 +103,10 @@
 ## Cloud Functions (Postcard Use Cases)
 - `recordPostcardCreatedEvent`
   - Trigger: create on `postcards/{postcardId}`
-  - Writes seller-side notification history event (`POSTCARD_CREATED`) for postcard registration.
+  - Writes seller-side notification history event (`POSTCARD_CREATED_SELLER`) for postcard registration.
+- `recordPostcardClosedEvent`
+  - Trigger: delete on `postcards/{postcardId}`
+  - Writes seller-side notification history event (`POSTCARD_CLOSED_SELLER`) when seller removes a postcard from market.
 - `sendPostcardOrderCreatedPush`
   - Trigger: create on `postcardOrders/{orderId}`
   - Sends only when new order status is `AwaitingShipping`

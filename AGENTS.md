@@ -75,6 +75,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/User/NotificationInboxStore.swift` (shared Firestore-backed notification event history pagination, unread state, and deep-link route metadata)
 - Cloud Functions in `functions/index.js`:
   - `recordRoomCreatedEvent`
+  - `recordRoomClosedEvent`
   - `recordHostRaidInviteEvent`
   - `notifyHostJoinRequest`
   - `handleRoomAttendeeUpdatedEvents`
@@ -108,12 +109,13 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/User/NotificationInboxStore.swift` (shared Firestore-backed notification event history pagination, unread state, and deep-link route metadata)
 - Cloud Functions in `functions/index.js`:
   - `recordPostcardCreatedEvent`
+  - `recordPostcardClosedEvent`
   - `sendPostcardOrderCreatedPush`
   - `handlePostcardOrderUpdatedEvents`
 
 ### PROFILE (`PROFILE.md`)
 - `mushroomHunter/Features/Profile/ProfileView.swift`
-- `mushroomHunter/Features/Profile/ProfileFormView.swift` (shared create/edit profile form presented from onboarding and profile edit sheet)
+- `mushroomHunter/Features/Profile/ProfileCreateEditView.swift` (shared create/edit profile form presented from onboarding and profile edit sheet)
 - `mushroomHunter/Features/Profile/ProfileViewModel.swift` (profile tab badge aggregation + background refresh for room/postcard actionable counts)
 - `mushroomHunter/Features/Profile/FeedbackView.swift` (feedback compose view + submission payload model)
 - `mushroomHunter/Features/Profile/AboutView.swift` (about page contact information view)
@@ -136,7 +138,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 
 ### SIGNIN (`SIGNIN.md`)
 - `mushroomHunter/Features/Profile/LoginView.swift`
-- `mushroomHunter/Features/Profile/ProfileFormView.swift` (shared create/edit profile form, signin flow uses create mode)
+- `mushroomHunter/Features/Profile/ProfileCreateEditView.swift` (shared create/edit profile form, signin flow uses create mode)
 - `mushroomHunter/Features/Profile/TutorialView.swift` (one-time swipe tutorial presented after first successful profile creation)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used in create-profile form)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper for multiline form inputs)
