@@ -81,41 +81,81 @@ final class FbRoomBrowseRepo {
             snap = try await q.getDocuments(source: .default)
         }
 
-        return snap.documents.map { doc in
-            let data = doc.data()
+        return snap.documents.map(decodeListing)
+    }
 
-            let title = (data["title"] as? String)
-                ?? (data["roomTitle"] as? String)
-                ?? "Untitled Room"
+    /// Loads room listings by ids for pinned "joined/hosted" browse slots.
+    /// - Parameter roomIds: Target room ids that should be resolved into listing rows.
+    /// - Returns: Decoded room listings for ids that still exist.
+    func fetchListings(roomIds: [String]) async throws -> [RoomListing] {
+        let uniqueRoomIds = Array(Set(roomIds.filter { !$0.isEmpty }))
+        guard uniqueRoomIds.isEmpty == false else { return [] }
 
-            // ✅ Your Firestore fields are: targetColor / targetAttribute / targetSize
-            // For Browse filtering, we usually show "attribute" as the "mushroomType"
-            let mushroomType = (data["targetAttribute"] as? String)
-                ?? (data["attribute"] as? String)
-                ?? "normal"
-
-            let joined = data["joinedCount"] as? Int ?? 0
-            let maxPlayers = data["maxPlayers"] as? Int ?? AppConfig.Mushroom.defaultMaxPlayersPerRoom
-            let targetColor = (data["targetColor"] as? String) ?? ""
-            let targetAttribute = (data["targetAttribute"] as? String) ?? ""
-            let targetSize = (data["targetSize"] as? String) ?? ""
-
-            return RoomListing(
-                id: doc.documentID, // ✅ This must be used for Room route
-                title: title,
-                mushroomType: mushroomType.capitalized,
-                targetColor: targetColor,
-                targetAttribute: targetAttribute,
-                targetSize: targetSize,
-                joinedPlayers: joined,
-                maxPlayers: maxPlayers,
-                hostName: data["hostName"] as? String,
-                hostStars: data["hostStars"] as? Int ?? 0,
-                location: data["location"] as? String ?? "",
-                createdAt: (data["createdAt"] as? Timestamp)?.dateValue(),
-                lastSuccessfulRaidAt: (data["lastSuccessfulRaidAt"] as? Timestamp)?.dateValue(),
-                expiresAt: (data["expiresAt"] as? Timestamp)?.dateValue()
-            )
+        var listings: [RoomListing] = []
+        for roomIdChunk in uniqueRoomIds.chunked(into: 10) {
+            let query = db.collection("rooms")
+                .whereField(FieldPath.documentID(), in: roomIdChunk)
+            let snapshot: QuerySnapshot
+            do {
+                snapshot = try await query.getDocuments(source: .server)
+            } catch {
+                snapshot = try await query.getDocuments(source: .default)
+            }
+            listings.append(contentsOf: snapshot.documents.map(decodeListing))
         }
+        return listings
+    }
+
+    /// Decodes Firestore room document into browse listing payload.
+    /// - Parameter document: Firestore room document snapshot.
+    /// - Returns: Browse-list-ready room listing value.
+    private func decodeListing(_ document: QueryDocumentSnapshot) -> RoomListing {
+        let data = document.data()
+        let title = (data["title"] as? String)
+            ?? (data["roomTitle"] as? String)
+            ?? "Untitled Room"
+        let mushroomType = (data["targetAttribute"] as? String)
+            ?? (data["attribute"] as? String)
+            ?? "normal"
+        let joined = data["joinedCount"] as? Int ?? 0
+        let maxPlayers = data["maxPlayers"] as? Int ?? AppConfig.Mushroom.defaultMaxPlayersPerRoom
+        let targetColor = (data["targetColor"] as? String) ?? ""
+        let targetAttribute = (data["targetAttribute"] as? String) ?? ""
+        let targetSize = (data["targetSize"] as? String) ?? ""
+
+        return RoomListing(
+            id: document.documentID,
+            title: title,
+            mushroomType: mushroomType.capitalized,
+            targetColor: targetColor,
+            targetAttribute: targetAttribute,
+            targetSize: targetSize,
+            joinedPlayers: joined,
+            maxPlayers: maxPlayers,
+            hostName: data["hostName"] as? String,
+            hostStars: data["hostStars"] as? Int ?? 0,
+            location: data["location"] as? String ?? "",
+            createdAt: (data["createdAt"] as? Timestamp)?.dateValue(),
+            lastSuccessfulRaidAt: (data["lastSuccessfulRaidAt"] as? Timestamp)?.dateValue(),
+            expiresAt: (data["expiresAt"] as? Timestamp)?.dateValue()
+        )
+    }
+}
+
+private extension Array {
+    /// Splits array into fixed-size chunks for Firestore `in` query limits.
+    /// - Parameter size: Max number of items per chunk.
+    /// - Returns: Ordered chunked array slices.
+    func chunked(into size: Int) -> [[Element]] {
+        guard size > 0, !isEmpty else { return isEmpty ? [] : [self] }
+        var chunks: [[Element]] = []
+        chunks.reserveCapacity((count + size - 1) / size)
+        var index = 0
+        while index < count {
+            let end = Swift.min(index + size, count)
+            chunks.append(Array(self[index..<end]))
+            index += size
+        }
+        return chunks
     }
 }

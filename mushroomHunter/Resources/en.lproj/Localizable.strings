@@ -40,6 +40,8 @@
 "browse_empty_title" = "No rooms found";
 "browse_attendee_format" = "👤 %d/%d";
 "browse_expires_format" = "Expires: %dm";
+"browse_tag_joined" = "Joined";
+"browse_tag_host" = "Host";
 "browse_error_enter_bid" = "Please enter a deposit before joining.";
 "browse_error_enter_greeting" = "Please enter a greeting message before joining.";
 "browse_error_not_enough_honey" = "Not enough honey. You have %d {honey_icon}.";
@@ -256,6 +258,8 @@
 "postcard_sort_lowest_price" = "Lowest Price";
 "postcard_stock_format" = "x%d";
 "postcard_seller_format" = "Seller: %@";
+"postcard_tag_on_shelf" = "On-shelf";
+"postcard_tag_ordered" = "Ordered";
 "postcard_buy_button" = "Buy";
 
 /***************************************/
@@ -538,3 +542,43 @@
 "session_error_apple_token_format" = "Unable to read Apple ID token.";
 "session_error_missing_client_id" = "Missing Firebase clientID.";
 "session_error_missing_id_token" = "Missing Google ID token.";
+
+/***************************************/
+/**** Notification Inbox ****/
+/***************************************/
+
+"browse_notification_accessibility" = "Events";
+"postcard_notification_accessibility" = "Events";
+"notification_default_title" = "Event";
+"notification_inbox_title" = "Events";
+"notification_inbox_empty_title" = "No Events";
+"notification_inbox_empty_message" = "New events will show up here.";
+"notification_mark_all_read" = "Read All";
+
+"event_room_created_title" = "Mushroom Room Created";
+"event_room_created_message" = "You created mushroom room: %@.";
+"event_raid_invited_title" = "Mushroom Raid Invited";
+"event_raid_invited_message" = "You invited participants to confirm raid result for: %@.";
+"event_postcard_registered_title" = "Postcard Registered";
+"event_postcard_registered_message" = "You registered postcard: %@.";
+"event_wallet_honey_changed_title" = "Honey Balance Updated";
+"event_wallet_honey_increased_message" = "Your honey increased by %@. Current balance: %@.";
+"event_wallet_honey_decreased_message" = "Your honey decreased by %@. Current balance: %@.";
+"event_profile_name_updated_title" = "Display Name Updated";
+"event_profile_name_updated_message" = "Your display name was updated to %@.";
+"event_profile_friend_code_updated_title" = "Friend Code Updated";
+"event_profile_friend_code_updated_message" = "Your friend code was updated.";
+"event_raid_confirmation_title" = "Mushroom Raid Confirmation";
+"event_raid_confirmation_message" = "%@ invited you to confirm your mushroom raid result.";
+"event_room_join_request_submitted_title" = "Join Application Sent";
+"event_room_join_request_submitted_message" = "You sent a join request to room: %@.";
+"event_room_join_request_received_title" = "Join Application Received";
+"event_room_join_request_received_message" = "%@ applied to join your room: %@.";
+"event_room_join_request_accepted_title" = "Join Application Accepted";
+"event_room_join_request_accepted_message" = "Your request was accepted for room: %@.";
+"event_room_joiner_accepted_title" = "Joiner Accepted";
+"event_room_joiner_accepted_message" = "You accepted %@ into room: %@.";
+"event_room_join_request_rejected_title" = "Join Application Rejected";
+"event_room_join_request_rejected_message" = "Your request was rejected for room: %@.";
+"event_room_joiner_rejected_title" = "Joiner Rejected";
+"event_room_joiner_rejected_message" = "You rejected %@ from room: %@.";

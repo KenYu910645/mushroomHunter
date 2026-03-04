@@ -46,6 +46,7 @@ final class RoomViewModel: ObservableObject {
     @Published var joinLimitMessage: String = "" // State or dependency property.    
     // Derived role
     @Published private(set) var role: RoomRole = .viewer // State or dependency property.    
+    private let seededRole: RoomRole? // Optional browse-seeded role used to avoid first-frame toolbar latency.
     // Dependencies
     private let roomId: String
     private unowned let session: UserSessionStore
@@ -55,9 +56,13 @@ final class RoomViewModel: ObservableObject {
     
     // MARK: Init
     
-    init(roomId: String, session: UserSessionStore) { // Initializes this type.
+    init(roomId: String, session: UserSessionStore, seededRole: RoomRole? = nil) { // Initializes this type.
         self.roomId = roomId
         self.session = session
+        self.seededRole = seededRole
+        if let seededRole {
+            role = seededRole
+        }
         if AppTesting.useMockRooms, roomId == AppTesting.fixtureRoomId {
             self.room = AppTesting.fixtureRoom(includeCurrentUser: AppTesting.useMockJoinedRoom)
             recomputeRole()
@@ -503,7 +508,7 @@ final class RoomViewModel: ObservableObject {
     // MARK: Private helpers
     private func recomputeRole() {
         guard let room else {
-            role = .viewer
+            role = seededRole ?? .viewer
             return
         }
         

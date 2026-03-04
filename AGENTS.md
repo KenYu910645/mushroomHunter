@@ -55,11 +55,13 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Mushroom/RoomViewModel.swift`
 - `mushroomHunter/Features/Mushroom/RoomDomainModels.swift`
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift` (shared browse header with honey/search/create actions)
+- `mushroomHunter/Features/Shared/NotificationInboxView.swift` (shared in-app notification inbox list opened from top-right bell actions)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by host/profile/profile-create forms)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by multiline inputs)
 - `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift` (shared UIKit bridge for dismissing keyboard on outside taps without scroll interference)
 - `mushroomHunter/Features/Shared/HoneyMessageBox.swift` (shared custom confirmation/error dialog used across room flows)
 - `mushroomHunter/Services/Firebase/RoomBrowseRepo.swift`
+- `mushroomHunter/Services/Firebase/ProfileListRepo.swift` (joined/hosted room summary source used to pin user-owned rooms at the top of browse)
 - `mushroomHunter/Services/Firebase/RoomFormRepo.swift`
 - `mushroomHunter/Services/Firebase/RoomRepo.swift`
 - `mushroomHunter/Services/Firebase/RoomActionsRepo.swift`
@@ -68,7 +70,10 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Utilities/AppDataCache.swift` (shared app-level memory+disk Codable cache used by mushroom browse/detail and profile list stale-first loading)
 - `mushroomHunter/Utilities/CountryLocalization.swift` (shared locale-aware country + room-location display resolver used by mushroom/postcard views/forms)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile/room/postcard)
+- `mushroomHunter/User/NotificationInboxStore.swift` (shared Firestore-backed notification event history pagination, unread state, and deep-link route metadata)
 - Cloud Functions in `functions/index.js`:
+  - `recordRoomCreatedEvent`
+  - `recordHostRaidInviteEvent`
   - `notifyHostJoinRequest`
   - `notifyJoinApplicantAccepted`
   - `notifyJoinApplicantRejected`
@@ -86,31 +91,35 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/App/HoneyHubApp.swift` (postcard invite deep-link routing)
 - `mushroomHunter/App/ContentView.swift` (postcard invite deep-link presentation)
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift` (shared browse header with honey/search/create actions)
+- `mushroomHunter/Features/Shared/NotificationInboxView.swift` (shared in-app notification inbox list opened from top-right bell actions)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by postcard/profile/mushroom forms)
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by postcard description fields)
 - `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift` (shared UIKit bridge for dismissing keyboard on outside taps without scroll interference)
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift` (shared invite QR sheet used by postcard seller share flow)
 - `mushroomHunter/Features/Shared/HoneyMessageBox.swift` (shared custom confirmation/error dialog used across postcard flows)
 - `mushroomHunter/Features/Shared/CachedPostcardImageView.swift` (shared cache-first postcard image renderer with memory+disk cache for browse/detail/form previews)
-- `mushroomHunter/Services/Firebase/PostcardRepo.swift`
+- `mushroomHunter/Services/Firebase/PostcardRepo.swift` (browse/recent paging plus on-shelf/ordered queries used to pin user-owned postcards at the top of browse)
 - `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`
 - `mushroomHunter/Utilities/RoomInviteLink.swift` (postcard invite link generation/parsing)
 - `mushroomHunter/Utilities/SearchTokens.swift`
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed postcard caps, list limits, and timeout windows)
 - `mushroomHunter/Utilities/CountryLocalization.swift` (shared locale-aware country + room-location display resolver used by mushroom/postcard views/forms)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile/room/postcard)
+- `mushroomHunter/User/NotificationInboxStore.swift` (shared Firestore-backed notification event history pagination, unread state, and deep-link route metadata)
 - Cloud Functions in `functions/index.js`:
+  - `recordPostcardCreatedEvent`
   - `sendPostcardOrderCreatedPush`
   - `sendPostcardShippedPush`
+  - `sendPostcardRejectedPush`
   - `notifySellerPostcardCompleted`
 
 ### PROFILE (`PROFILE.md`)
 - `mushroomHunter/Features/Profile/ProfileView.swift`
 - `mushroomHunter/Features/Profile/ProfileFormView.swift` (shared create/edit profile form presented from onboarding and profile edit sheet)
-- `mushroomHunter/Features/Profile/ProfileViewModel.swift` (profile tab room/postcard list loading and error state orchestration)
-- `mushroomHunter/Features/Profile/ProfileMushroom.swift` (joined/hosted mushroom section views extracted from profile)
-- `mushroomHunter/Features/Profile/ProfilePostcard.swift` (on-shelf/ordered postcard section views extracted from profile)
-- `mushroomHunter/Features/Profile/ProfileSectionStateView.swift` (shared loading/error/empty/content renderer for profile list sections)
+- `mushroomHunter/Features/Profile/ProfileViewModel.swift` (profile tab badge aggregation + background refresh for room/postcard actionable counts)
+- `mushroomHunter/Features/Profile/ProfileMushroom.swift` (legacy joined/hosted profile list section components; browse tab now renders these entries at top with ownership tags)
+- `mushroomHunter/Features/Profile/ProfilePostcard.swift` (legacy on-shelf/ordered profile list section components; browse tab now renders these entries at top with ownership tags)
+- `mushroomHunter/Features/Profile/ProfileSectionStateView.swift` (shared badge/status primitives used by profile and legacy profile list sections)
 - `mushroomHunter/Features/Profile/FeedbackView.swift` (feedback compose view + submission payload model)
 - `mushroomHunter/Features/Profile/AboutView.swift` (about page contact information view)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by profile edit/create)
@@ -128,6 +137,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile form and display)
 - Cloud Functions in `functions/index.js`:
   - `sendFeedbackNotificationEmail`
+  - `recordUserProfileAndWalletEvents` (records user-level event history for honey balance deltas and profile name/friend-code updates)
 
 ### SIGNIN (`SIGNIN.md`)
 - `mushroomHunter/Features/Profile/LoginView.swift`

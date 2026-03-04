@@ -41,6 +41,8 @@
 "browse_empty_title" = "找不到房間";
 "browse_attendee_format" = "參加者：%d/%d";
 "browse_expires_format" = "剩餘：%d 分";
+"browse_tag_joined" = "已加入";
+"browse_tag_host" = "主持";
 "browse_error_enter_bid" = "加入前請輸入儲值金額。";
 "browse_error_enter_greeting" = "加入前請填寫打招呼訊息。";
 "browse_error_not_enough_honey" = "蜂蜜不足。你目前有 %d {honey_icon}。";
@@ -257,6 +259,8 @@
 "postcard_sort_lowest_price" = "最低價格";
 "postcard_stock_format" = "x%d";
 "postcard_seller_format" = "賣家：%@";
+"postcard_tag_on_shelf" = "已上架";
+"postcard_tag_ordered" = "已下單";
 "postcard_buy_button" = "購買";
 
 /***************************************/
@@ -518,6 +522,46 @@
 "session_error_apple_token_format" = "無法讀取 Apple ID 權杖。";
 "session_error_missing_client_id" = "缺少 Firebase clientID。";
 "session_error_missing_id_token" = "缺少 Google ID 權杖。";
+
+/***************************************/
+/**** Notification Inbox ****/
+/***************************************/
+
+"browse_notification_accessibility" = "事件";
+"postcard_notification_accessibility" = "事件";
+"notification_default_title" = "事件";
+"notification_inbox_title" = "事件";
+"notification_inbox_empty_title" = "目前沒有事件";
+"notification_inbox_empty_message" = "新的事件會顯示在這裡。";
+"notification_mark_all_read" = "全部已讀";
+
+"event_room_created_title" = "已建立蘑菇房間";
+"event_room_created_message" = "你已建立蘑菇房間：%@。";
+"event_raid_invited_title" = "已發送蘑菇戰邀請";
+"event_raid_invited_message" = "你已邀請成員確認蘑菇戰結果：%@。";
+"event_postcard_registered_title" = "已上架明信片";
+"event_postcard_registered_message" = "你已上架明信片：%@。";
+"event_wallet_honey_changed_title" = "蜂蜜餘額已更新";
+"event_wallet_honey_increased_message" = "你的蜂蜜增加了 %@。目前餘額：%@。";
+"event_wallet_honey_decreased_message" = "你的蜂蜜減少了 %@。目前餘額：%@。";
+"event_profile_name_updated_title" = "名稱已更新";
+"event_profile_name_updated_message" = "你的顯示名稱已更新為 %@。";
+"event_profile_friend_code_updated_title" = "好友碼已更新";
+"event_profile_friend_code_updated_message" = "你的好友碼已更新。";
+"event_raid_confirmation_title" = "蘑菇戰確認";
+"event_raid_confirmation_message" = "%@ 邀請你確認蘑菇戰結果。";
+"event_room_join_request_submitted_title" = "已送出加入申請";
+"event_room_join_request_submitted_message" = "你已送出加入房間申請：%@。";
+"event_room_join_request_received_title" = "收到加入申請";
+"event_room_join_request_received_message" = "%@ 申請加入你的房間：%@。";
+"event_room_join_request_accepted_title" = "加入申請已通過";
+"event_room_join_request_accepted_message" = "你加入房間的申請已通過：%@。";
+"event_room_joiner_accepted_title" = "已通過加入申請";
+"event_room_joiner_accepted_message" = "你已允許 %@ 加入房間：%@。";
+"event_room_join_request_rejected_title" = "加入申請已拒絕";
+"event_room_join_request_rejected_message" = "你加入房間的申請已被拒絕：%@。";
+"event_room_joiner_rejected_title" = "已拒絕加入申請";
+"event_room_joiner_rejected_message" = "你已拒絕 %@ 加入房間：%@。";
 
 /***************************************/
 /**** Tutorial ****/

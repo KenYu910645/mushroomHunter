@@ -1,104 +1,39 @@
 # Profile
 
 ## Related Files
-- `mushroomHunter/Features/Profile/ProfileView.swift`: profile container UI, account/community/sign-out sections, top-right edit-profile sheet entry, settings sheet routing, and feedback success handling.
-- `mushroomHunter/Features/Profile/ProfileFormView.swift`: shared profile form used by profile edit sheet (edit mode) and signin profile completion (create mode).
-- `mushroomHunter/Features/Profile/ProfileViewModel.swift`: profile tab view model for joined/hosted room and postcard list loading/error state.
-- `mushroomHunter/Features/Profile/ProfileMushroom.swift`: joined/hosted mushroom list sections used by profile.
-- `mushroomHunter/Features/Profile/ProfilePostcard.swift`: on-shelf/ordered postcard list sections and shared postcard summary row used by profile.
-- `mushroomHunter/Features/Profile/ProfileSectionStateView.swift`: shared loading/error/empty/content state renderer reused by profile list sections.
-- `mushroomHunter/App/ContentView.swift`: profile tab badge aggregation and app-icon badge sync.
+- `mushroomHunter/Features/Profile/ProfileView.swift`: profile container UI, account identity section, edit/settings sheets, feedback success handling, and sign-out action.
+- `mushroomHunter/Features/Profile/ProfileFormView.swift`: shared profile form used by profile edit and onboarding profile creation.
+- `mushroomHunter/Features/Profile/ProfileViewModel.swift`: background room/postcard list refresh used to keep app-icon badge counts in sync.
 - `mushroomHunter/Features/Profile/FeedbackView.swift`: in-app feedback compose view and submission payload model.
-- `mushroomHunter/Features/Profile/AboutView.swift`: settings-linked about page with phone/email/website links.
-- `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared `UITextField` bridge used by profile edit/create and mushroom host forms (select-all on focus, keyboard/input configuration).
-- `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared `UITextView` bridge used by multiline fields (select-all on focus).
-- `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
-- `mushroomHunter/Features/Shared/HoneyMessageBox.swift`: shared custom confirmation/error dialog used by profile and feedback screens.
-- `mushroomHunter/Services/Firebase/ProfileListRepo.swift`: Firestore queries for hosted/joined mushroom rooms shown in profile.
-- `mushroomHunter/Services/Firebase/FeedbackRepo.swift`: writes in-app feedback submissions to Firestore `feedbackSubmissions`.
-- `mushroomHunter/Services/Firebase/PostcardRepo.swift`: Firestore queries for on-shelf and ordered postcards shown in profile.
-- `mushroomHunter/User/UserSessionStore.swift`: shared user session state container.
-- `mushroomHunter/User/UserAuth.swift`: authentication methods for the shared session container.
-- `mushroomHunter/User/UserProfile.swift`: profile state storage and sync (display name, friend code, limits, tokens).
-- `mushroomHunter/User/UserWallet.swift`: stars/honey state helpers.
-- `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed profile constraints (friend code length) and shared list limits.
-- `mushroomHunter/Utilities/AppDataCache.swift`: shared app-level memory+disk Codable cache used by profile list stale-first loading.
-- `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used by profile create/edit and displays.
-- `functions/index.js`: server-side email trigger for profile feedback submissions.
+- `mushroomHunter/Features/Profile/AboutView.swift`: settings-linked about page with contact links.
+- `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared top action bar in honey+stars display mode.
+- `mushroomHunter/Features/Shared/HoneyMessageBox.swift`: shared confirmation/success dialog used by feedback/profile flows.
+- `mushroomHunter/Services/Firebase/FeedbackRepo.swift`: writes feedback payloads to Firestore `feedbackSubmissions`.
+- `mushroomHunter/Services/Firebase/ProfileListRepo.swift`: hosted/joined room summary reads used for profile badge aggregation and mushroom browse pinning.
+- `mushroomHunter/Services/Firebase/PostcardRepo.swift`: on-shelf/ordered postcard reads used for profile badge aggregation and postcard browse pinning.
+- `mushroomHunter/App/ContentView.swift`: app icon badge sync and tab routing.
+- `mushroomHunter/User/UserSessionStore.swift`: shared session state and badge count store.
 
 ## Feature Coverage
-- User can view and edit profile data:
-  - Display name
-  - Friend code
-  - Stars/reputation (shown in top action bar)
-- Profile identity values are read-only in profile section rows; editing is triggered by the top-right pencil button and presented in a dedicated edit-profile sheet.
-- Profile tab top area now uses shared `BrowseViewTopActionBar` in honey+stars mode (no search/create actions).
-- Profile top action bar is rendered inside the scrolling form content so it moves with the page while scrolling.
-- Profile tab includes user-related content views:
-  - Joined mushroom rooms
-  - Hosted mushroom rooms
-  - On-shelf postcards
-  - Ordered postcards
-- Joined mushroom room rows now show the attendee status directly in profile (`Host`, `Asking to join`, `Ready`, `Waiting confirmation`, `Rejected`) so users can instantly see their room state.
-- Profile mushroom rows are tap-to-open without default list disclosure chevrons, so row visuals stay clean while preserving room-detail navigation.
-- Mushroom lists now include subsection titles (`Joined`, `Hosted`) styled the same way as postcard subsection titles.
-- Profile list loading is now cache-first plus immediate forced backend refresh on appear, so attendee/host room-status changes (for example `Ready -> Waiting confirmation`) are updated promptly after entering Profile.
-- Joined mushroom room statuses are highlighted with rounded-rectangle badges and urgency color coding:
-  - `Ready`: green
-  - `Asking to join` / `Waiting confirmation`: yellow-orange
-  - `Rejected`: red
-- `Host`: blue
-- Profile tab icon shows a numeric badge count for actionable items, and the iOS app icon badge keeps the same numeric total count.
-- Profile actionable total is the sum of:
-  - Joined-room rows in `Waiting confirmation` (joiner needs to respond to host confirmation prompt).
-  - Hosted-room pending join applications (`AskingToJoin` attendees).
-  - Seller pending postcard orders (`SellerConfirmPending` / `AwaitingShipping`, plus legacy aliases).
-  - Buyer orders waiting receipt confirmation (`Shipped`, plus legacy aliases).
-- Joined mushroom rows now show a tiny red dot marker when attendee status is `Waiting confirmation`.
-- Hosted mushroom rows now show a tiny red dot marker when that room has pending join applications.
-- On-shelf postcard rows now show a tiny red dot marker when that listing has pending seller actions.
-- Profile actionable row markers are dot-only (no red rounded rectangle and no per-row numeric count rendering).
-- Joined mushroom room deposit now renders as an orange rounded honey chip (`HoneyIcon + deposit`) matching top action bar honey styling.
-- Profile postcard rows display status text on the right side (stock count hidden in profile lists):
-  - On-shelf section:
-    - `Order Received` when seller has unprocessed queue items (`SellerConfirmPending` / `AwaitingShipping` and legacy `AwaitingSellerSend`) for that listing.
-    - `On-shelf` when no unprocessed queue item exists.
-- Ordered section:
-    - `Wait for shipping` for `SellerConfirmPending` / `AwaitingShipping`
-    - `Shipped, on-the-way` for `Shipped`
-- Profile postcard statuses also use rounded-rectangle urgency badges:
-  - `On-shelf`: green
-  - `Order Received`: yellow-orange
-  - `Wait for shipping`: green
-  - `Shipped, on-the-way`: blue
-- Profile postcard rows use actionable markers:
-  - On-shelf rows: tiny red dot when pending seller-order count for that listing is greater than `0`.
-  - Ordered rows: tiny red dot when order status is `Shipped` (waiting buyer receive confirmation).
-- Profile postcard slots no longer show `HoneyIcon` in the right metadata column.
-- On-shelf postcard rows hide both location text and honey price.
-- Ordered postcard rows hide both location text and honey price to align with on-shelf row style.
-- Hosted mushroom room rows now show an aggregate room-status badge so hosts can see room state immediately:
-  - `Ready` when there is at least one non-host attendee and the room is not in all-`WaitingConfirmation` state.
-  - `Waiting for players` when there is no non-host attendee.
-  - `Waiting confirmation` when all non-host attendees are `WaitingConfirmation`.
-- Settings includes:
-  - `Feedback`: opens in-app compose sheet (subject/message) and submits to Firestore `feedbackSubmissions`.
-  - `Help`: opens the in-app tutorial walkthrough (`TutorialView`) so users can revisit onboarding guidance anytime.
-  - `About`: shows contact information (phone, email, website).
-- Profile validation, feedback success, and feedback error prompts use shared `HoneyMessageBox` to keep messaging UI consistent with Mushroom/Postcard flows.
-- Feedback compose subject and message both auto-select existing text on focus.
-- Shared profile text inputs now auto-scroll the focused field above keyboard overlap; single-line inputs dismiss keyboard on `Enter`.
-- Profile create/edit form dismisses keyboard on outside taps (without collapsing during scroll) and includes keyboard toolbar `Done`.
-- Profile hosted-room loading queries `rooms.hostUid`; joined-room loading uses UID-scoped attendee queries.
-- Profile/token sync paths now apply write guards in session scope to skip duplicate `users/{uid}` writes when values have not changed.
-- FCM token sync also refreshes hosted room snapshots (`rooms.hostFcmToken` and host attendee `fcmToken`) so mushroom push flows can avoid per-push user reads.
-- Profile room/postcard sections now use app-level stale-first cache:
-  - Opening Profile loads cached hosted/joined/on-shelf/ordered lists first.
-  - Pull-to-refresh forces latest Firestore queries and overwrites profile list cache.
-  - Hosted room close callback forces hosted-room refresh to keep host list consistent after room lifecycle actions.
-- UI testing mode (`--ui-testing`) disables profile Firestore reads/writes/sync paths so UI automation is fully offline from backend dependencies.
+- Profile tab now focuses on account management only:
+  - Display name and friend code (read-only identity rows).
+  - Top-right settings sheet entry.
+  - Settings routes now include `Edit Profile`, `Feedback`, `Help`, and `About`.
+  - Sign-out action now shows a confirmation dialog (`Are you sure you want to sign out?`) before session sign-out executes.
+- Mushroom and postcard owned activity lists were removed from profile and moved into browse tabs:
+  - Mushroom browse pins user `Joined` and `Host` rooms at the top with ownership tags.
+  - Postcard browse pins user `On-shelf` and `Ordered` postcards at the top with ownership tags.
+- Profile still triggers background list refresh through `ProfileViewModel` to maintain actionable totals used by app icon badge.
+- Profile edits and wallet changes now generate per-user event-history rows (`users/{uid}/events`) so bell Events includes:
+  - display-name updates,
+  - friend-code updates,
+  - honey balance deltas (spend/gain/refund from room/postcard flows).
+- UI testing mode (`--ui-testing`) keeps profile backend reads/writes disabled for deterministic offline test execution.
 
 ## Cloud Functions (Profile Use Cases)
+- `recordUserProfileAndWalletEvents`
+  - Trigger: update on `users/{uid}`
+  - Writes profile/wallet event history rows in `users/{uid}/events/{eventId}` for `displayName`, `friendCode`, and `honey` changes
 - `sendFeedbackNotificationEmail`
   - Trigger: create on `feedbackSubmissions/{feedbackId}`
   - Sends one SMTP email per feedback submission

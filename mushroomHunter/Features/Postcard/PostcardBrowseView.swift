@@ -25,18 +25,24 @@ struct PostcardBrowsePushRoute: Identifiable, Hashable {
 struct PostcardBrowseView: View {
     /// Shared session state used for wallet values and profile refresh.
     @EnvironmentObject private var session: UserSessionStore
+    /// Shared notification inbox state used by the top-right bell button.
+    @EnvironmentObject private var notificationInbox: NotificationInboxStore
     /// Browse view model that loads and filters postcard listings.
     @StateObject private var vm = PostcardBrowseViewModel()
     /// Controls presentation of the search alert.
     @State private var isSearchFieldVisible: Bool = false
     /// Controls presentation of the postcard register sheet.
     @State private var isRegisterSheetPresented: Bool = false
+    /// Controls presentation of the notification inbox sheet.
+    @State private var isNotificationInboxPresented: Bool = false
     /// Refresh trigger incremented after creating a postcard.
     @State private var browseDataRefreshToken: Int = 0
     /// Current color scheme used for theme background rendering.
     @Environment(\.colorScheme) private var scheme
     /// Controls keyboard focus for inline search field.
     @FocusState private var isSearchFieldFocused: Bool
+    /// Debounce task used to delay backend search until typing pauses.
+    @State private var querySearchDebounceTask: Task<Void, Never>? = nil
     /// Pending push route provided by app-level notification router.
     @Binding private var pendingPushRoute: PostcardBrowsePushRoute?
     /// Active push route currently pushed in postcard navigation stack.
@@ -68,8 +74,10 @@ struct PostcardBrowseView: View {
                                 .focused($isSearchFieldFocused)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled(true)
+                                .submitLabel(.search)
                                 .onSubmit {
-                                    Task { await vm.performConfirmedSearch() }
+                                    querySearchDebounceTask?.cancel()
+                                    Task { await vm.performConfirmedSearch(session: session) }
                                 }
 
                             Spacer(minLength: 0)
@@ -77,7 +85,7 @@ struct PostcardBrowseView: View {
                             Button {
                                 isSearchFieldFocused = false
                                 isSearchFieldVisible = false
-                                Task { await vm.clearConfirmedSearch() }
+                                Task { await vm.clearConfirmedSearch(session: session) }
                             } label: {
                                 Image(systemName: "xmark")
                                     .font(.caption.weight(.semibold))
@@ -100,7 +108,10 @@ struct PostcardBrowseView: View {
                             NavigationLink {
                                 PostcardView(listing: listing)
                             } label: {
-                                PostcardCardView(listing: listing)
+                                PostcardCardView(
+                                    listing: listing,
+                                    ownershipTag: vm.ownershipTag(for: listing.id)
+                                )
                             }
                             .frame(maxWidth: .infinity, alignment: .topLeading)
                             .buttonStyle(.plain)
@@ -139,9 +150,31 @@ struct PostcardBrowseView: View {
                 }
                 .padding(.vertical, 8)
             }
+            .refreshable {
+                await vm.refresh(session: session)
+            }
             .navigationTitle(LocalizedStringKey("postcard_title"))
             .navigationDestination(item: $activePushRoute) { route in
                 PostcardBrowseDestinationView(route: route)
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        isNotificationInboxPresented = true
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "bell")
+                            if notificationInbox.unreadCount > 0 {
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: 4, y: -3)
+                            }
+                        }
+                    }
+                    .accessibilityLabel(LocalizedStringKey("postcard_notification_accessibility"))
+                    .accessibilityIdentifier("postcard_notification_button")
+                }
             }
             .background(Theme.backgroundGradient(for: scheme))
             .overlay {
@@ -168,13 +201,19 @@ struct PostcardBrowseView: View {
                 }
             }
         }
+        .sheet(isPresented: $isNotificationInboxPresented) {
+            NotificationInboxView { route in
+                routeNotificationInboxItem(route)
+            }
+            .environmentObject(notificationInbox)
+        }
         .onChange(of: vm.selectedCountry) { _, _ in
             vm.normalizeProvinceSelection()
         }
         .onAppear {
             Task {
                 await session.refreshProfileFromBackend()
-                await vm.refresh()
+                await vm.refresh(session: session)
             }
         }
         .onChange(of: pendingPushRoute) { _, route in
@@ -182,11 +221,15 @@ struct PostcardBrowseView: View {
             activePushRoute = route
             pendingPushRoute = nil
         }
-        .task(id: browseDataRefreshToken) {
-            await vm.refresh()
+        .onChange(of: vm.query) { _, latestQuery in
+            schedulePostcardSearch(for: latestQuery)
         }
-        .refreshable {
-            await vm.refresh()
+        .onDisappear {
+            querySearchDebounceTask?.cancel()
+            querySearchDebounceTask = nil
+        }
+        .task(id: browseDataRefreshToken) {
+            await vm.refresh(session: session)
         }
     }
 
@@ -220,6 +263,56 @@ struct PostcardBrowseView: View {
         )
         .padding(.horizontal)
     }
+
+    /// Triggers debounced backend search while user types in postcard search field.
+    /// - Parameter latestQuery: Latest raw query text from inline search field.
+    private func schedulePostcardSearch(for latestQuery: String) {
+        querySearchDebounceTask?.cancel()
+
+        let trimmedQuery = latestQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedQuery.isEmpty {
+            querySearchDebounceTask = Task {
+                await vm.clearConfirmedSearch(session: session)
+            }
+            return
+        }
+
+        querySearchDebounceTask = Task {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard Task.isCancelled == false else { return }
+            await vm.performConfirmedSearch(session: session)
+        }
+    }
+
+    /// Routes a tapped notification inbox row into existing app-level deep-link channels.
+    /// - Parameter route: Inbox route metadata attached to the tapped row.
+    private func routeNotificationInboxItem(_ route: NotificationInboxRoute) {
+        switch route.kind {
+        case .room:
+            guard let roomId = route.roomId, roomId.isEmpty == false else { return }
+            if route.isOpeningConfirmationQueue {
+                NotificationCenter.default.post(name: .didOpenRoomConfirmationFromPush, object: roomId)
+            } else {
+                NotificationCenter.default.post(name: .didOpenRoomFromPush, object: roomId)
+            }
+        case .postcard:
+            guard let postcardId = route.postcardId, postcardId.isEmpty == false else { return }
+            if route.isOpeningOrderPage {
+                NotificationCenter.default.post(
+                    name: .didOpenPostcardOrderFromPush,
+                    object: [
+                        "postcardId": postcardId,
+                        "orderId": route.orderId ?? ""
+                    ]
+                )
+            } else {
+                NotificationCenter.default.post(name: .didOpenPostcardFromLink, object: postcardId)
+            }
+        case .none:
+            break
+        }
+    }
+
 }
 
 /// Postcard push destination loader that opens normal postcard detail route in-stack.
@@ -278,6 +371,8 @@ private struct PostcardBrowseDestinationView: View {
 private struct PostcardCardView: View {
     /// Listing displayed by this card.
     let listing: PostcardListing
+    /// Optional ownership marker for pinned user-owned postcard slots.
+    let ownershipTag: PostcardBrowseViewModel.OwnershipTag?
     /// Current color scheme used for card background styling.
     @Environment(\.colorScheme) private var scheme
     /// Fixed aspect ratio used for postcard thumbnail area.
@@ -323,6 +418,11 @@ private struct PostcardCardView: View {
                         .fill(.ultraThinMaterial)
                 )
             }
+            .overlay(alignment: .bottomTrailing) {
+                if let ownershipTag {
+                    PostcardOwnershipTagChip(titleKey: ownershipTag.titleKey)
+                }
+            }
             .frame(maxWidth: .infinity)
 
             Text(listing.title)
@@ -350,5 +450,25 @@ private struct PostcardCardView: View {
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
         .contentShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+/// Ownership chip shown on pinned postcard browse cards.
+private struct PostcardOwnershipTagChip: View {
+    /// Localized ownership label rendered by this chip.
+    let titleKey: LocalizedStringKey
+
+    /// Tag chip UI used for on-shelf/ordered markers.
+    var body: some View {
+        Text(titleKey)
+            .font(.caption2.weight(.semibold))
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .foregroundStyle(.white)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.blue)
+            )
     }
 }

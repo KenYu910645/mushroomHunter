@@ -8,6 +8,7 @@
 - `mushroomHunter/Features/Postcard/PostcardBrowseViewModel.swift`: browse filtering, sorting, and refresh state logic.
 - `mushroomHunter/Features/Postcard/PostcardDomainModel.swift`: postcard listing/order/location models and status enums.
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens (stars hidden on postcard browse).
+- `mushroomHunter/Features/Shared/NotificationInboxView.swift`: shared in-app notification inbox list opened from mushroom/postcard top-right bell actions.
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by postcard form inputs.
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared auto-select text editor wrapper used by postcard description inputs.
 - `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
@@ -20,6 +21,7 @@
 - `mushroomHunter/Utilities/CountryLocalization.swift`: shared locale-aware country + room-location display resolver used by postcard/room labels.
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed postcard settings (price/stock/text caps, fetch limits, image cache limits, order timeout windows).
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used across profile, room, and postcard flows.
+- `mushroomHunter/User/NotificationInboxStore.swift`: shared Firestore-backed notification event history pagination, unread state, and deep-link route metadata.
 - `mushroomHunter/App/HoneyHubApp.swift`: handles postcard deep-link routing from invite links.
 - `mushroomHunter/App/ContentView.swift`: presents postcard detail sheet when a postcard invite link is opened.
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift`: shared invite QR sheet component reused by postcard detail.
@@ -28,9 +30,20 @@
 ## Feature Coverage
 - Browse and search postcard listings.
 - Browse and search use paginated fetches (`20` per page) with explicit "Load more".
+- Postcard browse now pins user-owned cards above general browse results at all times:
+  - `On-shelf` listings are rendered at the top with an `On-shelf` ownership tag.
+  - `Ordered` listings are rendered at the top with an `Ordered` ownership tag.
+  - Ownership tags are rendered at the postcard snapshot exact right-bottom corner (no inset offset).
+  - Ownership tags use a solid rounded-rectangle fill for higher visibility.
+  - Pinned rows are deduplicated from the general browse result list to avoid mixed ownership context.
+  - Pinned rows still follow the same stock/location/search filters, so unmatched rows are hidden while typing a query.
 - Browse search is opened from the top action bar as an inline search field above the listing grid (no dedicated sheet/alert).
+- Postcard browse includes a screen-level top-right bell icon that opens the shared notification inbox list.
+- Notification inbox loads the latest 10 events first from `users/{uid}/events` and loads older pages while scrolling.
+- Notification inbox rows show unread state with red dot + bold title/message text, and become read when tapped (or via `Read All` action).
+- Tapping a postcard-related inbox row routes using existing postcard push deep-link channel and opens postcard detail in order-context mode.
 - Postcard browse search matches postcard title and location text (country/city).
-- Postcard browse search applies local filtering while typing; backend paged query runs only when user taps `Search`.
+- Postcard browse search applies local filtering while typing; backend paged query also runs after typing pauses briefly (debounced) or when user taps keyboard `Search`.
 - Inline search field includes an `x` clear button; tapping `x` clears query and collapses the search field. Pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
 - Postcard browse card thumbnail overlays the honey price badge (value + honey icon) at the top-right corner; stock count is not shown on browse cards.
 - Postcard browse thumbnails and postcard detail/form preview images use shared cache-first loading (`memory -> disk -> network`) so revisiting recently viewed images avoids repeated Firebase Storage downloads when cache is hit.
@@ -40,6 +53,7 @@
 - Register flow uploads full image + thumbnail to Firebase Storage, then creates Firestore listing.
 - Register success dismisses the sheet and refreshes browse list.
 - Pull-to-refresh is supported in postcard browse, detail, and shipping flows.
+- Postcard browse pull-to-refresh is bound directly to the browse `ScrollView` and refreshes both pinned owner sections (`On-shelf`/`Ordered`) and paged browse listings from Firebase.
 - Seller can open shipping sheet in postcard detail to see waiting buyers and mark each order as sent.
 - Seller shipping toolbar button in postcard detail shows a tiny red dot when there are pending orders that need seller processing.
 - Seller shipping queue rows show `Buyer ordered Postcard` title text plus a friend-request instruction line with inline copy icon for buyer friend code.
@@ -84,26 +98,33 @@
 - Detail placeholder text is localized via `postcard_detail_placeholder`.
 
 ## Cloud Functions (Postcard Use Cases)
+- `recordPostcardCreatedEvent`
+  - Trigger: create on `postcards/{postcardId}`
+  - Writes seller-side notification history event (`postcard_registered`) for postcard registration.
 - `sendPostcardOrderCreatedPush`
   - Trigger: create on `postcardOrders/{orderId}`
   - Sends only when new order status is `AwaitingShipping`
   - Push target: `postcardOrders/{orderId}.sellerFcmToken` first, with `users/{sellerId}.fcmToken` fallback
-  - Payload data: `type=postcard_order_created`, `orderId`, `postcardId`
+  - Payload data: `type=postcard_order_created`, `orderId`, `postcardId`, `eventId`
+  - Also writes history events for both seller (`postcard_order_created`) and buyer (`postcard_order_sent`).
 - `sendPostcardShippedPush`
   - Trigger: update on `postcardOrders/{orderId}`
   - Sends only when order status transitions into `Shipped`
   - Push target: `postcardOrders/{orderId}.buyerFcmToken` first, with `users/{buyerId}.fcmToken` fallback
-  - Payload data: `type=postcard_shipped`, `orderId`, `postcardId`
+  - Payload data: `type=postcard_shipped`, `orderId`, `postcardId`, `eventId`
+  - Also writes history events for both buyer (`postcard_shipped`) and seller (`postcard_sent`).
 - `sendPostcardRejectedPush`
   - Trigger: update on `postcardOrders/{orderId}`
   - Sends only when order status transitions into `Rejected`
   - Push target: `postcardOrders/{orderId}.buyerFcmToken` first, with `users/{buyerId}.fcmToken` fallback
-  - Payload data: `type=postcard_rejected`, `orderId`, `postcardId`, `honey`
+  - Payload data: `type=postcard_rejected`, `orderId`, `postcardId`, `honey`, `eventId`
+  - Also writes history events for both buyer and seller.
 - `notifySellerPostcardCompleted`
   - Trigger: update on `postcardOrders/{orderId}`
   - Sends only when order status transitions into `Completed` or `CompletedAuto`
   - Push target: `postcardOrders/{orderId}.sellerFcmToken` first, with `users/{sellerId}.fcmToken` fallback
-  - Payload data: `type=postcard_order_completed`, `orderId`, `postcardId`, `honey`
+  - Payload data: `type=postcard_order_completed`, `orderId`, `postcardId`, `honey`, `eventId`
+  - Also writes history events for both seller (`postcard_order_completed`) and buyer (`postcard_received`).
 - `processPostcardOrderTimeouts`
   - Trigger: scheduler every 15 minutes
   - Processes order deadline transitions:
@@ -140,7 +161,7 @@ Notes:
 - `searchTokens` are generated by `SearchTokenBuilder` from title + seller name + location fields for search.
 - Client UI input caps: `title` max `20` chars, `location.province` max `20` chars, `location.detail` max `100` chars.
 - Postcard detail view behavior:
-  - Seller (`auth.uid == sellerId`) sees three toolbar icons for shipping, sharing, and editing.
+  - Seller (`auth.uid == sellerId`) sees three toolbar icons in this order: share, `list.clipboard` (shipping queue), edit.
   - Seller can share invite QR/link, update listing fields, or delete listing.
   - Non-seller sees buy action button and buyer-order status hints.
   - Buy button is disabled while the buyer has an active order for that postcard.

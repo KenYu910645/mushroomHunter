@@ -4,18 +4,12 @@
 //
 //  Purpose:
 //  - Renders the profile tab and related sheets (profile edit, settings, feedback, help, about).
-//  - Loads profile-owned mushroom/postcard lists and profile summary information.
+//  - Shows account identity and sign-out actions only; room/postcard activity lives in browse tabs.
 //
 import SwiftUI
 
-/// Profile landing screen that surfaces user identity, reputation, owned rooms, and postcard activity.
+/// Profile landing screen that surfaces user identity and settings actions.
 struct ProfileView: View {
-    /// Route model used to push room detail from profile mushroom rows.
-    private struct RoomRoute: Identifiable, Hashable {
-        /// Room id used by navigation destination and room detail loader.
-        let id: String
-    }
-
     /// Sheet routes presented from profile toolbar and settings actions.
     private enum ActiveSheet: String, Identifiable {
         /// Settings menu sheet.
@@ -42,13 +36,8 @@ struct ProfileView: View {
     /// Current color scheme used to keep background styling consistent with app theme.
     @Environment(\.colorScheme) private var colorScheme
 
-    /// View model that manages room/postcard profile lists and loading state.
+    /// View model retained for profile badge aggregation and background profile data refresh.
     @StateObject private var viewModel = ProfileViewModel()
-
-    /// Selected postcard used to push into postcard detail.
-    @State private var selectedPostcard: PostcardListing? = nil
-    /// Selected room used to push into room detail from profile mushroom lists.
-    @State private var selectedRoomRoute: RoomRoute? = nil
 
     /// Currently presented profile sheet route.
     @State private var activeSheet: ActiveSheet? = nil
@@ -87,35 +76,12 @@ struct ProfileView: View {
                 .listRowBackground(Color.clear)
 
                 accountSection
-                mushroomSection
-                postcardSection
                 signOutSection
             }
             .navigationTitle(LocalizedStringKey("profile_title"))
-            .navigationDestination(item: $selectedPostcard) { postcard in
-                PostcardView(listing: postcard)
-            }
-            .navigationDestination(item: $selectedRoomRoute) { route in
-                RoomView(
-                    vm: RoomViewModel(roomId: route.id, session: session),
-                    onRoomClosed: {
-                        Task { await viewModel.loadHostedRooms(session: session, forceRefresh: true) }
-                    }
-                )
-            }
             .scrollContentBackground(.hidden)
             .background(Theme.backgroundGradient(for: colorScheme))
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        activeSheet = .editProfile
-                    } label: {
-                        Image(systemName: "pencil")
-                    }
-                    .accessibilityLabel(LocalizedStringKey("edit_profile_title"))
-                    .accessibilityIdentifier("profile_edit_button")
-                }
-
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         activeSheet = .settings
@@ -238,55 +204,6 @@ struct ProfileView: View {
         }
     }
 
-    /// Section that displays mushroom rooms the user has joined or hosted.
-    private var mushroomSection: some View {
-        Section {
-            JoinedRoomsSection(
-                rooms: viewModel.joinedRooms,
-                isLoading: viewModel.isJoinedRoomsLoading,
-                errorMessage: viewModel.joinedRoomsErrorMessage,
-                onSelectRoom: { selectedRoomRoute = .init(id: $0) }
-            )
-            .equatable()
-
-            HostedRoomsSection(
-                rooms: viewModel.hostedRooms,
-                pendingJoinRequestCountsByRoomId: viewModel.hostedPendingJoinRequestCountsByRoomId,
-                isLoading: viewModel.isHostedRoomsLoading,
-                errorMessage: viewModel.hostedRoomsErrorMessage,
-                onSelectRoom: { selectedRoomRoute = .init(id: $0) }
-            )
-            .equatable()
-        } header: {
-            Text(LocalizedStringKey("profile_mushroom_section"))
-        }
-    }
-
-    /// Section that displays postcards listed by the user and ordered by the user.
-    private var postcardSection: some View {
-        Section {
-            OnShelfPostcardsSection(
-                postcards: viewModel.onShelfPostcards,
-                pendingOrderPostcardIds: viewModel.onShelfPendingOrderPostcardIds,
-                pendingOrderCountsByPostcardId: viewModel.onShelfPendingOrderCountsByPostcardId,
-                isLoading: viewModel.isOnShelfPostcardsLoading,
-                errorMessage: viewModel.onShelfPostcardsErrorMessage,
-                onSelectPostcard: { selectedPostcard = $0 }
-            )
-            .equatable()
-
-            OrderedPostcardsSection(
-                postcards: viewModel.orderedPostcards,
-                isLoading: viewModel.isOrderedPostcardsLoading,
-                errorMessage: viewModel.orderedPostcardsErrorMessage,
-                onSelectPostcard: { selectedPostcard = $0.listing }
-            )
-            .equatable()
-        } header: {
-            Text(LocalizedStringKey("profile_postcard_section"))
-        }
-    }
-
     /// Section that exposes sign-out action.
     private var signOutSection: some View {
         Section {
@@ -303,6 +220,14 @@ struct ProfileView: View {
         NavigationStack {
             List {
                 Section {
+                    Button {
+                        pendingSheetAfterDismiss = .editProfile
+                        activeSheet = nil
+                    } label: {
+                        Label(LocalizedStringKey("edit_profile_title"), systemImage: "pencil")
+                    }
+                    .accessibilityIdentifier("settings_edit_profile_button")
+
                     Button {
                         pendingSheetAfterDismiss = .feedback
                         activeSheet = nil

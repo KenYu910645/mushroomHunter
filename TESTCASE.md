@@ -67,7 +67,7 @@ In UI testing mode, profile refresh/sync paths are also short-circuited so no Fi
 ### 6. Profile edit + settings flow
 - Test: `testProfileEditAndFeedbackAndAboutFlow`
 - Coverage:
-  - Open profile edit and update display name + friend code.
+  - Open settings -> edit profile, then update display name + friend code.
   - Verify updated name is reflected on profile view.
   - Open settings -> feedback, send feedback in UI-testing mode.
   - Open settings -> about and verify about content is shown.

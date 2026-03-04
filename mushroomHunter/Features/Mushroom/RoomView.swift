@@ -532,7 +532,7 @@ struct RoomView: View {
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
-            if vm.role == .host, vm.room != nil {
+            if vm.role == .host {
                 Button {
                     showInviteSheet = true
                 } label: {
@@ -540,20 +540,8 @@ struct RoomView: View {
                         .font(.headline)
                 }
                 .accessibilityLabel(LocalizedStringKey("room_share_accessibility"))
-                .disabled(vm.isLoading)
+                .disabled(vm.isLoading || vm.room == nil)
 
-            }
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-            if vm.role == .host, let room = vm.room {
-                Button {
-                    editingRoom = room
-                } label: {
-                    Image(systemName: "pencil")
-                        .font(.headline)
-                }
-                .accessibilityLabel(LocalizedStringKey("room_edit_room_accessibility"))
-                .disabled(vm.isLoading)
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -570,20 +558,16 @@ struct RoomView: View {
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
-            if vm.role == .attendee, vm.isCurrentUserAllowedToEditDeposit {
+            if vm.role == .host {
                 Button {
-                    let currentDeposit = vm.currentUserDepositHoney() ?? 0
-                    let fixedCost = vm.room?.fixedRaidCost ?? 0
-                    let maxBid = max(session.honey + currentDeposit, 0)
-                    updateDepositAmount = min(maxBid, max(currentDeposit, fixedCost))
-                    showDepositSheet = true
+                    guard let room = vm.room else { return }
+                    editingRoom = room
                 } label: {
                     Image(systemName: "pencil")
                         .font(.headline)
                 }
-                .accessibilityLabel(LocalizedStringKey("room_edit_bid_accessibility"))
-                .accessibilityIdentifier("room_edit_bid_button")
-                .disabled(vm.isLoading)
+                .accessibilityLabel(LocalizedStringKey("room_edit_room_accessibility"))
+                .disabled(vm.isLoading || vm.room == nil)
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -596,6 +580,23 @@ struct RoomView: View {
                 .accessibilityLabel(LocalizedStringKey("room_confirmation_queue_accessibility"))
                 .accessibilityIdentifier("room_confirmation_queue_button")
                 .disabled(vm.isLoading)
+            }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            if vm.role == .attendee {
+                Button {
+                    let currentDeposit = vm.currentUserDepositHoney() ?? 0
+                    let fixedCost = vm.room?.fixedRaidCost ?? 0
+                    let maxBid = max(session.honey + currentDeposit, 0)
+                    updateDepositAmount = min(maxBid, max(currentDeposit, fixedCost))
+                    showDepositSheet = true
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.headline)
+                }
+                .accessibilityLabel(LocalizedStringKey("room_edit_bid_accessibility"))
+                .accessibilityIdentifier("room_edit_bid_button")
+                .disabled(vm.isLoading || vm.isCurrentUserAllowedToEditDeposit == false)
             }
         }
     }

@@ -27,6 +27,7 @@ struct RoomBrowsePushRoute: Identifiable, Hashable {
 struct RoomBrowseView: View {
     private let session: UserSessionStore // Session object passed from tab root (honey/profile refresh + child view models).
     @Binding private var pendingPushRoute: RoomBrowsePushRoute? // Pending route provided by app-level notification router.
+    @EnvironmentObject private var notificationInbox: NotificationInboxStore // Shared notification inbox state used by the top-right bell button.
     @StateObject private var vm: RoomBrowseViewModel // Owns loading/filter/join state for this screen.
     @State private var showHostSheet: Bool = false // Controls host-room sheet presentation.
     @State private var pendingJoinListing: RoomListing? = nil // Selected listing for join prompt context.
@@ -35,6 +36,7 @@ struct RoomBrowseView: View {
     @State private var isJoinGreetingFocused: Bool = false // Controls first-responder focus for join greeting editor.
     @State private var isSearchFieldVisible: Bool = false // Controls inline search field visibility.
     @State private var bidFieldFocused: Bool = false // Controls first-responder focus for the bid entry field.
+    @State private var isNotificationInboxPresented: Bool = false // Controls notification inbox sheet presentation.
     @FocusState private var isSearchFieldFocused: Bool // Controls keyboard focus for inline search field.
     @Environment(\.colorScheme) private var scheme // Used for themed background.
     @State private var activePushRoute: RoomBrowsePushRoute? = nil // Active push route currently being pushed in navigation stack.
@@ -56,7 +58,11 @@ struct RoomBrowseView: View {
                 .navigationTitle(LocalizedStringKey("browse_title"))
                 .navigationDestination(item: $activePushRoute) { route in
                     RoomView(
-                        vm: RoomViewModel(roomId: route.roomId, session: session),
+                        vm: RoomViewModel(
+                            roomId: route.roomId,
+                            session: session,
+                            seededRole: vm.roleSeed(for: route.roomId)
+                        ),
                         isOpeningConfirmationQueueOnAppear: route.isOpeningConfirmationQueue,
                         isForceRefreshOnAppear: route.isForceRefresh
                     )
@@ -74,11 +80,36 @@ struct RoomBrowseView: View {
                     activePushRoute = route
                     pendingPushRoute = nil
                 }
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button {
+                            isNotificationInboxPresented = true
+                        } label: {
+                            ZStack(alignment: .topTrailing) {
+                                Image(systemName: "bell")
+                                if notificationInbox.unreadCount > 0 {
+                                    Circle()
+                                        .fill(Color.red)
+                                        .frame(width: 8, height: 8)
+                                        .offset(x: 4, y: -3)
+                                }
+                            }
+                        }
+                        .accessibilityLabel(LocalizedStringKey("browse_notification_accessibility"))
+                        .accessibilityIdentifier("browse_notification_button")
+                    }
+                }
         }
         .sheet(isPresented: $showHostSheet) {
             // Opens room creation flow from browse header.
             RoomFormView(vm: HostViewModel(session: session))
                 .environmentObject(session)
+        }
+        .sheet(isPresented: $isNotificationInboxPresented) {
+            NotificationInboxView { route in
+                routeNotificationInboxItem(route)
+            }
+            .environmentObject(notificationInbox)
         }
         .sheet(item: $pendingJoinListing) { listing in
             NavigationStack {
@@ -222,6 +253,7 @@ struct RoomBrowseView: View {
                                 .focused($isSearchFieldFocused)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled(true)
+                                .submitLabel(.search)
                                 .onSubmit {
                                     Task { await vm.performConfirmedSearch() }
                                 }
@@ -257,10 +289,17 @@ struct RoomBrowseView: View {
                             HStack(alignment: .top, spacing: 12) {
                                 NavigationLink {
                                     RoomView(
-                                        vm: RoomViewModel(roomId: listing.id, session: session)
+                                        vm: RoomViewModel(
+                                            roomId: listing.id,
+                                            session: session,
+                                            seededRole: vm.roleSeed(for: listing.id)
+                                        )
                                     )
                                 } label: {
-                                    RoomRowContent(listing: listing)
+                                    RoomRowContent(
+                                        listing: listing,
+                                        ownershipTag: vm.ownershipTag(for: listing.id)
+                                    )
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier("browse_room_link_\(listing.id)")
@@ -309,6 +348,7 @@ struct RoomBrowseView: View {
     // MARK: - Row UI
     private struct RoomRowContent: View {
         let listing: RoomListing // Source listing displayed in this row.
+        let ownershipTag: RoomBrowseViewModel.OwnershipTag? // Optional ownership tag for joined/hosted rows.
         
         private var displayedJoined: Int { // Normalized joined count used for safer UI display.
             min(listing.maxPlayers, max(0, listing.joinedPlayers))
@@ -338,20 +378,26 @@ struct RoomBrowseView: View {
                                 .foregroundStyle(isFull ? .red : .secondary)
                         }
                         
-                        if !listing.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            HStack(spacing: 4) {
-                                Image(systemName: "mappin.and.ellipse")
-                                Text(RoomLocationLocalization.displayLabel(forStoredLocation: listing.location))
-                            }
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        }
-
                         HStack(spacing: 8) {
+                            if !listing.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "mappin.and.ellipse")
+                                    Text(RoomLocationLocalization.displayLabel(forStoredLocation: listing.location))
+                                }
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            }
+
                             if let mins = expiresInMinutes {
                                 Text(String(format: NSLocalizedString("browse_expires_format", comment: ""), mins))
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
+                            }
+
+                            Spacer(minLength: 0)
+
+                            if let ownershipTag {
+                                RoomOwnershipTagChip(titleKey: ownershipTag.titleKey)
                             }
                         }
                     }
@@ -363,10 +409,63 @@ struct RoomBrowseView: View {
 
     }
 
+    /// Compact ownership badge used to separate joined/hosted rows from general browse listings.
+    private struct RoomOwnershipTagChip: View {
+        /// Localized ownership label rendered by this chip.
+        let titleKey: LocalizedStringKey
+
+        /// Badge UI for ownership marker.
+        var body: some View {
+            Text(titleKey)
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .foregroundStyle(.blue)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.blue.opacity(0.12))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                )
+        }
+    }
+
     /// Parses numeric bid text into honey amount.
     private func parseBid(_ text: String) -> Honey {
         let digits = text.filter { $0.isNumber }
         return Int(digits) ?? 0
+    }
+
+    /// Routes a tapped notification inbox row into existing app-level deep-link channels.
+    /// - Parameter route: Inbox route metadata attached to the tapped row.
+    private func routeNotificationInboxItem(_ route: NotificationInboxRoute) {
+        switch route.kind {
+        case .room:
+            guard let roomId = route.roomId, roomId.isEmpty == false else { return }
+            if route.isOpeningConfirmationQueue {
+                NotificationCenter.default.post(name: .didOpenRoomConfirmationFromPush, object: roomId)
+            } else {
+                NotificationCenter.default.post(name: .didOpenRoomFromPush, object: roomId)
+            }
+        case .postcard:
+            guard let postcardId = route.postcardId, postcardId.isEmpty == false else { return }
+            if route.isOpeningOrderPage {
+                NotificationCenter.default.post(
+                    name: .didOpenPostcardOrderFromPush,
+                    object: [
+                        "postcardId": postcardId,
+                        "orderId": route.orderId ?? ""
+                    ]
+                )
+            } else {
+                NotificationCenter.default.post(name: .didOpenPostcardFromLink, object: postcardId)
+            }
+        case .none:
+            break
+        }
     }
 
 }

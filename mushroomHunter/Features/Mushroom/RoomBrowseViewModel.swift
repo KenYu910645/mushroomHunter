@@ -9,12 +9,32 @@
 //  - RoomBrowseViewModel.
 //
 import Foundation
+import SwiftUI
 import Combine
 
 /// View model for the Mushroom browse screen.
 @MainActor
 final class RoomBrowseViewModel: ObservableObject {
+    /// Ownership tag displayed for pinned user-related room rows in browse list.
+    enum OwnershipTag {
+        /// Room where current user joined as attendee.
+        case joined
+        /// Room where current user is the host.
+        case host
+
+        /// Localized title key shown in the ownership tag chip.
+        var titleKey: LocalizedStringKey {
+            switch self {
+            case .joined:
+                return LocalizedStringKey("browse_tag_joined")
+            case .host:
+                return LocalizedStringKey("browse_tag_host")
+            }
+        }
+    }
+
     @Published var listings: [RoomListing] = [] // Raw room data fetched from backend/mock source.
+    @Published var pinnedListings: [RoomListing] = [] // Joined/hosted rooms that must stay at top of browse list.
     @Published var isLoading: Bool = false // True while fetching listings or executing a join action.
     @Published var errorMessage: String? = nil // User-facing fetch/join error text shown in list section.
     @Published var showJoinLimitAlert: Bool = false // Controls presentation of "max joined rooms reached" alert.
@@ -24,10 +44,13 @@ final class RoomBrowseViewModel: ObservableObject {
     @Published var showOnlyAvailable: Bool = true // When true, hide rooms that are already full.
 
     private let repo = FbRoomBrowseRepo() // Read-only room list source.
+    private let profileRepo = FbProfileListRepo() // Joined/hosted room summary source for current user.
     private let actions = FbRoomActionsRepo() // Join action source (writes attendee/honey-related data).
     private unowned let session: UserSessionStore // Shared session state (honey, profile fields, limits).
     private let cache = AppDataCache.shared // Shared app-level cache used for stale-first browse loading.
     private let browseCacheKey = "mushroom.browse.listings.v1" // Stable cache key for browse room listing payload.
+    private var hostRoomIds: Set<String> = [] // Hosted room ids used for ownership tag lookup.
+    private var joinedRoomIds: Set<String> = [] // Joined room ids used for ownership tag lookup.
 
     init(session: UserSessionStore) { // Initializes this type.
         self.session = session
@@ -48,6 +71,7 @@ final class RoomBrowseViewModel: ObservableObject {
     /// - Parameter isForceRefresh: `true` to always query Firestore and overwrite cache.
     func fetchListings(forceRefresh isForceRefresh: Bool = false) async { // Handles fetchListings flow.
         if !isForceRefresh, await loadListingsFromCache() {
+            await refreshPinnedListings()
             return
         }
 
@@ -66,12 +90,14 @@ final class RoomBrowseViewModel: ObservableObject {
             }
             self.listings = docs
             await cache.save(docs, key: browseCacheKey)
+            await refreshPinnedListings()
         } catch is CancellationError {
             // Normal: user pulled to refresh, view reloaded, or task replaced.
             return
         } catch {
             print("❌ fetchListings error:", error)
             self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            await refreshPinnedListings()
         }
     }
 
@@ -159,19 +185,46 @@ final class RoomBrowseViewModel: ObservableObject {
     /// - availability filter
     /// - text search (title/location/host name)
     var filteredListings: [RoomListing] {
-        let visibleListings = listings.filter { listing in
-            if showOnlyAvailable && listing.joinedPlayers >= listing.maxPlayers { return false }
-
-            let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-            if q.isEmpty { return true }
-            let qq = q.lowercased()
-            let localizedLocation = RoomLocationLocalization.displayLabel(forStoredLocation: listing.location).lowercased()
-            return listing.title.lowercased().contains(qq)
-                || listing.location.lowercased().contains(qq)
-                || localizedLocation.contains(qq)
-                || (listing.hostName ?? "").lowercased().contains(qq)
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedQuery = trimmedQuery.lowercased()
+        let visiblePinnedListings = pinnedListings.filter { listing in
+            matchesBrowseFilters(for: listing, normalizedQuery: normalizedQuery)
         }
-        return visibleListings.sorted(by: comparePriority)
+        let visibleListings = listings.filter { listing in
+            matchesBrowseFilters(for: listing, normalizedQuery: normalizedQuery)
+        }
+        let pinnedListingIds = Set(visiblePinnedListings.map(\.id))
+        let sortedVisibleListings = visibleListings
+            .sorted(by: comparePriority)
+            .filter { pinnedListingIds.contains($0.id) == false }
+        return visiblePinnedListings + sortedVisibleListings
+    }
+
+    /// Returns ownership tag for a room id when current user belongs to that room.
+    /// - Parameter roomId: Room id shown in browse row.
+    /// - Returns: Ownership tag (`Joined` or `Host`) when applicable.
+    func ownershipTag(for roomId: String) -> OwnershipTag? {
+        if hostRoomIds.contains(roomId) {
+            return .host
+        }
+        if joinedRoomIds.contains(roomId) {
+            return .joined
+        }
+        return nil
+    }
+
+    /// Returns the best-effort role seed for room detail initial rendering.
+    /// - Parameter roomId: Room id that will be opened.
+    /// - Returns: Host/attendee role when browse ownership metadata is available.
+    func roleSeed(for roomId: String) -> RoomRole? {
+        switch ownershipTag(for: roomId) {
+        case .host:
+            return .host
+        case .joined:
+            return .attendee
+        case .none:
+            return nil
+        }
     }
 
     /// Compares two listings using score-based browse priority.
@@ -208,6 +261,26 @@ final class RoomBrowseViewModel: ObservableObject {
         return max(0, elapsedHours - thresholdHours)
     }
 
+    /// Returns whether a listing should stay visible for the current browse filters.
+    /// - Parameters:
+    ///   - listing: Listing to validate against search and availability filters.
+    ///   - normalizedQuery: Lowercased query text already trimmed by caller.
+    /// - Returns: `true` when listing should remain visible in current browse results.
+    private func matchesBrowseFilters(for listing: RoomListing, normalizedQuery: String) -> Bool {
+        if showOnlyAvailable && listing.joinedPlayers >= listing.maxPlayers {
+            return false
+        }
+        if normalizedQuery.isEmpty {
+            return true
+        }
+
+        let localizedLocation = RoomLocationLocalization.displayLabel(forStoredLocation: listing.location).lowercased()
+        return listing.title.lowercased().contains(normalizedQuery)
+            || listing.location.lowercased().contains(normalizedQuery)
+            || localizedLocation.contains(normalizedQuery)
+            || (listing.hostName ?? "").lowercased().contains(normalizedQuery)
+    }
+
     /// Loads browse listings from app cache into current state.
     /// - Returns: `true` when cache existed and was applied.
     private func loadListingsFromCache() async -> Bool {
@@ -217,5 +290,57 @@ final class RoomBrowseViewModel: ObservableObject {
         listings = payload.value
         errorMessage = nil
         return true
+    }
+
+    /// Loads current user's joined/hosted rooms and keeps them pinned at browse top.
+    private func refreshPinnedListings() async {
+        guard AppTesting.isUITesting == false else {
+            pinnedListings = []
+            hostRoomIds = []
+            joinedRoomIds = []
+            return
+        }
+        guard session.isLoggedIn else {
+            pinnedListings = []
+            hostRoomIds = []
+            joinedRoomIds = []
+            return
+        }
+
+        do {
+            async let hostedRoomSummariesLoad = profileRepo.fetchMyHostedRooms(limit: AppConfig.Mushroom.profileListFetchLimit)
+            async let joinedRoomSummariesLoad = profileRepo.fetchMyJoinedRooms(limit: AppConfig.Mushroom.profileListFetchLimit)
+            let hostedRoomSummaries = try await hostedRoomSummariesLoad
+            let joinedRoomSummaries = try await joinedRoomSummariesLoad
+
+            let hostedIds = hostedRoomSummaries.map(\.id)
+            let joinedIds = joinedRoomSummaries.map(\.id)
+            hostRoomIds = Set(hostedIds)
+            joinedRoomIds = Set(joinedIds)
+
+            let baseListingById = Dictionary(uniqueKeysWithValues: listings.map { ($0.id, $0) })
+            let requestedPinnedIds = Array(Set(hostedIds + joinedIds))
+            let missingPinnedIds = requestedPinnedIds.filter { baseListingById[$0] == nil }
+            let extraPinnedListings = try await repo.fetchListings(roomIds: missingPinnedIds)
+            let mergedListingById = baseListingById.merging(
+                Dictionary(uniqueKeysWithValues: extraPinnedListings.map { ($0.id, $0) })
+            ) { current, _ in
+                current
+            }
+            var orderedPinnedListings: [RoomListing] = []
+            var seenPinnedIds: Set<String> = []
+            for roomId in joinedIds + hostedIds {
+                guard seenPinnedIds.contains(roomId) == false else { continue }
+                guard let listing = mergedListingById[roomId] else { continue }
+                orderedPinnedListings.append(listing)
+                seenPinnedIds.insert(roomId)
+            }
+            pinnedListings = orderedPinnedListings
+        } catch {
+            print("❌ refreshPinnedListings error:", error)
+            pinnedListings = []
+            hostRoomIds = []
+            joinedRoomIds = []
+        }
     }
 }

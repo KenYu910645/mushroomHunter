@@ -47,7 +47,7 @@ final class HoneyHubUITests: XCTestCase {
         XCTAssertTrue(app.buttons["postcard_create_button"].waitForExistence(timeout: 10))
 
         tapTab(app, index: 2)
-        XCTAssertTrue(app.buttons["profile_edit_button"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["profile_settings_button"].waitForExistence(timeout: 10))
 
         tapTab(app, index: 0)
         XCTAssertTrue(app.buttons["browse_create_button"].waitForExistence(timeout: 10))
@@ -196,8 +196,12 @@ final class HoneyHubUITests: XCTestCase {
         let app = launchApp()
 
         tapTab(app, index: 2)
-        let editButton = navigationBarButton(app, identifier: "profile_edit_button", fallbackIndex: 1)
-        XCTAssertTrue(editButton.waitForExistence(timeout: 20))
+        let settingsButton = navigationBarButton(app, identifier: "profile_settings_button", fallbackIndex: 0)
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 10))
+        settingsButton.tap()
+
+        let editButton = app.buttons["settings_edit_profile_button"]
+        XCTAssertTrue(editButton.waitForExistence(timeout: 10))
         editButton.tap()
 
         let autofillButton = app.buttons["profile_form_autofill_button"]
@@ -212,8 +216,6 @@ final class HoneyHubUITests: XCTestCase {
         XCTAssertTrue(updatedName.waitForExistence(timeout: 10))
         XCTAssertEqual(updatedName.label, "Tester Updated")
 
-        let settingsButton = navigationBarButton(app, identifier: "profile_settings_button", fallbackIndex: 0)
-        XCTAssertTrue(settingsButton.waitForExistence(timeout: 10))
         settingsButton.tap()
 
         let feedbackButton = app.buttons["settings_feedback_button"]

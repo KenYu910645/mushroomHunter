@@ -50,6 +50,7 @@ service firebase.storage {
 
 ## Core Data Collections
 - `users/{uid}`: profile, wallet, limits, push token
+- `users/{uid}/events/{eventId}`: per-user event history (read/unread, route metadata, newest-first paging)
 - `rooms/{roomId}`: mushroom room header data
 - `rooms/{roomId}/attendees/{uid}`: room membership and state
 - `postcards/{postcardId}`: postcard listing data
@@ -91,6 +92,20 @@ service firebase.storage {
 - Save profile (name/friend code):
   - Firestore write: `users/{uid}` (guarded by changed fields).
   - Firestore batch writes: host attendee snapshot fields across active hosted rooms.
+  - Cloud Function write: `users/{uid}/events/{eventId}` for display-name/friend-code update history.
+
+### Notification Inbox (Bell)
+- Open inbox from Mushroom/Postcard top-right bell:
+  - Firestore query read: first page `users/{uid}/events order by createdAt desc limit 10`.
+- Scroll near list bottom:
+  - Firestore paged query read using cursor (`startAfter`) for older history.
+- Tap one event row:
+  - Firestore write: `users/{uid}/events/{eventId}.isRead = true` (+ `readAt`, `updatedAt`).
+- Tap `Read All`:
+  - Firestore batch writes on currently loaded unread event docs.
+- Event text localization:
+  - Event docs can include `titleLocKey` / `titleLocArgs` and `messageLocKey` / `messageLocArgs`.
+  - iOS client resolves these keys via `Localizable.strings` (English + Traditional Chinese) and falls back to stored plain `title`/`message`.
 
 ### Mushroom Tab
 
@@ -122,6 +137,7 @@ service firebase.storage {
       - `joinGreetingMessage`
     - decrement user honey
     - increment room joinedCount
+  - Cloud Function write: `users/{uid}/events/{eventId}` for honey balance delta history.
 
 #### Host approve/reject join application
 - Host opens room attendee row menu (`...`) for pending applicant (`AskingToJoin`):
@@ -136,12 +152,14 @@ service firebase.storage {
 - Tap update deposit:
   - Firestore transaction reads attendee+room+user docs
   - Firestore transaction writes attendee deposit and user honey delta
+  - Cloud Function write: `users/{uid}/events/{eventId}` for honey balance delta history.
 
 #### Leave room / Kick attendee / Close room
 - Host or attendee action:
   - Firestore transaction reads required docs
   - Firestore writes attendee/room/user fields and status transitions
   - Room close removes room + attendees (delete operations)
+  - Cloud Function write: `users/{uid}/events/{eventId}` for honey balance delta history when applicable.
 
 #### Finish raid / confirmation flows
 - Host taps raid done:
@@ -153,6 +171,7 @@ service firebase.storage {
   - `MissedInvitation`: no honey transfer.
   - Firestore transaction writes status/deposit/honey/rating flags and settlement snapshot fields.
   - Triggers Cloud Function push flow
+  - Cloud Function write: `users/{uid}/events/{eventId}` for host/attendee honey balance delta history.
 - Host/attendee rating:
   - Firestore transaction updates user stars + attendee flags
 
@@ -213,6 +232,7 @@ service firebase.storage {
     - decrement buyer honey
     - create `postcardOrders/{orderId}`
   - Order document snapshots seller/buyer metadata including push tokens for function efficiency.
+  - Cloud Function write: `users/{uid}/events/{eventId}` for buyer honey balance delta history.
 
 #### Seller shipping queue
 - Open shipping sheet:
@@ -221,6 +241,7 @@ service firebase.storage {
 - Seller reject:
   - Firestore transaction write:
     - reject -> `status: Rejected` + buyer refund + stock restore
+  - Cloud Function write: `users/{uid}/events/{eventId}` for buyer honey refund history.
 - Mark sent:
   - Firestore transaction write: order status/timeouts -> `Shipped`.
 
@@ -228,9 +249,11 @@ service firebase.storage {
 - Confirm received:
   - Firestore transaction reads order + seller user
   - Firestore writes seller honey and order completion state
+  - Cloud Function write: `users/{uid}/events/{eventId}` for seller honey balance delta history.
 - Auto-complete fallback:
   - Cloud Scheduler function sweeps `Shipped` orders past `buyerConfirmDeadlineAt`
   - Firestore transaction writes seller honey and order status -> `CompletedAuto`
+  - Cloud Function write: `users/{uid}/events/{eventId}` for seller honey balance delta history.
 
 ### Feedback
 - Submit feedback from profile:
@@ -240,47 +263,74 @@ service firebase.storage {
 ## Cloud Functions Interaction Summary
 
 ### Mushroom push functions
+- `recordRoomCreatedEvent`
+  - Trigger: room create.
+  - Writes host-side `users/{uid}/events/{eventId}` history event (`room_created`).
+- `recordHostRaidInviteEvent`
+  - Trigger: room update when `raidConfirmationHistory` prepends a new record.
+  - Writes host-side history event (`raid_invited`).
 - `notifyHostJoinRequest`
   - Trigger: attendee document created with status `AskingToJoin`.
   - Sends join-request push to host.
+  - Writes history events for both host and joiner.
   - Resolves host from `rooms.hostUid` first.
   - Uses room snapshot token first (`rooms.hostFcmToken`), user fallback.
 - `notifyJoinApplicantAccepted`
   - Trigger: attendee status `AskingToJoin -> Ready`.
   - Sends acceptance push to applicant.
+  - Writes history events for both host and joiner.
   - Uses attendee snapshot token first (`attendees/{uid}.fcmToken`), user fallback.
 - `notifyJoinApplicantRejected`
   - Trigger: attendee document deleted when previous status is `AskingToJoin`.
   - Sends rejection push to applicant.
+  - Writes history events for both host and joiner.
   - Uses attendee snapshot token first (`attendees/{uid}.fcmToken`), user fallback.
 - `sendRaidConfirmationPush`
   - Trigger: attendee status -> `WaitingConfirmation`
   - Uses attendee snapshot token first (`attendees/{uid}.fcmToken`), user lookup fallback.
+  - Writes attendee-side history event (`raid_confirmation`).
 - `notifyHostRaidConfirmationResult`
   - Trigger: `WaitingConfirmation -> Ready/Rejected`
   - Resolves host from `rooms.hostUid` first.
   - Uses room snapshot token first (`rooms.hostFcmToken`), user lookup fallback.
+  - Writes host and attendee confirmation-result history events.
 - `notifyMushroomStarReceived`
   - Trigger: attendee rating flags transition to true (`attendeeRatedHost` or `hostRatedAttendee`).
   - Sends star-received push to the player who received stars (host or attendee).
+  - Writes star-given/star-received history events for both players.
   - Uses snapshot token first (`rooms.hostFcmToken` or `attendees/{uid}.fcmToken`), user fallback.
 
 ### Postcard push functions
+- `recordPostcardCreatedEvent`
+  - Trigger: postcard create.
+  - Writes seller-side history event (`postcard_registered`).
 - `sendPostcardOrderCreatedPush`
   - Trigger: order created in `AwaitingShipping`
   - Uses `postcardOrders.sellerFcmToken` first, user fallback.
+  - Writes history events for both seller (`postcard_order_created`) and buyer (`postcard_order_sent`).
 - `sendPostcardShippedPush`
   - Trigger: order status -> `Shipped`
   - Uses `postcardOrders.buyerFcmToken` first, user fallback.
+  - Writes history events for both buyer (`postcard_shipped`) and seller (`postcard_sent`).
 - `sendPostcardRejectedPush`
   - Trigger: order status -> `Rejected`
   - Uses `postcardOrders.buyerFcmToken` first, user fallback.
+  - Writes history events for both buyer and seller.
 - `notifySellerPostcardCompleted`
   - Trigger: order status -> `Completed` or `CompletedAuto`
   - Uses `postcardOrders.sellerFcmToken` first, user fallback.
+  - Writes history events for both seller (`postcard_order_completed`) and buyer (`postcard_received`).
 - `processPostcardOrderTimeouts`
   - Trigger: scheduler every 15 minutes
   - Handles seller no-ship timeout and buyer auto-complete.
+
+### User profile/wallet event function
+- `recordUserProfileAndWalletEvents`
+  - Trigger: update on `users/{uid}`.
+  - Writes event-history entries in `users/{uid}/events/{eventId}` when:
+    - `honey` changes (increase/decrease),
+    - `displayName` changes,
+    - `friendCode` changes.
 
 This token-snapshot-first approach reduces repeated `users/{uid}` reads in hot notification paths.
 All push notifications (mushroom + postcard) now use APNs localization keys (`title-loc-key` / `loc-key` with args), so notification copy is sourced from app `Localizable.strings` instead of hardcoded-only text.

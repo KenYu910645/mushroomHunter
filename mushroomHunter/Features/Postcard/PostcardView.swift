@@ -242,6 +242,16 @@ struct PostcardView: View {
         .toolbar {
             if isSeller {
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    if !AppTesting.isUITesting {
+                        Button {
+                            isInviteSheetPresented = true
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                        .accessibilityLabel(LocalizedStringKey("postcard_share_accessibility"))
+                        .accessibilityIdentifier("postcard_share_button")
+                    }
+
                     Button {
                         isShippingSheetPresented = true
                     } label: {
@@ -251,14 +261,6 @@ struct PostcardView: View {
                     .accessibilityIdentifier("postcard_shipping_button")
 
                     if !AppTesting.isUITesting {
-                        Button {
-                            isInviteSheetPresented = true
-                        } label: {
-                            Image(systemName: "square.and.arrow.up")
-                        }
-                        .accessibilityLabel(LocalizedStringKey("postcard_share_accessibility"))
-                        .accessibilityIdentifier("postcard_share_button")
-
                         Button {
                             isEditSheetPresented = true
                         } label: {
@@ -562,7 +564,7 @@ struct PostcardView: View {
     @ViewBuilder
     private var shippingToolbarIcon: some View {
         ZStack(alignment: .topTrailing) {
-            Image(systemName: "shippingbox")
+            Image(systemName: "list.clipboard")
 
             if pendingShippingCount > 0 {
                 ProfileActionDot()

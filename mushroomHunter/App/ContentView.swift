@@ -86,7 +86,6 @@ struct MainTabView: View {
                     Label("tab_profile", systemImage: "person.circle")
                 }
                 .tag(RootTab.profile)
-                .badge(session.profileActionBadgeCount > 0 ? "\(session.profileActionBadgeCount)" : nil)
                 .accessibilityIdentifier("tab_profile")
         }
         .onReceive(NotificationCenter.default.publisher(for: .didOpenRoomFromPush)) { notif in

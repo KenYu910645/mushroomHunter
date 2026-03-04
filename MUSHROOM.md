@@ -10,11 +10,13 @@
 - `mushroomHunter/Features/Mushroom/RoomViewModel.swift`: room details state, role/join gating logic, and action orchestration.
 - `mushroomHunter/Features/Mushroom/RoomDomainModels.swift`: room/attendee data models and status enums.
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens (stars hidden on mushroom browse).
+- `mushroomHunter/Features/Shared/NotificationInboxView.swift`: shared in-app notification inbox list opened from mushroom/postcard top-right bell actions.
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by host/profile/profile-create forms.
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared auto-select text editor wrapper used by host description input.
 - `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
 - `mushroomHunter/Features/Shared/HoneyMessageBox.swift`: shared custom confirmation/error dialog used across mushroom room screens.
 - `mushroomHunter/Services/Firebase/RoomBrowseRepo.swift`: Firestore reads for browsing open rooms.
+- `mushroomHunter/Services/Firebase/ProfileListRepo.swift`: Firestore joined/hosted room summary reads used to pin user-owned rooms on browse top.
 - `mushroomHunter/Services/Firebase/RoomFormRepo.swift`: Firestore writes for host room lifecycle (create/update/close).
 - `mushroomHunter/Services/Firebase/RoomRepo.swift`: Firestore reads for a single room and attendee list.
 - `mushroomHunter/Services/Firebase/RoomActionsRepo.swift`: Firestore transactions for join/leave/deposit/raid confirmation/rating.
@@ -23,14 +25,27 @@
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed mushroom settings (attribute lists, fixed raid defaults, room limits, query limits).
 - `mushroomHunter/Utilities/AppDataCache.swift`: shared app-level memory+disk Codable cache used by mushroom browse/detail stale-first loading.
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used across profile, room, and postcard flows.
+- `mushroomHunter/User/NotificationInboxStore.swift`: shared Firestore-backed notification event history pagination, unread state, and deep-link route metadata.
 - `functions/index.js`: server-side push triggers used by mushroom confirmation flows.
 
 ## Feature Coverage
 - Main Mushroom tab icon uses SF Symbol `person.3.fill` to reflect group room coordination.
 - Host can create and manage a room with title/location/description/fixed raid cost (no target mushroom selectors in create/edit UI).
 - Browse search is opened from the top action bar as an inline search field above the room list (no dedicated sheet/alert).
+- Mushroom browse includes a screen-level top-right bell icon that opens the shared notification inbox list.
+- Notification inbox loads the latest 10 events first from `users/{uid}/events` and loads older pages while scrolling.
+- Notification inbox rows show unread state with red dot + bold title/message text, and become read when tapped (or via `Read All` action).
+- Tapping a room-related inbox row routes using existing push deep-link channels:
+  - raid confirmation notifications open room and auto-present confirmation queue.
+  - other room notifications open room detail.
 - Mushroom browse search matches room title and location text (country/city).
 - Mushroom browse search applies local filtering while typing; backend fetch (first page) is refreshed only when user taps `Search`.
+- Mushroom browse now pins user-owned rooms above general browse results at all times:
+  - `Joined` rooms are rendered at the top with a `Joined` ownership tag.
+  - `Host` rooms are rendered at the top with a `Host` ownership tag.
+  - Ownership tags are rendered on the same row as location info, aligned at each room slot's right side.
+  - Pinned rows are deduplicated from the general browse list to keep ownership context clear.
+  - Pinned rows still follow the same availability/search filters, so unmatched rows are hidden while typing a query.
 - Mushroom browse priority uses a score model (after local text/availability filters):
   - Score reward: `hostStars * AppConfig.Mushroom.browsePriorityHostStarWeight`.
   - Score penalty: `dormantHoursBeyondThreshold * AppConfig.Mushroom.browsePriorityDormantHourPenalty`.
@@ -41,7 +56,7 @@
   - Browse fetch uses server-first query (with local/default fallback only on server failure) so attendee count (`joinedCount`) is aligned with room detail more consistently.
   - Pull-to-refresh forces latest Firestore query and overwrites cache.
   - Tapping keyboard search submit forces latest Firestore query before applying local filter.
-- Inline search field includes an `x` clear button; tapping `x` clears query and collapses the search field. Pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
+- Inline search field includes an `x` clear button; tapping `x` clears query and collapses the search field. Keyboard submit uses `Search` and triggers backend search. Top-bar search icon toggles field show/hide.
 - Mushroom browse uses `ScrollView + LazyVStack` (same pattern as Postcard browse), so the top action bar (honey/search/create) moves with page scroll and matches postcard visual style.
 - UI-test mode (`--ui-testing --mock-rooms`) routes host submit flow through mock success without Firestore writes.
 - Host create/edit description is prefilled with localized default `host_default_description` (`Welcome! Let's play!`) when empty.
@@ -86,6 +101,8 @@
   - host invitation sentence.
   - relative elapsed text only (`Xm ago` / `Xh ago`), with no extra prefix and no room-title line.
 - Host room details now shows a top-right `Raid History` icon (`list.clipboard`), matching joiner confirmation-list icon style.
+- Host room details top-right host-action order is `Share -> Raid History -> Edit`.
+- Joined-room (attendee) top-right action order is `Confirmation Queue (clipboard) -> Edit Deposit (pencil)`.
 - Host raid history page is read-only and lists confirmation records from latest to oldest.
 - Each host history record shows all non-host attendees in the room snapshot with rounded status pills:
   - `Confirming` (yellow)
@@ -112,26 +129,38 @@
   - Opening room shows cached payload first.
   - Pull-to-refresh forces latest `rooms/{roomId}` + `attendees` query and overwrites cache.
   - Room state-changing actions (join/leave/deposit update/kick/approve/reject/finish/confirm/rating) force latest backend reload and refresh cache.
+- Room detail toolbar role now accepts a browse-seeded initial role (`host`/`attendee`) before async detail fetch completes, so top-right host/joined action buttons no longer pop in late after first render.
+- Room detail top-right buttons now follow postcard-style slot rendering: host/attendee icon slots are shown immediately from role state, and actions that require loaded room payload stay disabled until room data is ready.
 - Room detail view hides the navigation title so content starts directly with room snapshot/details.
 
 ## Cloud Functions (Mushroom Use Cases)
+- `recordRoomCreatedEvent`
+  - Trigger: create on `rooms/{roomId}`
+  - Writes host-side notification history event (`room_created`) for mushroom-room creation.
+- `recordHostRaidInviteEvent`
+  - Trigger: update on `rooms/{roomId}` when `raidConfirmationHistory` receives a new head record.
+  - Writes host-side notification history event (`raid_invited`) for each raid invitation cycle.
 - `notifyHostJoinRequest`
   - Trigger: create on `rooms/{roomId}/attendees/{attendeeUid}` with `status = AskingToJoin`
   - Push target: host (`rooms/{roomId}.hostFcmToken` first, with `users/{hostUid}.fcmToken` fallback)
-  - Payload data: `type=room_join_request`, `roomId`, `room_id`, `attendeeUid`
+  - Payload data: `type=room_join_request`, `roomId`, `room_id`, `attendeeUid`, `eventId`
+  - Also writes join-request history events for both joiner and host.
 - `notifyJoinApplicantAccepted`
   - Trigger: attendee `status` transitions `AskingToJoin -> Ready`
   - Push target: join applicant (`rooms/{roomId}/attendees/{attendeeUid}.fcmToken` first, with `users/{attendeeUid}.fcmToken` fallback)
-  - Payload data: `type=room_join_request_accepted`, `roomId`, `room_id`
+  - Payload data: `type=room_join_request_accepted`, `roomId`, `room_id`, `eventId`
+  - Also writes acceptance history events for both joiner and host.
 - `notifyJoinApplicantRejected`
   - Trigger: delete on `rooms/{roomId}/attendees/{attendeeUid}` where previous `status = AskingToJoin`
   - Push target: join applicant (`rooms/{roomId}/attendees/{attendeeUid}.fcmToken` snapshot first, with `users/{attendeeUid}.fcmToken` fallback)
-  - Payload data: `type=room_join_request_rejected`, `roomId`, `room_id`
+  - Payload data: `type=room_join_request_rejected`, `roomId`, `room_id`, `eventId`
+  - Also writes rejection history events for both joiner and host.
 - `sendRaidConfirmationPush`
   - Trigger: update on `rooms/{roomId}/attendees/{attendeeUid}`
   - Sends only when attendee status transitions into `WaitingConfirmation`
   - Push target: `rooms/{roomId}/attendees/{attendeeUid}.fcmToken` first, with `users/{attendeeUid}.fcmToken` fallback
-  - Payload data: `type=raid_confirmation`, `roomId`, `room_id`
+  - Payload data: `type=raid_confirmation`, `roomId`, `room_id`, `eventId`
+  - Also writes attendee-side history event (`raid_confirmation`).
 - `notifyHostRaidConfirmationResult`
   - Trigger: update on `rooms/{roomId}/attendees/{attendeeUid}`
   - Sends only when status transitions from `WaitingConfirmation` to `Ready` or `Rejected`
@@ -141,12 +170,15 @@
     - joined success: `type=raid_confirmation_accepted`
     - seat full no-fault: `type=raid_confirmation_seat_full`
     - missed invitation: `type=raid_confirmation_missed_invite`
+    - rejected: `type=raid_confirmation_rejected`
+  - Also writes history events for both host and attendee.
 - `notifyMushroomStarReceived`
   - Trigger: update on `rooms/{roomId}/attendees/{attendeeUid}`
   - Sends when rating flags transition:
     - `attendeeRatedHost: false -> true` (host receives stars)
     - `hostRatedAttendee: false -> true` (attendee receives stars)
   - Payload data: `type=room_star_received`, `roomId`, `room_id`, `fromUid`, `toUid`, `stars`
+  - Also writes history events for both giver (`room_star_given`) and receiver (`room_star_received`).
 - Mushroom push notification copy is delivered via APNs localization keys in app `Localizable.strings` (no hardcoded-only message text in Cloud Functions).
 
 

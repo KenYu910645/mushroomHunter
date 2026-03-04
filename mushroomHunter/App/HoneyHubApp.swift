@@ -20,6 +20,8 @@ struct HoneyHubApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     /// Stores sign-in and profile completion state shared across root views.
     @StateObject private var session = UserSessionStore()
+    /// Stores in-app notification inbox state shared across tabs.
+    @StateObject private var notificationInbox = NotificationInboxStore.shared
 
     /// Configures Firebase before any app view is rendered.
     init() {
@@ -30,6 +32,7 @@ struct HoneyHubApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(session)
+                .environmentObject(notificationInbox)
                 .onOpenURL { url in
                     // Let GoogleSignIn handle the redirect back into the app
                     if GIDSignIn.sharedInstance.handle(url) {
@@ -84,6 +87,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        Task { @MainActor in
+            NotificationInboxStore.shared.appendPushNotification(
+                userInfo: notification.request.content.userInfo,
+                title: notification.request.content.title,
+                message: notification.request.content.body,
+                isRead: false
+            )
+        }
         completionHandler([.banner, .sound, .badge])
     }
 
@@ -93,6 +104,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
+        Task { @MainActor in
+            NotificationInboxStore.shared.appendPushNotification(
+                userInfo: response.notification.request.content.userInfo,
+                title: response.notification.request.content.title,
+                message: response.notification.request.content.body,
+                isRead: true
+            )
+        }
         routePushNavigation(userInfo: response.notification.request.content.userInfo)
         completionHandler()
     }

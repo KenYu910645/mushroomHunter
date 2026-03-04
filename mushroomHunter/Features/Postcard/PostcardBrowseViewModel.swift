@@ -15,8 +15,30 @@ import Combine
 @MainActor
 /// View model that manages postcard browse loading, filtering, and search.
 final class PostcardBrowseViewModel: ObservableObject {
+    /// Ownership tag displayed for pinned user-related postcard slots.
+    enum OwnershipTag {
+        /// Listing currently sold by the signed-in user.
+        case onShelf
+        /// Listing currently ordered by the signed-in user.
+        case ordered
+
+        /// Localized title key shown in ownership tag chip.
+        var titleKey: LocalizedStringKey {
+            switch self {
+            case .onShelf:
+                return LocalizedStringKey("postcard_tag_on_shelf")
+            case .ordered:
+                return LocalizedStringKey("postcard_tag_ordered")
+            }
+        }
+    }
+
     /// Raw listings fetched from Firestore before local filters are applied.
     @Published var listings: [PostcardListing] = []
+    /// On-shelf listings that must remain pinned above browse results.
+    @Published var pinnedOnShelfListings: [PostcardListing] = []
+    /// Ordered listings that must remain pinned above browse results.
+    @Published var pinnedOrderedListings: [PostcardListing] = []
     /// Indicates whether an async fetch is currently running.
     @Published var isLoading: Bool = false
     /// Error text presented by the browse view when fetching fails.
@@ -41,40 +63,45 @@ final class PostcardBrowseViewModel: ObservableObject {
     private var confirmedQuery: String = ""
     /// Active backend token for paged search mode.
     private var activeSearchToken: String? = nil
+    /// On-shelf listing ids used for ownership tag lookup.
+    private var onShelfListingIds: Set<String> = []
+    /// Ordered listing ids used for ownership tag lookup.
+    private var orderedListingIds: Set<String> = []
 
     /// Loads data only when no listings have been fetched yet.
-    func loadIfNeeded() async {
+    func loadIfNeeded(session: UserSessionStore) async {
         if listings.isEmpty {
-            await refresh()
+            await refresh(session: session)
         }
     }
 
     /// Refreshes browse data for the current query value.
-    func refresh() async {
-        await fetchForQuery(confirmedQuery)
+    func refresh(session: UserSessionStore) async {
+        await fetchForQuery(confirmedQuery, session: session)
     }
 
     /// Executes backend search using the current query text.
-    func performConfirmedSearch() async {
+    func performConfirmedSearch(session: UserSessionStore) async {
         confirmedQuery = query
-        await fetchForQuery(confirmedQuery)
+        await fetchForQuery(confirmedQuery, session: session)
     }
 
     /// Clears search query and restores default recent results.
-    func clearConfirmedSearch() async {
+    func clearConfirmedSearch(session: UserSessionStore) async {
         query = ""
         confirmedQuery = ""
-        await fetchForQuery(confirmedQuery)
+        await fetchForQuery(confirmedQuery, session: session)
     }
 
     /// Fetches listings from backend using the provided raw query text.
     /// - Parameter rawQuery: User-entered search text before tokenization.
-    func fetchForQuery(_ rawQuery: String) async {
+    func fetchForQuery(_ rawQuery: String, session: UserSessionStore) async {
         errorMessage = nil
         nextPageCursor = nil
         let tokens = SearchTokenBuilder.queryTokens(from: rawQuery)
         activeSearchToken = tokens.first
         await loadNextPage(isReset: true)
+        await refreshPinnedListings(session: session)
     }
 
     /// Loads the next browse page using current confirmed search context.
@@ -141,31 +168,37 @@ final class PostcardBrowseViewModel: ObservableObject {
     /// Listings after stock/country/province/query filters and sorting.
     /// Query filter currently matches title and location fields.
     var filteredListings: [PostcardListing] {
-        var result = listings.filter { $0.stock > 0 }
-
-        if selectedCountry != "All" {
-            result = result.filter { $0.location.country == selectedCountry }
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let visiblePinnedListings = mergedPinnedListings.filter { listing in
+            matchesBrowseFilters(for: listing, normalizedQuery: normalizedQuery)
         }
-        if selectedProvince != "All" {
-            result = result.filter { $0.location.province == selectedProvince }
-        }
-
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if !q.isEmpty {
-            result = result.filter {
-                $0.title.lowercased().contains(q)
-                || $0.location.country.lowercased().contains(q)
-                || $0.location.province.lowercased().contains(q)
-                || $0.location.fullLabel.lowercased().contains(q)
-            }
+        var result = listings.filter { listing in
+            matchesBrowseFilters(for: listing, normalizedQuery: normalizedQuery)
         }
 
         switch sortOrder {
         case .newest:
-            return result.sorted { $0.createdAt > $1.createdAt }
+            result = result.sorted { $0.createdAt > $1.createdAt }
         case .lowestPrice:
-            return result.sorted { $0.priceHoney < $1.priceHoney }
+            result = result.sorted { $0.priceHoney < $1.priceHoney }
         }
+
+        let pinnedListingIds = Set(visiblePinnedListings.map(\.id))
+        let browseListings = result.filter { pinnedListingIds.contains($0.id) == false }
+        return visiblePinnedListings + browseListings
+    }
+
+    /// Resolves ownership tag for a postcard row id.
+    /// - Parameter postcardId: Listing id shown in browse grid.
+    /// - Returns: Ownership tag (`On-shelf` or `Ordered`) when applicable.
+    func ownershipTag(for postcardId: String) -> OwnershipTag? {
+        if onShelfListingIds.contains(postcardId) {
+            return .onShelf
+        }
+        if orderedListingIds.contains(postcardId) {
+            return .ordered
+        }
+        return nil
     }
 
     /// Distinct sorted list of countries present in fetched listings.
@@ -187,6 +220,79 @@ final class PostcardBrowseViewModel: ObservableObject {
     func normalizeProvinceSelection() {
         if selectedProvince != "All" && !availableProvinces.contains(selectedProvince) {
             selectedProvince = "All"
+        }
+    }
+
+    /// Merged pinned listings ordered by on-shelf first, then ordered.
+    private var mergedPinnedListings: [PostcardListing] {
+        var mergedPinnedListings: [PostcardListing] = []
+        var seenListingIds: Set<String> = []
+        for listing in pinnedOnShelfListings + pinnedOrderedListings {
+            guard seenListingIds.contains(listing.id) == false else { continue }
+            mergedPinnedListings.append(listing)
+            seenListingIds.insert(listing.id)
+        }
+        return mergedPinnedListings
+    }
+
+    /// Returns whether a listing should stay visible for the current browse filters.
+    /// - Parameters:
+    ///   - listing: Listing to validate against stock/location/search filters.
+    ///   - normalizedQuery: Lowercased query text already trimmed by caller.
+    /// - Returns: `true` when listing matches all active browse filters.
+    private func matchesBrowseFilters(for listing: PostcardListing, normalizedQuery: String) -> Bool {
+        if listing.stock <= 0 {
+            return false
+        }
+        if selectedCountry != "All" && listing.location.country != selectedCountry {
+            return false
+        }
+        if selectedProvince != "All" && listing.location.province != selectedProvince {
+            return false
+        }
+        if normalizedQuery.isEmpty {
+            return true
+        }
+
+        return listing.title.lowercased().contains(normalizedQuery)
+            || listing.location.country.lowercased().contains(normalizedQuery)
+            || listing.location.province.lowercased().contains(normalizedQuery)
+            || listing.location.fullLabel.lowercased().contains(normalizedQuery)
+    }
+
+    /// Refreshes user-owned on-shelf and ordered postcard slots for pinned browse display.
+    /// - Parameter session: Current signed-in session.
+    private func refreshPinnedListings(session: UserSessionStore) async {
+        guard AppTesting.useMockPostcards == false else {
+            pinnedOnShelfListings = []
+            pinnedOrderedListings = []
+            onShelfListingIds = []
+            orderedListingIds = []
+            return
+        }
+        guard let userId = session.authUid, userId.isEmpty == false else {
+            pinnedOnShelfListings = []
+            pinnedOrderedListings = []
+            onShelfListingIds = []
+            orderedListingIds = []
+            return
+        }
+
+        do {
+            async let onShelfLoad = repo.fetchMyListings(userId: userId, limit: AppConfig.Postcard.profileListFetchLimit)
+            async let orderedLoad = repo.fetchMyOrderedPostcards(userId: userId, limit: AppConfig.Postcard.profileListFetchLimit)
+            let onShelfListings = try await onShelfLoad
+            let orderedSummaries = try await orderedLoad
+            pinnedOnShelfListings = onShelfListings
+            pinnedOrderedListings = orderedSummaries.map(\.listing)
+            onShelfListingIds = Set(onShelfListings.map(\.id))
+            orderedListingIds = Set(orderedSummaries.map(\.listing.id))
+        } catch {
+            print("❌ refreshPinnedListings error:", error)
+            pinnedOnShelfListings = []
+            pinnedOrderedListings = []
+            onShelfListingIds = []
+            orderedListingIds = []
         }
     }
 }
