@@ -50,7 +50,7 @@ service firebase.storage {
 
 ## Core Data Collections
 - `users/{uid}`: profile, wallet, limits, push token
-- `users/{uid}/events/{eventId}`: per-user event history (read/unread, route metadata, newest-first paging)
+- `users/{uid}/events/{eventId}`: per-user event history (Action/Record state via `isActionEvent`/`isResolved`, route metadata, newest-first paging)
 - `rooms/{roomId}`: mushroom room header data
 - `rooms/{roomId}/attendees/{uid}`: room membership and state
 - `postcards/{postcardId}`: postcard listing data
@@ -100,12 +100,12 @@ service firebase.storage {
 - Scroll near list bottom:
   - Firestore paged query read using cursor (`startAfter`) for older history.
 - Tap one event row:
-  - Firestore write: `users/{uid}/events/{eventId}.isRead = true` (+ `readAt`, `updatedAt`).
-- Tap `Read All`:
-  - Firestore batch writes on currently loaded unread event docs.
-- Event text localization:
-  - Event docs can include `titleLocKey` / `titleLocArgs` and `messageLocKey` / `messageLocArgs`.
-  - iOS client resolves these keys via `Localizable.strings` (English + Traditional Chinese) and falls back to stored plain `title`/`message`.
+  - Action event row opens action route; resolution is handled by business-flow updates.
+  - Record event row does not route.
+- Inbox has no `Read All` action.
+- Event text storage:
+  - Cloud Functions write localized snapshot `title` + `message` into each event doc at creation time.
+  - iOS inbox reads stored `title`/`message` first, with `event_type_*` fallback for legacy rows.
 
 ### Mushroom Tab
 
@@ -265,75 +265,59 @@ service firebase.storage {
 ### Mushroom push functions
 - `recordRoomCreatedEvent`
   - Trigger: room create.
-  - Writes host-side `users/{uid}/events/{eventId}` history event (`room_created`).
+  - Writes host-side `users/{uid}/events/{eventId}` history event (`ROOM_CREATED_HOST`).
 - `recordHostRaidInviteEvent`
   - Trigger: room update when `raidConfirmationHistory` prepends a new record.
-  - Writes host-side history event (`raid_invited`).
+  - Writes host-side history event (`RAID_INVITED_HOST`).
 - `notifyHostJoinRequest`
   - Trigger: attendee document created with status `AskingToJoin`.
   - Sends join-request push to host.
   - Writes history events for both host and joiner.
   - Resolves host from `rooms.hostUid` first.
   - Uses room snapshot token first (`rooms.hostFcmToken`), user fallback.
-- `notifyJoinApplicantAccepted`
-  - Trigger: attendee status `AskingToJoin -> Ready`.
-  - Sends acceptance push to applicant.
-  - Writes history events for both host and joiner.
-  - Uses attendee snapshot token first (`attendees/{uid}.fcmToken`), user fallback.
+- `handleRoomAttendeeUpdatedEvents`
+  - Trigger: update on `rooms/{roomId}/attendees/{attendeeUid}`.
+  - Single routed handler for attendee update events:
+    - attendee enters `WaitingConfirmation`,
+    - applicant `AskingToJoin -> Ready`,
+    - confirmation result `WaitingConfirmation -> Ready`,
+    - star-rating flag transitions.
+  - Sends corresponding push notifications and writes corresponding history events for each routed event type.
 - `notifyJoinApplicantRejected`
   - Trigger: attendee document deleted when previous status is `AskingToJoin`.
   - Sends rejection push to applicant.
   - Writes history events for both host and joiner.
   - Uses attendee snapshot token first (`attendees/{uid}.fcmToken`), user fallback.
-- `sendRaidConfirmationPush`
-  - Trigger: attendee status -> `WaitingConfirmation`
-  - Uses attendee snapshot token first (`attendees/{uid}.fcmToken`), user lookup fallback.
-  - Writes attendee-side history event (`raid_confirmation`).
-- `notifyHostRaidConfirmationResult`
-  - Trigger: `WaitingConfirmation -> Ready/Rejected`
-  - Resolves host from `rooms.hostUid` first.
-  - Uses room snapshot token first (`rooms.hostFcmToken`), user lookup fallback.
-  - Writes host and attendee confirmation-result history events.
-- `notifyMushroomStarReceived`
-  - Trigger: attendee rating flags transition to true (`attendeeRatedHost` or `hostRatedAttendee`).
-  - Sends star-received push to the player who received stars (host or attendee).
-  - Writes star-given/star-received history events for both players.
-  - Uses snapshot token first (`rooms.hostFcmToken` or `attendees/{uid}.fcmToken`), user fallback.
 
 ### Postcard push functions
 - `recordPostcardCreatedEvent`
   - Trigger: postcard create.
-  - Writes seller-side history event (`postcard_registered`).
+  - Writes seller-side history event (`POSTCARD_CREATED_SELLER`).
 - `sendPostcardOrderCreatedPush`
   - Trigger: order created in `AwaitingShipping`
   - Uses `postcardOrders.sellerFcmToken` first, user fallback.
-  - Writes history events for both seller (`postcard_order_created`) and buyer (`postcard_order_sent`).
-- `sendPostcardShippedPush`
-  - Trigger: order status -> `Shipped`
-  - Uses `postcardOrders.buyerFcmToken` first, user fallback.
-  - Writes history events for both buyer (`postcard_shipped`) and seller (`postcard_sent`).
-- `sendPostcardRejectedPush`
-  - Trigger: order status -> `Rejected`
-  - Uses `postcardOrders.buyerFcmToken` first, user fallback.
-  - Writes history events for both buyer and seller.
-- `notifySellerPostcardCompleted`
-  - Trigger: order status -> `Completed` or `CompletedAuto`
-  - Uses `postcardOrders.sellerFcmToken` first, user fallback.
-  - Writes history events for both seller (`postcard_order_completed`) and buyer (`postcard_received`).
+  - Writes history events for both seller (`POSTCARD_ORDER_SELLER`) and buyer (`POSTCARD_ORDER_BUYER`).
+- `handlePostcardOrderUpdatedEvents`
+  - Trigger: update on `postcardOrders/{orderId}`.
+  - Single routed handler for order status transitions:
+    - order -> `Shipped`,
+    - order -> `Rejected`,
+    - order -> `Completed` or `CompletedAuto`.
+  - Uses `postcardOrders` snapshot token first, user fallback.
+  - Sends corresponding push and writes corresponding history events for each routed event type.
 - `processPostcardOrderTimeouts`
   - Trigger: scheduler every 15 minutes
   - Handles seller no-ship timeout and buyer auto-complete.
 
-### User profile/wallet event function
+### User profile event function
 - `recordUserProfileAndWalletEvents`
   - Trigger: update on `users/{uid}`.
   - Writes event-history entries in `users/{uid}/events/{eventId}` when:
-    - `honey` changes (increase/decrease),
     - `displayName` changes,
     - `friendCode` changes.
 
 This token-snapshot-first approach reduces repeated `users/{uid}` reads in hot notification paths.
-All push notifications (mushroom + postcard) now use APNs localization keys (`title-loc-key` / `loc-key` with args), so notification copy is sourced from app `Localizable.strings` instead of hardcoded-only text.
+Push notifications (mushroom + postcard) now use the same server-side localized snapshot text as event history (`title`/`message`) so push copy and inbox copy stay identical for each created event.
 
 ## Image Download Behavior (Important for Cost)
 - Browse card uses `thumbnailUrl` first, then falls back to `imageUrl` if thumbnail missing.

@@ -1,12 +1,12 @@
 //
-//  RoomFormView.swift
+//  RoomCreateEditView.swift
 //  mushroomHunter
 //
 //  Purpose:
 //  - Implements the room host/create-edit screen in Mushroom feature.
 //
 //  Defined in this file:
-//  - HostViewModel and RoomFormView create/edit form logic and validation.
+//  - HostViewModel and RoomCreateEditView create/edit form logic and validation.
 //
 import SwiftUI
 import Combine
@@ -293,7 +293,7 @@ final class HostViewModel: ObservableObject {
 
 // MARK: - View
 
-struct RoomFormView: View {
+struct RoomCreateEditView: View {
     /// Text token replaced by inline honey icon in form labels.
     private let honeyIconToken: String = "{honey_icon}"
     /// Inline honey icon size used in tokenized host-form labels.

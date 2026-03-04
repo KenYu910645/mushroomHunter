@@ -91,8 +91,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             NotificationInboxStore.shared.appendPushNotification(
                 userInfo: notification.request.content.userInfo,
                 title: notification.request.content.title,
-                message: notification.request.content.body,
-                isRead: false
+                message: notification.request.content.body
             )
         }
         completionHandler([.banner, .sound, .badge])
@@ -108,8 +107,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             NotificationInboxStore.shared.appendPushNotification(
                 userInfo: response.notification.request.content.userInfo,
                 title: response.notification.request.content.title,
-                message: response.notification.request.content.body,
-                isRead: true
+                message: response.notification.request.content.body
             )
         }
         routePushNavigation(userInfo: response.notification.request.content.userInfo)
@@ -128,7 +126,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         if roomId.isEmpty == false {
-            if type.hasPrefix("raid_confirmation") {
+            if type == "RAID_CONFIRM_ATTENDEE" {
                 NotificationCenter.default.post(name: .didOpenRoomConfirmationFromPush, object: roomId)
             } else {
                 NotificationCenter.default.post(name: .didOpenRoomFromPush, object: roomId)
@@ -136,7 +134,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             return
         }
 
-        if type.hasPrefix("postcard_"), postcardId.isEmpty == false {
+        if (type == "POSTCARD_ORDER_SELLER" || type == "POSTCARD_SENT_BUYER"), postcardId.isEmpty == false {
             NotificationCenter.default.post(
                 name: .didOpenPostcardOrderFromPush,
                 object: ["postcardId": postcardId, "orderId": orderId]

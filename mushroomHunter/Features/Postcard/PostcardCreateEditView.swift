@@ -1,5 +1,5 @@
 //
-//  PostcardFormView.swift
+//  PostcardCreateEditView.swift
 //  mushroomHunter
 //
 //  Purpose:
@@ -43,7 +43,7 @@ private func clampedText(_ value: String, max: Int) -> String {
 }
 
 /// Unified postcard form used by both register and edit entry points.
-struct PostcardFormView: View {
+struct PostcardCreateEditView: View {
     /// Mode that controls whether the form creates or edits a postcard.
     private enum FormMode {
         /// Form is creating a brand-new listing.

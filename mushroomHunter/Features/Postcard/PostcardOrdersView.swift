@@ -1,5 +1,5 @@
 //
-//  PostcardShippingView.swift
+//  PostcardOrdersView.swift
 //  mushroomHunter
 //
 //  Purpose:
@@ -9,7 +9,7 @@ import SwiftUI
 import UIKit
 
 /// Seller shipping queue screen for one postcard listing.
-struct PostcardShippingView: View {
+struct PostcardOrdersView: View {
     /// Listing whose buyer queue is being managed.
     let postcard: PostcardListing
 

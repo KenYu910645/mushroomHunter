@@ -30,7 +30,7 @@
 //
 //  Attendee document (`rooms/{roomId}/attendees/{uid}`):
 //  [R] - `uid`: Reads by `uid` field and legacy document-id fallback for current user matching.
-//  [R] - `status`: Reads to split hosted (`host`) and joined (`askingToJoin`/`ready`/`waitingConfirmation`/`rejected`) lists.
+//  [R] - `status`: Reads to split hosted (`host`) and joined (`askingToJoin`/`ready`/`waitingConfirmation`) lists.
 //  [R] - `depositHoney`: Reads for joined-room summary display.
 //  [X] - `name`: Not required for current profile room summaries.
 //  [X] - `friendCode`: Not required for current profile room summaries.
@@ -152,8 +152,7 @@ final class FbProfileListRepo {
             statusFilter: .inList([
                 AttendeeStatus.askingToJoin.rawValue,
                 AttendeeStatus.ready.rawValue,
-                AttendeeStatus.waitingConfirmation.rawValue,
-                AttendeeStatus.rejected.rawValue
+                AttendeeStatus.waitingConfirmation.rawValue
             ]),
             desiredCount: limit
         )

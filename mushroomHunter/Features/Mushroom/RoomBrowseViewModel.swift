@@ -329,7 +329,7 @@ final class RoomBrowseViewModel: ObservableObject {
             }
             var orderedPinnedListings: [RoomListing] = []
             var seenPinnedIds: Set<String> = []
-            for roomId in joinedIds + hostedIds {
+            for roomId in hostedIds + joinedIds {
                 guard seenPinnedIds.contains(roomId) == false else { continue }
                 guard let listing = mergedListingById[roomId] else { continue }
                 orderedPinnedListings.append(listing)

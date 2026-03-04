@@ -55,9 +55,6 @@ struct RoomView: View {
     @State private var showHostRateAttendeeAlert: Bool = false // State or dependency property.
     @State private var hostRateAttendeeId: String = "" // State or dependency property.
     @State private var hostRateAttendeeName: String = "" // State or dependency property.
-    @State private var showRejectResolveAlert: Bool = false // State or dependency property.
-    @State private var rejectAttendeeId: String = "" // State or dependency property.
-    @State private var rejectAttendeeName: String = "" // State or dependency property.
     @State private var showInviteSheet: Bool = false // State or dependency property.
     @State private var isDidRunInitialLoad: Bool = false // Ensures first-load sequence executes only once.
     @State private var isPendingOpenConfirmationQueueOnAppear: Bool // Tracks one-time auto-open request for attendee confirmation queue.
@@ -97,7 +94,7 @@ struct RoomView: View {
         .sheet(item: $editingRoom, onDismiss: {
             Task { await vm.load(forceRefresh: true) }
         }) { room in
-            RoomFormView(
+            RoomCreateEditView(
                 vm: HostViewModel(session: session, room: room),
                 onCloseRoom: {
                     Task {
@@ -488,7 +485,6 @@ struct RoomView: View {
                         isHostViewing: (vm.role == .host),
                         isAskingToJoin: vm.isAskingToJoin(attendeeId: attendee.id),
                         isPendingConfirmation: vm.isWaitingConfirmation(attendeeId: attendee.id),
-                        isRejectedConfirmation: vm.isRejectedConfirmation(attendeeId: attendee.id),
                         onKick: {
                             Task {
                                 await vm.kick(attendeeId: attendee.id)
@@ -503,11 +499,6 @@ struct RoomView: View {
                             Task {
                                 await vm.rejectJoinApplication(attendeeId: attendee.id)
                             }
-                        },
-                        onResolve: {
-                            rejectAttendeeId = attendee.id
-                            rejectAttendeeName = attendee.name
-                            showRejectResolveAlert = true
                         },
                         onCopyFriendCode: { code in
                             copyFriendCode(code)
@@ -980,35 +971,6 @@ struct RoomView: View {
                     }
                 ]
             )
-        } else if showRejectResolveAlert {
-            HoneyMessageBox(
-                title: NSLocalizedString("room_msg_reject_alert_title", comment: ""),
-                message: String(format: NSLocalizedString("room_msg_reject_alert_message", comment: ""), rejectAttendeeName, rejectAttendeeName),
-                buttons: [
-                    HoneyMessageBoxButton(
-                        id: "room_msg_reject_resend_button",
-                        title: NSLocalizedString("room_msg_reject_resend_button", comment: ""),
-                        role: .cancel
-                    ) {
-                        let attendeeId = rejectAttendeeId
-                        showRejectResolveAlert = false
-                        Task {
-                            await vm.resendRejectedConfirmation(attendeeId: attendeeId)
-                        }
-                    },
-                    HoneyMessageBoxButton(
-                        id: "room_reject_give_up",
-                        title: NSLocalizedString("room_msg_reject_giveup_button", comment: ""),
-                        role: .destructive
-                    ) {
-                        let attendeeId = rejectAttendeeId
-                        showRejectResolveAlert = false
-                        Task {
-                            await vm.giveUpRejectedConfirmation(attendeeId: attendeeId)
-                        }
-                    }
-                ]
-            )
         }
     }
 
@@ -1370,11 +1332,9 @@ private struct AttendeeRow: View {
     let isHostViewing: Bool // True when the current user viewing this screen is host.
     let isAskingToJoin: Bool // True when this attendee is pending host join approval.
     let isPendingConfirmation: Bool // True when attendee has a pending raid confirmation.
-    let isRejectedConfirmation: Bool // True when attendee raid confirmation was rejected.
     let onKick: () -> Void // Callback to kick this attendee from the room.
     let onApproveJoinApplication: () -> Void // Callback to approve join application for this attendee.
     let onRejectJoinApplication: () -> Void // Callback to reject join application for this attendee.
-    let onResolve: () -> Void // Callback to resolve rejected confirmation state.
     let onCopyFriendCode: (String) -> Void // Callback to copy attendee friend code.
 
     /// True when this attendee row is the host-visible source of a join-request notification.
@@ -1393,9 +1353,6 @@ private struct AttendeeRow: View {
         if isPendingConfirmation {
             return LocalizedStringKey("room_status_waiting_confirm")
         }
-        if isRejectedConfirmation {
-            return LocalizedStringKey("room_status_rejected")
-        }
         return LocalizedStringKey("room_status_ready")
     }
 
@@ -1406,9 +1363,6 @@ private struct AttendeeRow: View {
         }
         if isAskingToJoin || isPendingConfirmation {
             return .warning
-        }
-        if isRejectedConfirmation {
-            return .critical
         }
         return .success
     }
@@ -1503,18 +1457,6 @@ private struct AttendeeRow: View {
                             .font(.title3)
                     }
                     .buttonStyle(.plain)
-                }
-            }
-
-            HStack {
-                Spacer()
-                if isHostViewing, isRejectedConfirmation, !isHostAttendee, !isAskingToJoin {
-                    Button(LocalizedStringKey("room_reject_resolve")) {
-                        onResolve()
-                    }
-                    .font(.footnote.weight(.semibold))
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.red)
                 }
             }
 

@@ -21,7 +21,6 @@ final class RoomViewModel: ObservableObject {
     @Published private(set) var isLoading: Bool = false // State or dependency property.
     @Published var errorMessage: String? = nil // State or dependency property.
     @Published private(set) var pendingConfirmationAttendeeIds: Set<String> = [] // State or dependency property.
-    @Published private(set) var rejectedConfirmationAttendeeIds: Set<String> = [] // State or dependency property.
     @Published private(set) var pendingConfirmationForCurrentUser: Bool = false // State or dependency property.
     @Published private(set) var hostPendingRatingAttendeeIds: Set<String> = [] // State or dependency property.    
     // Sorting / presentation
@@ -171,36 +170,12 @@ final class RoomViewModel: ObservableObject {
         pendingConfirmationAttendeeIds.contains(attendeeId)
     }
 
-    func isRejectedConfirmation(attendeeId: String) -> Bool { // Handles isRejectedConfirmation flow.
-        rejectedConfirmationAttendeeIds.contains(attendeeId)
-    }
-
     func isAskingToJoin(attendeeId: String) -> Bool { // Handles isAskingToJoin flow.
         attendeeById(attendeeId)?.status == .askingToJoin
     }
 
     func attendeeById(_ attendeeId: String) -> RoomAttendee? { // Handles attendeeById flow.
         room?.attendees.first(where: { $0.id == attendeeId })
-    }
-
-    func resendRejectedConfirmation(attendeeId: String) async { // Handles resendRejectedConfirmation flow.
-        guard let room else { return }
-        do {
-            try await actions.resendRejectedConfirmation(roomId: room.id, attendeeUid: attendeeId)
-            await load(forceRefresh: true)
-        } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        }
-    }
-
-    func giveUpRejectedConfirmation(attendeeId: String) async { // Handles giveUpRejectedConfirmation flow.
-        guard let room else { return }
-        do {
-            try await actions.giveUpRejectedConfirmation(roomId: room.id, attendeeUid: attendeeId)
-            await load(forceRefresh: true)
-        } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        }
     }
 
     func approveJoinApplication(attendeeId: String) async { // Handles approveJoinApplication flow.
@@ -526,7 +501,6 @@ final class RoomViewModel: ObservableObject {
     private func recomputeConfirmationStates() {
         guard let room else {
             pendingConfirmationAttendeeIds = []
-            rejectedConfirmationAttendeeIds = []
             pendingConfirmationForCurrentUser = false
             hostPendingRatingAttendeeIds = []
             return
@@ -535,12 +509,8 @@ final class RoomViewModel: ObservableObject {
         let pending = room.attendees
             .filter { $0.isWaitingConfirmation }
             .map { $0.id }
-        let rejected = room.attendees
-            .filter { $0.status == .rejected }
-            .map { $0.id }
 
         pendingConfirmationAttendeeIds = Set(pending)
-        rejectedConfirmationAttendeeIds = Set(rejected)
         hostPendingRatingAttendeeIds = Set(
             room.attendees
                 .filter { $0.status != .host && $0.needsHostRating }

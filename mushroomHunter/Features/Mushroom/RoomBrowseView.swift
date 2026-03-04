@@ -102,7 +102,7 @@ struct RoomBrowseView: View {
         }
         .sheet(isPresented: $showHostSheet) {
             // Opens room creation flow from browse header.
-            RoomFormView(vm: HostViewModel(session: session))
+            RoomCreateEditView(vm: HostViewModel(session: session))
                 .environmentObject(session)
         }
         .sheet(isPresented: $isNotificationInboxPresented) {

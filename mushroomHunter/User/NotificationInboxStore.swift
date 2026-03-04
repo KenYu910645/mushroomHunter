@@ -51,8 +51,10 @@ struct NotificationInboxItem: Identifiable, Codable, Equatable {
     let message: String
     /// Event creation timestamp.
     let receivedAt: Date
-    /// True when this message has already been opened/read.
-    var isRead: Bool
+    /// True when this event requires explicit user action.
+    let isActionEvent: Bool
+    /// True when this event has already been resolved/processed.
+    var isResolved: Bool
     /// Destination route metadata used by tap navigation.
     let route: NotificationInboxRoute
 }
@@ -99,10 +101,10 @@ final class NotificationInboxStore: ObservableObject {
         }
     }
 
-    /// Count of unread inbox rows currently loaded in memory.
+    /// Count of unresolved action events currently loaded in memory.
     var unreadCount: Int {
         items.reduce(0) { partialCount, item in
-            partialCount + (item.isRead ? 0 : 1)
+            partialCount + (item.isActionEvent && item.isResolved == false ? 1 : 0)
         }
     }
 
@@ -151,54 +153,19 @@ final class NotificationInboxStore: ObservableObject {
         }
     }
 
-    /// Marks one inbox row as read.
-    /// - Parameter itemId: Target event document id.
-    func markAsRead(itemId: String) {
-        guard let index = items.firstIndex(where: { $0.id == itemId }) else { return }
-        guard items[index].isRead == false else { return }
-        items[index].isRead = true
-
-        Task {
-            await updateReadState(itemId: itemId, isRead: true)
-        }
-    }
-
-    /// Marks all currently loaded inbox rows as read.
-    func markAllAsRead() {
-        let unreadIds = items.filter { $0.isRead == false }.map(\.id)
-        guard unreadIds.isEmpty == false else { return }
-
-        for index in items.indices {
-            items[index].isRead = true
-        }
-
-        Task {
-            await markItemsAsRead(itemIds: unreadIds)
-        }
-    }
-
-    /// Handles push receive events by syncing latest rows from server and optionally marking one row as read.
+    /// Handles push receive events by syncing latest rows from server.
     /// - Parameters:
     ///   - userInfo: APNs custom payload dictionary.
     ///   - title: Notification title from APNs content.
     ///   - message: Notification body from APNs content.
-    ///   - isRead: True when this event should be marked as already read.
     func appendPushNotification(
         userInfo: [AnyHashable: Any],
         title: String,
-        message: String,
-        isRead: Bool
+        message: String
     ) {
+        let _ = userInfo
         let _ = title
         let _ = message
-
-        if isRead,
-           let eventId = resolvedStringValue(from: userInfo, primaryKey: "eventId", secondaryKey: "event_id"),
-           eventId.isEmpty == false {
-            Task {
-                await updateReadState(itemId: eventId, isRead: true)
-            }
-        }
 
         Task {
             await refreshFromServer()
@@ -289,64 +256,54 @@ final class NotificationInboxStore: ObservableObject {
 
         let type = (data["type"] as? String ?? "unknown")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let fallbackTitle = (data["title"] as? String ?? NSLocalizedString("notification_default_title", comment: ""))
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let fallbackMessage = (data["message"] as? String ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let title = localizedEventText(
-            key: data["titleLocKey"] as? String,
-            rawArgs: data["titleLocArgs"] as? [Any],
-            fallback: fallbackTitle
-        )
-        let message = localizedEventText(
-            key: data["messageLocKey"] as? String,
-            rawArgs: data["messageLocArgs"] as? [Any],
-            fallback: fallbackMessage
-        )
+        let storedTitle = (data["title"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let storedMessage = (data["message"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = storedTitle.isEmpty ? localizedEventTitle(type: type) : storedTitle
+        let message = storedMessage.isEmpty ? localizedEventMessage(type: type) : storedMessage
         let receivedAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
-        let isRead = data["isRead"] as? Bool ?? false
+        let isActionEvent = data["isActionEvent"] as? Bool ?? isActionEventType(type: type)
+        let isResolved = data["isResolved"] as? Bool ?? !isActionEvent
 
-        let route = resolveRouteFromData(data: data, fallbackType: type)
+        let route = resolveRouteFromData(
+            data: data,
+            fallbackType: type,
+            isActionEvent: isActionEvent
+        )
 
         return NotificationInboxItem(
             id: document.documentID,
             type: type.isEmpty ? "unknown" : type,
-            title: title.isEmpty ? NSLocalizedString("notification_default_title", comment: "") : title,
-            message: message.isEmpty ? type : message,
+            title: title,
+            message: message,
             receivedAt: receivedAt,
-            isRead: isRead,
+            isActionEvent: isActionEvent,
+            isResolved: isResolved,
             route: route
         )
     }
 
-    /// Resolves one localized event string using a key and `%@`/`%d` style argument list.
-    /// - Parameters:
-    ///   - key: Localizable-string key persisted in event payload.
-    ///   - rawArgs: Dynamic argument list persisted in event payload.
-    ///   - fallback: Fallback plain text when key/format resolution fails.
-    /// - Returns: Localized formatted text for current app language.
-    private func localizedEventText(
-        key: String?,
-        rawArgs: [Any]?,
-        fallback: String
-    ) -> String {
-        let trimmedKey = (key ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedKey.isEmpty {
-            return fallback
+    /// Resolves localized title text from event type.
+    /// - Parameter type: Event type payload value.
+    /// - Returns: Localized title text.
+    private func localizedEventTitle(type: String) -> String {
+        let localizedKey = "event_type_\(type)_title"
+        let localizedValue = NSLocalizedString(localizedKey, comment: "")
+        if localizedValue != localizedKey {
+            return localizedValue
         }
+        return NSLocalizedString("notification_default_title", comment: "")
+    }
 
-        let format = NSLocalizedString(trimmedKey, comment: "")
-        if format == trimmedKey {
-            return fallback
+    /// Resolves localized message text from event type.
+    /// - Parameter type: Event type payload value.
+    /// - Returns: Localized message text.
+    private func localizedEventMessage(type: String) -> String {
+        let localizedKey = "event_type_\(type)_message"
+        let localizedValue = NSLocalizedString(localizedKey, comment: "")
+        if localizedValue != localizedKey {
+            return localizedValue
         }
-
-        let args: [CVarArg] = (rawArgs ?? []).map { value in
-            String(describing: value) as CVarArg
-        }
-        if args.isEmpty {
-            return format
-        }
-        return String(format: format, locale: Locale.current, arguments: args)
+        return type.replacingOccurrences(of: "_", with: " ")
     }
 
     /// Parses route metadata persisted in Firestore and falls back to type-based inference.
@@ -354,26 +311,25 @@ final class NotificationInboxStore: ObservableObject {
     ///   - data: Firestore event document data.
     ///   - fallbackType: Event type used by fallback resolver.
     /// - Returns: Resolved deep-link route.
-    private func resolveRouteFromData(data: [String: Any], fallbackType: String) -> NotificationInboxRoute {
-        let routeKindRaw = (data["routeKind"] as? String ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+    private func resolveRouteFromData(
+        data: [String: Any],
+        fallbackType: String,
+        isActionEvent: Bool
+    ) -> NotificationInboxRoute {
+        if isActionEvent == false {
+            return NotificationInboxRoute(
+                kind: .none,
+                roomId: nil,
+                postcardId: nil,
+                orderId: nil,
+                isOpeningConfirmationQueue: false,
+                isOpeningOrderPage: false
+            )
+        }
+
         let roomId = (data["roomId"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let postcardId = (data["postcardId"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let orderId = (data["orderId"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-
-        let isOpeningConfirmationQueue = data["isOpeningConfirmationQueue"] as? Bool ?? false
-        let isOpeningOrderPage = data["isOpeningOrderPage"] as? Bool ?? false
-
-        if let routeKind = NotificationInboxRoute.Kind(rawValue: routeKindRaw), routeKind != .none {
-            return NotificationInboxRoute(
-                kind: routeKind,
-                roomId: roomId.isEmpty ? nil : roomId,
-                postcardId: postcardId.isEmpty ? nil : postcardId,
-                orderId: orderId.isEmpty ? nil : orderId,
-                isOpeningConfirmationQueue: isOpeningConfirmationQueue,
-                isOpeningOrderPage: isOpeningOrderPage
-            )
-        }
 
         return resolveFallbackRoute(
             type: fallbackType,
@@ -381,6 +337,18 @@ final class NotificationInboxStore: ObservableObject {
             postcardId: postcardId.isEmpty ? nil : postcardId,
             orderId: orderId.isEmpty ? nil : orderId
         )
+    }
+
+    /// Resolves whether one event type is treated as Action Event.
+    /// - Parameter type: Event type payload value.
+    /// - Returns: True when this event requires explicit user action.
+    private func isActionEventType(type: String) -> Bool {
+        switch type {
+        case "RAID_CONFIRM_ATTENDEE", "JOIN_REQUESTED_HOST", "POSTCARD_ORDER_SELLER", "POSTCARD_SENT_BUYER":
+            return true
+        default:
+            return false
+        }
     }
 
     /// Fallback route mapping used when backend route fields are absent.
@@ -402,7 +370,7 @@ final class NotificationInboxStore: ObservableObject {
                 roomId: roomId,
                 postcardId: nil,
                 orderId: nil,
-                isOpeningConfirmationQueue: type.hasPrefix("raid_confirmation"),
+                isOpeningConfirmationQueue: type == "RAID_CONFIRM_ATTENDEE",
                 isOpeningOrderPage: false
             )
         }
@@ -414,7 +382,7 @@ final class NotificationInboxStore: ObservableObject {
                 postcardId: postcardId,
                 orderId: orderId,
                 isOpeningConfirmationQueue: false,
-                isOpeningOrderPage: type.hasPrefix("postcard_")
+                isOpeningOrderPage: type == "POSTCARD_ORDER_SELLER" || type == "POSTCARD_SENT_BUYER"
             )
         }
 
@@ -428,70 +396,4 @@ final class NotificationInboxStore: ObservableObject {
         )
     }
 
-    /// Marks one remote event document as read.
-    /// - Parameters:
-    ///   - itemId: Event document id.
-    ///   - isRead: Read state to persist.
-    private func updateReadState(itemId: String, isRead: Bool) async {
-        guard let currentUserId, currentUserId.isEmpty == false else { return }
-        let documentRef = db.collection("users")
-            .document(currentUserId)
-            .collection("events")
-            .document(itemId)
-
-        do {
-            try await documentRef.setData([
-                "isRead": isRead,
-                "readAt": isRead ? FieldValue.serverTimestamp() : NSNull(),
-                "updatedAt": FieldValue.serverTimestamp()
-            ], merge: true)
-        } catch {
-            // Keep optimistic local state even if remote update fails.
-        }
-    }
-
-    /// Marks multiple event documents as read using one write batch.
-    /// - Parameter itemIds: Target event document ids.
-    private func markItemsAsRead(itemIds: [String]) async {
-        guard let currentUserId, currentUserId.isEmpty == false else { return }
-        guard itemIds.isEmpty == false else { return }
-
-        let batch = db.batch()
-        for itemId in itemIds {
-            let documentRef = db.collection("users")
-                .document(currentUserId)
-                .collection("events")
-                .document(itemId)
-            batch.setData([
-                "isRead": true,
-                "readAt": FieldValue.serverTimestamp(),
-                "updatedAt": FieldValue.serverTimestamp()
-            ], forDocument: documentRef, merge: true)
-        }
-
-        do {
-            try await batch.commit()
-        } catch {
-            // Keep optimistic local state even if remote batch update fails.
-        }
-    }
-
-    /// Resolves normalized string payload from primary/secondary keys.
-    /// - Parameters:
-    ///   - userInfo: APNs custom payload dictionary.
-    ///   - primaryKey: Preferred payload key.
-    ///   - secondaryKey: Fallback payload key.
-    /// - Returns: Non-empty value when available.
-    private func resolvedStringValue(
-        from userInfo: [AnyHashable: Any],
-        primaryKey: String,
-        secondaryKey: String
-    ) -> String? {
-        let rawValue = (userInfo[primaryKey] as? String ?? userInfo[secondaryKey] as? String ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        if rawValue.isEmpty {
-            return nil
-        }
-        return rawValue
-    }
 }

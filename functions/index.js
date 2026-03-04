@@ -5,13 +5,17 @@ const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 
+// Cap concurrent containers to reduce runaway cost during event spikes.
 setGlobalOptions({maxInstances: 10});
 
 admin.initializeApp();
 const db = admin.firestore();
 const messaging = admin.messaging();
+// SMTP transport is lazily initialized and then reused across invocations.
 let cachedMailer = null;
+const userLocaleCache = new Map();
 
+// Build a reusable SMTP mailer from environment variables.
 function getMailer() {
   if (cachedMailer) return cachedMailer;
 
@@ -41,6 +45,7 @@ function stringifyValue(value, fallback = "-") {
   return text ? text : fallback;
 }
 
+// Clamp stars into valid app range [1, 3] and provide fallback when invalid.
 function normalizeStarsCount(value, fallback = 1) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -50,11 +55,13 @@ function normalizeStarsCount(value, fallback = 1) {
   return rounded;
 }
 
+// Compose feedback email subject.
 function feedbackEmailSubject(subject) {
   const clean = stringifyValue(subject, "HoneyHub Feedback");
   return `[HoneyHub Feedback] ${clean}`;
 }
 
+// Compose feedback email plain text body.
 function feedbackEmailText(feedbackId, data) {
   return [
     "HoneyHub feedback received",
@@ -76,17 +83,20 @@ function feedbackEmailText(feedbackId, data) {
   ].join("\n");
 }
 
+// Normalize APNs/FCM token values.
 function normalizeToken(rawToken) {
   const token = stringifyValue(rawToken, "");
   return token;
 }
 
+// Normalize honey values into integer balance deltas.
 function normalizeHoneyValue(value) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) return 0;
   return Math.trunc(numericValue);
 }
 
+// Send push notification with snapshot token first, then user profile fallback token.
 async function sendPushToUser(uid, message, context, snapshotToken = "") {
   let token = normalizeToken(snapshotToken);
   if (!token) {
@@ -124,6 +134,7 @@ async function sendPushToUser(uid, message, context, snapshotToken = "") {
   });
 }
 
+// Build APNs localized payload using string keys from app Localizable.strings.
 function localizedPushMessage(titleLocKey, bodyLocKey, locArgs, data) {
   const serializedLocArgs = (locArgs || []).map((value) => String(value ?? ""));
   return {
@@ -142,32 +153,239 @@ function localizedPushMessage(titleLocKey, bodyLocKey, locArgs, data) {
   };
 }
 
-function resolveEventRouteKind(roomId, postcardId) {
-  if (stringifyValue(roomId, "")) return "room";
-  if (stringifyValue(postcardId, "")) return "postcard";
-  return "none";
+// Build APNs payload from resolved text snapshots so push copy equals event history copy.
+function pushMessageFromSnapshot(title, body, data) {
+  return {
+    apns: {
+      payload: {
+        aps: {
+          alert: {
+            title: stringifyValue(title, "Notification"),
+            body: stringifyValue(body, ""),
+          },
+        },
+      },
+    },
+    data,
+  };
 }
 
+function formatTemplate(template, args = []) {
+  let cursor = 0;
+  return stringifyValue(template, "").replace(/%@/g, () => {
+    const value = args[cursor];
+    cursor += 1;
+    return String(value ?? "");
+  });
+}
+
+function isChineseLocale(localeIdentifier) {
+  return stringifyValue(localeIdentifier, "").toLowerCase().startsWith("zh");
+}
+
+async function resolveUserLocale(uid) {
+  const normalizedUid = stringifyValue(uid, "");
+  if (!normalizedUid) return "en";
+  if (userLocaleCache.has(normalizedUid)) {
+    return userLocaleCache.get(normalizedUid);
+  }
+  try {
+    const userSnap = await db.collection("users").doc(normalizedUid).get();
+    const localeIdentifier = stringifyValue(userSnap.data()?.localeIdentifier, "en");
+    userLocaleCache.set(normalizedUid, localeIdentifier);
+    return localeIdentifier;
+  } catch (error) {
+    logger.warn("Failed to resolve user locale; falling back to en", {
+      uid: normalizedUid,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return "en";
+  }
+}
+
+function eventCopyForType(type, messageArgs, localeIdentifier) {
+  const isChinese = isChineseLocale(localeIdentifier);
+  const normalizedType = stringifyValue(type, "unknown");
+  const argValues = (messageArgs || []).map((value) => String(value ?? ""));
+  const firstArg = argValues[0] || "";
+
+  const byType = {
+    ROOM_CREATED_HOST: {
+      en: ["Mushroom Room Created", "You created a mushroom room: %@."],
+      zh: ["已建立蘑菇房", "你已建立蘑菇房間：%@。"],
+    },
+    RAID_INVITED_HOST: {
+      en: ["Mushroom Raid Invited", "Raid confirmation invitations were sent to all attendees, wait for them to confirm."],
+      zh: ["已發送蘑菇邀請", "你已發送蘑菇邀請確認，等待所有參加者確認。"],
+    },
+    POSTCARD_CREATED_SELLER: {
+      en: ["Postcard Registered", "You registered a postcard: %@."],
+      zh: ["已上架明信片", "你已上架明信片：%@。"],
+    },
+    NAME_UPDATED: {
+      en: ["Display Name Updated", "Your display name was updated."],
+      zh: ["名稱已更新", "你的顯示名稱已更新。"],
+    },
+    FRIEND_CODE_UPDATED: {
+      en: ["Friend Code Updated", "Your friend code was updated to %@."],
+      zh: ["好友碼已更新", "你的好友碼已更新為 %@。"],
+    },
+    RAID_CONFIRM_ATTENDEE: {
+      en: ["Mushroom Invitation", "Action required: confirm your mushroom raid result."],
+      zh: ["蘑菇邀請確認", "需要處理：請確認您是否收到蘑菇邀請。"],
+    },
+    JOIN_REQUESTED_ATTENDEE: {
+      en: ["Sent Join Request", "You sent a request to join %@."],
+      zh: ["已送出加入申請", "你已送出加入 %@ 申請。"],
+    },
+    JOIN_REQUESTED_HOST: {
+      en: ["New Join Request", "%@ requested to join %@. Tap to respond"],
+      zh: ["新加入申請", "%@ 申請加入 %@。"],
+    },
+    JOIN_ACCEPTED_ATTENDEE: {
+      en: ["Join Request Accepted", "Host accepted your request to join %@."],
+      zh: ["加入申請已接受", "主持人已接受你加入 %@ 的申請。"],
+    },
+    JOIN_ACCEPTED_HOST: {
+      en: ["New Joiner Accepted", "%@ joined your room: %@."],
+      zh: ["新成員加入", "%@ 已加入房間：%@。"],
+    },
+    JOIN_REJECTED_ATTENDEE: {
+      en: ["Join Request Rejected", "Host rejected your request to join %@."],
+      zh: ["加入申請已拒絕", "主持人已拒絕你加入 %@ 的申請。"],
+    },
+    JOIN_REJECTED_HOST: {
+      en: ["Joiner Rejected", "You rejected a join request from %@."],
+      zh: ["已拒絕加入申請", "你已拒絕來自 %@ 的加入申請。"],
+    },
+    REPLY_HOST: {
+      en: ["Attendee Replied", "Attendee confirmation was submitted."],
+      zh: ["參加者已回覆", "參加者已送出蘑菇戰確認回覆。"],
+    },
+    STAR_RECEIVED: {
+      en: ["Stars Received", "%@ gave you %@ stars."],
+      zh: ["收到評價", "%@ 給了你 %@ 顆星。"],
+    },
+    POSTCARD_ORDER_SELLER: {
+      en: ["New Postcard Order", "Action required: process a new order."],
+      zh: ["收到新訂單", "需要處理：請處理新的明信片訂單。"],
+    },
+    POSTCARD_ORDER_BUYER: {
+      en: ["Order Sent", "You placed a postcard order on %@."],
+      zh: ["訂單已送出", "你已送出明信片訂單：%@。"],
+    },
+    POSTCARD_SENT_BUYER: {
+      en: ["Postcard Shipped", "Action required: confirm postcard receipt: %@."],
+      zh: ["明信片已寄出", "需要處理：請確認是否已收到明信片：%@。"],
+    },
+    POSTCARD_SENT_SELLER: {
+      en: ["Postcard Sent", "You have shipped postcard %@ to %@."],
+      zh: ["明信片已寄出", "你已將 %@ 寄給 %@。"],
+    },
+    POSTCARD_RECEIVED_SELLER: {
+      en: ["Order Completed", "%@ confirmed receipt. %@ honey has been transferred to you."],
+      zh: ["訂單完成", "%@ 已確認收件，%@ 蜂蜜已轉給你。"],
+    },
+    POSTCARD_RECEIVED_BUYER: {
+      en: ["Postcard Received", "You confirmed to receive postcard: %@."],
+      zh: ["買家已收到明信片", "你已確認收到明信片：%@。"],
+    },
+    POSTCARD_REJECTED_BUYER: {
+      en: ["Order Rejected", "Your order for \"%@\" was rejected and canceled. %@ honey has been fully refunded to your account."],
+      zh: ["訂單已拒絕", "你購買「%@」的訂單已被拒絕並取消，%@ 蜂蜜已全額退回。"],
+    },
+    POSTCARD_REJECTED_SELLER: {
+      en: ["Order Rejected", "You rejected a postcard order: %@."],
+      zh: ["訂單已拒絕", "你已拒絕明信片訂單：%@。"],
+    },
+  };
+
+  const copyEntry = byType[normalizedType];
+  if (!copyEntry) {
+    return {
+      title: "Notification",
+      message: normalizedType.replaceAll("_", " "),
+    };
+  }
+
+  let [titleTemplate, messageTemplate] = isChinese ? copyEntry.zh : copyEntry.en;
+  let templateArgs = argValues;
+
+  if (normalizedType === "JOIN_REQUESTED_HOST") {
+    titleTemplate = isChinese ? "新加入申請" : "New Join Request";
+    messageTemplate = isChinese ?
+      "%@ 申請加入 %@。" :
+      "%@ requested to join %@. Tap to respond";
+    templateArgs = argValues.slice(0, 2);
+  } else if (normalizedType === "REPLY_HOST") {
+    if (firstArg === "raid_confirmation_seat_full") {
+      titleTemplate = isChinese ? "參加者已確認" : "Attendee Confirmed";
+      messageTemplate = isChinese ?
+        "%@ 回報蘑菇滿位。你獲得 %@ 蜂蜜。" :
+        "%@ reported invited but seat full. You earned %@ honey.";
+      templateArgs = [argValues[1] || "", argValues[2] || "0"];
+    } else if (firstArg === "raid_confirmation_missed_invite") {
+      titleTemplate = isChinese ? "參加者未看到邀請" : "Attendee Missed Invite";
+      messageTemplate = isChinese ?
+        "%@ 回報未看到邀請。" :
+        "%@ reported no invitation was seen.";
+      templateArgs = [argValues[1] || ""];
+    } else {
+      titleTemplate = isChinese ? "參加者已確認" : "Attendee Confirmed";
+      messageTemplate = isChinese ?
+        "%@ 已確認參加戰鬥。你獲得 %@ 蜂蜜。" :
+        "%@ confirmed raid join. You earned %@ honey.";
+      templateArgs = [argValues[1] || "", argValues[2] || "0"];
+    }
+  } else if (normalizedType === "POSTCARD_RECEIVED_SELLER") {
+    const isAutoCompleted = firstArg === "auto";
+    if (isAutoCompleted) {
+      messageTemplate = isChinese ?
+        "「%@」收件確認逾時，%@ 蜂蜜已轉給你。" :
+        "%@ postcard received timed out. %@ honey has been transferred to you.";
+      templateArgs = [argValues[1] || "", argValues[2] || "0"];
+    }
+  }
+
+  return {
+    title: formatTemplate(titleTemplate, templateArgs),
+    message: formatTemplate(messageTemplate, templateArgs),
+  };
+}
+
+async function resolveEventSnapshot(uid, type, messageArgs = []) {
+  const localeIdentifier = await resolveUserLocale(uid);
+  return eventCopyForType(type, messageArgs, localeIdentifier);
+}
+
+// Event doc id is scoped by cloud event id and receiver uid to make writes idempotent.
 function resolveEventDocumentId(cloudEventId, uid) {
   return `${stringifyValue(cloudEventId, "event")}_${stringifyValue(uid, "unknown")}`;
 }
 
+const ACTION_EVENT_TYPES = new Set([
+  "RAID_CONFIRM_ATTENDEE",
+  "JOIN_REQUESTED_HOST",
+  "POSTCARD_ORDER_SELLER",
+  "POSTCARD_SENT_BUYER",
+]);
+
+// Classify event type for Action Event semantics (badge + unresolved state + required push).
+function isActionEventType(type) {
+  const normalizedType = stringifyValue(type, "unknown");
+  return ACTION_EVENT_TYPES.has(normalizedType);
+}
+
+// Persist one event-history row in users/{uid}/events with current schema only.
 async function recordUserEvent({
   uid,
   cloudEventId,
   type,
-  title,
-  message,
-  titleLocKey = "",
-  titleLocArgs = [],
-  messageLocKey = "",
-  messageLocArgs = [],
   roomId = "",
   postcardId = "",
   orderId = "",
-  isOpeningConfirmationQueue = false,
-  isOpeningOrderPage = false,
-  routeKind = "",
+  relatedUid = "",
+  messageArgs = [],
 }) {
   const normalizedUid = stringifyValue(uid, "");
   if (!normalizedUid) return;
@@ -175,10 +393,7 @@ async function recordUserEvent({
   const normalizedRoomId = stringifyValue(roomId, "");
   const normalizedPostcardId = stringifyValue(postcardId, "");
   const normalizedOrderId = stringifyValue(orderId, "");
-  const resolvedRouteKind = stringifyValue(
-      routeKind,
-      resolveEventRouteKind(normalizedRoomId, normalizedPostcardId),
-  );
+  const normalizedRelatedUid = stringifyValue(relatedUid, "");
   const eventId = resolveEventDocumentId(cloudEventId, normalizedUid);
   const eventRef = db.collection("users")
       .doc(normalizedUid)
@@ -186,28 +401,21 @@ async function recordUserEvent({
       .doc(eventId);
 
   try {
-    const serializedTitleLocArgs = Array.isArray(titleLocArgs) ?
-      titleLocArgs.map((value) => String(value ?? "")) : [];
-    const serializedMessageLocArgs = Array.isArray(messageLocArgs) ?
-      messageLocArgs.map((value) => String(value ?? "")) : [];
+    const normalizedType = stringifyValue(type, "unknown");
+    const isActionEvent = isActionEventType(normalizedType);
+    const isResolved = !isActionEvent;
+    const snapshot = await resolveEventSnapshot(normalizedUid, normalizedType, messageArgs);
     await eventRef.create({
-      type: stringifyValue(type, "unknown"),
-      title: stringifyValue(title, "Notification"),
-      message: stringifyValue(message, "-"),
-      titleLocKey: stringifyValue(titleLocKey, ""),
-      titleLocArgs: serializedTitleLocArgs,
-      messageLocKey: stringifyValue(messageLocKey, ""),
-      messageLocArgs: serializedMessageLocArgs,
+      type: normalizedType,
+      title: snapshot.title,
+      message: snapshot.message,
       roomId: normalizedRoomId,
       postcardId: normalizedPostcardId,
       orderId: normalizedOrderId,
-      routeKind: resolvedRouteKind,
-      isOpeningConfirmationQueue: Boolean(isOpeningConfirmationQueue),
-      isOpeningOrderPage: Boolean(isOpeningOrderPage),
-      isRead: false,
-      readAt: null,
+      relatedUid: normalizedRelatedUid,
+      isActionEvent,
+      isResolved,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
   } catch (error) {
     const isAlreadyExistsError =
@@ -218,6 +426,56 @@ async function recordUserEvent({
   }
 }
 
+// Resolve matching unresolved Action Events when business flow reaches terminal state.
+async function resolveUserActionEvents({
+  uid,
+  type = "",
+  roomId = "",
+  postcardId = "",
+  orderId = "",
+  relatedUid = "",
+}) {
+  const normalizedUid = stringifyValue(uid, "");
+  if (!normalizedUid) return;
+
+  const normalizedType = stringifyValue(type, "");
+  const normalizedRoomId = stringifyValue(roomId, "");
+  const normalizedPostcardId = stringifyValue(postcardId, "");
+  const normalizedOrderId = stringifyValue(orderId, "");
+  const normalizedRelatedUid = stringifyValue(relatedUid, "");
+
+  const unresolvedSnapshot = await db.collection("users")
+      .doc(normalizedUid)
+      .collection("events")
+      .where("isResolved", "==", false)
+      .limit(100)
+      .get();
+
+  if (unresolvedSnapshot.empty) return;
+
+  const matchingDocs = unresolvedSnapshot.docs.filter((doc) => {
+    const data = doc.data() || {};
+    if ((data.isActionEvent === true) === false) return false;
+    if (normalizedType && stringifyValue(data.type, "") !== normalizedType) return false;
+    if (normalizedRoomId && stringifyValue(data.roomId, "") !== normalizedRoomId) return false;
+    if (normalizedPostcardId && stringifyValue(data.postcardId, "") !== normalizedPostcardId) return false;
+    if (normalizedOrderId && stringifyValue(data.orderId, "") !== normalizedOrderId) return false;
+    if (normalizedRelatedUid && stringifyValue(data.relatedUid, "") !== normalizedRelatedUid) return false;
+    return true;
+  });
+
+  if (matchingDocs.length === 0) return;
+
+  const batch = db.batch();
+  for (const doc of matchingDocs) {
+    batch.set(doc.ref, {
+      isResolved: true,
+    }, {merge: true});
+  }
+  await batch.commit();
+}
+
+// Resolve host uid from room snapshot first, then attendee query fallback.
 async function resolveHostUid(roomId, roomData) {
   const hostUidFromRoom = stringifyValue(roomData?.hostUid, "");
   if (hostUidFromRoom) {
@@ -231,6 +489,19 @@ async function resolveHostUid(roomId, roomData) {
   return hostQuery.docs[0]?.id ?? null;
 }
 
+// Run one routed processor safely so one branch failure does not block other branches.
+async function runEventProcessor(processorName, processor, event) {
+  try {
+    await processor(event);
+  } catch (error) {
+    logger.error("Event processor failed", {
+      processorName,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+// Validate Firestore timestamp and compare to "now" for timeout jobs.
 function isTimestampReached(timestampValue, nowTimestamp) {
   const isHasTimestamp = timestampValue &&
       typeof timestampValue.toMillis === "function";
@@ -240,6 +511,7 @@ function isTimestampReached(timestampValue, nowTimestamp) {
   return timestampValue.toMillis() <= nowTimestamp.toMillis();
 }
 
+// Timeout worker: refund buyer + restore postcard stock when seller misses shipping deadline.
 async function processSellerShippingTimeouts(nowTimestamp) {
   const query = db.collection("postcardOrders")
       .where("status", "==", "AwaitingShipping")
@@ -291,6 +563,7 @@ async function processSellerShippingTimeouts(nowTimestamp) {
   }
 }
 
+// Timeout worker: auto-complete shipped orders and release held honey to seller.
 async function processBuyerAutoCompletion(nowTimestamp) {
   const query = db.collection("postcardOrders")
       .where("status", "==", "Shipped")
@@ -334,6 +607,7 @@ async function processBuyerAutoCompletion(nowTimestamp) {
   }
 }
 
+// Scheduled timeout sweeper for postcard orders.
 exports.processPostcardOrderTimeouts = onSchedule(
     {
       schedule: "every 15 minutes",
@@ -348,6 +622,8 @@ exports.processPostcardOrderTimeouts = onSchedule(
     },
 );
 
+// Record host-side room-created history event.
+// Event: ROOM_CREATED_HOST
 exports.recordRoomCreatedEvent = onDocumentCreated(
     {
       document: "rooms/{roomId}",
@@ -359,22 +635,18 @@ exports.recordRoomCreatedEvent = onDocumentCreated(
 
       const roomId = event.params.roomId;
       const hostUid = stringifyValue(roomData.hostUid, "");
-      const roomTitle = stringifyValue(roomData.title, "your room");
-
       await recordUserEvent({
         uid: hostUid,
         cloudEventId: event.id,
-        type: "room_created",
-        title: "Mushroom Room Created",
-        message: `You created mushroom room: ${roomTitle}.`,
-        titleLocKey: "event_room_created_title",
-        messageLocKey: "event_room_created_message",
-        messageLocArgs: [roomTitle],
+        type: "ROOM_CREATED_HOST",
         roomId,
+        messageArgs: [stringifyValue(roomData.title, "Untitled Room")],
       });
     },
 );
 
+// Record host-side raid-invite cycle event when raidConfirmationHistory gets a new head record.
+// Event: RAID_INVITED_HOST
 exports.recordHostRaidInviteEvent = onDocumentUpdated(
     {
       document: "rooms/{roomId}",
@@ -398,22 +670,17 @@ exports.recordHostRaidInviteEvent = onDocumentUpdated(
 
       const roomId = event.params.roomId;
       const hostUid = stringifyValue(afterData.hostUid, "");
-      const roomTitle = stringifyValue(afterData.title, "your room");
-
       await recordUserEvent({
         uid: hostUid,
         cloudEventId: `${event.id}_${newFirstId}`,
-        type: "raid_invited",
-        title: "Mushroom Raid Invited",
-        message: `You invited participants to confirm raid result for: ${roomTitle}.`,
-        titleLocKey: "event_raid_invited_title",
-        messageLocKey: "event_raid_invited_message",
-        messageLocArgs: [roomTitle],
+        type: "RAID_INVITED_HOST",
         roomId,
       });
     },
 );
 
+// Record seller-side postcard registration history event.
+// Event: POSTCARD_CREATED_SELLER
 exports.recordPostcardCreatedEvent = onDocumentCreated(
     {
       document: "postcards/{postcardId}",
@@ -425,22 +692,18 @@ exports.recordPostcardCreatedEvent = onDocumentCreated(
 
       const postcardId = event.params.postcardId;
       const sellerUid = stringifyValue(postcardData.sellerId, "");
-      const postcardTitle = stringifyValue(postcardData.title, "a postcard");
-
       await recordUserEvent({
         uid: sellerUid,
         cloudEventId: event.id,
-        type: "postcard_registered",
-        title: "Postcard Registered",
-        message: `You registered postcard: ${postcardTitle}.`,
-        titleLocKey: "event_postcard_registered_title",
-        messageLocKey: "event_postcard_registered_message",
-        messageLocArgs: [postcardTitle],
+        type: "POSTCARD_CREATED_SELLER",
         postcardId,
+        messageArgs: [stringifyValue(postcardData.title, "postcard")],
       });
     },
 );
 
+// Record profile/wallet history events from users/{uid} document diffs.
+// Events: NAME_UPDATED, FRIEND_CODE_UPDATED
 exports.recordUserProfileAndWalletEvents = onDocumentUpdated(
     {
       document: "users/{uid}",
@@ -454,30 +717,6 @@ exports.recordUserProfileAndWalletEvents = onDocumentUpdated(
       const uid = event.params.uid;
       const pendingEvents = [];
 
-      const beforeHoney = normalizeHoneyValue(beforeData.honey);
-      const afterHoney = normalizeHoneyValue(afterData.honey);
-      const honeyDelta = afterHoney - beforeHoney;
-      if (honeyDelta !== 0) {
-        const isHoneyIncreased = honeyDelta > 0;
-        const deltaText = String(Math.abs(honeyDelta));
-        pendingEvents.push(
-            recordUserEvent({
-              uid,
-              cloudEventId: `${event.id}_honey`,
-              type: "wallet_honey_changed",
-              title: "Honey Balance Updated",
-              message: isHoneyIncreased ?
-                `Your honey increased by ${deltaText}. Current balance: ${afterHoney}.` :
-                `Your honey decreased by ${deltaText}. Current balance: ${afterHoney}.`,
-              titleLocKey: "event_wallet_honey_changed_title",
-              messageLocKey: isHoneyIncreased ?
-                "event_wallet_honey_increased_message" :
-                "event_wallet_honey_decreased_message",
-              messageLocArgs: [deltaText, String(afterHoney)],
-            }),
-        );
-      }
-
       const beforeName = stringifyValue(beforeData.displayName, "");
       const afterName = stringifyValue(afterData.displayName, "");
       if (beforeName !== afterName && afterName) {
@@ -485,12 +724,7 @@ exports.recordUserProfileAndWalletEvents = onDocumentUpdated(
             recordUserEvent({
               uid,
               cloudEventId: `${event.id}_name`,
-              type: "profile_name_updated",
-              title: "Display Name Updated",
-              message: `Your display name was updated to ${afterName}.`,
-              titleLocKey: "event_profile_name_updated_title",
-              messageLocKey: "event_profile_name_updated_message",
-              messageLocArgs: [afterName],
+              type: "NAME_UPDATED",
             }),
         );
       }
@@ -502,11 +736,8 @@ exports.recordUserProfileAndWalletEvents = onDocumentUpdated(
             recordUserEvent({
               uid,
               cloudEventId: `${event.id}_friendcode`,
-              type: "profile_friend_code_updated",
-              title: "Friend Code Updated",
-              message: "Your friend code was updated.",
-              titleLocKey: "event_profile_friend_code_updated_title",
-              messageLocKey: "event_profile_friend_code_updated_message",
+              type: "FRIEND_CODE_UPDATED",
+              messageArgs: [afterFriendCode],
             }),
         );
       }
@@ -517,12 +748,9 @@ exports.recordUserProfileAndWalletEvents = onDocumentUpdated(
     },
 );
 
-exports.sendRaidConfirmationPush = onDocumentUpdated(
-    {
-      document: "rooms/{roomId}/attendees/{attendeeUid}",
-      region: "us-central1",
-    },
-    async (event) => {
+// Routed attendee-update branch: attendee enters WaitingConfirmation -> write action event + push attendee.
+// Event: RAID_CONFIRM_ATTENDEE
+async function processRaidConfirmationEvent(event) {
       const beforeData = event.data?.before?.data();
       const afterData = event.data?.after?.data();
       if (!afterData) return;
@@ -538,31 +766,27 @@ exports.sendRaidConfirmationPush = onDocumentUpdated(
       const roomSnap = await db.collection("rooms").doc(roomId).get();
 
       const roomData = roomSnap.data() || {};
-      const hostName = (roomData.hostName || "Host").toString();
       const attendeeEventId = resolveEventDocumentId(event.id, attendeeUid);
 
       await recordUserEvent({
         uid: attendeeUid,
         cloudEventId: event.id,
-        type: "raid_confirmation",
-        title: "Mushroom Raid Confirmation",
-        message: `${hostName} invited you to confirm your mushroom raid result.`,
-        titleLocKey: "event_raid_confirmation_title",
-        messageLocKey: "event_raid_confirmation_message",
-        messageLocArgs: [hostName],
+        type: "RAID_CONFIRM_ATTENDEE",
         roomId,
-        isOpeningConfirmationQueue: true,
       });
+      const attendeeSnapshot = await resolveEventSnapshot(
+          attendeeUid,
+          "RAID_CONFIRM_ATTENDEE",
+      );
 
       try {
         await sendPushToUser(
             attendeeUid,
-            localizedPushMessage(
-                "push_mushroom_raid_confirmation_title",
-                "push_mushroom_raid_confirmation_body",
-                [hostName],
+            pushMessageFromSnapshot(
+                attendeeSnapshot.title,
+                attendeeSnapshot.message,
                 {
-                  type: "raid_confirmation",
+                  type: "RAID_CONFIRM_ATTENDEE",
                   roomId,
                   room_id: roomId,
                   eventId: attendeeEventId,
@@ -580,9 +804,10 @@ exports.sendRaidConfirmationPush = onDocumentUpdated(
           error: error instanceof Error ? error.message : String(error),
         });
       }
-    },
-);
+}
 
+// Join request create trigger: write joiner/host events and push host Action Event.
+// Events: JOIN_REQUESTED_ATTENDEE, JOIN_REQUESTED_HOST
 exports.notifyHostJoinRequest = onDocumentCreated(
     {
       document: "rooms/{roomId}/attendees/{attendeeUid}",
@@ -608,50 +833,41 @@ exports.notifyHostJoinRequest = onDocumentCreated(
         return;
       }
 
-      const attendeeName = stringifyValue(afterData.name, "A player");
-      const roomTitle = stringifyValue(roomData.title, "your room");
-      const joinGreetingMessage = stringifyValue(afterData.joinGreetingMessage, "");
-      const isHasGreetingMessage = joinGreetingMessage.length > 0;
       const hostEventId = resolveEventDocumentId(event.id, hostUid);
-
+      const attendeeName = stringifyValue(afterData.name, "A player");
+      const roomTitle = stringifyValue(roomData.title, "the room");
+      const joinRequestMessageArgs = [attendeeName, roomTitle];
       await Promise.all([
         recordUserEvent({
           uid: attendeeUid,
           cloudEventId: event.id,
-          type: "room_join_request_submitted",
-          title: "Join Application Sent",
-          message: `You sent a join request to room: ${roomTitle}.`,
-          titleLocKey: "event_room_join_request_submitted_title",
-          messageLocKey: "event_room_join_request_submitted_message",
-          messageLocArgs: [roomTitle],
+          type: "JOIN_REQUESTED_ATTENDEE",
           roomId,
+          messageArgs: [roomTitle],
         }),
         recordUserEvent({
           uid: hostUid,
           cloudEventId: event.id,
-          type: "room_join_request_received",
-          title: "Join Application Received",
-          message: `${attendeeName} applied to join your room: ${roomTitle}.`,
-          titleLocKey: "event_room_join_request_received_title",
-          messageLocKey: "event_room_join_request_received_message",
-          messageLocArgs: [attendeeName, roomTitle],
+          type: "JOIN_REQUESTED_HOST",
           roomId,
+          relatedUid: attendeeUid,
+          messageArgs: joinRequestMessageArgs,
         }),
       ]);
+      const hostSnapshot = await resolveEventSnapshot(
+          hostUid,
+          "JOIN_REQUESTED_HOST",
+          joinRequestMessageArgs,
+      );
 
       try {
         await sendPushToUser(
             hostUid,
-            localizedPushMessage(
-                "push_mushroom_join_request_title",
-                isHasGreetingMessage ?
-                "push_mushroom_join_request_body_with_message" :
-                "push_mushroom_join_request_body",
-                isHasGreetingMessage ?
-                [attendeeName, roomTitle, joinGreetingMessage] :
-                [attendeeName, roomTitle],
+            pushMessageFromSnapshot(
+                hostSnapshot.title,
+                hostSnapshot.message,
                 {
-                  type: "room_join_request",
+                  type: "JOIN_REQUESTED_HOST",
                   roomId,
                   room_id: roomId,
                   attendeeUid,
@@ -674,12 +890,9 @@ exports.notifyHostJoinRequest = onDocumentCreated(
     },
 );
 
-exports.notifyJoinApplicantAccepted = onDocumentUpdated(
-    {
-      document: "rooms/{roomId}/attendees/{attendeeUid}",
-      region: "us-central1",
-    },
-    async (event) => {
+// Routed attendee-update branch: host accepts join request -> resolve host action + push applicant.
+// Events: JOIN_ACCEPTED_ATTENDEE, JOIN_ACCEPTED_HOST
+async function processJoinApplicantAcceptedEvent(event) {
       const beforeData = event.data?.before?.data();
       const afterData = event.data?.after?.data();
       if (!beforeData || !afterData) return;
@@ -693,21 +906,18 @@ exports.notifyJoinApplicantAccepted = onDocumentUpdated(
       const roomSnap = await db.collection("rooms").doc(roomId).get();
       const roomData = roomSnap.data() || {};
       const hostUid = await resolveHostUid(roomId, roomData);
+      const attendeeEventId = resolveEventDocumentId(event.id, attendeeUid);
       const roomTitle = stringifyValue(roomData.title, "the room");
       const attendeeName = stringifyValue(afterData.name, "A player");
-      const attendeeEventId = resolveEventDocumentId(event.id, attendeeUid);
+      const acceptanceMessageArgs = [roomTitle];
 
       const pendingEvents = [
         recordUserEvent({
           uid: attendeeUid,
           cloudEventId: event.id,
-          type: "room_join_request_accepted",
-          title: "Join Application Accepted",
-          message: `Your request was accepted for room: ${roomTitle}.`,
-          titleLocKey: "event_room_join_request_accepted_title",
-          messageLocKey: "event_room_join_request_accepted_message",
-          messageLocArgs: [roomTitle],
+          type: "JOIN_ACCEPTED_ATTENDEE",
           roomId,
+          messageArgs: acceptanceMessageArgs,
         }),
       ];
       if (hostUid) {
@@ -715,27 +925,35 @@ exports.notifyJoinApplicantAccepted = onDocumentUpdated(
             recordUserEvent({
               uid: hostUid,
               cloudEventId: event.id,
-              type: "room_joiner_accepted",
-              title: "Joiner Accepted",
-              message: `You accepted ${attendeeName} into room: ${roomTitle}.`,
-              titleLocKey: "event_room_joiner_accepted_title",
-              messageLocKey: "event_room_joiner_accepted_message",
-              messageLocArgs: [attendeeName, roomTitle],
+              type: "JOIN_ACCEPTED_HOST",
               roomId,
+              messageArgs: [attendeeName, roomTitle],
             }),
         );
       }
       await Promise.all(pendingEvents);
+      if (hostUid) {
+        await resolveUserActionEvents({
+          uid: hostUid,
+          type: "JOIN_REQUESTED_HOST",
+          roomId,
+          relatedUid: attendeeUid,
+        });
+      }
 
       try {
+        const attendeeAcceptedSnapshot = await resolveEventSnapshot(
+            attendeeUid,
+            "JOIN_ACCEPTED_ATTENDEE",
+            acceptanceMessageArgs,
+        );
         await sendPushToUser(
             attendeeUid,
-            localizedPushMessage(
-                "push_mushroom_join_request_accepted_title",
-                "push_mushroom_join_request_accepted_body",
-                [roomTitle],
+            pushMessageFromSnapshot(
+                attendeeAcceptedSnapshot.title,
+                attendeeAcceptedSnapshot.message,
                 {
-                  type: "room_join_request_accepted",
+                  type: "JOIN_ACCEPTED_ATTENDEE",
                   roomId,
                   room_id: roomId,
                   eventId: attendeeEventId,
@@ -753,9 +971,10 @@ exports.notifyJoinApplicantAccepted = onDocumentUpdated(
           error: error instanceof Error ? error.message : String(error),
         });
       }
-    },
-);
+}
 
+// Join request delete trigger: host rejects join request -> resolve host action + push applicant.
+// Events: JOIN_REJECTED_ATTENDEE, JOIN_REJECTED_HOST
 exports.notifyJoinApplicantRejected = onDocumentDeleted(
     {
       document: "rooms/{roomId}/attendees/{attendeeUid}",
@@ -773,21 +992,18 @@ exports.notifyJoinApplicantRejected = onDocumentDeleted(
       const roomSnap = await db.collection("rooms").doc(roomId).get();
       const roomData = roomSnap.data() || {};
       const hostUid = await resolveHostUid(roomId, roomData);
+      const attendeeEventId = resolveEventDocumentId(event.id, attendeeUid);
       const roomTitle = stringifyValue(roomData.title, "the room");
       const attendeeName = stringifyValue(beforeData.name, "A player");
-      const attendeeEventId = resolveEventDocumentId(event.id, attendeeUid);
+      const rejectionMessageArgs = [roomTitle];
 
       const pendingEvents = [
         recordUserEvent({
           uid: attendeeUid,
           cloudEventId: event.id,
-          type: "room_join_request_rejected",
-          title: "Join Application Rejected",
-          message: `Your request was rejected for room: ${roomTitle}.`,
-          titleLocKey: "event_room_join_request_rejected_title",
-          messageLocKey: "event_room_join_request_rejected_message",
-          messageLocArgs: [roomTitle],
+          type: "JOIN_REJECTED_ATTENDEE",
           roomId,
+          messageArgs: rejectionMessageArgs,
         }),
       ];
       if (hostUid) {
@@ -795,27 +1011,35 @@ exports.notifyJoinApplicantRejected = onDocumentDeleted(
             recordUserEvent({
               uid: hostUid,
               cloudEventId: event.id,
-              type: "room_joiner_rejected",
-              title: "Joiner Rejected",
-              message: `You rejected ${attendeeName} from room: ${roomTitle}.`,
-              titleLocKey: "event_room_joiner_rejected_title",
-              messageLocKey: "event_room_joiner_rejected_message",
-              messageLocArgs: [attendeeName, roomTitle],
+              type: "JOIN_REJECTED_HOST",
               roomId,
+              messageArgs: [attendeeName],
             }),
         );
       }
       await Promise.all(pendingEvents);
+      if (hostUid) {
+        await resolveUserActionEvents({
+          uid: hostUid,
+          type: "JOIN_REQUESTED_HOST",
+          roomId,
+          relatedUid: attendeeUid,
+        });
+      }
 
       try {
+        const attendeeRejectedSnapshot = await resolveEventSnapshot(
+            attendeeUid,
+            "JOIN_REJECTED_ATTENDEE",
+            rejectionMessageArgs,
+        );
         await sendPushToUser(
             attendeeUid,
-            localizedPushMessage(
-                "push_mushroom_join_request_rejected_title",
-                "push_mushroom_join_request_rejected_body",
-                [roomTitle],
+            pushMessageFromSnapshot(
+                attendeeRejectedSnapshot.title,
+                attendeeRejectedSnapshot.message,
                 {
-                  type: "room_join_request_rejected",
+                  type: "JOIN_REJECTED_ATTENDEE",
                   roomId,
                   room_id: roomId,
                   eventId: attendeeEventId,
@@ -836,12 +1060,9 @@ exports.notifyJoinApplicantRejected = onDocumentDeleted(
     },
 );
 
-exports.notifyHostRaidConfirmationResult = onDocumentUpdated(
-    {
-      document: "rooms/{roomId}/attendees/{attendeeUid}",
-      region: "us-central1",
-    },
-    async (event) => {
+// Routed attendee-update branch: attendee submits confirmation result -> resolve attendee action + push host.
+// Event: REPLY_HOST
+async function processHostRaidConfirmationResultEvent(event) {
       const beforeData = event.data?.before?.data();
       const afterData = event.data?.after?.data();
       if (!beforeData || !afterData) return;
@@ -850,8 +1071,7 @@ exports.notifyHostRaidConfirmationResult = onDocumentUpdated(
       const newStatus = afterData.status ?? null;
       const transitionedFromWaiting = oldStatus === "WaitingConfirmation";
       const transitionedToReady = newStatus === "Ready";
-      const transitionedToRejected = newStatus === "Rejected";
-      if (!transitionedFromWaiting || (!transitionedToReady && !transitionedToRejected)) {
+      if (!transitionedFromWaiting || !transitionedToReady) {
         return;
       }
 
@@ -867,96 +1087,52 @@ exports.notifyHostRaidConfirmationResult = onDocumentUpdated(
       }
 
       const raidCostHoney = Number(roomData.fixedRaidCost || 0);
-      const attendeeName = (afterData.name || "A player").toString();
+      const attendeeName = stringifyValue(afterData.name, "A player");
       const settlementOutcome = (afterData.lastSettlementOutcome || "").toString();
       const settlementHoney = Number(afterData.lastSettlementHoney || 0);
       const raidCostHoneyText = String(raidCostHoney);
       const settlementHoneyText = String(settlementHoney);
+      const pushType = settlementOutcome === "SeatFullNoFault" ?
+        "raid_confirmation_seat_full" : settlementOutcome === "MissedInvitation" ?
+          "raid_confirmation_missed_invite" :
+          "raid_confirmation_accepted";
+      const pushHoneyEarned = settlementOutcome === "SeatFullNoFault" ?
+        settlementHoneyText : settlementOutcome === "MissedInvitation" ?
+          "0" : raidCostHoneyText;
+      const replyHostMessageArgs = [pushType, attendeeName, pushHoneyEarned];
       const hostEventId = resolveEventDocumentId(event.id, hostUid);
-      const attendeeOutcomeText = transitionedToRejected ?
-        "Rejected" :
-        settlementOutcome === "SeatFullNoFault" ?
-          "Seat Full (No Fault)" :
-          settlementOutcome === "MissedInvitation" ?
-            "Missed Invitation" :
-            "Joined Success";
+      await recordUserEvent({
+        uid: hostUid,
+        cloudEventId: event.id,
+        type: "REPLY_HOST",
+        roomId,
+        messageArgs: replyHostMessageArgs,
+      });
+      await resolveUserActionEvents({
+        uid: attendeeUid,
+        type: "RAID_CONFIRM_ATTENDEE",
+        roomId,
+      });
 
-      await Promise.all([
-        recordUserEvent({
-          uid: hostUid,
-          cloudEventId: event.id,
-          type: transitionedToRejected ? "raid_confirmation_rejected" : "raid_confirmation_ready",
-          title: "Raid Confirmation Result",
-          message: `${attendeeName} submitted result: ${attendeeOutcomeText}.`,
-          roomId,
-        }),
-        recordUserEvent({
-          uid: attendeeUid,
-          cloudEventId: event.id,
-          type: transitionedToRejected ? "raid_confirmation_rejected" : "raid_confirmation_ready",
-          title: "Your Confirmation Submitted",
-          message: `Your raid result was submitted as: ${attendeeOutcomeText}.`,
-          roomId,
-          isOpeningConfirmationQueue: true,
-        }),
-      ]);
-
-      const message = transitionedToReady ? (settlementOutcome === "SeatFullNoFault" ?
-        localizedPushMessage(
-            "push_mushroom_raid_result_seat_full_title",
-            "push_mushroom_raid_result_seat_full_body",
-            [attendeeName, settlementHoneyText],
-            {
-              type: "raid_confirmation_seat_full",
-              roomId,
-              room_id: roomId,
-              attendeeUid,
-              honeyEarned: settlementHoneyText,
-              eventId: hostEventId,
-              event_id: hostEventId,
-            },
-        ) : settlementOutcome === "MissedInvitation" ?
-          localizedPushMessage(
-              "push_mushroom_raid_result_missed_invite_title",
-              "push_mushroom_raid_result_missed_invite_body",
-              [attendeeName],
-              {
-                type: "raid_confirmation_missed_invite",
-                roomId,
-                room_id: roomId,
-                attendeeUid,
-                honeyEarned: "0",
-                eventId: hostEventId,
-                event_id: hostEventId,
-              },
-          ) :
-          localizedPushMessage(
-              "push_mushroom_raid_result_accepted_title",
-              "push_mushroom_raid_result_accepted_body",
-              [attendeeName, raidCostHoneyText],
-              {
-                type: "raid_confirmation_accepted",
-                roomId,
-                room_id: roomId,
-                attendeeUid,
-                honeyEarned: raidCostHoneyText,
-                eventId: hostEventId,
-                event_id: hostEventId,
-              },
-          )) :
-        localizedPushMessage(
-            "push_mushroom_raid_result_rejected_title",
-            "push_mushroom_raid_result_rejected_body",
-            [attendeeName],
-            {
-              type: "raid_confirmation_rejected",
-              roomId,
-              room_id: roomId,
-              attendeeUid,
-              eventId: hostEventId,
-              event_id: hostEventId,
-            },
-        );
+      const hostReplySnapshot = await resolveEventSnapshot(
+          hostUid,
+          "REPLY_HOST",
+          replyHostMessageArgs,
+      );
+      const message = pushMessageFromSnapshot(
+          hostReplySnapshot.title,
+          hostReplySnapshot.message,
+          {
+            type: "REPLY_HOST",
+            outcome: pushType,
+            roomId,
+            room_id: roomId,
+            attendeeUid,
+            honeyEarned: pushHoneyEarned,
+            eventId: hostEventId,
+            event_id: hostEventId,
+          },
+      );
 
       try {
         await sendPushToUser(hostUid, message, {roomId, attendeeUid, hostUid}, roomData.hostFcmToken);
@@ -975,60 +1151,58 @@ exports.notifyHostRaidConfirmationResult = onDocumentUpdated(
           error: error instanceof Error ? error.message : String(error),
         });
       }
-    },
-);
+}
 
-exports.notifyMushroomStarReceived = onDocumentUpdated(
-    {
-      document: "rooms/{roomId}/attendees/{attendeeUid}",
-      region: "us-central1",
-    },
-    async (event) => {
+// Routed attendee-update branch: rating transitions -> star receiver history + push.
+// Event: STAR_RECEIVED
+async function processMushroomStarReceivedEvent(event) {
       const beforeData = event.data?.before?.data();
       const afterData = event.data?.after?.data();
       if (!beforeData || !afterData) return;
+
+      // Most attendee updates are not rating events; skip room read unless a rating flag changed.
+      const attendeeRatedHostNow =
+          beforeData.attendeeRatedHost !== true && afterData.attendeeRatedHost === true;
+      const hostRatedAttendeeNow =
+          beforeData.hostRatedAttendee !== true && afterData.hostRatedAttendee === true;
+      if (!attendeeRatedHostNow && !hostRatedAttendeeNow) {
+        return;
+      }
 
       const roomId = event.params.roomId;
       const attendeeUid = event.params.attendeeUid;
       const roomSnap = await db.collection("rooms").doc(roomId).get();
       const roomData = roomSnap.data() || {};
       const raterName = stringifyValue(afterData.name, "A player");
+      const hostName = stringifyValue(roomData.hostName, "Host");
 
-      const attendeeRatedHostNow =
-          beforeData.attendeeRatedHost !== true && afterData.attendeeRatedHost === true;
       if (attendeeRatedHostNow) {
         const hostUid = await resolveHostUid(roomId, roomData);
         const awardedStars = normalizeStarsCount(afterData.attendeeRatedHostStars, 1);
-        const hostName = stringifyValue(roomData.hostName, "Host");
         if (hostUid) {
           const hostEventId = resolveEventDocumentId(event.id, hostUid);
           await Promise.all([
             recordUserEvent({
               uid: hostUid,
               cloudEventId: event.id,
-              type: "room_star_received",
-              title: "Stars Received",
-              message: `${raterName} gave you ${awardedStars} stars.`,
+              type: "STAR_RECEIVED",
               roomId,
-            }),
-            recordUserEvent({
-              uid: attendeeUid,
-              cloudEventId: event.id,
-              type: "room_star_given",
-              title: "Stars Given",
-              message: `You gave ${awardedStars} stars to ${hostName}.`,
-              roomId,
+              messageArgs: [raterName, awardedStars],
             }),
           ]);
           try {
+            const hostSnapshot = await resolveEventSnapshot(
+                hostUid,
+                "STAR_RECEIVED",
+                [raterName, awardedStars],
+            );
             await sendPushToUser(
                 hostUid,
-                localizedPushMessage(
-                    "push_mushroom_star_received_title",
-                    "push_mushroom_star_received_body",
-                    [raterName, awardedStars],
+                pushMessageFromSnapshot(
+                    hostSnapshot.title,
+                    hostSnapshot.message,
                     {
-                      type: "room_star_received",
+                      type: "STAR_RECEIVED",
                       roomId,
                       room_id: roomId,
                       fromUid: attendeeUid,
@@ -1053,11 +1227,8 @@ exports.notifyMushroomStarReceived = onDocumentUpdated(
         }
       }
 
-      const hostRatedAttendeeNow =
-          beforeData.hostRatedAttendee !== true && afterData.hostRatedAttendee === true;
       if (hostRatedAttendeeNow) {
         const hostUid = await resolveHostUid(roomId, roomData);
-        const hostName = stringifyValue(roomData.hostName, "Host");
         const starDelta = Number(afterData.stars || 0) - Number(beforeData.stars || 0);
         const awardedStars = normalizeStarsCount(afterData.hostRatedAttendeeStars, starDelta);
         const attendeeEventId = resolveEventDocumentId(event.id, attendeeUid);
@@ -1065,29 +1236,24 @@ exports.notifyMushroomStarReceived = onDocumentUpdated(
           recordUserEvent({
             uid: attendeeUid,
             cloudEventId: event.id,
-            type: "room_star_received",
-            title: "Stars Received",
-            message: `${hostName} gave you ${awardedStars} stars.`,
+            type: "STAR_RECEIVED",
             roomId,
-          }),
-          recordUserEvent({
-            uid: hostUid,
-            cloudEventId: event.id,
-            type: "room_star_given",
-            title: "Stars Given",
-            message: `You gave ${awardedStars} stars to ${raterName}.`,
-            roomId,
+            messageArgs: [hostName, awardedStars],
           }),
         ]);
         try {
+          const attendeeSnapshot = await resolveEventSnapshot(
+              attendeeUid,
+              "STAR_RECEIVED",
+              [hostName, awardedStars],
+          );
           await sendPushToUser(
               attendeeUid,
-              localizedPushMessage(
-                  "push_mushroom_star_received_title",
-                  "push_mushroom_star_received_body",
-                  [hostName, awardedStars],
+              pushMessageFromSnapshot(
+                  attendeeSnapshot.title,
+                  attendeeSnapshot.message,
                   {
-                    type: "room_star_received",
+                    type: "STAR_RECEIVED",
                     roomId,
                     room_id: roomId,
                     fromUid: hostUid || "",
@@ -1110,15 +1276,26 @@ exports.notifyMushroomStarReceived = onDocumentUpdated(
           });
         }
       }
-    },
-);
+}
 
-exports.sendPostcardShippedPush = onDocumentUpdated(
+// Single update trigger for rooms/{roomId}/attendees/{attendeeUid}; routes all attendee update event logic.
+// Events: RAID_CONFIRM_ATTENDEE, JOIN_ACCEPTED_ATTENDEE, JOIN_ACCEPTED_HOST, REPLY_HOST, STAR_RECEIVED
+exports.handleRoomAttendeeUpdatedEvents = onDocumentUpdated(
     {
-      document: "postcardOrders/{orderId}",
+      document: "rooms/{roomId}/attendees/{attendeeUid}",
       region: "us-central1",
     },
     async (event) => {
+      await runEventProcessor("RAID_CONFIRM_ATTENDEE", processRaidConfirmationEvent, event);
+      await runEventProcessor("join_applicant_accepted", processJoinApplicantAcceptedEvent, event);
+      await runEventProcessor("host_raid_confirmation_result", processHostRaidConfirmationResultEvent, event);
+      await runEventProcessor("mushroom_star_received", processMushroomStarReceivedEvent, event);
+    },
+);
+
+// Routed order-update branch: order transitions to Shipped -> resolve seller action + push buyer.
+// Events: POSTCARD_SENT_BUYER, POSTCARD_SENT_SELLER
+async function processPostcardShippedEvent(event) {
       const beforeData = event.data?.before?.data();
       const afterData = event.data?.after?.data();
       if (!beforeData || !afterData) return;
@@ -1137,54 +1314,57 @@ exports.sendPostcardShippedPush = onDocumentUpdated(
         return;
       }
 
-      const sellerName = (afterData.sellerName || "Seller").toString();
-      const postcardTitle = (afterData.postcardTitle || "postcard").toString();
+      const sellerName = stringifyValue(afterData.sellerName, "Seller");
+      const postcardTitle = stringifyValue(afterData.postcardTitle, "postcard");
+      const buyerName = stringifyValue(afterData.buyerName, "Buyer");
       const buyerEventId = resolveEventDocumentId(event.id, buyerUid);
 
       await Promise.all([
         recordUserEvent({
           uid: buyerUid,
           cloudEventId: event.id,
-          type: "postcard_shipped",
-          title: "Postcard Shipped",
-          message: `${sellerName} shipped your order: ${postcardTitle}.`,
+          type: "POSTCARD_SENT_BUYER",
           postcardId: (afterData.postcardId || "").toString(),
           orderId,
-          isOpeningOrderPage: true,
+          messageArgs: [sellerName, postcardTitle],
         }),
         recordUserEvent({
           uid: sellerUid,
           cloudEventId: event.id,
-          type: "postcard_sent",
-          title: "Postcard Sent",
-          message: `You marked order as shipped: ${postcardTitle}.`,
+          type: "POSTCARD_SENT_SELLER",
           postcardId: (afterData.postcardId || "").toString(),
           orderId,
-          isOpeningOrderPage: true,
+          messageArgs: [postcardTitle, buyerName],
         }),
       ]);
+      await resolveUserActionEvents({
+        uid: sellerUid,
+        type: "POSTCARD_ORDER_SELLER",
+        orderId,
+      });
 
       try {
-        await sendPushToUser(buyerUid, {
-          apns: {
-            payload: {
-              aps: {
-                alert: {
-                  "title-loc-key": "push_postcard_shipped_title",
-                  "loc-key": "push_postcard_shipped_body",
-                  "loc-args": [sellerName, postcardTitle],
+        const buyerSnapshot = await resolveEventSnapshot(
+            buyerUid,
+            "POSTCARD_SENT_BUYER",
+            [sellerName, postcardTitle],
+        );
+        await sendPushToUser(
+            buyerUid,
+            pushMessageFromSnapshot(
+                buyerSnapshot.title,
+                buyerSnapshot.message,
+                {
+                  type: "POSTCARD_SENT_BUYER",
+                  orderId,
+                  postcardId: (afterData.postcardId || "").toString(),
+                  eventId: buyerEventId,
+                  event_id: buyerEventId,
                 },
-              },
-            },
-          },
-          data: {
-            type: "postcard_shipped",
-            orderId,
-            postcardId: (afterData.postcardId || "").toString(),
-            eventId: buyerEventId,
-            event_id: buyerEventId,
-          },
-        }, {orderId, buyerUid}, afterData.buyerFcmToken);
+            ),
+            {orderId, buyerUid},
+            afterData.buyerFcmToken,
+        );
         logger.info("Postcard shipped push sent", {orderId, buyerUid});
       } catch (error) {
         logger.error("Failed to send postcard shipped push", {
@@ -1193,9 +1373,10 @@ exports.sendPostcardShippedPush = onDocumentUpdated(
           error: error instanceof Error ? error.message : String(error),
         });
       }
-    },
-);
+}
 
+// Order create trigger: AwaitingShipping order created -> write events + push seller Action Event.
+// Events: POSTCARD_ORDER_SELLER, POSTCARD_ORDER_BUYER
 exports.sendPostcardOrderCreatedPush = onDocumentCreated(
     {
       document: "postcardOrders/{orderId}",
@@ -1218,54 +1399,49 @@ exports.sendPostcardOrderCreatedPush = onDocumentCreated(
         return;
       }
 
-      const postcardTitle = (orderData.postcardTitle || "postcard").toString();
+      const postcardTitle = stringifyValue(orderData.postcardTitle, "postcard");
       const sellerEventId = resolveEventDocumentId(event.id, sellerUid);
-      const buyerName = stringifyValue(orderData.buyerName, "A buyer");
-
       await Promise.all([
         recordUserEvent({
           uid: sellerUid,
           cloudEventId: event.id,
-          type: "postcard_order_created",
-          title: "New Postcard Order",
-          message: `${buyerName} ordered your postcard: ${postcardTitle}.`,
+          type: "POSTCARD_ORDER_SELLER",
           postcardId: (orderData.postcardId || "").toString(),
           orderId,
-          isOpeningOrderPage: true,
+          messageArgs: [postcardTitle],
         }),
         recordUserEvent({
           uid: buyerUid,
           cloudEventId: event.id,
-          type: "postcard_order_sent",
-          title: "Order Sent",
-          message: `You placed an order for postcard: ${postcardTitle}.`,
+          type: "POSTCARD_ORDER_BUYER",
           postcardId: (orderData.postcardId || "").toString(),
           orderId,
-          isOpeningOrderPage: true,
+          messageArgs: [postcardTitle],
         }),
       ]);
 
       try {
-        await sendPushToUser(sellerUid, {
-          apns: {
-            payload: {
-              aps: {
-                alert: {
-                  "title-loc-key": "push_postcard_order_created_title",
-                  "loc-key": "push_postcard_order_created_body",
-                  "loc-args": [postcardTitle],
+        const sellerSnapshot = await resolveEventSnapshot(
+            sellerUid,
+            "POSTCARD_ORDER_SELLER",
+            [postcardTitle],
+        );
+        await sendPushToUser(
+            sellerUid,
+            pushMessageFromSnapshot(
+                sellerSnapshot.title,
+                sellerSnapshot.message,
+                {
+                  type: "POSTCARD_ORDER_SELLER",
+                  orderId,
+                  postcardId: (orderData.postcardId || "").toString(),
+                  eventId: sellerEventId,
+                  event_id: sellerEventId,
                 },
-              },
-            },
-          },
-          data: {
-            type: "postcard_order_created",
-            orderId,
-            postcardId: (orderData.postcardId || "").toString(),
-            eventId: sellerEventId,
-            event_id: sellerEventId,
-          },
-        }, {orderId, sellerUid}, orderData.sellerFcmToken);
+            ),
+            {orderId, sellerUid},
+            orderData.sellerFcmToken,
+        );
         logger.info("Postcard order-created push sent", {orderId, sellerUid});
       } catch (error) {
         logger.error("Failed to send postcard order-created push", {
@@ -1277,12 +1453,9 @@ exports.sendPostcardOrderCreatedPush = onDocumentCreated(
     },
 );
 
-exports.notifySellerPostcardCompleted = onDocumentUpdated(
-    {
-      document: "postcardOrders/{orderId}",
-      region: "us-central1",
-    },
-    async (event) => {
+// Routed order-update branch: order transitions to Completed/CompletedAuto -> resolve actions + push seller.
+// Events: POSTCARD_RECEIVED_SELLER, POSTCARD_RECEIVED_BUYER
+async function processSellerPostcardCompletedEvent(event) {
       const beforeData = event.data?.before?.data();
       const afterData = event.data?.after?.data();
       if (!beforeData || !afterData) return;
@@ -1303,8 +1476,8 @@ exports.notifySellerPostcardCompleted = onDocumentUpdated(
         return;
       }
 
-      const buyerName = (afterData.buyerName || "Buyer").toString();
-      const postcardTitle = (afterData.postcardTitle || "postcard").toString();
+      const buyerName = stringifyValue(afterData.buyerName, "Buyer");
+      const postcardTitle = stringifyValue(afterData.postcardTitle, "postcard");
       const holdHoney = Number(afterData.holdHoney || 0);
       const holdHoneyText = String(holdHoney);
       const isAutoCompleted = newStatus === "CompletedAuto";
@@ -1314,55 +1487,54 @@ exports.notifySellerPostcardCompleted = onDocumentUpdated(
         recordUserEvent({
           uid: sellerUid,
           cloudEventId: event.id,
-          type: "postcard_order_completed",
-          title: "Order Completed",
-          message: isAutoCompleted ?
-            `Order auto-completed for ${postcardTitle}. You received ${holdHoneyText} honey.` :
-            `${buyerName} confirmed receipt. You received ${holdHoneyText} honey.`,
+          type: "POSTCARD_RECEIVED_SELLER",
           postcardId: (afterData.postcardId || "").toString(),
           orderId,
-          isOpeningOrderPage: true,
+          messageArgs: [isAutoCompleted ? "auto" : "manual", isAutoCompleted ? postcardTitle : buyerName, holdHoneyText],
         }),
         recordUserEvent({
           uid: buyerUid,
           cloudEventId: event.id,
-          type: "postcard_received",
-          title: "Postcard Received",
-          message: isAutoCompleted ?
-            `Your order for ${postcardTitle} was auto-completed.` :
-            `You confirmed receipt for ${postcardTitle}.`,
+          type: "POSTCARD_RECEIVED_BUYER",
           postcardId: (afterData.postcardId || "").toString(),
           orderId,
-          isOpeningOrderPage: true,
+          messageArgs: [postcardTitle],
         }),
       ]);
+      await resolveUserActionEvents({
+        uid: sellerUid,
+        type: "POSTCARD_ORDER_SELLER",
+        orderId,
+      });
+      await resolveUserActionEvents({
+        uid: buyerUid,
+        type: "POSTCARD_SENT_BUYER",
+        orderId,
+      });
 
       try {
-        await sendPushToUser(sellerUid, {
-          apns: {
-            payload: {
-              aps: {
-                alert: isAutoCompleted ? {
-                  "title-loc-key": "push_postcard_completed_title",
-                  "loc-key": "push_postcard_completed_auto_body",
-                  "loc-args": [postcardTitle, holdHoneyText],
-                } : {
-                  "title-loc-key": "push_postcard_completed_title",
-                  "loc-key": "push_postcard_completed_body",
-                  "loc-args": [buyerName, holdHoneyText],
+        const sellerSnapshot = await resolveEventSnapshot(
+            sellerUid,
+            "POSTCARD_RECEIVED_SELLER",
+            [isAutoCompleted ? "auto" : "manual", isAutoCompleted ? postcardTitle : buyerName, holdHoneyText],
+        );
+        await sendPushToUser(
+            sellerUid,
+            pushMessageFromSnapshot(
+                sellerSnapshot.title,
+                sellerSnapshot.message,
+                {
+                  type: "POSTCARD_RECEIVED_SELLER",
+                  orderId,
+                  postcardId: (afterData.postcardId || "").toString(),
+                  honey: String(holdHoney),
+                  eventId: sellerEventId,
+                  event_id: sellerEventId,
                 },
-              },
-            },
-          },
-          data: {
-            type: "postcard_order_completed",
-            orderId,
-            postcardId: (afterData.postcardId || "").toString(),
-            honey: String(holdHoney),
-            eventId: sellerEventId,
-            event_id: sellerEventId,
-          },
-        }, {orderId, sellerUid}, afterData.sellerFcmToken);
+            ),
+            {orderId, sellerUid},
+            afterData.sellerFcmToken,
+        );
         logger.info("Postcard completed push sent", {orderId, sellerUid});
       } catch (error) {
         logger.error("Failed to send postcard completed push", {
@@ -1371,15 +1543,11 @@ exports.notifySellerPostcardCompleted = onDocumentUpdated(
           error: error instanceof Error ? error.message : String(error),
         });
       }
-    },
-);
+}
 
-exports.sendPostcardRejectedPush = onDocumentUpdated(
-    {
-      document: "postcardOrders/{orderId}",
-      region: "us-central1",
-    },
-    async (event) => {
+// Routed order-update branch: order transitions to Rejected -> resolve seller action + push buyer.
+// Events: POSTCARD_REJECTED_BUYER, POSTCARD_REJECTED_SELLER
+async function processPostcardRejectedEvent(event) {
       const beforeData = event.data?.before?.data();
       const afterData = event.data?.after?.data();
       if (!beforeData || !afterData) return;
@@ -1398,7 +1566,7 @@ exports.sendPostcardRejectedPush = onDocumentUpdated(
         return;
       }
 
-      const postcardTitle = (afterData.postcardTitle || "postcard").toString();
+      const postcardTitle = stringifyValue(afterData.postcardTitle, "postcard");
       const holdHoney = Number(afterData.holdHoney || afterData.priceHoney || 0);
       const holdHoneyText = String(holdHoney);
       const buyerEventId = resolveEventDocumentId(event.id, buyerUid);
@@ -1407,47 +1575,49 @@ exports.sendPostcardRejectedPush = onDocumentUpdated(
         recordUserEvent({
           uid: buyerUid,
           cloudEventId: event.id,
-          type: "postcard_rejected",
-          title: "Order Rejected",
-          message: `Your order for ${postcardTitle} was rejected. ${holdHoneyText} honey was refunded.`,
+          type: "POSTCARD_REJECTED_BUYER",
           postcardId: (afterData.postcardId || "").toString(),
           orderId,
-          isOpeningOrderPage: true,
+          messageArgs: [postcardTitle, holdHoneyText],
         }),
         recordUserEvent({
           uid: sellerUid,
           cloudEventId: event.id,
-          type: "postcard_order_rejected",
-          title: "Order Rejected",
-          message: `You rejected an order for ${postcardTitle}.`,
+          type: "POSTCARD_REJECTED_SELLER",
           postcardId: (afterData.postcardId || "").toString(),
           orderId,
-          isOpeningOrderPage: true,
+          messageArgs: [postcardTitle],
         }),
       ]);
+      await resolveUserActionEvents({
+        uid: sellerUid,
+        type: "POSTCARD_ORDER_SELLER",
+        orderId,
+      });
 
       try {
-        await sendPushToUser(buyerUid, {
-          apns: {
-            payload: {
-              aps: {
-                alert: {
-                  "title-loc-key": "push_postcard_rejected_title",
-                  "loc-key": "push_postcard_rejected_body",
-                  "loc-args": [postcardTitle, holdHoneyText],
+        const buyerSnapshot = await resolveEventSnapshot(
+            buyerUid,
+            "POSTCARD_REJECTED_BUYER",
+            [postcardTitle, holdHoneyText],
+        );
+        await sendPushToUser(
+            buyerUid,
+            pushMessageFromSnapshot(
+                buyerSnapshot.title,
+                buyerSnapshot.message,
+                {
+                  type: "POSTCARD_REJECTED_BUYER",
+                  orderId,
+                  postcardId: (afterData.postcardId || "").toString(),
+                  honey: String(holdHoney),
+                  eventId: buyerEventId,
+                  event_id: buyerEventId,
                 },
-              },
-            },
-          },
-          data: {
-            type: "postcard_rejected",
-            orderId,
-            postcardId: (afterData.postcardId || "").toString(),
-            honey: holdHoneyText,
-            eventId: buyerEventId,
-            event_id: buyerEventId,
-          },
-        }, {orderId, buyerUid}, afterData.buyerFcmToken);
+            ),
+            {orderId, buyerUid},
+            afterData.buyerFcmToken,
+        );
         logger.info("Postcard rejected push sent", {orderId, buyerUid});
       } catch (error) {
         logger.error("Failed to send postcard rejected push", {
@@ -1456,9 +1626,23 @@ exports.sendPostcardRejectedPush = onDocumentUpdated(
           error: error instanceof Error ? error.message : String(error),
         });
       }
+}
+
+// Single update trigger for postcardOrders/{orderId}; routes all order status transition event logic.
+// Events: POSTCARD_SENT_BUYER, POSTCARD_SENT_SELLER, POSTCARD_RECEIVED_SELLER, POSTCARD_RECEIVED_BUYER, POSTCARD_REJECTED_BUYER, POSTCARD_REJECTED_SELLER
+exports.handlePostcardOrderUpdatedEvents = onDocumentUpdated(
+    {
+      document: "postcardOrders/{orderId}",
+      region: "us-central1",
+    },
+    async (event) => {
+      await runEventProcessor("POSTCARD_SENT_BUYER", processPostcardShippedEvent, event);
+      await runEventProcessor("postcard_completed", processSellerPostcardCompletedEvent, event);
+      await runEventProcessor("POSTCARD_REJECTED_BUYER", processPostcardRejectedEvent, event);
     },
 );
 
+// Feedback create trigger: send notification email through SMTP.
 exports.sendFeedbackNotificationEmail = onDocumentCreated(
     {
       document: "feedbackSubmissions/{feedbackId}",

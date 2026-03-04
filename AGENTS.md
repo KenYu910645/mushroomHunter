@@ -18,6 +18,7 @@ If signed out, users see the sign-in flow. First-time users must complete profil
 ## Documentation Map (Must Keep In Sync)
 Use and maintain these files when related code changes:
 - `AGENTS.md`: execution workflow, build/run rules, repo-level constraints.
+- `EVENTS.md`: consolidated event-history model, event type catalog, push event routing types, and Firestore `users/{uid}/events` field reference.
 - `FIREBASE.md`: Firebase architecture, operational notes, and the current Firestore database rule.
 - `MUSHROOM.md`: mushroom room lifecycle, attendee states, room invite/share flow.
 - `POSTCARD.md`: postcard marketplace, listing/order lifecycle, shipping/receipt behavior.
@@ -48,7 +49,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 ### MUSHROOM (`MUSHROOM.md`)
 - `mushroomHunter/Features/Mushroom/RoomBrowseView.swift`
 - `mushroomHunter/Features/Mushroom/RoomBrowseViewModel.swift`
-- `mushroomHunter/Features/Mushroom/RoomFormView.swift`
+- `mushroomHunter/Features/Mushroom/RoomCreateEditView.swift`
 - `mushroomHunter/Features/Mushroom/RoomView.swift`
 - `mushroomHunter/Features/Mushroom/RoomView.swift` (contains room-specific invite sheet wrapper for room flow)
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift` (shared invite QR sheet used by room/postcard)
@@ -60,6 +61,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by multiline inputs)
 - `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift` (shared UIKit bridge for dismissing keyboard on outside taps without scroll interference)
 - `mushroomHunter/Features/Shared/HoneyMessageBox.swift` (shared custom confirmation/error dialog used across room flows)
+- `mushroomHunter/Features/Shared/ProfileStatusBadge.swift` (shared urgency badge + red action-dot primitives used by room/postcard status rows)
 - `mushroomHunter/Services/Firebase/RoomBrowseRepo.swift`
 - `mushroomHunter/Services/Firebase/ProfileListRepo.swift` (joined/hosted room summary source used to pin user-owned rooms at the top of browse)
 - `mushroomHunter/Services/Firebase/RoomFormRepo.swift`
@@ -75,17 +77,14 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
   - `recordRoomCreatedEvent`
   - `recordHostRaidInviteEvent`
   - `notifyHostJoinRequest`
-  - `notifyJoinApplicantAccepted`
+  - `handleRoomAttendeeUpdatedEvents`
   - `notifyJoinApplicantRejected`
-  - `sendRaidConfirmationPush`
-  - `notifyHostRaidConfirmationResult`
-  - `notifyMushroomStarReceived`
 
 ### POSTCARD (`POSTCARD.md`)
 - `mushroomHunter/Features/Postcard/PostcardBrowseView.swift`
 - `mushroomHunter/Features/Postcard/PostcardView.swift`
-- `mushroomHunter/Features/Postcard/PostcardShippingView.swift`
-- `mushroomHunter/Features/Postcard/PostcardFormView.swift`
+- `mushroomHunter/Features/Postcard/PostcardOrdersView.swift`
+- `mushroomHunter/Features/Postcard/PostcardCreateEditView.swift`
 - `mushroomHunter/Features/Postcard/PostcardBrowseViewModel.swift`
 - `mushroomHunter/Features/Postcard/PostcardDomainModel.swift`
 - `mushroomHunter/App/HoneyHubApp.swift` (postcard invite deep-link routing)
@@ -97,6 +96,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift` (shared UIKit bridge for dismissing keyboard on outside taps without scroll interference)
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift` (shared invite QR sheet used by postcard seller share flow)
 - `mushroomHunter/Features/Shared/HoneyMessageBox.swift` (shared custom confirmation/error dialog used across postcard flows)
+- `mushroomHunter/Features/Shared/ProfileStatusBadge.swift` (shared urgency badge + red action-dot primitives used by room/postcard status rows)
 - `mushroomHunter/Features/Shared/CachedPostcardImageView.swift` (shared cache-first postcard image renderer with memory+disk cache for browse/detail/form previews)
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift` (browse/recent paging plus on-shelf/ordered queries used to pin user-owned postcards at the top of browse)
 - `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`
@@ -109,17 +109,12 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - Cloud Functions in `functions/index.js`:
   - `recordPostcardCreatedEvent`
   - `sendPostcardOrderCreatedPush`
-  - `sendPostcardShippedPush`
-  - `sendPostcardRejectedPush`
-  - `notifySellerPostcardCompleted`
+  - `handlePostcardOrderUpdatedEvents`
 
 ### PROFILE (`PROFILE.md`)
 - `mushroomHunter/Features/Profile/ProfileView.swift`
 - `mushroomHunter/Features/Profile/ProfileFormView.swift` (shared create/edit profile form presented from onboarding and profile edit sheet)
 - `mushroomHunter/Features/Profile/ProfileViewModel.swift` (profile tab badge aggregation + background refresh for room/postcard actionable counts)
-- `mushroomHunter/Features/Profile/ProfileMushroom.swift` (legacy joined/hosted profile list section components; browse tab now renders these entries at top with ownership tags)
-- `mushroomHunter/Features/Profile/ProfilePostcard.swift` (legacy on-shelf/ordered profile list section components; browse tab now renders these entries at top with ownership tags)
-- `mushroomHunter/Features/Profile/ProfileSectionStateView.swift` (shared badge/status primitives used by profile and legacy profile list sections)
 - `mushroomHunter/Features/Profile/FeedbackView.swift` (feedback compose view + submission payload model)
 - `mushroomHunter/Features/Profile/AboutView.swift` (about page contact information view)
 - `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by profile edit/create)
@@ -222,8 +217,6 @@ Commit message format:
 - All comments must be meaningful and explain intent/purpose; placeholder comments are forbidden.
 - Do not use generic placeholders such as `// State or dependency property.` or similar non-informative comments.
 - All boolean variables naming need to start with "is"
-
-
 
 ## Automated Testing
 - UI test target: `HoneyHubUITests`

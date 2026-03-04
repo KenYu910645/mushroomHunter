@@ -13,6 +13,10 @@ import FirebaseAuth
 import FirebaseFirestore
 
 extension UserSessionStore {
+    /// Current device locale identifier used for server-side event snapshot localization.
+    private var currentLocaleIdentifier: String {
+        Locale.current.identifier
+    }
     /// Source context for a profile save operation.
     enum ProfileSaveSource {
         /// Save originated from first-time onboarding completion.
@@ -164,6 +168,7 @@ extension UserSessionStore {
                 .document(uid)
                 .setData([
                     "fcmToken": token,
+                    "localeIdentifier": currentLocaleIdentifier,
                     "updatedAt": Timestamp(date: Date())
                 ], merge: true)
             lastSyncedFcmTokenByUid[uid] = token
@@ -177,6 +182,7 @@ extension UserSessionStore {
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         var data = fields
+        data["localeIdentifier"] = currentLocaleIdentifier
         data["updatedAt"] = Timestamp(date: Date())
 
         do {
@@ -206,6 +212,7 @@ extension UserSessionStore {
                     "honey": honey,
                     "maxHostRoom": maxHostRoom,
                     "maxJoinRoom": maxJoinRoom,
+                    "localeIdentifier": currentLocaleIdentifier,
                     "profileComplete": isProfileComplete,
                     "createdAt": now,
                     "updatedAt": now

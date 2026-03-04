@@ -3,8 +3,8 @@
 ## Related Files
 - `mushroomHunter/Features/Postcard/PostcardBrowseView.swift`: postcard tab root + listing browse/search UI and listing cards.
 - `mushroomHunter/Features/Postcard/PostcardView.swift`: postcard detail screen with buyer/seller actions.
-- `mushroomHunter/Features/Postcard/PostcardShippingView.swift`: seller shipping queue and send confirmation flow.
-- `mushroomHunter/Features/Postcard/PostcardFormView.swift`: consolidated postcard create/edit form implementation.
+- `mushroomHunter/Features/Postcard/PostcardOrdersView.swift`: seller shipping queue and send confirmation flow.
+- `mushroomHunter/Features/Postcard/PostcardCreateEditView.swift`: consolidated postcard create/edit form implementation.
 - `mushroomHunter/Features/Postcard/PostcardBrowseViewModel.swift`: browse filtering, sorting, and refresh state logic.
 - `mushroomHunter/Features/Postcard/PostcardDomainModel.swift`: postcard listing/order/location models and status enums.
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens (stars hidden on postcard browse).
@@ -13,6 +13,7 @@
 - `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared auto-select text editor wrapper used by postcard description inputs.
 - `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
 - `mushroomHunter/Features/Shared/HoneyMessageBox.swift`: shared custom confirmation/error dialog used across postcard screens.
+- `mushroomHunter/Features/Shared/ProfileStatusBadge.swift`: shared urgency badge + red action-dot UI primitives used by room/postcard status rows.
 - `mushroomHunter/Features/Shared/CachedPostcardImageView.swift`: shared postcard image cache component with memory+disk cache and cache-first loading.
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`: Firestore operations for listings, orders, shipping, and receipt confirmation.
 - `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`: image crop/encode/upload to Firebase Storage.
@@ -21,7 +22,7 @@
 - `mushroomHunter/Utilities/CountryLocalization.swift`: shared locale-aware country + room-location display resolver used by postcard/room labels.
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed postcard settings (price/stock/text caps, fetch limits, image cache limits, order timeout windows).
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used across profile, room, and postcard flows.
-- `mushroomHunter/User/NotificationInboxStore.swift`: shared Firestore-backed notification event history pagination, unread state, and deep-link route metadata.
+- `mushroomHunter/User/NotificationInboxStore.swift`: shared Firestore-backed notification event history pagination, Action/Record state handling, and deep-link route metadata.
 - `mushroomHunter/App/HoneyHubApp.swift`: handles postcard deep-link routing from invite links.
 - `mushroomHunter/App/ContentView.swift`: presents postcard detail sheet when a postcard invite link is opened.
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift`: shared invite QR sheet component reused by postcard detail.
@@ -40,8 +41,10 @@
 - Browse search is opened from the top action bar as an inline search field above the listing grid (no dedicated sheet/alert).
 - Postcard browse includes a screen-level top-right bell icon that opens the shared notification inbox list.
 - Notification inbox loads the latest 10 events first from `users/{uid}/events` and loads older pages while scrolling.
-- Notification inbox rows show unread state with red dot + bold title/message text, and become read when tapped (or via `Read All` action).
-- Tapping a postcard-related inbox row routes using existing postcard push deep-link channel and opens postcard detail in order-context mode.
+- Notification inbox rows now separate Action vs Record semantics:
+  - Action events render with red dot + bold text while unresolved.
+  - Record events render as normal history rows.
+- Tapping a postcard-related inbox row routes only for Action events and opens postcard detail in order-context mode.
 - Postcard browse search matches postcard title and location text (country/city).
 - Postcard browse search applies local filtering while typing; backend paged query also runs after typing pauses briefly (debounced) or when user taps keyboard `Search`.
 - Inline search field includes an `x` clear button; tapping `x` clears query and collapses the search field. Pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
@@ -63,7 +66,7 @@
 - Seller can open a top-right share action in postcard detail to show an invite sheet with QR code, share link, and copy link actions.
 - Postcard invite links use deep link format `honeyhub://postcard/{postcardId}`.
 - Opening a postcard invite link routes to postcard detail in-app when the listing still exists.
-- Tapping postcard order-related push notifications (`postcard_order_created`, `postcard_shipped`, `postcard_rejected`, `postcard_order_completed`) now opens the related postcard detail route directly.
+- Tapping postcard order-related push notifications (`POSTCARD_ORDER_RECEIVED`, `POSTCARD_SHIPPED`, `POSTCARD_ORDER_REJECTED`, `POSTCARD_ORDER_COMPLETED`) now opens the related postcard detail route directly.
 - Postcard order push route marks order context open on first appearance (seller auto-opens shipping queue) and forces first-load refresh so latest order state is shown immediately.
 - Push routing now opens Postcard tab and pushes the normal Postcard page inside the tab navigation stack (non-sheet flow).
 - Buyer order lifecycle:
@@ -100,31 +103,20 @@
 ## Cloud Functions (Postcard Use Cases)
 - `recordPostcardCreatedEvent`
   - Trigger: create on `postcards/{postcardId}`
-  - Writes seller-side notification history event (`postcard_registered`) for postcard registration.
+  - Writes seller-side notification history event (`POSTCARD_CREATED`) for postcard registration.
 - `sendPostcardOrderCreatedPush`
   - Trigger: create on `postcardOrders/{orderId}`
   - Sends only when new order status is `AwaitingShipping`
   - Push target: `postcardOrders/{orderId}.sellerFcmToken` first, with `users/{sellerId}.fcmToken` fallback
   - Payload data: `type=postcard_order_created`, `orderId`, `postcardId`, `eventId`
-  - Also writes history events for both seller (`postcard_order_created`) and buyer (`postcard_order_sent`).
-- `sendPostcardShippedPush`
-  - Trigger: update on `postcardOrders/{orderId}`
-  - Sends only when order status transitions into `Shipped`
-  - Push target: `postcardOrders/{orderId}.buyerFcmToken` first, with `users/{buyerId}.fcmToken` fallback
-  - Payload data: `type=postcard_shipped`, `orderId`, `postcardId`, `eventId`
-  - Also writes history events for both buyer (`postcard_shipped`) and seller (`postcard_sent`).
-- `sendPostcardRejectedPush`
-  - Trigger: update on `postcardOrders/{orderId}`
-  - Sends only when order status transitions into `Rejected`
-  - Push target: `postcardOrders/{orderId}.buyerFcmToken` first, with `users/{buyerId}.fcmToken` fallback
-  - Payload data: `type=postcard_rejected`, `orderId`, `postcardId`, `honey`, `eventId`
-  - Also writes history events for both buyer and seller.
-- `notifySellerPostcardCompleted`
-  - Trigger: update on `postcardOrders/{orderId}`
-  - Sends only when order status transitions into `Completed` or `CompletedAuto`
-  - Push target: `postcardOrders/{orderId}.sellerFcmToken` first, with `users/{sellerId}.fcmToken` fallback
-  - Payload data: `type=postcard_order_completed`, `orderId`, `postcardId`, `honey`, `eventId`
-  - Also writes history events for both seller (`postcard_order_completed`) and buyer (`postcard_received`).
+  - Also writes history events for both seller (`POSTCARD_ORDER_RECEIVED`) and buyer (`POSTCARD_ORDER_SENT`).
+- `handlePostcardOrderUpdatedEvents`
+  - Trigger: update on `postcardOrders/{orderId}`.
+  - This single update trigger routes internally by status transition and now covers:
+    - order -> `Shipped` (old `sendPostcardShippedPush` behavior),
+    - order -> `Rejected` (old `sendPostcardRejectedPush` behavior),
+    - order -> `Completed`/`CompletedAuto` (old `notifySellerPostcardCompleted` behavior).
+  - Push targets, payload fields, and event-history writes for each routed event remain unchanged.
 - `processPostcardOrderTimeouts`
   - Trigger: scheduler every 15 minutes
   - Processes order deadline transitions:

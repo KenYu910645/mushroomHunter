@@ -33,7 +33,7 @@ struct NotificationInboxView: View {
                 } else {
                     ForEach(notificationInbox.items) { item in
                         Button {
-                            notificationInbox.markAsRead(itemId: item.id)
+                            guard item.isActionEvent else { return }
                             onOpenRoute(item.route)
                             dismiss()
                         } label: {
@@ -70,13 +70,6 @@ struct NotificationInboxView: View {
                     .accessibilityIdentifier("notification_inbox_close_button")
                 }
 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(LocalizedStringKey("notification_mark_all_read")) {
-                        notificationInbox.markAllAsRead()
-                    }
-                    .disabled(notificationInbox.unreadCount == 0)
-                    .accessibilityIdentifier("notification_inbox_mark_all_read_button")
-                }
             }
         }
         .onAppear {
@@ -99,22 +92,23 @@ private struct NotificationInboxRow: View {
 
     /// Row UI with unread red dot + bold text.
     var body: some View {
+        let isShowingPendingState = item.isActionEvent && item.isResolved == false
         HStack(alignment: .top, spacing: 10) {
             Circle()
-                .fill(item.isRead ? Color.clear : Color.red)
+                .fill(isShowingPendingState ? Color.red : Color.clear)
                 .frame(width: 8, height: 8)
                 .padding(.top, 6)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.title)
                     .font(.subheadline)
-                    .fontWeight(item.isRead ? .regular : .bold)
+                    .fontWeight(isShowingPendingState ? .bold : .regular)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
 
                 Text(item.message)
                     .font(.footnote)
-                    .fontWeight(item.isRead ? .regular : .semibold)
+                    .fontWeight(isShowingPendingState ? .semibold : .regular)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)
 

@@ -288,7 +288,7 @@ struct PostcardView: View {
             Task { await refreshListing(isForceRefresh: true) }
         }) {
             NavigationStack {
-                PostcardFormView(
+                PostcardCreateEditView(
                     listing: currentListing,
                     onDeleted: {
                         dismiss()
@@ -305,7 +305,7 @@ struct PostcardView: View {
             Task { await refreshListing(isForceRefresh: true) }
         }) {
             NavigationStack {
-                PostcardShippingView(postcard: currentListing)
+                PostcardOrdersView(postcard: currentListing)
             }
         }
         .sheet(isPresented: $isInviteSheetPresented) {

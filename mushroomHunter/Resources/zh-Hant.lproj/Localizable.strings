@@ -547,7 +547,7 @@
 "event_profile_name_updated_title" = "名稱已更新";
 "event_profile_name_updated_message" = "你的顯示名稱已更新為 %@。";
 "event_profile_friend_code_updated_title" = "好友碼已更新";
-"event_profile_friend_code_updated_message" = "你的好友碼已更新。";
+"event_profile_friend_code_updated_message" = "你的好友碼已更新為 %@。";
 "event_raid_confirmation_title" = "蘑菇戰確認";
 "event_raid_confirmation_message" = "%@ 邀請你確認蘑菇戰結果。";
 "event_room_join_request_submitted_title" = "已送出加入申請";
@@ -562,6 +562,55 @@
 "event_room_join_request_rejected_message" = "你加入房間的申請已被拒絕：%@。";
 "event_room_joiner_rejected_title" = "已拒絕加入申請";
 "event_room_joiner_rejected_message" = "你已拒絕 %@ 加入房間：%@。";
+
+"event_type_room_created_title" = "已建立蘑菇房間";
+"event_type_room_created_message" = "你已建立蘑菇房間。";
+"event_type_raid_invited_title" = "已發送蘑菇戰邀請";
+"event_type_raid_invited_message" = "你已發送蘑菇戰確認邀請。";
+"event_type_raid_confirmation_title" = "蘑菇戰確認";
+"event_type_raid_confirmation_message" = "需要處理：請確認你的蘑菇戰結果。";
+"event_type_room_join_request_submitted_title" = "已送出加入申請";
+"event_type_room_join_request_submitted_message" = "你已送出加入申請。";
+"event_type_room_join_request_received_title" = "收到加入申請";
+"event_type_room_join_request_received_message" = "需要處理：請審核新的加入申請。";
+"event_type_room_join_request_accepted_title" = "加入申請已通過";
+"event_type_room_join_request_accepted_message" = "你的加入申請已通過。";
+"event_type_room_joiner_accepted_title" = "已通過加入申請";
+"event_type_room_joiner_accepted_message" = "你已通過一筆加入申請。";
+"event_type_room_join_request_rejected_title" = "加入申請已拒絕";
+"event_type_room_join_request_rejected_message" = "你的加入申請已被拒絕。";
+"event_type_room_joiner_rejected_title" = "已拒絕加入申請";
+"event_type_room_joiner_rejected_message" = "你已拒絕一筆加入申請。";
+"event_type_reply_host_title" = "參加者已回覆";
+"event_type_reply_host_message" = "參加者已送出蘑菇戰確認回覆。";
+"event_type_room_star_received_title" = "已收到星星";
+"event_type_room_star_received_message" = "你已收到星星。";
+"event_type_room_star_given_title" = "已給予星星";
+"event_type_room_star_given_message" = "你已給予星星。";
+"event_type_postcard_registered_title" = "已上架明信片";
+"event_type_postcard_registered_message" = "你已上架明信片。";
+"event_type_postcard_order_created_title" = "收到新訂單";
+"event_type_postcard_order_created_message" = "需要處理：請處理新的明信片訂單。";
+"event_type_postcard_order_sent_title" = "訂單已送出";
+"event_type_postcard_order_sent_message" = "你已送出明信片訂單。";
+"event_type_postcard_shipped_title" = "明信片已寄出";
+"event_type_postcard_shipped_message" = "需要處理：請確認已收到明信片。";
+"event_type_postcard_sent_title" = "明信片已寄出";
+"event_type_postcard_sent_message" = "你已將訂單標記為已寄出。";
+"event_type_postcard_order_completed_title" = "訂單已完成";
+"event_type_postcard_order_completed_message" = "明信片訂單已完成。";
+"event_type_postcard_received_title" = "已收到明信片";
+"event_type_postcard_received_message" = "已確認收到明信片。";
+"event_type_postcard_rejected_title" = "訂單已拒絕";
+"event_type_postcard_rejected_message" = "明信片訂單已被拒絕。";
+"event_type_postcard_order_rejected_title" = "訂單已拒絕";
+"event_type_postcard_order_rejected_message" = "你已拒絕明信片訂單。";
+"event_type_wallet_honey_changed_title" = "蜂蜜餘額已更新";
+"event_type_wallet_honey_changed_message" = "你的蜂蜜餘額已變更。";
+"event_type_profile_name_updated_title" = "名稱已更新";
+"event_type_profile_name_updated_message" = "你的顯示名稱已更新。";
+"event_type_profile_friend_code_updated_title" = "好友碼已更新";
+"event_type_profile_friend_code_updated_message" = "你的好友碼已更新。";
 
 /***************************************/
 /**** Tutorial ****/

@@ -185,7 +185,7 @@ struct PostcardBrowseView: View {
         }
         .sheet(isPresented: $isRegisterSheetPresented) {
             NavigationStack {
-                PostcardFormView(onSubmitted: {
+                PostcardCreateEditView(onSubmitted: {
                     isRegisterSheetPresented = false
                     browseDataRefreshToken += 1
                 })
