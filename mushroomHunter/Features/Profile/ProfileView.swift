@@ -223,7 +223,7 @@ struct ProfileView: View {
             Button {
                 activeSheet = .settings
             } label: {
-                Text("Settings")
+                Text(LocalizedStringKey("settings_title"))
             }
             .accessibilityIdentifier("profile_settings_row_button")
         }
