@@ -36,9 +36,6 @@ struct ProfileView: View {
     /// Current color scheme used to keep background styling consistent with app theme.
     @Environment(\.colorScheme) private var colorScheme
 
-    /// View model retained for profile badge aggregation and background profile data refresh.
-    @StateObject private var viewModel = ProfileViewModel()
-
     /// Currently presented profile sheet route.
     @State private var activeSheet: ActiveSheet? = nil
 
@@ -92,12 +89,6 @@ struct ProfileView: View {
                     .accessibilityIdentifier("profile_settings_button")
                 }
             }
-            .task {
-                await viewModel.loadOnAppear(session: session)
-            }
-            .refreshable {
-                await viewModel.refreshAllProfileData(session: session, forceRefresh: true)
-            }
         }
         .sheet(item: $activeSheet, onDismiss: {
             if let pendingSheetAfterDismiss, activeSheet == nil {
@@ -133,7 +124,7 @@ struct ProfileView: View {
             case .help:
                 TutorialView()
             case .editProfile:
-                ProfileFormView(mode: .edit)
+                ProfileCreateEditView(mode: .edit)
             }
         }
         .overlay {

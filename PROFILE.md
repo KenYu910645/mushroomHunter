@@ -3,7 +3,6 @@
 ## Related Files
 - `mushroomHunter/Features/Profile/ProfileView.swift`: profile container UI, account identity section, edit/settings sheets, feedback success handling, and sign-out action.
 - `mushroomHunter/Features/Profile/ProfileCreateEditView.swift`: shared profile form used by profile edit and onboarding profile creation.
-- `mushroomHunter/Features/Profile/ProfileViewModel.swift`: background room/postcard list refresh used to keep app-icon badge counts in sync.
 - `mushroomHunter/Features/Profile/FeedbackView.swift`: in-app feedback compose view and submission payload model.
 - `mushroomHunter/Features/Profile/AboutView.swift`: settings-linked about page with contact links.
 - `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared top action bar in honey+stars display mode.
@@ -23,7 +22,7 @@
 - Mushroom and postcard owned activity lists were removed from profile and moved into browse tabs:
   - Mushroom browse pins user `Joined` and `Host` rooms at the top with ownership tags.
   - Postcard browse pins user `On-shelf` and `Ordered` postcards at the top with ownership tags.
-- Profile still triggers background list refresh through `ProfileViewModel` to maintain actionable totals used by app icon badge.
+- Profile actionable badge totals are refreshed by app-root tab logic in `ContentView` using Firebase repositories.
 - Profile edits and wallet changes now generate per-user event-history rows (`users/{uid}/events`) so bell Events includes:
   - display-name updates,
   - friend-code updates,

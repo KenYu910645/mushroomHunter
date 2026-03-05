@@ -6,14 +6,12 @@
 - Postcard image cache used by browse thumbnails, postcard detail hero image, and postcard form preview.
 - Mushroom browse-list cache.
 - Mushroom room-detail cache (`room header + attendees`).
-- Profile tab list cache (`hosted/joined/on-shelf/ordered` and pending-count snapshots).
 
 ## Related Files
 - `mushroomHunter/Utilities/AppDataCache.swift`: app-level Codable payload cache (memory + disk).
 - `mushroomHunter/Features/Shared/CachedPostcardImageView.swift`: postcard image cache/view wrapper.
 - `mushroomHunter/Features/Mushroom/RoomBrowseViewModel.swift`: browse cache read/write flow.
 - `mushroomHunter/Features/Mushroom/RoomViewModel.swift`: room-detail cache read/write/remove flow.
-- `mushroomHunter/Features/Profile/ProfileViewModel.swift`: profile list cache read/write flow.
 - `mushroomHunter/Utilities/AppConfig.swift`: postcard cache tuning knobs.
 - `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`: Storage `Cache-Control` metadata for uploaded postcard images.
 
@@ -46,9 +44,6 @@
 - Browse list: `mushroom.browse.listings.v1`
 - Room detail: `mushroom.room.detail.{roomId}`
 
-### Profile
-- Profile lists (user-scoped): `profile.lists.{authUid}.v3`
-
 ## Hit/Miss Behavior
 ### Postcard image cache
 - Hit: image bytes found in memory or disk; UI renders without Storage fetch.
@@ -62,10 +57,6 @@
 - Hit: cached room detail payload applied immediately.
 - Miss: Firestore `rooms/{roomId}` + `attendees` query fills state and overwrites cache.
 
-### Profile list cache
-- Hit: cached hosted/joined/on-shelf/ordered sections applied immediately.
-- Miss: Firestore list queries fill state and overwrite cache.
-
 ## Refresh and Invalidation Rules
 - Pull-to-refresh always forces backend refresh and cache overwrite.
 - Mushroom browse keyboard search submit forces backend refresh before local filter application.
@@ -77,7 +68,6 @@
   - attendee confirmation response
   - host/attendee rating
 - Room close removes that room-detail cache key.
-- Profile refresh flows persist latest list snapshots after query completion.
 
 ## When Server Fetch Happens
 ### Postcard image cache
@@ -101,10 +91,6 @@
   - finish raid
   - attendee confirmation response
   - host/attendee rating
-
-### Profile list cache
-- On Profile tab initial entry (`loadOnAppear`), app applies cached payload first (if any), then fetches latest hosted/joined/on-shelf/ordered lists and overwrites cache.
-- Pull-to-refresh/profile refresh always fetches latest lists and overwrites cache.
 
 ## Config Tunables
 `AppConfig.Postcard` controls image cache sizing and retention:

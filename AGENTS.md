@@ -129,7 +129,6 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/User/UserSessionStore.swift` (shared user session state container + local persistence helpers)
 - `mushroomHunter/User/UserAuth.swift` (auth lifecycle and sign-in/sign-out flows)
 - `mushroomHunter/User/UserProfile.swift` (profile fields, user sync, token sync)
-- `mushroomHunter/User/UserWallet.swift` (honey/stars state helpers)
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed profile validation and shared limits)
 - `mushroomHunter/Utilities/AppDataCache.swift` (shared app-level Codable payload cache utility)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile form and display)

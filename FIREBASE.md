@@ -68,8 +68,8 @@ service firebase.storage {
 
 ### Profile Tab
 - Open profile tab:
-  - Firestore queries load hosted/joined/on-shelf/ordered lists.
-  - See `CACHE.md` for cache-hit/miss and refresh trigger behavior.
+  - Profile screen reads session identity values (display name/friend code/honey/stars).
+  - Actionable badge totals are refreshed by app-root tab logic in `ContentView`.
 - Profile/app-icon actionable badge refresh:
   - Joined rooms query for attendee statuses (`collectionGroup(attendees)` by `uid`).
   - Hosted rooms query (`rooms where hostUid == uid`), then per-room attendee query:
