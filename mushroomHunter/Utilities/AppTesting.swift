@@ -51,7 +51,7 @@ enum AppTesting {
             targetSize: "Normal",
             joinedPlayers: 1,
             maxPlayers: AppConfig.Mushroom.defaultMaxPlayersPerRoom,
-            hostName: "Host Tester",
+            hostUid: "host-user",
             hostStars: 3,
             location: "US New York",
             createdAt: Date().addingTimeInterval(-1800),
@@ -71,7 +71,7 @@ enum AppTesting {
                 joinGreetingMessage: "Host fixture attendee.",
                 joinedAt: Date().addingTimeInterval(-300),
                 status: .host,
-                needsHostRating: false,
+                isHostRatingRequired: false,
                 pendingConfirmationRequests: [:]
             )
         ]
@@ -87,7 +87,7 @@ enum AppTesting {
                     joinGreetingMessage: "UI fixture join greeting.",
                     joinedAt: Date(),
                     status: .ready,
-                    needsHostRating: false,
+                    isHostRatingRequired: false,
                     pendingConfirmationRequests: [:]
                 )
             )

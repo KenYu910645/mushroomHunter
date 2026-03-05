@@ -52,7 +52,7 @@ extension UserSessionStore {
             await syncProfileFields([
                 "displayName": trimmedName,
                 "friendCode": digits,
-                "profileComplete": true
+                "isProfileComplete": true
             ])
         }
         if isNameChanged || isFriendCodeChanged {
@@ -136,12 +136,12 @@ extension UserSessionStore {
                 needsDefaults["maxJoinRoom"] = maxJoinRoom
             }
 
-            if let complete = data["profileComplete"] as? Bool, complete == true {
+            if let complete = (data["isProfileComplete"] as? Bool) ?? (data["profileComplete"] as? Bool), complete == true {
                 isProfileComplete = true
             } else {
                 updateProfileCompletionFromFields()
                 if isProfileComplete {
-                    needsDefaults["profileComplete"] = true
+                    needsDefaults["isProfileComplete"] = true
                 }
             }
 
@@ -213,7 +213,7 @@ extension UserSessionStore {
                     "maxHostRoom": maxHostRoom,
                     "maxJoinRoom": maxJoinRoom,
                     "localeIdentifier": currentLocaleIdentifier,
-                    "profileComplete": isProfileComplete,
+                    "isProfileComplete": isProfileComplete,
                     "createdAt": now,
                     "updatedAt": now
                 ], merge: true)

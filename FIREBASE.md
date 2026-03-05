@@ -109,11 +109,14 @@ service firebase.storage {
 #### Browse rooms
 - Enter Mushroom browse:
   - Firestore query read on `rooms` list.
+  - Firestore query reads on `users` (by `hostUid` chunks) to resolve latest host stars for browse-priority scoring.
   - See `CACHE.md` for cache-hit/miss and refresh trigger behavior.
 - Pull-to-refresh:
   - Firestore query read on `rooms` list.
+  - Firestore query reads on `users` (by `hostUid` chunks) to resolve latest host stars for browse-priority scoring.
 - Search submit:
   - Forces Firestore query read on `rooms` list before applying local text filter.
+  - Forces Firestore query reads on `users` (by `hostUid` chunks) to resolve latest host stars for browse-priority scoring.
 
 #### Open room detail
 - Tap a room:

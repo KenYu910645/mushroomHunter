@@ -138,7 +138,7 @@
   - `No, I didn't see invitation`: no honey transfer, treated as host-not-invited outcome.
 - Star-selection buttons in rating message boxes use neutral bordered style (non-prominent) to reduce visual glare.
 - Attendee rating is available only for `joined success` settlement.
-- Host flow: when attendee accepts confirmation, attendee doc is marked `needsHostRating = true`; host can then give that attendee `1`, `2`, or `3` stars.
+- Host flow: when attendee accepts confirmation, attendee doc is marked `isHostRatingRequired = true`; host can then give that attendee `1`, `2`, or `3` stars.
 - Stars updates write to `users/{uid}.stars` and also refresh room attendee stars in the active room so Room Details reflects new totals immediately.
 - Firestore transaction rule reminder: in room raid settlement transactions, read all attendee docs before applying any writes to avoid "all reads must occur before writes" transaction failures.
 
@@ -154,7 +154,7 @@ Fields:
 - `honey` (Int): currency balance. Updated on join/leave/deposit changes and raid settlement.
 - `maxHostRoom` (Int): limit of open rooms a user can host. Defaults to 1, synced on profile refresh.
 - `maxJoinRoom` (Int): limit of open rooms a user can join. Defaults to 3, synced on profile refresh.
-- `profileComplete` (Bool): computed from displayName + friendCode, synced on profile updates. profileComplete will be false at first, and after user field in displayName and friendCode and click on the create profile button. This variable will be set to true and never set back to false again.
+- `isProfileComplete` (Bool): computed from displayName + friendCode, synced on profile updates. `false` for first-time users, then set to `true` after successful profile creation and not reverted to `false`.
 - `fcmToken` (String, optional): device push token. Updated when token is received/refreshed. Each device/app install gets its own token and it can change over time.
 - `createdAt` (Timestamp): set on first profile creation.
 - `updatedAt` (Timestamp): last time the user data is updated. updated on any profile or balance change.
@@ -168,8 +168,6 @@ Fields:
 - `location` (String): short location label. Set on create/update. Typically, consist of country, city
 - `description` (String): description. Set on create/update.
 - `fixedRaidCost` (Int): minimum honey deposit for joining. Set on create/update.
-- `hostName` (String): host display name snapshot for quick browse rendering/search.
-- `hostStars` (Int): host stars snapshot for quick browse rendering/search.
 - `maxPlayers` (Int): max attendees (default 10). Set on create.
 - `joinedCount` (Int): number of active attendees. Incremented on join, decremented on leave/kick/close. Host is counted as an attendee.
 - `createdAt` (Timestamp): set on create.
@@ -185,6 +183,8 @@ Fields:
 - `expiresAt` (Timestamp, optional/future): not currently written by client; reserved.
 Notes:
 - Host identity and info are stored in `attendees/{uid}` with `status = Host` (the host is just an attendee).
+- Browse no longer searches host display name from room docs.
+- Browse host-star priority is resolved from `users/{hostUid}.stars` (room-level `hostStars` is treated as legacy fallback only).
 - Legacy rooms may still include `targetColor`/`targetAttribute`/`targetSize`, but create/edit no longer writes or edits those fields.
 - Host-room limit checks query `rooms.hostUid`.
 - Join-room limit checks query attendee docs by `uid + active status` without per-room read fan-out.
@@ -205,8 +205,12 @@ Fields:
 - `pendingConfirmationRequests` (Map<String, Timestamp>, optional): pending confirmation queue keyed by confirmation id. Each key/value pair is one unprocessed confirmation request timestamp for joiner queue rendering and response.
 - `lastSettlementOutcome` (String, optional): latest escrow settlement result (`JoinedSuccess`, `SeatFullNoFault`, `MissedInvitation`).
 - `lastSettlementHoney` (Int, optional): latest settled honey amount moved from attendee escrow to host for that settlement.
-- `attendeeRatedHost` (Bool, optional): whether attendee already rated host for the latest confirmation cycle. Reset to `false` when host sends a new confirmation request.
+- `isAttendeeRatedHost` (Bool, optional): whether attendee already rated host for the latest confirmation cycle. Reset to `false` when host sends a new confirmation request.
 - `attendeeRatedHostStars` (Int, optional): attendee-selected star count (1...3) used for host star-received push copy.
-- `hostRatedAttendee` (Bool, optional): whether host already rated attendee for the latest confirmation cycle. Reset to `false` when host sends a new confirmation request.
+- `isHostRatedAttendee` (Bool, optional): whether host already rated attendee for the latest confirmation cycle. Reset to `false` when host sends a new confirmation request.
 - `hostRatedAttendeeStars` (Int, optional): host-selected star count (1...3) used for attendee star-received push copy.
-- `needsHostRating` (Bool, optional): set to `true` when attendee accepts confirmation (host receives honey) so host can rate attendee; set back to `false` after host submits stars.
+- `isHostRatingRequired` (Bool, optional): set to `true` when attendee accepts confirmation (host receives honey) so host can rate attendee; set back to `false` after host submits stars.
+
+Compatibility notes:
+- Legacy attendee docs may still contain `attendeeRatedHost`, `hostRatedAttendee`, and `needsHostRating`.
+- Legacy user docs may still contain `profileComplete`.

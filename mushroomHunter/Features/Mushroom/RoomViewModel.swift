@@ -513,7 +513,7 @@ final class RoomViewModel: ObservableObject {
         pendingConfirmationAttendeeIds = Set(pending)
         hostPendingRatingAttendeeIds = Set(
             room.attendees
-                .filter { $0.status != .host && $0.needsHostRating }
+                .filter { $0.status != .host && $0.isHostRatingRequired }
                 .map(\.id)
         )
 

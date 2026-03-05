@@ -44,7 +44,7 @@
 //  [R] - `status`: Reads attendee status for role/confirmation UI.
 //  [R] - `joinedAt`: Reads join timestamp for attendee metadata.
 //  [X] - `updatedAt`: Not mapped by detail repo.
-//  [R] - `needsHostRating`: Reads host-rating pending flag for detail actions.
+//  [R] - `isHostRatingRequired`: Reads host-rating pending flag for detail actions.
 //  [X] - `attendeeRatedHost`: Not mapped by detail repo.
 //  [X] - `hostRatedAttendee`: Not mapped by detail repo.
 //  [R] - `pendingConfirmationRequests`: Reads joiner pending confirmation queue for room detail confirmation UI.
@@ -162,7 +162,7 @@ final class FbRoomRepo {
             let joinedAt = (d["joinedAt"] as? Timestamp)?.dateValue()
             let statusRaw = (d["status"] as? String) ?? AttendeeStatus.ready.rawValue
             let status = AttendeeStatus(rawValue: statusRaw) ?? .ready
-            let needsHostRating = d["needsHostRating"] as? Bool ?? false
+            let isHostRatingRequired = (d["isHostRatingRequired"] as? Bool) ?? (d["needsHostRating"] as? Bool) ?? false
             let pendingConfirmationRequestsRaw = d["pendingConfirmationRequests"] as? [String: Any] ?? [:]
             let pendingConfirmationRequests = pendingConfirmationRequestsRaw.reduce(into: [String: Date]()) { partialResult, entry in
                 if let timestamp = entry.value as? Timestamp {
@@ -179,7 +179,7 @@ final class FbRoomRepo {
                 joinGreetingMessage: joinGreetingMessage,
                 joinedAt: joinedAt,
                 status: status,
-                needsHostRating: needsHostRating,
+                isHostRatingRequired: isHostRatingRequired,
                 pendingConfirmationRequests: pendingConfirmationRequests
             )
         }

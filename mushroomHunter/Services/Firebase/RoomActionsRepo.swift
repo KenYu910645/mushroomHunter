@@ -45,9 +45,9 @@
 //  [W] - `status`: Reads for authorization/state checks and writes on transitions (`AskingToJoin`/`Ready`/`WaitingConfirmation`).
 //  [W] - `joinedAt`: Writes join timestamp when attendee row is created.
 //  [W] - `updatedAt`: Writes attendee mutation timestamp on every state change.
-//  [W] - `needsHostRating`: Reads/writes pending host-rating state after confirmations.
-//  [W] - `attendeeRatedHost`: Reads/writes attendee-to-host rating completion state.
-//  [W] - `hostRatedAttendee`: Reads/writes host-to-attendee rating completion state.
+//  [W] - `isHostRatingRequired`: Reads/writes pending host-rating state after confirmations.
+//  [W] - `isAttendeeRatedHost`: Reads/writes attendee-to-host rating completion state.
+//  [W] - `isHostRatedAttendee`: Reads/writes host-to-attendee rating completion state.
 //  [W] - `pendingConfirmationRequests`: Reads/writes per-attendee pending confirmation queue entries.
 //  [W] - `lastSettlementOutcome`: Writes latest attendee escrow-settlement result.
 //  [W] - `lastSettlementHoney`: Writes latest honey settled from attendee to host.
@@ -680,8 +680,11 @@ final class FbRoomActionsRepo {
                 pendingConfirmationRequests[confirmationId] = now
                 tx.updateData([
                     "status": AttendeeStatus.waitingConfirmation.rawValue,
+                    "isAttendeeRatedHost": false,
                     "attendeeRatedHost": false,
+                    "isHostRatedAttendee": false,
                     "hostRatedAttendee": false,
+                    "isHostRatingRequired": false,
                     "needsHostRating": false,
                     "pendingConfirmationRequests": pendingConfirmationRequests,
                     "lastSettlementOutcome": "",
@@ -798,6 +801,7 @@ final class FbRoomActionsRepo {
                 tx.updateData([
                     "depositHoney": max(0, attendeeDeposit - settlementHoney),
                     "status": nextStatusRaw,
+                    "isHostRatingRequired": true,
                     "needsHostRating": true,
                     "pendingConfirmationRequests": pendingConfirmationRequests,
                     "lastSettlementOutcome": settlementOutcome.rawValue,
@@ -816,6 +820,7 @@ final class FbRoomActionsRepo {
                 tx.updateData([
                     "depositHoney": max(0, attendeeDeposit - settlementHoney),
                     "status": nextStatusRaw,
+                    "isHostRatingRequired": false,
                     "needsHostRating": false,
                     "pendingConfirmationRequests": pendingConfirmationRequests,
                     "lastSettlementOutcome": settlementOutcome.rawValue,
@@ -826,6 +831,7 @@ final class FbRoomActionsRepo {
                 historyStatus = .noInvite
                 tx.updateData([
                     "status": nextStatusRaw,
+                    "isHostRatingRequired": false,
                     "needsHostRating": false,
                     "pendingConfirmationRequests": pendingConfirmationRequests,
                     "lastSettlementOutcome": settlementOutcome.rawValue,
@@ -891,7 +897,7 @@ final class FbRoomActionsRepo {
                 errPtr?.pointee = RoomActionError.ratingNotAvailable as NSError
                 return nil
             }
-            let alreadyRated = attendeeData["attendeeRatedHost"] as? Bool ?? false
+            let alreadyRated = (attendeeData["isAttendeeRatedHost"] as? Bool) ?? (attendeeData["attendeeRatedHost"] as? Bool) ?? false
             if alreadyRated {
                 errPtr?.pointee = RoomActionError.alreadyRated as NSError
                 return nil
@@ -910,6 +916,7 @@ final class FbRoomActionsRepo {
             ], forDocument: hostAttendeeRef, merge: true)
 
             tx.updateData([
+                "isAttendeeRatedHost": true,
                 "attendeeRatedHost": true,
                 "attendeeRatedHostStars": stars,
                 "updatedAt": now
@@ -958,13 +965,13 @@ final class FbRoomActionsRepo {
                 return nil
             }
 
-            let isPendingHostRating = attendeeData["needsHostRating"] as? Bool ?? false
+            let isPendingHostRating = (attendeeData["isHostRatingRequired"] as? Bool) ?? (attendeeData["needsHostRating"] as? Bool) ?? false
             if !isPendingHostRating {
                 errPtr?.pointee = RoomActionError.ratingNotAvailable as NSError
                 return nil
             }
 
-            let alreadyRated = attendeeData["hostRatedAttendee"] as? Bool ?? false
+            let alreadyRated = (attendeeData["isHostRatedAttendee"] as? Bool) ?? (attendeeData["hostRatedAttendee"] as? Bool) ?? false
             if alreadyRated {
                 errPtr?.pointee = RoomActionError.alreadyRated as NSError
                 return nil
@@ -979,8 +986,10 @@ final class FbRoomActionsRepo {
             // Also reflect the latest stars in this room attendee row.
             tx.updateData([
                 "stars": FieldValue.increment(Int64(stars)),
+                "isHostRatedAttendee": true,
                 "hostRatedAttendee": true,
                 "hostRatedAttendeeStars": stars,
+                "isHostRatingRequired": false,
                 "needsHostRating": false,
                 "updatedAt": now
             ], forDocument: attendeeRef)

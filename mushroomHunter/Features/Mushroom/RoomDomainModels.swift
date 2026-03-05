@@ -135,7 +135,7 @@ struct RoomAttendee: Identifiable, Equatable, Codable {
     /// Current attendee state in this room.
     var status: AttendeeStatus
     /// Host should rate this attendee for the latest confirmed raid.
-    var needsHostRating: Bool
+    var isHostRatingRequired: Bool
     /// Pending confirmation queue keyed by confirmation id with request timestamp.
     var pendingConfirmationRequests: [String: Date]
 }

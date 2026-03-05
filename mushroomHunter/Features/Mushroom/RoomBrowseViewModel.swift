@@ -183,7 +183,7 @@ final class RoomBrowseViewModel: ObservableObject {
 
     /// Derived list shown by UI after applying:
     /// - availability filter
-    /// - text search (title/location/host name)
+    /// - text search (title/location)
     var filteredListings: [RoomListing] {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedQuery = trimmedQuery.lowercased()
@@ -278,7 +278,6 @@ final class RoomBrowseViewModel: ObservableObject {
         return listing.title.lowercased().contains(normalizedQuery)
             || listing.location.lowercased().contains(normalizedQuery)
             || localizedLocation.contains(normalizedQuery)
-            || (listing.hostName ?? "").lowercased().contains(normalizedQuery)
     }
 
     /// Loads browse listings from app cache into current state.

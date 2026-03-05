@@ -18,8 +18,6 @@
 //  [W] - `title`: Writes room title from form input on create/edit.
 //  [X] - `roomTitle` (legacy fallback): Legacy field is not used in form write path.
 //  [W] - `hostUid`: Writes cached host uid on create for host lookups without attendee query.
-//  [W] - `hostName`: Writes host display name when creating room.
-//  [W] - `hostStars`: Writes host stars snapshot when creating room.
 //  [W] - `location`: Writes location string from form input on create/edit.
 //  [W] - `description`: Writes room description from form input on create/edit.
 //  [W] - `fixedRaidCost`: Writes normalized fixed raid cost on create/edit.
@@ -75,7 +73,7 @@ final class FbRoomFormRepo {
     private let defaultMaxHostRooms = AppConfig.Mushroom.defaultHostRoomLimit
     private let defaultMaxJoinRooms = AppConfig.Mushroom.defaultJoinRoomLimit
 
-    func createRoom(req: FsRoomFormRequest, hostName: String, hostStars: Int) async throws -> String { // Handles createRoom flow.
+    func createRoom(req: FsRoomFormRequest, hostDisplayName: String, hostStars: Int) async throws -> String { // Handles createRoom flow.
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }
@@ -102,8 +100,6 @@ final class FbRoomFormRepo {
             "title": req.title,
             "hostUid": uid,
             "hostFcmToken": hostFcmToken,
-            "hostName": hostName,
-            "hostStars": hostStars,
             "location": req.location,
             "description": req.description,
             "fixedRaidCost": max(AppConfig.Mushroom.minFixedRaidCost, req.fixedRaidCost),
@@ -118,7 +114,7 @@ final class FbRoomFormRepo {
         let attendeeData: [String: Any] = [
             "uid": uid,
             "fcmToken": hostFcmToken,
-            "name": hostName,
+            "name": hostDisplayName,
             "friendCode": req.hostFriendCode,
             "stars": hostStars,
             "depositHoney": 0,
@@ -133,7 +129,8 @@ final class FbRoomFormRepo {
         try await batch.commit()
         if !userSnap.exists {
             try await db.collection("users").document(uid).setData([
-                "displayName": hostName,
+                "displayName": hostDisplayName,
+                "isProfileComplete": true,
                 "stars": hostStars,
                 "honey": 0,
                 "maxHostRoom": defaultMaxHostRooms,

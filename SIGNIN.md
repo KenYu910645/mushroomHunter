@@ -31,7 +31,7 @@
   - Focused form inputs auto-scroll above keyboard overlap; single-line input keyboard dismisses on `Enter`.
   - Create-profile form dismisses keyboard on outside taps (without collapsing during scroll) and includes keyboard toolbar `Done`.
   - Saves into Firestore `users/{uid}` and local state
-  - Sets `profileComplete = true`
+  - Sets `isProfileComplete = true`
   - Immediately presents a one-time full-screen swipe tutorial after successful create-profile submit.
   - Tutorial card order:
     1. Mushroom

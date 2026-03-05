@@ -163,7 +163,7 @@ final class HostViewModel: ObservableObject {
             case .create:
                 let roomId = try await repo.createRoom(
                     req: req,
-                    hostName: session.displayName,
+                    hostDisplayName: session.displayName,
                     hostStars: session.stars
                 )
 

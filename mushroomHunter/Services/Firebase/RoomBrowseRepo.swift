@@ -17,8 +17,7 @@
 //  [R] - `documentId`: Uses room id as the browse card identity and navigation key.
 //  [R] - `title`: Reads primary room title shown in browse cards.
 //  [R] - `roomTitle` (legacy fallback): Reads fallback title when `title` is missing.
-//  [R] - `hostName`: Reads host display name for browse summary.
-//  [R] - `hostStars`: Reads host-star snapshot for browse priority sorting.
+//  [R] - `hostUid`: Reads host uid used to resolve host stars from user profile snapshots.
 //  [R] - `location`: Reads location text shown in browse cards.
 //  [X] - `description`: Not used by browse list UI.
 //  [X] - `fixedRaidCost`: Not used by browse list UI.
@@ -58,7 +57,7 @@ struct RoomListing: Identifiable, Hashable, Codable {
     var targetSize: String
     var joinedPlayers: Int
     let maxPlayers: Int  // store from backend (default 10)
-    var hostName: String?
+    var hostUid: String
     var hostStars: Int
     var location: String
     var createdAt: Date?
@@ -81,7 +80,7 @@ final class FbRoomBrowseRepo {
             snap = try await q.getDocuments(source: .default)
         }
 
-        return snap.documents.map(decodeListing)
+        return try await hydrateHostStars(snap.documents.map(decodeListing))
     }
 
     /// Loads room listings by ids for pinned "joined/hosted" browse slots.
@@ -103,7 +102,7 @@ final class FbRoomBrowseRepo {
             }
             listings.append(contentsOf: snapshot.documents.map(decodeListing))
         }
-        return listings
+        return try await hydrateHostStars(listings)
     }
 
     /// Decodes Firestore room document into browse listing payload.
@@ -132,13 +131,45 @@ final class FbRoomBrowseRepo {
             targetSize: targetSize,
             joinedPlayers: joined,
             maxPlayers: maxPlayers,
-            hostName: data["hostName"] as? String,
+            hostUid: data["hostUid"] as? String ?? "",
             hostStars: data["hostStars"] as? Int ?? 0,
             location: data["location"] as? String ?? "",
             createdAt: (data["createdAt"] as? Timestamp)?.dateValue(),
             lastSuccessfulRaidAt: (data["lastSuccessfulRaidAt"] as? Timestamp)?.dateValue(),
             expiresAt: (data["expiresAt"] as? Timestamp)?.dateValue()
         )
+    }
+
+    /// Resolves latest host stars from user profiles, keeping room-level stars as a legacy fallback.
+    /// - Parameter listings: Decoded room listings awaiting host-star hydration.
+    /// - Returns: Listings with `hostStars` overridden by `users/{uid}.stars` when available.
+    private func hydrateHostStars(_ listings: [RoomListing]) async throws -> [RoomListing] {
+        let hostUids = Array(Set(listings.map(\.hostUid).filter { !$0.isEmpty }))
+        guard hostUids.isEmpty == false else { return listings }
+
+        var starsByUid: [String: Int] = [:]
+        for hostUidChunk in hostUids.chunked(into: 10) {
+            let query = db.collection("users")
+                .whereField(FieldPath.documentID(), in: hostUidChunk)
+            let snapshot: QuerySnapshot
+            do {
+                snapshot = try await query.getDocuments(source: .server)
+            } catch {
+                snapshot = try await query.getDocuments(source: .default)
+            }
+            for document in snapshot.documents {
+                let starsValue = document.data()["stars"] as? Int ?? 0
+                starsByUid[document.documentID] = max(0, starsValue)
+            }
+        }
+
+        return listings.map { listing in
+            var hydratedListing = listing
+            if let stars = starsByUid[listing.hostUid] {
+                hydratedListing.hostStars = stars
+            }
+            return hydratedListing
+        }
     }
 }
 

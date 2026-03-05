@@ -521,6 +521,35 @@ async function resolveHostUid(roomId, roomData) {
   return hostQuery.docs[0]?.id ?? null;
 }
 
+// Resolve host display name with legacy room field fallback, attendee snapshot fallback, and user-profile fallback.
+async function resolveHostDisplayName(roomId, roomData, hostUid = "") {
+  const hostNameFromRoom = stringifyValue(roomData?.hostName, "");
+  if (hostNameFromRoom) {
+    return hostNameFromRoom;
+  }
+
+  const normalizedHostUid = stringifyValue(hostUid, "") || await resolveHostUid(roomId, roomData);
+  if (normalizedHostUid) {
+    const hostAttendeeSnap = await db.collection("rooms")
+        .doc(roomId)
+        .collection("attendees")
+        .doc(normalizedHostUid)
+        .get();
+    const hostAttendeeName = stringifyValue(hostAttendeeSnap.data()?.name, "");
+    if (hostAttendeeName) {
+      return hostAttendeeName;
+    }
+
+    const hostUserSnap = await db.collection("users").doc(normalizedHostUid).get();
+    const hostUserName = stringifyValue(hostUserSnap.data()?.displayName, "");
+    if (hostUserName) {
+      return hostUserName;
+    }
+  }
+
+  return "Host";
+}
+
 // Run one routed processor safely so one branch failure does not block other branches.
 async function runEventProcessor(processorName, processor, event) {
   try {
@@ -1263,9 +1292,11 @@ async function processMushroomStarReceivedEvent(event) {
 
       // Most attendee updates are not rating events; skip room read unless a rating flag changed.
       const attendeeRatedHostNow =
-          beforeData.attendeeRatedHost !== true && afterData.attendeeRatedHost === true;
+          (beforeData.isAttendeeRatedHost === true || beforeData.attendeeRatedHost === true) === false &&
+          (afterData.isAttendeeRatedHost === true || afterData.attendeeRatedHost === true);
       const hostRatedAttendeeNow =
-          beforeData.hostRatedAttendee !== true && afterData.hostRatedAttendee === true;
+          (beforeData.isHostRatedAttendee === true || beforeData.hostRatedAttendee === true) === false &&
+          (afterData.isHostRatedAttendee === true || afterData.hostRatedAttendee === true);
       if (!attendeeRatedHostNow && !hostRatedAttendeeNow) {
         return;
       }
@@ -1275,10 +1306,10 @@ async function processMushroomStarReceivedEvent(event) {
       const roomSnap = await db.collection("rooms").doc(roomId).get();
       const roomData = roomSnap.data() || {};
       const raterName = stringifyValue(afterData.name, "A player");
-      const hostName = stringifyValue(roomData.hostName, "Host");
+      const hostUid = await resolveHostUid(roomId, roomData);
+      const hostName = await resolveHostDisplayName(roomId, roomData, hostUid || "");
 
       if (attendeeRatedHostNow) {
-        const hostUid = await resolveHostUid(roomId, roomData);
         const awardedStars = normalizeStarsCount(afterData.attendeeRatedHostStars, 1);
         if (hostUid) {
           const hostEventId = resolveEventDocumentId(event.id, hostUid);
@@ -1329,7 +1360,6 @@ async function processMushroomStarReceivedEvent(event) {
       }
 
       if (hostRatedAttendeeNow) {
-        const hostUid = await resolveHostUid(roomId, roomData);
         const starDelta = Number(afterData.stars || 0) - Number(beforeData.stars || 0);
         const awardedStars = normalizeStarsCount(afterData.hostRatedAttendeeStars, starDelta);
         const attendeeEventId = resolveEventDocumentId(event.id, attendeeUid);
