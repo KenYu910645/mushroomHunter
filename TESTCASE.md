@@ -15,6 +15,15 @@ UI tests run with launch arguments:
 These flags keep tests independent from live Firebase data.
 In UI testing mode, profile refresh/sync paths are also short-circuited so no Firestore reads/writes are executed.
 
+## Manuel check flow
+This section is for human testcase checking flow 
+Need to check both English and Chinese
+1. Taps check: navigate to all three tags, don't touch anything else, see if it works
+2. Create a host room and edit everything to see if the change apply , and delete the room
+   - can try exceed the host room limit
+
+TODO: invite code?
+
 ## Test Cases
 
 ### 1. Sanity: login + tab navigation

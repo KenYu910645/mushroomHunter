@@ -427,7 +427,7 @@ struct RoomBrowseView: View {
         var body: some View {
             ColorfulTag(
                 titleKey: titleKey,
-                tone: .host,
+                tone: .ownership,
                 horizontalPadding: 8,
                 verticalPadding: 3,
                 font: .caption2.weight(.semibold)

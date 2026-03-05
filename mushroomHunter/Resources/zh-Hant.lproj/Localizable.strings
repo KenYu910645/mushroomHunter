@@ -55,11 +55,12 @@
 "host_create_title" = "建立房間";
 "host_save_button" = "儲存設定";
 "host_create_button" = "建立房間";
-"host_success_updated_title" = "房間已更新！";
-"host_success_created_title" = "房間已建立！";
+"host_success_updated_title" = "房間已更新";
+"host_success_created_title" = "房間已建立";
 "host_success_updated_message" = "設定已儲存。";
-"host_success_created_message" = "你現在可以在個人分頁管理你的房間。";
+"host_success_created_message" = "您現在可以用二維碼來邀請好友加入你的房間。";
 "host_limit_title" = "房間上限";
+"host_limit_message_format" = "你最多只能主持 %d 個房間。";
 "host_room_name_placeholder" = "例如：一起打蘑菇";
 "host_room_name_header" = "房間名稱";
 "host_location_header" = "地點";

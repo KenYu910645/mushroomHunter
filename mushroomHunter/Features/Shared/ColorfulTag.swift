@@ -50,6 +50,22 @@ enum ColorfulTagTone {
         }
     }
 
+    /// Foreground tint used when rendering a fully solid background style.
+    var solidForegroundColor: Color {
+        switch self {
+        case .honey, .host, .ownership:
+            return .white
+        case .ready:
+            return .green
+        case .waiting:
+            return .yellow
+        case .rejected:
+            return .red
+        case .star:
+            return .yellow
+        }
+    }
+
     /// Background tint used by the rounded tag container.
     var backgroundColor: Color {
         switch self {
@@ -67,6 +83,24 @@ enum ColorfulTagTone {
             return Color.yellow.opacity(0.14)
         case .ownership:
             return Color.blue
+        }
+    }
+
+    /// Solid background tint used by high-contrast chips over busy surfaces.
+    var solidBackgroundColor: Color {
+        switch self {
+        case .ready:
+            return .green
+        case .waiting:
+            return .yellow
+        case .rejected:
+            return .red
+        case .host, .ownership:
+            return .blue
+        case .honey:
+            return .orange
+        case .star:
+            return .yellow
         }
     }
 
@@ -105,6 +139,12 @@ struct ColorfulTag<Content: View>: View {
     /// Font applied to text content inside the tag.
     let font: Font
 
+    /// When true, renders a fully solid background fill for improved contrast over images.
+    let isSolidBackground: Bool
+
+    /// Optional explicit background override color used when a tag needs feature-specific contrast tuning.
+    let customBackgroundColor: Color?
+
     /// Content rendered inside the rounded tag shell.
     let content: () -> Content
 
@@ -114,12 +154,16 @@ struct ColorfulTag<Content: View>: View {
         horizontalPadding: CGFloat = 8,
         verticalPadding: CGFloat = 4,
         font: Font = .caption.weight(.semibold),
+        isSolidBackground: Bool = false,
+        customBackgroundColor: Color? = nil,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.tone = tone
         self.horizontalPadding = horizontalPadding
         self.verticalPadding = verticalPadding
         self.font = font
+        self.isSolidBackground = isSolidBackground
+        self.customBackgroundColor = customBackgroundColor
         self.content = content
     }
 
@@ -129,12 +173,16 @@ struct ColorfulTag<Content: View>: View {
         tone: ColorfulTagTone,
         horizontalPadding: CGFloat = 8,
         verticalPadding: CGFloat = 4,
-        font: Font = .caption.weight(.semibold)
+        font: Font = .caption.weight(.semibold),
+        isSolidBackground: Bool = false,
+        customBackgroundColor: Color? = nil
     ) where Content == Text {
         self.tone = tone
         self.horizontalPadding = horizontalPadding
         self.verticalPadding = verticalPadding
         self.font = font
+        self.isSolidBackground = isSolidBackground
+        self.customBackgroundColor = customBackgroundColor
         self.content = {
             Text(titleKey)
         }
@@ -147,10 +195,10 @@ struct ColorfulTag<Content: View>: View {
             .lineLimit(1)
             .padding(.horizontal, horizontalPadding)
             .padding(.vertical, verticalPadding)
-            .foregroundStyle(tone.foregroundColor)
+            .foregroundStyle(isSolidBackground ? tone.solidForegroundColor : tone.foregroundColor)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(tone.backgroundColor)
+                    .fill(customBackgroundColor ?? (isSolidBackground ? tone.solidBackgroundColor : tone.backgroundColor))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)

@@ -405,21 +405,22 @@ private struct PostcardCardView: View {
                 }
 
                 // Keep price visible on top of the postcard snapshot in the browse card.
-                HStack(spacing: 4) {
-                    Text("\(listing.priceHoney)")
-                        .font(.caption.weight(.semibold))
-                    Image("HoneyIcon")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 12, height: 12)
+                ColorfulTag(
+                    tone: .honey,
+                    horizontalPadding: 8,
+                    verticalPadding: 4,
+                    font: .caption.weight(.semibold),
+                    isSolidBackground: true,
+                    customBackgroundColor: .accentColor
+                ) {
+                    HStack(spacing: 4) {
+                        Image("HoneyIcon")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 12, height: 12)
+                        Text("\(listing.priceHoney)")
+                    }
                 }
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                )
             }
             .overlay(alignment: .bottomTrailing) {
                 if let ownershipTag {

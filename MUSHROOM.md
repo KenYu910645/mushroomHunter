@@ -30,106 +30,98 @@
 - `functions/index.js`: server-side push triggers used by mushroom confirmation flows.
 
 ## Feature Coverage
-- Main Mushroom tab icon uses SF Symbol `person.3.fill` to reflect group room coordination.
-- Host can create and manage a room with title/location/description/fixed raid cost (no target mushroom selectors in create/edit UI).
-- Browse search is opened from the top action bar as an inline search field above the room list (no dedicated sheet/alert).
-- Mushroom browse includes a screen-level top-right bell icon that opens the shared notification inbox list.
-- Notification inbox loads the latest 10 events first from `users/{uid}/events` and loads older pages while scrolling.
-- Notification inbox rows now separate Action vs Record semantics:
-  - Action events render with red dot + bold text while unresolved.
-  - Record events render as normal history rows.
-  - Tapping a row only routes for Action events; Record rows do not open routes.
-- Tapping a room-related inbox row routes using existing push deep-link channels:
-  - raid confirmation notifications open room and auto-present confirmation queue.
-  - other room notifications open room detail.
-- Mushroom browse search matches room title and location text (country/city).
-- Mushroom browse search applies local filtering while typing; backend fetch (first page) is refreshed only when user taps `Search`.
-- Mushroom browse now pins user-owned rooms above general browse results at all times, ordered as `Host` -> `Joined` -> other browse rooms:
-  - `Host` rooms are rendered first at the top with a `Host` ownership tag.
-  - `Joined` rooms are rendered after host rooms with a `Joined` ownership tag.
-  - Ownership tags are rendered on the same row as location info, aligned at each room slot's right side.
-  - Pinned rows are deduplicated from the general browse list to keep ownership context clear.
-  - Pinned rows still follow the same availability/search filters, so unmatched rows are hidden while typing a query.
-- Mushroom browse priority uses a score model (after local text/availability filters):
-  - Score reward: `hostStars * AppConfig.Mushroom.browsePriorityHostStarWeight`.
-  - Score penalty: `dormantHoursBeyondThreshold * AppConfig.Mushroom.browsePriorityDormantHourPenalty`.
-  - Dormant hours are measured from `lastSuccessfulRaidAt` (fallback `createdAt` when never raided).
-  - No dormancy penalty is applied until elapsed time exceeds `AppConfig.Mushroom.browsePriorityDormantThresholdHours` (default 48h).
-- Mushroom browse fetch uses server-first query (with local/default fallback only on server failure) so attendee count (`joinedCount`) is aligned with room detail more consistently.
-- Inline search field includes an `x` clear button; tapping `x` clears query and collapses the search field. Keyboard submit uses `Search` and triggers backend search. Top-bar search icon toggles field show/hide, and hiding the search field also clears query.
-- Mushroom browse uses `ScrollView + LazyVStack` (same pattern as Postcard browse), so the top action bar (honey/search/create) moves with page scroll and matches postcard visual style.
-- UI-test mode (`--ui-testing --mock-rooms`) routes host submit flow through mock success without Firestore writes.
-- Host create/edit description is prefilled with localized default `host_default_description` (`Welcome! Let's play!`) when empty.
-- Owner config `AppConfig.Mushroom.isRaidPaymentAdjustmentEnabled` controls whether host room form shows the raid payment adjustment option:
-  - `false`: adjustment UI is hidden in room form and create flow uses fixed payment `10` honey (`AppConfig.Mushroom.disabledRaidPaymentHoney`).
-  - `true`: host can adjust payment via stepper from min value to `AppConfig.Mushroom.enabledRaidPaymentMaxHoney` (currently `10`).
-- Host create/edit form now dismisses keyboard on outside taps (without collapsing during scroll), on keyboard `Enter`/`Done`, and before submit, and auto-scrolls the focused input above keyboard overlap.
-- Dismissing host create sheet (create success or manual close) now triggers a forced Mushroom browse refresh so the latest room list is reloaded immediately.
-- Host location parser now recognizes both current-locale and English country names (plus ISO country codes), so existing room/postcard location values still map correctly after language changes.
-- Room browse/detail location labels now localize the country segment to the viewer locale while preserving stored city text (including legacy English country values).
-- Host can manage attendees (kick, close room, finish raid/claim cycle).
-- Join request workflow:
-  - Joiner enters deposit + greeting message.
-  - Join request creates attendee with status `AskingToJoin` and occupies a room slot immediately.
-  - Host can approve/reject from two inline buttons shown under the joiner greeting message (`Accept` on left in green, `Reject` on right in red).
-  - Attendee row `...` menu is used for non-join-request host actions like `Kick`.
-  - Rejected application removes attendee and refunds full deposit.
-- Host `Mushroom Raid Done` now sends escrow settlement requests to all eligible non-host joiners in the room (instead of manually selecting attendees), including attendees who already have unresolved pending confirmations.
-- Joining from room details now requires both:
-  - deposit amount
-  - attendee greeting message (required, max 100 chars)
-- Join sheet pre-fills a localized default greeting and blocks submit when greeting is empty.
-- Join confirmation alert now includes both `Sure` and `Cancel` actions.
-- Join confirmation message is generic and no longer includes room title text.
-- Top-up honey sheet leave button now shows a footer hint that leaving returns unspent deposit.
-- UI-test mode supports room deep-link routing via launch arg `--ui-open-room {roomId}` for deterministic room-entry automation.
-- In UI-test mock mode, attendee leave can execute directly from the bottom action dock (and from edit-bid sheet) without confirmation alert to reduce automation flakiness.
-- In UI-test mock mode, room role/deposit checks fall back to fixture user id (`ui-test-user`) when session auth uid is not yet populated.
-- UI-test mock mode supports forcing fixture room attendee state at launch with `--mock-room-joined`.
-- Host reject-resolution alert behavior:
-  - `Resend`: appends a new pending confirmation request and keeps attendee in `WaitingConfirmation`.
-  - `Give Up`: sets attendee status back to `Ready`.
-- Room confirmation/error feedback uses shared patterns:
-  - attendee raid settlement now uses a dedicated queue page opened from a top-right toolbar icon in room details.
-  - join/leave/claim/rating and other confirmations still use shared `MessageBox` for consistent action layout.
-- Host raid confirmation prompt uses a generic confirmation message without attendee-name list text.
-- Joiner room details now shows a top-right confirmation-queue icon with a red dot when there are pending room confirmations.
-- Joiner confirmation queue page shows all unprocessed confirmations for the current room and renders newest-first ordering.
-- Tapping a raid-confirmation push notification now opens the related room and auto-presents the joiner confirmation queue page directly.
-- Room opened from push now forces a server refresh on first load so latest confirmation state appears immediately.
-- Push routing now opens Mushroom tab and pushes the normal Room page inside the tab navigation stack (non-sheet flow).
-- Joiner confirmation queue row content is compact:
-  - host invitation sentence.
-  - relative elapsed text only (`Xm ago` / `Xh ago`), with no extra prefix and no room-title line.
-- Host room details now shows a top-right `Raid History` icon (`list.clipboard`), matching joiner confirmation-list icon style.
-- Host room details top-right host-action order is `Share -> Raid History -> Edit`.
-- Joined-room (attendee) top-right action order is `Confirmation Queue (clipboard) -> Edit Deposit (pencil)`.
-- Host raid history page is read-only and lists confirmation records from latest to oldest.
-- Each host history record shows all non-host attendees in the room snapshot with rounded status pills:
-  - `Confirming` (yellow)
-  - `Joined` (green)
-  - `Seat full` (yellow)
-  - `No invite` (red)
-- Each queue row provides the same three settlement actions used previously in the attendee confirmation message box:
-  - `Yes, I joined the mushroom`
-  - `Yes, but the mushroom is full`
-  - `No, I didn't see invitation`
-- Honey-tokenized message text in shared `MessageBox` renders `HoneyIcon` as true inline text content, so long localized sentences wrap naturally without pushing the icon to the trailing edge.
-- Inline HoneyIcon size used in message-box tokenized text is owner-tunable via `AppConfig.SharedUI.honeyMessageIconSize`.
-- Host room form minimum-payment row now token-renders `host_min_bid_label` so `{honey_icon}` displays as inline `HoneyIcon` instead of raw text.
-- Room details includes invite share tools for host:
-  - QR code sheet.
-  - Share/copy room invite link using deep link format `honeyhub://room/{roomId}`.
-- Room details copy-feedback toast (`Copied to clipboard`) now uses the same visual style and timing as postcard screens to keep cross-feature behavior consistent.
-- Room header no longer shows `Last Successful Raid`; header now focuses on title, attendee count, location, and description.
-- Room attendee list statuses now use the shared colorful tag mapping (`Host` blue, `Asking/Waiting` yellow, `Ready` green).
-- Room attendee star display now uses a yellow rounded badge with star icon to improve readability.
-- Room attendee deposit honey display now uses a rounded orange HoneyIcon badge style to match the star badge treatment.
-- In Room details, host-visible `AskingToJoin` attendee rows now show a tiny red dot before the attendee name to identify the notification source quickly.
-- Room detail toolbar role now accepts a browse-seeded initial role (`host`/`attendee`) before async detail fetch completes, so top-right host/joined action buttons no longer pop in late after first render.
-- Room detail top-right buttons now follow postcard-style slot rendering: host/attendee icon slots are shown immediately from role state, and actions that require loaded room payload stay disabled until room data is ready.
-- Room detail view hides the navigation title so content starts directly with room snapshot/details.
-- Cache behavior and refresh/invalidation rules are documented only in `CACHE.md`.
+### 1) Navigation and Entry
+- Mushroom tab icon uses SF Symbol `person.3.fill`.
+- Browse header uses shared top action bar (`honey/search/create`) and scrolls with content (`ScrollView + LazyVStack`).
+- Browse has top-right bell to open shared notification inbox.
+- Push/deep-link routing opens Mushroom tab and pushes the standard room detail page (not a sheet).
+
+### 2) Browse and Search
+- Search UI is inline (not sheet/alert), with toggle, clear `x`, keyboard `Search`, and hide-to-clear behavior.
+- Local filtering matches room `title` and `location` (stored + localized country label).
+- Backend room fetch refreshes only on explicit `Search`, pull-to-refresh, or forced refresh.
+- Room list fetch is server-first with `.default` fallback.
+- Browse priority score:
+- Reward: `hostStars * AppConfig.Mushroom.browsePriorityHostStarWeight`.
+- Penalty: `dormantHoursBeyondThreshold * AppConfig.Mushroom.browsePriorityDormantHourPenalty`.
+- Dormancy reference: `lastSuccessfulRaidAt` fallback to `createdAt`; no penalty before threshold hours.
+- User-owned rooms are always pinned and tagged in this order: `Host` -> `Joined` -> other rooms.
+- Pinned rows are deduplicated from general rows and still obey current search/availability filters.
+
+### 3) Host Room Form (Create/Edit)
+- Host form manages room `title`, `location`, `description`, and fixed raid cost only (no target mushroom selectors).
+- Description defaults to localized `host_default_description` when empty.
+- Raid payment adjustment is controlled by `AppConfig.Mushroom.isRaidPaymentAdjustmentEnabled`.
+- When disabled, fixed value uses `AppConfig.Mushroom.disabledRaidPaymentHoney`.
+- When enabled, payment stepper range is owner-configured.
+- Form supports outside-tap/keyboard dismiss and focused input auto-scroll above keyboard overlap.
+- Closing create sheet (manual close or success) triggers forced browse refresh.
+- Location parsing supports current-locale country names, English names, and ISO codes.
+- Location display localizes country while preserving city text.
+- Host room-limit error message uses localized format text with injected max-room count.
+
+### 4) Membership and Room Actions
+- Join requires deposit + greeting message (required, max 100 chars); join sheet pre-fills localized default greeting.
+- Join confirmation dialog includes `Sure` + `Cancel`, and uses generic wording (no room title).
+- Join request creates attendee with `AskingToJoin` and immediately occupies a seat.
+- Host approves/rejects join requests from inline buttons under join greeting (`Accept` left, `Reject` right).
+- Host uses attendee `...` menu for non-request actions (for example `Kick`).
+- Reject refunds full attendee deposit and removes attendee row.
+- Host actions include `Kick`, `Close room`, and raid finish cycle.
+- Leave flow UI shows hint that unspent deposit is returned.
+
+### 5) Raid Confirmation and History
+- Host `Mushroom Raid Done` sends settlement requests to all eligible non-host attendees, including attendees with unresolved requests.
+- Joiner has confirmation queue icon with red dot when pending requests exist.
+- Queue shows all unprocessed confirmations newest-first.
+- Queue row content is compact: host invitation text + relative elapsed time (`Xm ago` / `Xh ago`).
+- Each queue row supports 3 settlement actions:
+- `Yes, I joined the mushroom`
+- `Yes, but the mushroom is full`
+- `No, I didn't see invitation`
+- Host can resolve pending confirmations with `Resend` (append request, keep waiting) or `Give Up` (back to ready).
+- Host has read-only raid history page (`list.clipboard`) showing latest-first confirmation records.
+- Host history attendee status pills: `Confirming` (yellow), `Joined` (green), `Seat full` (yellow), `No invite` (red).
+- Tapping raid-confirmation push opens room and auto-presents confirmation queue.
+- Room opened from push forces first-load server refresh for latest confirmation state.
+
+### 6) Room Detail UI
+- Room header focuses on title, attendee count, location, and description (no last-raid line in header).
+- Top-right action order:
+- Host: `Share -> Raid History -> Edit`.
+- Joined attendee: `Confirmation Queue -> Edit Deposit`.
+- Role-seeded toolbar supports early host/attendee action slot rendering before room payload finishes loading.
+- Action buttons that depend on room payload stay disabled until detail data is ready.
+- Host-visible `AskingToJoin` attendee name includes small red dot marker.
+- Attendee status tags use shared colorful mapping: `Host` blue, `Asking/Waiting` yellow, `Ready` green.
+- Star and deposit badges use rounded visual styles (yellow star badge, orange honey badge).
+- Detail page hides navigation title so content starts directly with room snapshot.
+
+### 7) Notification Inbox Behavior
+- Inbox fetches `users/{uid}/events` newest-first, first page size 10, and paginates on scroll.
+- Rows separate Action vs Record semantics:
+- Action rows: unresolved red dot + bold text, tappable route.
+- Record rows: normal text, no route action.
+- Room-related action routing:
+- Raid confirmation route opens room + queue.
+- Other room events open room detail.
+
+### 8) Shared UI and Invite Tools
+- Host room detail includes invite tools: QR sheet and share/copy deep link `honeyhub://room/{roomId}`.
+- Copy toast style/timing matches postcard behavior.
+- Shared `MessageBox` supports inline `{honey_icon}` token rendering with natural text wrapping.
+- Inline message-box honey icon size is configurable via `AppConfig.SharedUI.honeyMessageIconSize`.
+- Host minimum-payment row also token-renders `{honey_icon}` as inline icon.
+
+### 9) UI-Test Support
+- `--ui-testing --mock-rooms` routes host submit via mock success without Firestore writes.
+- `--ui-open-room {roomId}` supports deterministic room deep-link entry.
+- `--mock-room-joined` forces fixture joined-attendee state.
+- Mock-mode leave can bypass confirmation dialogs to reduce UI-test flakiness.
+- Mock-mode role/deposit checks use fixture uid (`ui-test-user`) if auth uid is not ready.
+
+### 10) Cache and Refresh
+- Cache behavior and invalidation rules are defined only in `CACHE.md`.
 
 ### Confirmation stars flow
 - Attendee settlement flow now has three outcomes after host taps `Mushroom Raid Done`:

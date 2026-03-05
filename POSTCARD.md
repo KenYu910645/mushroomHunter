@@ -48,10 +48,14 @@
 - Postcard browse search matches postcard title and location text (country/city).
 - Postcard browse search applies local filtering while typing; backend paged query also runs after typing pauses briefly (debounced) or when user taps keyboard `Search`.
 - Inline search field includes an `x` clear button; tapping `x` clears query and collapses the search field. Pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
-- Postcard browse card thumbnail overlays the honey price badge (value + honey icon) at the top-right corner; stock count is not shown on browse cards.
+- Postcard browse card thumbnail overlays the honey price badge (honey icon + value) at the top-right corner using shared `ColorfulTag` with a solid accent-orange background matching confirm buttons for readability over images; stock count is not shown on browse cards.
 - Postcard browse card title stays single-line, scales down for longer names, then truncates with trailing ellipsis.
 - Postcard location country labels are rendered in the current user locale when possible (including legacy listings that stored English country names).
 - Postcard detail view hides the navigation title so the postcard snapshot is the first visible content at the top.
+- Postcard detail view renders title and price on the same first line; price uses a right-aligned honey `ColorfulTag` (HoneyIcon + value).
+- Postcard detail view metadata is shown as left-aligned stacked rows: `Seller: {name}` then `Friend Code: {code}` with inline copy action icon.
+- Postcard detail view stock visibility is role-based: buyers do not see stock; sellers see a left-aligned `Stock: {count}` row.
+- Seller/friend-code/stock metadata rows share the same gray `subheadline` text style for visual consistency.
 - Cache behavior and refresh/invalidation rules are documented only in `CACHE.md`.
 - Register flow uploads full image + thumbnail to Firebase Storage, then creates Firestore listing.
 - Register success dismisses the sheet and refreshes browse list.

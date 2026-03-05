@@ -54,11 +54,12 @@
 "host_create_title" = "Create Room";
 "host_save_button" = "Save Settings";
 "host_create_button" = "Create Room";
-"host_success_updated_title" = "Room updated!";
-"host_success_created_title" = "Mushroom Room Created!";
+"host_success_updated_title" = "Room Updated!";
+"host_success_created_title" = "Room Created!";
 "host_success_updated_message" = "Your room settings were saved.";
-"host_success_created_message" = "You can now manage your room in Profile tab.";
+"host_success_created_message" = "You can now invite your friends .";
 "host_limit_title" = "Room Limit";
+"host_limit_message_format" = "You can only host up to %d rooms.";
 "host_room_name_placeholder" = "Ex: Let's fight mushroom";
 "host_room_name_header" = "Room Name";
 "host_location_header" = "Location";
@@ -74,7 +75,7 @@
 "host_default_description" = "Welcome! Let's play!";
 "host_min_bid_label" = "{honey_icon}";
 "host_min_bid_header" = "Tips";
-"host_min_bid_footer" = "The tips attendees will pay after been invited and join the mushroom.";
+"host_min_bid_footer" = "The amount of honey that attendees will pay after been invited and join the mushroom.";
 "host_close_room_button" = "Close Room";
 "host_close_room_footer" = "The room will be removed and cannot be recovery.";
 "host_room_default_name" = "Let's fight mushroom";

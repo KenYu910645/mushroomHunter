@@ -144,9 +144,24 @@ struct PostcardView: View {
                 .aspectRatio(imageAspectRatio, contentMode: .fit)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(currentListing.title)
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(currentListing.title)
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                        Spacer(minLength: 0)
+                        ColorfulTag(tone: .honey, font: .subheadline.weight(.semibold)) {
+                            HStack(spacing: 4) {
+                                Image("HoneyIcon")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 16, height: 16)
+                                Text("\(currentListing.priceHoney)")
+                                    .monospacedDigit()
+                            }
+                        }
+                    }
 
                     HStack(spacing: 6) {
                         Image(systemName: "mappin.and.ellipse")
@@ -155,36 +170,25 @@ struct PostcardView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
-                    HStack(spacing: 6) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(String(format: NSLocalizedString("postcard_seller_format", comment: ""), currentListing.sellerName))
-                        Text(formattedFriendCode(sellerFriendCode))
-                            .foregroundStyle(.secondary)
-                        Button {
-                            copyFriendCode(sellerFriendCode)
-                        } label: {
-                            Image(systemName: "doc.on.doc")
+                        HStack(spacing: 6) {
+                            Text("\(NSLocalizedString("profile_friend_code", comment: "")): \(formattedFriendCode(sellerFriendCode))")
+                            Button {
+                                copyFriendCode(sellerFriendCode)
+                            } label: {
+                                Image(systemName: "doc.on.doc")
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(LocalizedStringKey("room_copy_host_code_accessibility"))
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(LocalizedStringKey("room_copy_host_code_accessibility"))
+                        if isSeller {
+                            Text("Stock: \(currentListing.stock)")
+                                .monospacedDigit()
+                        }
                     }
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-
-                    HStack {
-                        HStack(spacing: 4) {
-                            Text("\(currentListing.priceHoney)")
-                                .fontWeight(.semibold)
-                                .monospacedDigit()
-                            Image("HoneyIcon")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 18, height: 18)
-                        }
-                        Spacer()
-                        Text(String(format: NSLocalizedString("postcard_stock_format", comment: ""), currentListing.stock))
-                            .fontWeight(.semibold)
-                            .monospacedDigit()
-                    }
 
                     if !currentListing.location.detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text(currentListing.location.detail)

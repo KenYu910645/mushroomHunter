@@ -63,7 +63,10 @@ enum RoomFormError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .maxHostRoomsReached(let limit):
-            return "You can only host up to \(limit) rooms."
+            return String(
+                format: NSLocalizedString("host_limit_message_format", comment: ""),
+                limit
+            )
         }
     }
 }
