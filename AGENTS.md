@@ -56,13 +56,13 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift` (shared invite QR sheet used by room/postcard)
 - `mushroomHunter/Features/Mushroom/RoomViewModel.swift`
 - `mushroomHunter/Features/Mushroom/RoomDomainModels.swift`
-- `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift` (shared browse header with honey/search/create actions)
-- `mushroomHunter/Features/Shared/NotificationInboxView.swift` (shared in-app notification inbox list opened from top-right bell actions)
-- `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by host/profile/profile-create forms)
-- `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by multiline inputs)
-- `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift` (shared UIKit bridge for dismissing keyboard on outside taps without scroll interference)
-- `mushroomHunter/Features/Shared/HoneyMessageBox.swift` (shared custom confirmation/error dialog used across room flows)
-- `mushroomHunter/Features/Shared/ProfileStatusBadge.swift` (shared urgency badge + red action-dot primitives used by room/postcard status rows)
+- `mushroomHunter/Features/Shared/TopActionBar.swift` (shared browse header with honey/search/create actions)
+- `mushroomHunter/Features/EventInbox/EventInboxView.swift` (shared in-app notification inbox list opened from top-right bell actions)
+- `mushroomHunter/Features/Shared/SmartTextField.swift` (shared auto-select text field wrapper used by host/profile/profile-create forms)
+- `mushroomHunter/Features/Shared/SmartTextEditor.swift` (shared auto-select text editor wrapper used by multiline inputs)
+- `mushroomHunter/Features/Shared/KeyboardDismissBridge.swift` (shared UIKit bridge for dismissing keyboard on outside taps without scroll interference)
+- `mushroomHunter/Features/Shared/MessageBox.swift` (shared custom confirmation/error dialog used across room flows)
+- `mushroomHunter/Features/Shared/ColorfulTag.swift` (shared colorful tag + red action-dot primitives used by room/postcard status rows)
 - `mushroomHunter/Services/Firebase/RoomBrowseRepo.swift`
 - `mushroomHunter/Services/Firebase/ProfileListRepo.swift` (joined/hosted room summary source used to pin user-owned rooms at the top of browse)
 - `mushroomHunter/Services/Firebase/RoomFormRepo.swift`
@@ -73,7 +73,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Utilities/AppDataCache.swift` (shared app-level Codable payload cache utility)
 - `mushroomHunter/Utilities/CountryLocalization.swift` (shared locale-aware country + room-location display resolver used by mushroom/postcard views/forms)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile/room/postcard)
-- `mushroomHunter/User/NotificationInboxStore.swift` (shared Firestore-backed notification event history pagination, unread state, and deep-link route metadata)
+- `mushroomHunter/Features/EventInbox/EventInboxStore.swift` (shared Firestore-backed notification event history pagination, unread state, and deep-link route metadata)
 - Cloud Functions in `functions/index.js`:
   - `recordRoomCreatedEvent`
   - `recordRoomClosedEvent`
@@ -91,15 +91,15 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Postcard/PostcardDomainModel.swift`
 - `mushroomHunter/App/HoneyHubApp.swift` (postcard invite deep-link routing)
 - `mushroomHunter/App/ContentView.swift` (postcard invite deep-link presentation)
-- `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift` (shared browse header with honey/search/create actions)
-- `mushroomHunter/Features/Shared/NotificationInboxView.swift` (shared in-app notification inbox list opened from top-right bell actions)
-- `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by postcard/profile/mushroom forms)
-- `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by postcard description fields)
-- `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift` (shared UIKit bridge for dismissing keyboard on outside taps without scroll interference)
+- `mushroomHunter/Features/Shared/TopActionBar.swift` (shared browse header with honey/search/create actions)
+- `mushroomHunter/Features/EventInbox/EventInboxView.swift` (shared in-app notification inbox list opened from top-right bell actions)
+- `mushroomHunter/Features/Shared/SmartTextField.swift` (shared auto-select text field wrapper used by postcard/profile/mushroom forms)
+- `mushroomHunter/Features/Shared/SmartTextEditor.swift` (shared auto-select text editor wrapper used by postcard description fields)
+- `mushroomHunter/Features/Shared/KeyboardDismissBridge.swift` (shared UIKit bridge for dismissing keyboard on outside taps without scroll interference)
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift` (shared invite QR sheet used by postcard seller share flow)
-- `mushroomHunter/Features/Shared/HoneyMessageBox.swift` (shared custom confirmation/error dialog used across postcard flows)
-- `mushroomHunter/Features/Shared/ProfileStatusBadge.swift` (shared urgency badge + red action-dot primitives used by room/postcard status rows)
-- `mushroomHunter/Features/Shared/CachedPostcardImageView.swift` (shared postcard image rendering component)
+- `mushroomHunter/Features/Shared/MessageBox.swift` (shared custom confirmation/error dialog used across postcard flows)
+- `mushroomHunter/Features/Shared/ColorfulTag.swift` (shared colorful tag + red action-dot primitives used by room/postcard status rows)
+- `mushroomHunter/Features/Postcard/PostcardImageCache.swift` (shared postcard image rendering component)
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift` (browse/recent paging plus on-shelf/ordered queries used to pin user-owned postcards at the top of browse)
 - `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`
 - `mushroomHunter/Utilities/RoomInviteLink.swift` (postcard invite link generation/parsing)
@@ -107,7 +107,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed postcard caps, list limits, and timeout windows)
 - `mushroomHunter/Utilities/CountryLocalization.swift` (shared locale-aware country + room-location display resolver used by mushroom/postcard views/forms)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile/room/postcard)
-- `mushroomHunter/User/NotificationInboxStore.swift` (shared Firestore-backed notification event history pagination, unread state, and deep-link route metadata)
+- `mushroomHunter/Features/EventInbox/EventInboxStore.swift` (shared Firestore-backed notification event history pagination, unread state, and deep-link route metadata)
 - Cloud Functions in `functions/index.js`:
   - `recordPostcardCreatedEvent`
   - `recordPostcardClosedEvent`
@@ -120,10 +120,12 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Profile/ProfileViewModel.swift` (profile tab badge aggregation + background refresh for room/postcard actionable counts)
 - `mushroomHunter/Features/Profile/FeedbackView.swift` (feedback compose view + submission payload model)
 - `mushroomHunter/Features/Profile/AboutView.swift` (about page contact information view)
-- `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used by profile edit/create)
-- `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper used by profile feedback message)
-- `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift` (shared UIKit bridge for dismissing keyboard on outside taps without scroll interference)
-- `mushroomHunter/Features/Shared/HoneyMessageBox.swift` (shared custom confirmation/error dialog used across profile flows)
+- `mushroomHunter/Features/EventInbox/EventInboxView.swift` (shared in-app notification inbox sheet opened from the profile top-right bell action)
+- `mushroomHunter/Features/EventInbox/EventInboxStore.swift` (shared Firestore-backed notification event history pagination, unread state, and deep-link route metadata)
+- `mushroomHunter/Features/Shared/SmartTextField.swift` (shared auto-select text field wrapper used by profile edit/create)
+- `mushroomHunter/Features/Shared/SmartTextEditor.swift` (shared auto-select text editor wrapper used by profile feedback message)
+- `mushroomHunter/Features/Shared/KeyboardDismissBridge.swift` (shared UIKit bridge for dismissing keyboard on outside taps without scroll interference)
+- `mushroomHunter/Features/Shared/MessageBox.swift` (shared custom confirmation/error dialog used across profile flows)
 - `mushroomHunter/Services/Firebase/ProfileListRepo.swift`
 - `mushroomHunter/Services/Firebase/FeedbackRepo.swift`
 - `mushroomHunter/User/UserSessionStore.swift` (shared user session state container + local persistence helpers)
@@ -140,10 +142,10 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Profile/LoginView.swift`
 - `mushroomHunter/Features/Profile/ProfileCreateEditView.swift` (shared create/edit profile form, signin flow uses create mode)
 - `mushroomHunter/Features/Profile/TutorialView.swift` (one-time swipe tutorial presented after first successful profile creation)
-- `mushroomHunter/Features/Shared/SelectAllTextField.swift` (shared auto-select text field wrapper used in create-profile form)
-- `mushroomHunter/Features/Shared/SelectAllTextEditor.swift` (shared auto-select text editor wrapper for multiline form inputs)
-- `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift` (shared UIKit bridge for dismissing keyboard on outside taps without scroll interference)
-- `mushroomHunter/Features/Shared/HoneyMessageBox.swift` (shared custom confirmation/error dialog used by profile create/edit validation)
+- `mushroomHunter/Features/Shared/SmartTextField.swift` (shared auto-select text field wrapper used in create-profile form)
+- `mushroomHunter/Features/Shared/SmartTextEditor.swift` (shared auto-select text editor wrapper for multiline form inputs)
+- `mushroomHunter/Features/Shared/KeyboardDismissBridge.swift` (shared UIKit bridge for dismissing keyboard on outside taps without scroll interference)
+- `mushroomHunter/Features/Shared/MessageBox.swift` (shared custom confirmation/error dialog used by profile create/edit validation)
 - `mushroomHunter/User/UserSessionStore.swift` (main session state container)
 - `mushroomHunter/User/UserAuth.swift` (Apple/Google auth + auth state handling)
 - `mushroomHunter/User/UserProfile.swift` (profile completion persistence/sync)

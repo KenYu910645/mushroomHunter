@@ -1,5 +1,5 @@
 //
-//  CachedPostcardImageView.swift
+//  PostcardImageCache.swift
 //  mushroomHunter
 //
 //  Purpose:

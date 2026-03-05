@@ -208,11 +208,11 @@ struct PostcardCreateEditView: View {
         }
         .overlay {
             if isErrorAlertPresented {
-                HoneyMessageBox(
+                MessageBox(
                     title: NSLocalizedString("common_error", comment: ""),
                     message: errorAlertMessage,
                     buttons: [
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_form_error_ok",
                             title: NSLocalizedString("common_ok", comment: "")
                         ) {
@@ -221,11 +221,11 @@ struct PostcardCreateEditView: View {
                     ]
                 )
             } else if isDeleteConfirmPresented, isEditMode {
-                HoneyMessageBox(
+                MessageBox(
                     title: NSLocalizedString("postcard_msg_remove_confirm_title", comment: ""),
                     message: "",
                     buttons: [
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_form_remove_confirm",
                             title: NSLocalizedString("postcard_remove_button", comment: ""),
                             role: .destructive
@@ -233,7 +233,7 @@ struct PostcardCreateEditView: View {
                             isDeleteConfirmPresented = false
                             Task { await removePostcard() }
                         },
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_form_remove_cancel",
                             title: NSLocalizedString("common_cancel", comment: ""),
                             role: .cancel
@@ -262,7 +262,7 @@ struct PostcardCreateEditView: View {
         }
         .scrollDismissesKeyboard(.immediately)
         .background(
-            OutsideTapKeyboardDismissBridge {
+            KeyboardDismissBridge {
                 dismissKeyboard()
             }
         )
@@ -352,7 +352,7 @@ struct PostcardCreateEditView: View {
             HStack(spacing: 12) {
                 Text(LocalizedStringKey("postcard_title_field"))
                 Spacer()
-                SelectAllTextField(
+                SmartTextField(
                     placeholderKey: "postcard_default_title",
                     text: $title,
                     isFirstResponder: $isTitleFieldFocused,
@@ -369,7 +369,7 @@ struct PostcardCreateEditView: View {
             HStack(spacing: 12) {
                 Text(LocalizedStringKey("postcard_price_field"))
                 Spacer()
-                SelectAllTextField(
+                SmartTextField(
                     placeholderKey: "postcard_default_price",
                     text: $priceText,
                     isFirstResponder: $isPriceFieldFocused,
@@ -402,7 +402,7 @@ struct PostcardCreateEditView: View {
             HStack(spacing: 12) {
                 Text(LocalizedStringKey("postcard_province_field"))
                 Spacer()
-                SelectAllTextField(
+                SmartTextField(
                     placeholderKey: "postcard_default_province",
                     text: $province,
                     isFirstResponder: $isProvinceFieldFocused,
@@ -419,7 +419,7 @@ struct PostcardCreateEditView: View {
             HStack(spacing: 12) {
                 Text(LocalizedStringKey("postcard_stock_field"))
                 Spacer()
-                SelectAllTextField(
+                SmartTextField(
                     placeholderKey: "postcard_default_stock",
                     text: $stockText,
                     isFirstResponder: $isStockFieldFocused,
@@ -447,7 +447,7 @@ struct PostcardCreateEditView: View {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color(.secondarySystemBackground))
 
-                    SelectAllTextEditor(
+                    SmartTextEditor(
                         text: $detail,
                         isFirstResponder: $isDetailFieldFocused
                     )

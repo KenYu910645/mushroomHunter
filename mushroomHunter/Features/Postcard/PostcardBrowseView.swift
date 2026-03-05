@@ -26,7 +26,7 @@ struct PostcardBrowseView: View {
     /// Shared session state used for wallet values and profile refresh.
     @EnvironmentObject private var session: UserSessionStore
     /// Shared notification inbox state used by the top-right bell button.
-    @EnvironmentObject private var notificationInbox: NotificationInboxStore
+    @EnvironmentObject private var notificationInbox: EventInboxStore
     /// Browse view model that loads and filters postcard listings.
     @StateObject private var vm = PostcardBrowseViewModel()
     /// Controls presentation of the search alert.
@@ -205,8 +205,8 @@ struct PostcardBrowseView: View {
             }
         }
         .sheet(isPresented: $isNotificationInboxPresented) {
-            NotificationInboxView { route in
-                routeNotificationInboxItem(route)
+            EventInboxView { route in
+                routeEventInboxItem(route)
             }
             .environmentObject(notificationInbox)
         }
@@ -246,7 +246,7 @@ struct PostcardBrowseView: View {
 
     /// Shared top action bar for honey amount, search, and create actions.
     private var headerBar: some View {
-        BrowseViewTopActionBar(
+        TopActionBar(
             honey: session.honey,
             stars: session.stars,
             onSearch: {
@@ -289,7 +289,7 @@ struct PostcardBrowseView: View {
 
     /// Routes a tapped notification inbox row into existing app-level deep-link channels.
     /// - Parameter route: Inbox route metadata attached to the tapped row.
-    private func routeNotificationInboxItem(_ route: NotificationInboxRoute) {
+    private func routeEventInboxItem(_ route: EventInboxRoute) {
         switch route.kind {
         case .room:
             guard let roomId = route.roomId, roomId.isEmpty == false else { return }
@@ -463,15 +463,12 @@ private struct PostcardOwnershipTagChip: View {
 
     /// Tag chip UI used for on-shelf/ordered markers.
     var body: some View {
-        Text(titleKey)
-            .font(.caption2.weight(.semibold))
-            .lineLimit(1)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .foregroundStyle(.white)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.blue)
-            )
+        ColorfulTag(
+            titleKey: titleKey,
+            tone: .ownership,
+            horizontalPadding: 8,
+            verticalPadding: 4,
+            font: .caption2.weight(.semibold)
+        )
     }
 }

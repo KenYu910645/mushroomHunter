@@ -1,23 +1,23 @@
 //
-//  NotificationInboxView.swift
+//  EventInboxView.swift
 //  mushroomHunter
 //
 //  Purpose:
 //  - Renders the in-app notification inbox list and unread/read states.
 //
 //  Defined in this file:
-//  - NotificationInboxView and row presentation helpers.
+//  - EventInboxView and row presentation helpers.
 //
 import SwiftUI
 
 /// In-app notification inbox list that opens route actions on row tap.
-struct NotificationInboxView: View {
+struct EventInboxView: View {
     /// Dismiss action for this modal screen.
     @Environment(\.dismiss) private var dismiss
     /// Shared notification inbox state.
-    @EnvironmentObject private var notificationInbox: NotificationInboxStore
+    @EnvironmentObject private var notificationInbox: EventInboxStore
     /// Callback fired when user opens one notification route.
-    let onOpenRoute: (NotificationInboxRoute) -> Void
+    let onOpenRoute: (EventInboxRoute) -> Void
 
     /// Main inbox screen content.
     var body: some View {
@@ -37,7 +37,7 @@ struct NotificationInboxView: View {
                             onOpenRoute(item.route)
                             dismiss()
                         } label: {
-                            NotificationInboxRow(item: item)
+                            EventInboxRow(item: item)
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("notification_inbox_item_\(item.id)")
@@ -76,9 +76,9 @@ struct NotificationInboxView: View {
 }
 
 /// One notification row with unread indicators and message summary.
-private struct NotificationInboxRow: View {
+private struct EventInboxRow: View {
     /// Notification payload rendered by this row.
-    let item: NotificationInboxItem
+    let item: EventInboxItem
 
     /// Relative receive-time text.
     private var receivedAtText: String {

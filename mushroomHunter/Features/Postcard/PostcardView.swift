@@ -332,18 +332,18 @@ struct PostcardView: View {
         }
         .overlay {
             if isBuyConfirmDialogPresented {
-                HoneyMessageBox(
+                MessageBox(
                     title: NSLocalizedString("postcard_msg_purchase_title", comment: ""),
                     message: purchaseConfirmMessage,
                     buttons: [
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_buy_confirm_order",
                             title: NSLocalizedString("postcard_msg_purchase_order_button", comment: "")
                         ) {
                             isBuyConfirmDialogPresented = false
                             Task { await buyPostcard() }
                         },
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_buy_confirm_cancel",
                             title: NSLocalizedString("postcard_msg_purchase_cancel_button", comment: ""),
                             role: .cancel
@@ -353,18 +353,18 @@ struct PostcardView: View {
                     ]
                 )
             } else if isReceiveConfirmAlertPresented {
-                HoneyMessageBox(
+                MessageBox(
                     title: NSLocalizedString("postcard_msg_receive_confirm_title", comment: ""),
                     message: NSLocalizedString("postcard_msg_receive_confirm_message", comment: ""),
                     buttons: [
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_receive_confirm_confirm",
                             title: NSLocalizedString("postcard_msg_receive_confirm_received_button", comment: "")
                         ) {
                             isReceiveConfirmAlertPresented = false
                             Task { await confirmReceive() }
                         },
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_receive_confirm_cancel",
                             title: NSLocalizedString("common_cancel", comment: ""),
                             role: .cancel
@@ -374,11 +374,11 @@ struct PostcardView: View {
                     ]
                 )
             } else if isBuySuccessAlertPresented {
-                HoneyMessageBox(
+                MessageBox(
                     title: NSLocalizedString("postcard_msg_buy_success_title", comment: ""),
                     message: NSLocalizedString("postcard_msg_buy_success_message", comment: ""),
                     buttons: [
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_buy_success_ok",
                             title: NSLocalizedString("common_ok", comment: "")
                         ) {
@@ -387,11 +387,11 @@ struct PostcardView: View {
                     ]
                 )
             } else if isReceiveSuccessAlertPresented {
-                HoneyMessageBox(
+                MessageBox(
                     title: NSLocalizedString("postcard_msg_receive_success_title", comment: ""),
                     message: receiveSuccessMessage,
                     buttons: [
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_receive_success_ok",
                             title: NSLocalizedString("common_ok", comment: "")
                         ) {
@@ -400,11 +400,11 @@ struct PostcardView: View {
                     ]
                 )
             } else if isBuyErrorAlertPresented {
-                HoneyMessageBox(
+                MessageBox(
                     title: NSLocalizedString("common_error", comment: ""),
                     message: buyErrorMessage,
                     buttons: [
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_buy_error_ok",
                             title: NSLocalizedString("common_ok", comment: "")
                         ) {

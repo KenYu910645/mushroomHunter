@@ -9,7 +9,7 @@
 
 ## Related Files
 - `mushroomHunter/Utilities/AppDataCache.swift`: app-level Codable payload cache (memory + disk).
-- `mushroomHunter/Features/Shared/CachedPostcardImageView.swift`: postcard image cache/view wrapper.
+- `mushroomHunter/Features/Postcard/PostcardImageCache.swift`: postcard image cache/view wrapper.
 - `mushroomHunter/Features/Mushroom/RoomBrowseViewModel.swift`: browse cache read/write flow.
 - `mushroomHunter/Features/Mushroom/RoomViewModel.swift`: room-detail cache read/write/remove flow.
 - `mushroomHunter/Utilities/AppConfig.swift`: postcard cache tuning knobs.

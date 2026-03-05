@@ -5,8 +5,10 @@
 - `mushroomHunter/Features/Profile/ProfileCreateEditView.swift`: shared profile form used by profile edit and onboarding profile creation.
 - `mushroomHunter/Features/Profile/FeedbackView.swift`: in-app feedback compose view and submission payload model.
 - `mushroomHunter/Features/Profile/AboutView.swift`: settings-linked about page with contact links.
-- `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared top action bar in honey+stars display mode.
-- `mushroomHunter/Features/Shared/HoneyMessageBox.swift`: shared confirmation/success dialog used by feedback/profile flows.
+- `mushroomHunter/Features/EventInbox/EventInboxView.swift`: shared in-app event inbox sheet opened from the profile top-right bell.
+- `mushroomHunter/Features/EventInbox/EventInboxStore.swift`: shared Firestore-backed event history state used by the bell badge and inbox list.
+- `mushroomHunter/Features/Shared/TopActionBar.swift`: shared top action bar in honey+stars display mode.
+- `mushroomHunter/Features/Shared/MessageBox.swift`: shared confirmation/success dialog used by feedback/profile flows.
 - `mushroomHunter/Services/Firebase/FeedbackRepo.swift`: writes feedback payloads to Firestore `feedbackSubmissions`.
 - `mushroomHunter/Services/Firebase/ProfileListRepo.swift`: hosted/joined room summary reads used for profile badge aggregation and mushroom browse pinning.
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`: on-shelf/ordered postcard reads used for profile badge aggregation and postcard browse pinning.
@@ -16,7 +18,9 @@
 ## Feature Coverage
 - Profile tab now focuses on account management only:
   - Display name and friend code (read-only identity rows).
-  - Top-right settings sheet entry.
+  - Top-right bell entry opens the shared event inbox sheet.
+  - Top-right settings icon was removed.
+  - `Settings` button now appears in the form section above `Sign Out`, and opens the same settings sheet as before.
   - Settings routes now include `Edit Profile`, `Feedback`, `Help`, and `About`.
   - Sign-out action now shows a confirmation dialog (`Are you sure you want to sign out?`) before session sign-out executes.
 - Mushroom and postcard owned activity lists were removed from profile and moved into browse tabs:

@@ -1,5 +1,5 @@
 //
-//  HoneyMessageBox.swift
+//  MessageBox.swift
 //  mushroomHunter
 //
 //  Purpose:
@@ -9,7 +9,7 @@ import SwiftUI
 import UIKit
 
 /// Button style role used by the shared message box.
-enum HoneyMessageBoxButtonRole {
+enum MessageBoxButtonRole {
     /// Default neutral action.
     case normal
     /// Lower-emphasis neutral action used for non-primary choices.
@@ -21,18 +21,18 @@ enum HoneyMessageBoxButtonRole {
 }
 
 /// Button model rendered by the shared message box.
-struct HoneyMessageBoxButton: Identifiable {
+struct MessageBoxButton: Identifiable {
     /// Stable identity for SwiftUI list rendering.
     let id: String
     /// Visible button title.
     let title: String
     /// Visual role for color styling.
-    let role: HoneyMessageBoxButtonRole
+    let role: MessageBoxButtonRole
     /// Action callback invoked when tapped.
     let action: () -> Void
 
     /// Initializes one message-box button model.
-    init(id: String, title: String, role: HoneyMessageBoxButtonRole = .normal, action: @escaping () -> Void) {
+    init(id: String, title: String, role: MessageBoxButtonRole = .normal, action: @escaping () -> Void) {
         self.id = id
         self.title = title
         self.role = role
@@ -41,7 +41,7 @@ struct HoneyMessageBoxButton: Identifiable {
 }
 
 /// Shared custom message box with title, tokenized message, and action buttons.
-struct HoneyMessageBox: View {
+struct MessageBox: View {
     /// Message token replaced by inline honey icon when rendering message text.
     private let honeyIconToken: String = "{honey_icon}"
     /// Inline honey icon square size in points, centralized in app config.
@@ -51,7 +51,7 @@ struct HoneyMessageBox: View {
     /// Message text shown below title. Supports `{honey_icon}` token.
     let message: String
     /// Action buttons shown at the bottom of the dialog.
-    let buttons: [HoneyMessageBoxButton]
+    let buttons: [MessageBoxButton]
 
     /// Shared custom message-box layout.
     var body: some View {
@@ -139,7 +139,7 @@ struct HoneyMessageBox: View {
     }
 
     /// Ordered two-button actions that always place cancel on the right side.
-    private var orderedTwoButtons: [HoneyMessageBoxButton] {
+    private var orderedTwoButtons: [MessageBoxButton] {
         guard buttons.count == 2 else { return buttons }
         let hasCancelButton = buttons.contains { $0.role == .cancel }
         guard hasCancelButton else { return buttons }
@@ -153,21 +153,21 @@ struct HoneyMessageBox: View {
     }
 
     /// Builds one styled action button in the shared message box.
-    private func buttonView(_ button: HoneyMessageBoxButton) -> some View {
+    private func buttonView(_ button: MessageBoxButton) -> some View {
         Button {
             button.action()
         } label: {
             Text(button.title)
                 .frame(maxWidth: .infinity)
         }
-        .modifier(HoneyMessageBoxButtonStyleModifier(role: button.role))
+        .modifier(MessageBoxButtonStyleModifier(role: button.role))
     }
 }
 
 /// Shared button-style adapter used by message-box actions.
-private struct HoneyMessageBoxButtonStyleModifier: ViewModifier {
+private struct MessageBoxButtonStyleModifier: ViewModifier {
     /// Button role used to select style and color treatment.
-    let role: HoneyMessageBoxButtonRole
+    let role: MessageBoxButtonRole
 
     /// Applies style for one message-box action button.
     func body(content: Content) -> some View {

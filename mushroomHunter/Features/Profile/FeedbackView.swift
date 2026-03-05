@@ -63,7 +63,7 @@ struct FeedbackView: View {
     private var formContent: some View {
         Form {
             Section {
-                SelectAllTextField(
+                SmartTextField(
                     placeholderKey: "feedback_subject_placeholder",
                     text: $subject,
                     isFirstResponder: $isSubjectFieldFocused,
@@ -72,7 +72,7 @@ struct FeedbackView: View {
                 .frame(height: 22)
                 .accessibilityIdentifier("feedback_subject_field")
 
-                SelectAllTextEditor(
+                SmartTextEditor(
                     text: $messageText,
                     isFirstResponder: $isMessageFieldFocused,
                     autocapitalization: .sentences,
@@ -129,11 +129,11 @@ struct FeedbackView: View {
                 }
                 .overlay {
                     if isSubmissionErrorAlertPresented {
-                        HoneyMessageBox(
+                        MessageBox(
                             title: NSLocalizedString("feedback_submit_failed_title", comment: ""),
                             message: submissionError ?? NSLocalizedString("feedback_submit_failed_message", comment: ""),
                             buttons: [
-                                HoneyMessageBoxButton(
+                                MessageBoxButton(
                                     id: "feedback_submit_error_done",
                                     title: NSLocalizedString("common_done", comment: "")
                                 ) {

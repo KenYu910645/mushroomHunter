@@ -1,16 +1,16 @@
 //
-//  BrowseViewTopActionBar.swift
+//  TopActionBar.swift
 //  mushroomHunter
 //
 //  Purpose:
 //  - Provides a reusable top action bar with honey display and search/create buttons.
 //
 //  Defined in this file:
-//  - BrowseViewTopActionBar: shared browse header UI used by Mushroom and Postcard tabs.
+//  - TopActionBar: shared browse header UI used by Mushroom and Postcard tabs.
 //
 import SwiftUI
 
-struct BrowseViewTopActionBar: View {
+struct TopActionBar: View {
     let honey: Int
     let stars: Int
     let onSearch: (() -> Void)?
@@ -49,46 +49,25 @@ struct BrowseViewTopActionBar: View {
     var body: some View {
         HStack {
             HStack(spacing: 8) {
-                HStack(spacing: 4) {
-                    Image("HoneyIcon")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 16, height: 16)
-                    Text("\(honey)")
-                        .foregroundStyle(Color.orange)
-                        .monospacedDigit()
-                }
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.orange.opacity(0.14))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Color.orange.opacity(0.35), lineWidth: 1)
-                )
-
-                if isStarsVisible {
+                ColorfulTag(tone: .honey, font: .subheadline.weight(.semibold)) {
                     HStack(spacing: 4) {
-                        Image(systemName: "star.fill")
-                            .foregroundStyle(Color.yellow)
-                        Text("\(stars)")
-                            .foregroundStyle(Color.yellow)
+                        Image("HoneyIcon")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 16, height: 16)
+                        Text("\(honey)")
                             .monospacedDigit()
                     }
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.yellow.opacity(0.14))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Color.yellow.opacity(0.35), lineWidth: 1)
-                    )
+                }
+
+                if isStarsVisible {
+                    ColorfulTag(tone: .star, font: .subheadline.weight(.semibold)) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "star.fill")
+                            Text("\(stars)")
+                                .monospacedDigit()
+                        }
+                    }
                 }
             }
 

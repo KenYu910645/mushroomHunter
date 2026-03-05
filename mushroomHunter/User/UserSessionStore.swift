@@ -141,6 +141,46 @@ final class UserSessionStore: ObservableObject {
         profileActionBadgeCount = max(0, count)
     }
 
+    /// Updates user stars locally and syncs stars/profile snapshot updates to backend.
+    /// - Parameter newValue: New stars value that will be clamped to zero minimum.
+    func updateStars(_ newValue: Int) {
+        stars = max(0, newValue)
+        persistScopedInt(kStars, value: stars)
+
+        Task { await syncProfileFields(["stars": stars]) }
+        Task { await syncHostedRoomProfile(stars: stars) }
+    }
+
+    /// Checks whether current honey balance can pay a requested amount.
+    /// - Parameter amount: Honey amount to validate.
+    /// - Returns: `true` when the amount is non-negative and balance is sufficient.
+    func canAffordHoney(_ amount: Int) -> Bool {
+        guard amount >= 0 else { return false }
+        return honey >= amount
+    }
+
+    /// Deducts honey locally when balance is sufficient.
+    /// - Parameter amount: Honey amount to spend.
+    /// - Returns: `true` when deduction succeeds.
+    @discardableResult
+    func spendHoney(_ amount: Int) -> Bool {
+        guard amount >= 0, honey >= amount else { return false }
+
+        honey -= amount
+        persistScopedInt(kHoney, value: honey)
+        return true
+    }
+
+    /// Adds honey locally and syncs latest balance to backend.
+    /// - Parameter amount: Honey amount to add.
+    func addHoney(_ amount: Int) {
+        guard amount > 0 else { return }
+
+        honey += amount
+        persistScopedInt(kHoney, value: honey)
+        Task { await syncProfileFields(["honey": honey]) }
+    }
+
     private func loadLocalProfile(for uid: String) { // Loads user-scoped profile values from local persistence.
         if let name = UserDefaults.standard.string(forKey: scopedKey(kDisplayName, uid: uid)) {
             displayName = name

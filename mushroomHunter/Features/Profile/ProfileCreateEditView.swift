@@ -1,5 +1,5 @@
 //
-//  ProfileFormView.swift
+//  ProfileCreateEditView.swift
 //  mushroomHunter
 //
 //  Purpose:
@@ -9,7 +9,7 @@ import SwiftUI
 import UIKit
 
 /// Shared profile form used in create and edit flows.
-struct ProfileFormView: View {
+struct ProfileCreateEditView: View {
     /// Supported form presentation modes.
     enum Mode {
         /// First-time profile creation flow shown after sign-in.
@@ -104,7 +104,7 @@ struct ProfileFormView: View {
             }
             .scrollDismissesKeyboard(.immediately)
             .background(
-                OutsideTapKeyboardDismissBridge {
+                KeyboardDismissBridge {
                     dismissKeyboard()
                 }
             )
@@ -129,11 +129,11 @@ struct ProfileFormView: View {
             }
             .overlay {
                 if showValidationAlert {
-                    HoneyMessageBox(
+                    MessageBox(
                         title: NSLocalizedString("create_profile_error_title", comment: ""),
                         message: NSLocalizedString("create_profile_error_message", comment: ""),
                         buttons: [
-                            HoneyMessageBoxButton(
+                            MessageBoxButton(
                                 id: "profile_form_validation_ok",
                                 title: NSLocalizedString("common_ok", comment: "")
                             ) {
@@ -155,7 +155,7 @@ struct ProfileFormView: View {
             HStack {
                 Text(LocalizedStringKey("profile_name"))
                 Spacer()
-                SelectAllTextField(
+                SmartTextField(
                     placeholderKey: "profile_name_placeholder",
                     text: $name,
                     isFirstResponder: $nameFieldFocused,
@@ -187,7 +187,7 @@ struct ProfileFormView: View {
             HStack {
                 Text(LocalizedStringKey("profile_friend_code"))
                 Spacer()
-                SelectAllTextField(
+                SmartTextField(
                     placeholderKey: "profile_friend_code_placeholder",
                     text: $friendCode,
                     isFirstResponder: $friendCodeFieldFocused,

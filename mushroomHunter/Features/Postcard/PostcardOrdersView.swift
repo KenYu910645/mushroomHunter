@@ -122,7 +122,7 @@ struct PostcardOrdersView: View {
         }
         .overlay {
             if let recipient = pendingSentConfirmationRecipient {
-                HoneyMessageBox(
+                MessageBox(
                     title: NSLocalizedString("postcard_msg_sent_confirm_title", comment: ""),
                     message: String(
                         format: NSLocalizedString("postcard_msg_sent_confirm_message_format", comment: ""),
@@ -130,14 +130,14 @@ struct PostcardOrdersView: View {
                         recipient.buyerName
                     ),
                     buttons: [
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_shipping_sent_confirm_yes",
                             title: NSLocalizedString("postcard_msg_sent_confirm_yes_button", comment: "")
                         ) {
                             pendingSentConfirmationRecipient = nil
                             Task { await markSent(recipient) }
                         },
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_shipping_sent_confirm_cancel",
                             title: NSLocalizedString("common_cancel", comment: ""),
                             role: .cancel
@@ -147,11 +147,11 @@ struct PostcardOrdersView: View {
                     ]
                 )
             } else if let recipient = pendingRejectConfirmationRecipient {
-                HoneyMessageBox(
+                MessageBox(
                     title: NSLocalizedString("postcard_msg_reject_confirm_title", comment: ""),
                     message: NSLocalizedString("postcard_msg_reject_confirm_message", comment: ""),
                     buttons: [
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_shipping_reject_confirm_reject",
                             title: NSLocalizedString("postcard_msg_reject_confirm_reject_button", comment: ""),
                             role: .destructive
@@ -159,7 +159,7 @@ struct PostcardOrdersView: View {
                             pendingRejectConfirmationRecipient = nil
                             Task { await rejectOrder(recipient) }
                         },
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_shipping_reject_confirm_cancel",
                             title: NSLocalizedString("common_cancel", comment: ""),
                             role: .cancel
@@ -169,11 +169,11 @@ struct PostcardOrdersView: View {
                     ]
                 )
             } else if isShipSuccessAlertPresented {
-                HoneyMessageBox(
+                MessageBox(
                     title: NSLocalizedString("postcard_msg_shipping_sent_title", comment: ""),
                     message: NSLocalizedString("postcard_msg_shipping_sent_message", comment: ""),
                     buttons: [
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "postcard_shipping_sent_ok",
                             title: NSLocalizedString("common_ok", comment: "")
                         ) {

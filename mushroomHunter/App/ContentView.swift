@@ -24,7 +24,7 @@ struct ContentView: View {
                     if session.isProfileComplete || AppTesting.isUITesting {
                         MainTabView()
                     } else {
-                        ProfileFormView(mode: .create)
+                        ProfileCreateEditView(mode: .create)
                     }
                 } else {
                     LoginView()

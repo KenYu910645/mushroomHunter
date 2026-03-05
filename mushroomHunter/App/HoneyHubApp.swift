@@ -21,7 +21,7 @@ struct HoneyHubApp: App {
     /// Stores sign-in and profile completion state shared across root views.
     @StateObject private var session = UserSessionStore()
     /// Stores in-app notification inbox state shared across tabs.
-    @StateObject private var notificationInbox = NotificationInboxStore.shared
+    @StateObject private var notificationInbox = EventInboxStore.shared
 
     /// Configures Firebase before any app view is rendered.
     init() {
@@ -88,7 +88,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         Task { @MainActor in
-            NotificationInboxStore.shared.appendPushNotification(
+            EventInboxStore.shared.appendPushNotification(
                 userInfo: notification.request.content.userInfo,
                 title: notification.request.content.title,
                 message: notification.request.content.body
@@ -104,7 +104,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         Task { @MainActor in
-            NotificationInboxStore.shared.appendPushNotification(
+            EventInboxStore.shared.appendPushNotification(
                 userInfo: response.notification.request.content.userInfo,
                 title: response.notification.request.content.title,
                 message: response.notification.request.content.body

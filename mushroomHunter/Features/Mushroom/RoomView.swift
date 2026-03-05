@@ -164,7 +164,7 @@ struct RoomView: View {
                                     .padding(.top, 8)
                                     .padding(.leading, 6)
                             }
-                            SelectAllTextEditor(
+                            SmartTextEditor(
                                 text: $joinGreetingMessage,
                                 isFirstResponder: $isJoinGreetingFocused,
                                 autocapitalization: .sentences,
@@ -671,11 +671,11 @@ struct RoomView: View {
     @ViewBuilder
     private var messageBoxOverlay: some View {
         if showRaidThanksAlert {
-            HoneyMessageBox(
+            MessageBox(
                 title: NSLocalizedString("room_msg_raid_thanks_title", comment: ""),
                 message: String(format: NSLocalizedString("room_msg_raid_thanks_message", comment: ""), raidThanksHoney),
                 buttons: [
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_raid_thanks_ok",
                         title: NSLocalizedString("common_ok", comment: "")
                     ) {
@@ -690,11 +690,11 @@ struct RoomView: View {
                 ]
             )
         } else if isShowingNoFaultSettlementAlert {
-            HoneyMessageBox(
+            MessageBox(
                 title: NSLocalizedString("room_msg_settlement_no_fault_title", comment: ""),
                 message: String(format: NSLocalizedString("room_msg_settlement_no_fault_message", comment: ""), noFaultSettlementHoney),
                 buttons: [
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_settlement_no_fault_ok",
                         title: NSLocalizedString("common_ok", comment: "")
                     ) {
@@ -703,11 +703,11 @@ struct RoomView: View {
                 ]
             )
         } else if showAttendeeRateHostAlert {
-            HoneyMessageBox(
+            MessageBox(
                 title: String(format: NSLocalizedString("room_msg_rate_host_title", comment: ""), vm.room?.hostName ?? "Host"),
                 message: "",
                 buttons: [
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_rate_host_one",
                         title: NSLocalizedString("room_msg_rate_one_star", comment: ""),
                         role: .quiet
@@ -718,7 +718,7 @@ struct RoomView: View {
                             presentNextRoundAlertIfNeeded()
                         }
                     },
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_rate_host_two",
                         title: NSLocalizedString("room_msg_rate_two_stars", comment: ""),
                         role: .quiet
@@ -729,7 +729,7 @@ struct RoomView: View {
                             presentNextRoundAlertIfNeeded()
                         }
                     },
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_rate_host_three",
                         title: NSLocalizedString("room_msg_rate_three_stars", comment: ""),
                         role: .quiet
@@ -740,7 +740,7 @@ struct RoomView: View {
                             presentNextRoundAlertIfNeeded()
                         }
                     },
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_rate_host_cancel",
                         title: NSLocalizedString("common_cancel", comment: ""),
                         role: .cancel
@@ -751,11 +751,11 @@ struct RoomView: View {
                 ]
             )
         } else if showHostRateAttendeeAlert {
-            HoneyMessageBox(
+            MessageBox(
                 title: String(format: NSLocalizedString("room_msg_rate_attendee_title", comment: ""), hostRateAttendeeName),
                 message: "",
                 buttons: [
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_rate_attendee_one",
                         title: NSLocalizedString("room_msg_rate_one_star", comment: ""),
                         role: .quiet
@@ -767,7 +767,7 @@ struct RoomView: View {
                             presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
                         }
                     },
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_rate_attendee_two",
                         title: NSLocalizedString("room_msg_rate_two_stars", comment: ""),
                         role: .quiet
@@ -779,7 +779,7 @@ struct RoomView: View {
                             presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
                         }
                     },
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_rate_attendee_three",
                         title: NSLocalizedString("room_msg_rate_three_stars", comment: ""),
                         role: .quiet
@@ -791,7 +791,7 @@ struct RoomView: View {
                             presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
                         }
                     },
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_rate_attendee_cancel",
                         title: NSLocalizedString("common_cancel", comment: ""),
                         role: .cancel
@@ -802,18 +802,18 @@ struct RoomView: View {
                 ]
             )
         } else if showNextRoundAlert {
-            HoneyMessageBox(
+            MessageBox(
                 title: NSLocalizedString("room_msg_next_round_title", comment: ""),
                 message: NSLocalizedString("room_msg_next_round_message", comment: ""),
                 buttons: [
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_next_round_update_bid",
                         title: NSLocalizedString("room_update_bid", comment: "")
                     ) {
                         showNextRoundAlert = false
                         showDepositSheet = true
                     },
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_next_round_leave",
                         title: NSLocalizedString("room_leave_room", comment: ""),
                         role: .destructive
@@ -825,11 +825,11 @@ struct RoomView: View {
                 ]
             )
         } else if showJoinConfirmAlert, let room = vm.room {
-            HoneyMessageBox(
+            MessageBox(
                 title: NSLocalizedString("room_msg_join_confirm_title", comment: ""),
                 message: String(format: NSLocalizedString("room_msg_join_confirm_message", comment: ""), joinDepositAmount),
                 buttons: [
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_join_confirm_yes",
                         title: NSLocalizedString("room_msg_join_confirm_confirm_button", comment: "")
                     ) {
@@ -845,7 +845,7 @@ struct RoomView: View {
                             }
                         }
                     },
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_join_confirm_cancel",
                         title: NSLocalizedString("common_cancel", comment: ""),
                         role: .cancel
@@ -855,11 +855,11 @@ struct RoomView: View {
                 ]
             )
         } else if showNotEnoughHoneyAlert {
-            HoneyMessageBox(
+            MessageBox(
                 title: NSLocalizedString("room_msg_not_enough_honey_title", comment: ""),
                 message: String(format: NSLocalizedString("room_msg_not_enough_honey_message", comment: ""), session.honey),
                 buttons: [
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_not_enough_honey_ok",
                         title: NSLocalizedString("common_ok", comment: "")
                     ) {
@@ -868,11 +868,11 @@ struct RoomView: View {
                 ]
             )
         } else if showJoinSuccessAlert {
-            HoneyMessageBox(
+            MessageBox(
                 title: NSLocalizedString("room_msg_join_success_title", comment: ""),
                 message: NSLocalizedString("room_msg_join_success_message", comment: ""),
                 buttons: [
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_join_success_ok",
                         title: NSLocalizedString("common_ok", comment: "")
                     ) {
@@ -881,11 +881,11 @@ struct RoomView: View {
                 ]
             )
         } else if vm.showJoinLimitAlert {
-            HoneyMessageBox(
+            MessageBox(
                 title: NSLocalizedString("room_msg_join_limit_title", comment: ""),
                 message: vm.joinLimitMessage,
                 buttons: [
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_join_limit_ok",
                         title: NSLocalizedString("common_ok", comment: "")
                     ) {
@@ -894,11 +894,11 @@ struct RoomView: View {
                 ]
             )
         } else if showUpdateDepositSuccessAlert {
-            HoneyMessageBox(
+            MessageBox(
                 title: NSLocalizedString("room_msg_update_deposit_success_title", comment: ""),
                 message: String(format: NSLocalizedString("room_msg_update_deposit_success_message", comment: ""), updateDepositOldAmount, updateDepositNewAmount),
                 buttons: [
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_update_deposit_success_ok",
                         title: NSLocalizedString("common_ok", comment: "")
                     ) {
@@ -907,11 +907,11 @@ struct RoomView: View {
                 ]
             )
         } else if showLeaveConfirmAlert {
-            HoneyMessageBox(
+            MessageBox(
                 title: NSLocalizedString("room_msg_leave_confirm_title", comment: ""),
                 message: String(format: NSLocalizedString("room_msg_leave_confirm_message", comment: ""), leaveRoomName),
                 buttons: [
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_leave_confirm_yes",
                         title: NSLocalizedString("common_yes", comment: ""),
                         role: .destructive
@@ -921,7 +921,7 @@ struct RoomView: View {
                             await vm.leave()
                         }
                     },
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_leave_confirm_cancel",
                         title: NSLocalizedString("common_cancel", comment: ""),
                         role: .cancel
@@ -931,11 +931,11 @@ struct RoomView: View {
                 ]
             )
         } else if showClaimConfirmAlert {
-            HoneyMessageBox(
+            MessageBox(
                 title: NSLocalizedString("room_msg_claim_confirm_title", comment: ""),
                 message: claimConfirmMessage(),
                 buttons: [
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_claim_confirm_yes",
                         title: NSLocalizedString("common_yes", comment: "")
                     ) {
@@ -949,7 +949,7 @@ struct RoomView: View {
                             }
                         }
                     },
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_claim_confirm_cancel",
                         title: NSLocalizedString("common_cancel", comment: ""),
                         role: .cancel
@@ -959,11 +959,11 @@ struct RoomView: View {
                 ]
             )
         } else if showClaimSentAlert {
-            HoneyMessageBox(
+            MessageBox(
                 title: NSLocalizedString("room_msg_claim_sent_title", comment: ""),
                 message: NSLocalizedString("room_msg_claim_sent_message", comment: ""),
                 buttons: [
-                    HoneyMessageBoxButton(
+                    MessageBoxButton(
                         id: "room_claim_sent_ok",
                         title: NSLocalizedString("common_ok", comment: "")
                     ) {
@@ -1272,9 +1272,9 @@ private struct RoomRaidHistoryView: View {
                                     .font(.headline)
                                     .lineLimit(1)
                                 Spacer()
-                                ProfileStatusBadge(
+                                ColorfulTag(
                                     titleKey: attendeeResult.status.statusTitleKey,
-                                    urgency: attendeeResult.status.statusUrgency
+                                    tone: attendeeResult.status.statusUrgency
                                 )
                             }
                         }
@@ -1313,15 +1313,15 @@ extension RoomRaidConfirmationAttendeeStatus {
         }
     }
 
-    /// Badge urgency that maps status to existing rounded-rectangle badge colors.
-    fileprivate var statusUrgency: ProfileStatusUrgency {
+    /// Tag tone mapping for host raid-history status chips.
+    fileprivate var statusUrgency: ColorfulTagTone {
         switch self {
         case .confirming, .seatFull:
-            return .warning
+            return .waiting
         case .joined:
-            return .success
+            return .ready
         case .noInvite:
-            return .critical
+            return .rejected
         }
     }
 }
@@ -1356,15 +1356,15 @@ private struct AttendeeRow: View {
         return LocalizedStringKey("room_status_ready")
     }
 
-    /// Badge urgency mapped from current attendee status.
-    private var statusUrgency: ProfileStatusUrgency {
+    /// Tag tone mapped from current attendee status.
+    private var statusUrgency: ColorfulTagTone {
         if isHostAttendee {
-            return .neutral
+            return .host
         }
         if isAskingToJoin || isPendingConfirmation {
-            return .warning
+            return .waiting
         }
-        return .success
+        return .ready
     }
 
     var body: some View {
@@ -1396,54 +1396,33 @@ private struct AttendeeRow: View {
             }
 
             HStack(spacing: 10) {
-                ProfileStatusBadge(
+                ColorfulTag(
                     titleKey: statusTitleKey,
-                    urgency: statusUrgency
+                    tone: statusUrgency
                 )
 
                 Spacer()
 
                 if !isHostAttendee {
-                    HStack(spacing: 4) {
-                        Image("HoneyIcon")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 16, height: 16)
-                        Text(String(format: NSLocalizedString("room_bid_honey_format", comment: ""), attendee.depositHoney))
-                            .foregroundStyle(Color.orange)
-                            .monospacedDigit()
+                    ColorfulTag(tone: .honey, font: .footnote.weight(.semibold)) {
+                        HStack(spacing: 4) {
+                            Image("HoneyIcon")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 16, height: 16)
+                            Text(String(format: NSLocalizedString("room_bid_honey_format", comment: ""), attendee.depositHoney))
+                                .monospacedDigit()
+                        }
                     }
-                    .font(.footnote.weight(.semibold))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.orange.opacity(0.14))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Color.orange.opacity(0.35), lineWidth: 1)
-                    )
                 }
 
-                HStack(spacing: 4) {
-                    Image(systemName: "star.fill")
-                        .foregroundStyle(Color.yellow)
-                    Text("\(attendee.stars)")
-                        .foregroundStyle(Color.yellow)
-                        .monospacedDigit()
+                ColorfulTag(tone: .star, font: .footnote.weight(.semibold)) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "star.fill")
+                        Text("\(attendee.stars)")
+                            .monospacedDigit()
+                    }
                 }
-                .font(.footnote.weight(.semibold))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.yellow.opacity(0.14))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Color.yellow.opacity(0.35), lineWidth: 1)
-                )
 
                 if isHostViewing && !isHostAttendee && !isAskingToJoin {
                     Menu {
@@ -1479,7 +1458,7 @@ private struct AttendeeRow: View {
                         Text(LocalizedStringKey("room_join_application_accept"))
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(StatusBadgeLikeActionButtonStyle(urgency: .success))
+                    .buttonStyle(StatusBadgeLikeActionButtonStyle(tone: .ready))
                     .accessibilityIdentifier("room_join_application_accept_button_\(attendee.id)")
 
                     Button {
@@ -1488,7 +1467,7 @@ private struct AttendeeRow: View {
                         Text(LocalizedStringKey("room_join_application_reject"))
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(StatusBadgeLikeActionButtonStyle(urgency: .critical))
+                    .buttonStyle(StatusBadgeLikeActionButtonStyle(tone: .rejected))
                     .accessibilityIdentifier("room_join_application_reject_button_\(attendee.id)")
                 }
                 .padding(.top, 2)
@@ -1498,27 +1477,25 @@ private struct AttendeeRow: View {
     }
 }
 
-/// Button style that mirrors `ProfileStatusBadge` rounded label appearance for action chips.
+/// Button style that mirrors `ColorfulTag` rounded label appearance for action chips.
 private struct StatusBadgeLikeActionButtonStyle: ButtonStyle {
-    /// Shared urgency palette used by status badges and these action buttons.
-    let urgency: ProfileStatusUrgency
+    /// Shared colorful-tag tone used by colorful tags and these action buttons.
+    let tone: ColorfulTagTone
 
     /// Renders the button as a rounded badge-like action chip.
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.caption.weight(.semibold))
-            .lineLimit(1)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .foregroundStyle(urgency.foregroundColor)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(urgency.backgroundColor.opacity(configuration.isPressed ? 0.8 : 1))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(urgency.borderColor, lineWidth: 1)
-            )
+        ColorfulTag(
+            tone: tone,
+            horizontalPadding: 0,
+            verticalPadding: 0,
+            font: .caption.weight(.semibold)
+        ) {
+            configuration.label
+                .lineLimit(1)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+        }
+            .opacity(configuration.isPressed ? 0.8 : 1)
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }

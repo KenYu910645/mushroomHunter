@@ -2,8 +2,8 @@
 
 ## Related Files
 - `functions/index.js`: event producers, event-history writes, Action Event resolution, and push emission.
-- `mushroomHunter/User/NotificationInboxStore.swift`: event-history reads, pagination, Action/Record rendering semantics.
-- `mushroomHunter/Features/Shared/NotificationInboxView.swift`: inbox list UI and row tap behavior.
+- `mushroomHunter/Features/EventInbox/EventInboxStore.swift`: event-history reads, pagination, Action/Record rendering semantics.
+- `mushroomHunter/Features/EventInbox/EventInboxView.swift`: inbox list UI and row tap behavior.
 - `mushroomHunter/Features/Mushroom/RoomBrowseView.swift`: mushroom-tab bell tap handler that refreshes inbox before presenting it.
 - `mushroomHunter/Features/Postcard/PostcardBrowseView.swift`: postcard-tab bell tap handler that refreshes inbox before presenting it.
 - `mushroomHunter/App/HoneyHubApp.swift`: APNs tap routing (`room`/`postcard`) and inbox refresh hooks.

@@ -1,17 +1,17 @@
 //
-//  SelectAllTextField.swift
+//  SmartTextField.swift
 //  mushroomHunter
 //
 //  Purpose:
 //  - Provides a shared UIKit-backed text field wrapper that auto-selects text on focus.
 //
 //  Defined in this file:
-//  - SelectAllTextField and coordinator bridge logic.
+//  - SmartTextField and coordinator bridge logic.
 //
 import SwiftUI
 import UIKit
 
-struct SelectAllTextField: UIViewRepresentable {
+struct SmartTextField: UIViewRepresentable {
     let placeholderKey: String
     @Binding var text: String // State or dependency property.
     @Binding var isFirstResponder: Bool // State or dependency property.

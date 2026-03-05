@@ -7,14 +7,14 @@
 - `mushroomHunter/Features/Postcard/PostcardCreateEditView.swift`: consolidated postcard create/edit form implementation.
 - `mushroomHunter/Features/Postcard/PostcardBrowseViewModel.swift`: browse filtering, sorting, and refresh state logic.
 - `mushroomHunter/Features/Postcard/PostcardDomainModel.swift`: postcard listing/order/location models and status enums.
-- `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens (stars hidden on postcard browse).
-- `mushroomHunter/Features/Shared/NotificationInboxView.swift`: shared in-app notification inbox list opened from mushroom/postcard top-right bell actions.
-- `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by postcard form inputs.
-- `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared auto-select text editor wrapper used by postcard description inputs.
-- `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
-- `mushroomHunter/Features/Shared/HoneyMessageBox.swift`: shared custom confirmation/error dialog used across postcard screens.
-- `mushroomHunter/Features/Shared/ProfileStatusBadge.swift`: shared urgency badge + red action-dot UI primitives used by room/postcard status rows.
-- `mushroomHunter/Features/Shared/CachedPostcardImageView.swift`: shared postcard image rendering component.
+- `mushroomHunter/Features/Shared/TopActionBar.swift`: shared honey/search/create header used by browse screens (stars hidden on postcard browse).
+- `mushroomHunter/Features/EventInbox/EventInboxView.swift`: shared in-app notification inbox list opened from mushroom/postcard top-right bell actions.
+- `mushroomHunter/Features/Shared/SmartTextField.swift`: shared auto-select text field wrapper used by postcard form inputs.
+- `mushroomHunter/Features/Shared/SmartTextEditor.swift`: shared auto-select text editor wrapper used by postcard description inputs.
+- `mushroomHunter/Features/Shared/KeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
+- `mushroomHunter/Features/Shared/MessageBox.swift`: shared custom confirmation/error dialog used across postcard screens.
+- `mushroomHunter/Features/Shared/ColorfulTag.swift`: shared colorful tag + red action-dot UI primitives used by room/postcard status rows.
+- `mushroomHunter/Features/Postcard/PostcardImageCache.swift`: shared postcard image rendering component.
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`: Firestore operations for listings, orders, shipping, and receipt confirmation.
 - `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`: image crop/encode/upload to Firebase Storage.
 - `mushroomHunter/Utilities/RoomInviteLink.swift`: postcard invite link generation/parsing for `honeyhub://postcard/{postcardId}`.
@@ -22,7 +22,7 @@
 - `mushroomHunter/Utilities/CountryLocalization.swift`: shared locale-aware country + room-location display resolver used by postcard/room labels.
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed postcard settings (price/stock/text caps, fetch limits, and order timeout windows).
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used across profile, room, and postcard flows.
-- `mushroomHunter/User/NotificationInboxStore.swift`: shared Firestore-backed notification event history pagination, Action/Record state handling, and deep-link route metadata.
+- `mushroomHunter/Features/EventInbox/EventInboxStore.swift`: shared Firestore-backed notification event history pagination, Action/Record state handling, and deep-link route metadata.
 - `mushroomHunter/App/HoneyHubApp.swift`: handles postcard deep-link routing from invite links.
 - `mushroomHunter/App/ContentView.swift`: presents postcard detail sheet when a postcard invite link is opened.
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift`: shared invite QR sheet component reused by postcard detail.
@@ -79,10 +79,10 @@
   - In postcard detail buyer action area:
     - Shows explicit status (`Waiting, seller to ship`, `Shipped, on-the-way`).
     - Shows `Buy` only when no active order exists.
-    - Tapping `Buy` opens the shared custom `HoneyMessageBox` dialog with tokenized text parsing (`{honey_icon}`) rendered as inline text icon content, so text wrapping keeps icon position within sentence flow.
+    - Tapping `Buy` opens the shared custom `MessageBox` dialog with tokenized text parsing (`{honey_icon}`) rendered as inline text icon content, so text wrapping keeps icon position within sentence flow.
     - Inline HoneyIcon size used in tokenized message text is owner-tunable via `AppConfig.SharedUI.honeyMessageIconSize`.
     - Shows `Confirm received, complete transaction` when order is `Shipped` (replaces buy action).
-- Postcard create/edit/delete confirmations, shipping confirmations, buyer receive confirmations, success notices, and error notices all use shared `HoneyMessageBox` (no system alerts/confirmation dialogs).
+- Postcard create/edit/delete confirmations, shipping confirmations, buyer receive confirmations, success notices, and error notices all use shared `MessageBox` (no system alerts/confirmation dialogs).
 - Register/edit forms use left-label and right-input rows.
 - Register/edit forms start with pre-filled defaults for title, price, province, stock, and description (instead of gray placeholder hints).
 - Register/edit forms dismiss keyboard on outside taps (without collapsing during scroll), on keyboard `Enter`/`Done`, and before submit/delete actions, and auto-scroll focused inputs above keyboard overlap.

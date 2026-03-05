@@ -32,6 +32,8 @@ struct ProfileView: View {
 
     /// Shared authenticated session state used across tabs.
     @EnvironmentObject private var session: UserSessionStore
+    /// Shared notification inbox state used by the top-right bell button.
+    @EnvironmentObject private var notificationInbox: EventInboxStore
 
     /// Current color scheme used to keep background styling consistent with app theme.
     @Environment(\.colorScheme) private var colorScheme
@@ -44,6 +46,8 @@ struct ProfileView: View {
 
     /// Shows success alert after feedback submission.
     @State private var isFeedbackSubmittedAlertPresented: Bool = false
+    /// Controls presentation of the event inbox sheet.
+    @State private var isNotificationInboxPresented: Bool = false
 
     /// Controls whether the sign-out confirmation message box is visible.
     @State private var isSignOutConfirmationPresented: Bool = false
@@ -55,7 +59,7 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             Form {
-                BrowseViewTopActionBar(
+                TopActionBar(
                     honey: session.honey,
                     stars: session.stars,
                     onSearch: nil,
@@ -73,6 +77,7 @@ struct ProfileView: View {
                 .listRowBackground(Color.clear)
 
                 accountSection
+                settingsSection
                 signOutSection
             }
             .navigationTitle(LocalizedStringKey("profile_title"))
@@ -81,14 +86,31 @@ struct ProfileView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
-                        activeSheet = .settings
+                        Task { @MainActor in
+                            await notificationInbox.refreshFromServer()
+                            isNotificationInboxPresented = true
+                        }
                     } label: {
-                        Image(systemName: "gearshape")
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "bell")
+                            if notificationInbox.unreadCount > 0 {
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: 4, y: -3)
+                            }
+                        }
                     }
-                    .accessibilityLabel(LocalizedStringKey("settings_title"))
-                    .accessibilityIdentifier("profile_settings_button")
+                    .accessibilityLabel(LocalizedStringKey("browse_notification_accessibility"))
+                    .accessibilityIdentifier("profile_notification_button")
                 }
             }
+        }
+        .sheet(isPresented: $isNotificationInboxPresented) {
+            EventInboxView { route in
+                routeEventInboxItem(route)
+            }
+            .environmentObject(notificationInbox)
         }
         .sheet(item: $activeSheet, onDismiss: {
             if let pendingSheetAfterDismiss, activeSheet == nil {
@@ -129,11 +151,11 @@ struct ProfileView: View {
         }
         .overlay {
             if isFeedbackSubmittedAlertPresented {
-                HoneyMessageBox(
+                MessageBox(
                     title: NSLocalizedString("feedback_submit_success_title", comment: ""),
                     message: NSLocalizedString("feedback_submit_success_message", comment: ""),
                     buttons: [
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "profile_feedback_success_done",
                             title: NSLocalizedString("common_done", comment: "")
                         ) {
@@ -144,11 +166,11 @@ struct ProfileView: View {
             }
 
             if isSignOutConfirmationPresented {
-                HoneyMessageBox(
+                MessageBox(
                     title: NSLocalizedString("profile_sign_out_confirm_title", comment: ""),
                     message: NSLocalizedString("profile_sign_out_confirm_message", comment: ""),
                     buttons: [
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "profile_sign_out_confirm_action",
                             title: NSLocalizedString("profile_sign_out", comment: ""),
                             role: .destructive
@@ -156,7 +178,7 @@ struct ProfileView: View {
                             isSignOutConfirmationPresented = false
                             session.signOut()
                         },
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "profile_sign_out_cancel_action",
                             title: NSLocalizedString("common_cancel", comment: ""),
                             role: .cancel
@@ -192,6 +214,18 @@ struct ProfileView: View {
             .padding(.vertical, 4)
         } header: {
             Text(LocalizedStringKey("profile_id_section"))
+        }
+    }
+
+    /// Section that exposes settings entry above sign-out.
+    private var settingsSection: some View {
+        Section {
+            Button {
+                activeSheet = .settings
+            } label: {
+                Text("Settings")
+            }
+            .accessibilityIdentifier("profile_settings_row_button")
         }
     }
 
@@ -254,6 +288,35 @@ struct ProfileView: View {
                         .accessibilityIdentifier("settings_close_button")
                 }
             }
+        }
+    }
+
+    /// Routes a tapped event inbox row into existing app-level deep-link channels.
+    /// - Parameter route: Inbox route metadata attached to the tapped row.
+    private func routeEventInboxItem(_ route: EventInboxRoute) {
+        switch route.kind {
+        case .room:
+            guard let roomId = route.roomId, roomId.isEmpty == false else { return }
+            if route.isOpeningConfirmationQueue {
+                NotificationCenter.default.post(name: .didOpenRoomConfirmationFromPush, object: roomId)
+            } else {
+                NotificationCenter.default.post(name: .didOpenRoomFromPush, object: roomId)
+            }
+        case .postcard:
+            guard let postcardId = route.postcardId, postcardId.isEmpty == false else { return }
+            if route.isOpeningOrderPage {
+                NotificationCenter.default.post(
+                    name: .didOpenPostcardOrderFromPush,
+                    object: [
+                        "postcardId": postcardId,
+                        "orderId": route.orderId ?? ""
+                    ]
+                )
+            } else {
+                NotificationCenter.default.post(name: .didOpenPostcardFromLink, object: postcardId)
+            }
+        case .none:
+            break
         }
     }
 

@@ -27,7 +27,7 @@ struct RoomBrowsePushRoute: Identifiable, Hashable {
 struct RoomBrowseView: View {
     private let session: UserSessionStore // Session object passed from tab root (honey/profile refresh + child view models).
     @Binding private var pendingPushRoute: RoomBrowsePushRoute? // Pending route provided by app-level notification router.
-    @EnvironmentObject private var notificationInbox: NotificationInboxStore // Shared notification inbox state used by the top-right bell button.
+    @EnvironmentObject private var notificationInbox: EventInboxStore // Shared notification inbox state used by the top-right bell button.
     @StateObject private var vm: RoomBrowseViewModel // Owns loading/filter/join state for this screen.
     @State private var showHostSheet: Bool = false // Controls host-room sheet presentation.
     @State private var pendingJoinListing: RoomListing? = nil // Selected listing for join prompt context.
@@ -114,8 +114,8 @@ struct RoomBrowseView: View {
                 .environmentObject(session)
         }
         .sheet(isPresented: $isNotificationInboxPresented) {
-            NotificationInboxView { route in
-                routeNotificationInboxItem(route)
+            EventInboxView { route in
+                routeEventInboxItem(route)
             }
             .environmentObject(notificationInbox)
         }
@@ -123,7 +123,7 @@ struct RoomBrowseView: View {
             NavigationStack {
                 Form {
                     Section {
-                        SelectAllTextField(
+                        SmartTextField(
                             placeholderKey: "browse_join_bid_placeholder",
                             text: $bidText,
                             isFirstResponder: $bidFieldFocused,
@@ -151,7 +151,7 @@ struct RoomBrowseView: View {
                                     .padding(.top, 8)
                                     .padding(.leading, 6)
                             }
-                            SelectAllTextEditor(
+                            SmartTextEditor(
                                 text: $joinGreetingMessage,
                                 isFirstResponder: $isJoinGreetingFocused,
                                 autocapitalization: .sentences,
@@ -200,11 +200,11 @@ struct RoomBrowseView: View {
         }
         .overlay {
             if vm.showJoinLimitAlert {
-                HoneyMessageBox(
+                MessageBox(
                     title: NSLocalizedString("room_msg_join_limit_title", comment: ""),
                     message: vm.joinLimitMessage,
                     buttons: [
-                        HoneyMessageBoxButton(
+                        MessageBoxButton(
                             id: "room_browse_join_limit_ok",
                             title: NSLocalizedString("common_ok", comment: "")
                         ) {
@@ -235,7 +235,7 @@ struct RoomBrowseView: View {
                             .padding(.horizontal)
                     }
 
-                    BrowseViewTopActionBar(
+                    TopActionBar(
                         honey: session.honey,
                         stars: session.stars,
                         onSearch: {
@@ -425,20 +425,13 @@ struct RoomBrowseView: View {
 
         /// Badge UI for ownership marker.
         var body: some View {
-            Text(titleKey)
-                .font(.caption2.weight(.semibold))
-                .lineLimit(1)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .foregroundStyle(.blue)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.blue.opacity(0.12))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                )
+            ColorfulTag(
+                titleKey: titleKey,
+                tone: .host,
+                horizontalPadding: 8,
+                verticalPadding: 3,
+                font: .caption2.weight(.semibold)
+            )
         }
     }
 
@@ -450,7 +443,7 @@ struct RoomBrowseView: View {
 
     /// Routes a tapped notification inbox row into existing app-level deep-link channels.
     /// - Parameter route: Inbox route metadata attached to the tapped row.
-    private func routeNotificationInboxItem(_ route: NotificationInboxRoute) {
+    private func routeEventInboxItem(_ route: EventInboxRoute) {
         switch route.kind {
         case .room:
             guard let roomId = route.roomId, roomId.isEmpty == false else { return }

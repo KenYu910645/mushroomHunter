@@ -1,5 +1,5 @@
 //
-//  OutsideTapKeyboardDismissBridge.swift
+//  KeyboardDismissBridge.swift
 //  mushroomHunter
 //
 //  Purpose:
@@ -9,7 +9,7 @@ import SwiftUI
 import UIKit
 
 /// Adds a UIKit tap recognizer to dismiss keyboard on outside taps without affecting scroll gestures.
-struct OutsideTapKeyboardDismissBridge: UIViewRepresentable {
+struct KeyboardDismissBridge: UIViewRepresentable {
     /// Callback executed when user taps outside text input controls.
     let onOutsideTap: () -> Void
 

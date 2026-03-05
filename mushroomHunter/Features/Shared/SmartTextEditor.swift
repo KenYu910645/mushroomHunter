@@ -1,17 +1,17 @@
 //
-//  SelectAllTextEditor.swift
+//  SmartTextEditor.swift
 //  mushroomHunter
 //
 //  Purpose:
 //  - Provides a shared UIKit-backed text editor wrapper that auto-selects text on focus.
 //
 //  Defined in this file:
-//  - SelectAllTextEditor and coordinator bridge logic.
+//  - SmartTextEditor and coordinator bridge logic.
 //
 import SwiftUI
 import UIKit
 
-struct SelectAllTextEditor: UIViewRepresentable {
+struct SmartTextEditor: UIViewRepresentable {
     @Binding var text: String // State or dependency property.
     @Binding var isFirstResponder: Bool // State or dependency property.
     var autocapitalization: UITextAutocapitalizationType = .sentences

@@ -9,13 +9,13 @@
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift`: shared invite QR sheet component used by room and postcard screens.
 - `mushroomHunter/Features/Mushroom/RoomViewModel.swift`: room details state, role/join gating logic, and action orchestration.
 - `mushroomHunter/Features/Mushroom/RoomDomainModels.swift`: room/attendee data models and status enums.
-- `mushroomHunter/Features/Shared/BrowseViewTopActionBar.swift`: shared honey/search/create header used by browse screens (stars hidden on mushroom browse).
-- `mushroomHunter/Features/Shared/NotificationInboxView.swift`: shared in-app notification inbox list opened from mushroom/postcard top-right bell actions.
-- `mushroomHunter/Features/Shared/SelectAllTextField.swift`: shared auto-select text field wrapper used by host/profile/profile-create forms.
-- `mushroomHunter/Features/Shared/SelectAllTextEditor.swift`: shared auto-select text editor wrapper used by host description input.
-- `mushroomHunter/Features/Shared/OutsideTapKeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
-- `mushroomHunter/Features/Shared/HoneyMessageBox.swift`: shared custom confirmation/error dialog used across mushroom room screens.
-- `mushroomHunter/Features/Shared/ProfileStatusBadge.swift`: shared urgency badge + red action-dot UI primitives used by room/postcard status rows.
+- `mushroomHunter/Features/Shared/TopActionBar.swift`: shared honey/search/create header used by browse screens (stars hidden on mushroom browse).
+- `mushroomHunter/Features/EventInbox/EventInboxView.swift`: shared in-app notification inbox list opened from mushroom/postcard top-right bell actions.
+- `mushroomHunter/Features/Shared/SmartTextField.swift`: shared auto-select text field wrapper used by host/profile/profile-create forms.
+- `mushroomHunter/Features/Shared/SmartTextEditor.swift`: shared auto-select text editor wrapper used by host description input.
+- `mushroomHunter/Features/Shared/KeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
+- `mushroomHunter/Features/Shared/MessageBox.swift`: shared custom confirmation/error dialog used across mushroom room screens.
+- `mushroomHunter/Features/Shared/ColorfulTag.swift`: shared colorful tag + red action-dot UI primitives used by room/postcard status rows.
 - `mushroomHunter/Services/Firebase/RoomBrowseRepo.swift`: Firestore reads for browsing open rooms.
 - `mushroomHunter/Services/Firebase/ProfileListRepo.swift`: Firestore joined/hosted room summary reads used to pin user-owned rooms on browse top.
 - `mushroomHunter/Services/Firebase/RoomFormRepo.swift`: Firestore writes for host room lifecycle (create/update/close).
@@ -26,7 +26,7 @@
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed mushroom settings (attribute lists, fixed raid defaults, room limits, query limits).
 - `mushroomHunter/Utilities/AppDataCache.swift`: shared app-level Codable payload cache utility.
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used across profile, room, and postcard flows.
-- `mushroomHunter/User/NotificationInboxStore.swift`: shared Firestore-backed notification event history pagination, Action/Record state handling, and deep-link route metadata.
+- `mushroomHunter/Features/EventInbox/EventInboxStore.swift`: shared Firestore-backed notification event history pagination, Action/Record state handling, and deep-link route metadata.
 - `functions/index.js`: server-side push triggers used by mushroom confirmation flows.
 
 ## Feature Coverage
@@ -91,7 +91,7 @@
   - `Give Up`: sets attendee status back to `Ready`.
 - Room confirmation/error feedback uses shared patterns:
   - attendee raid settlement now uses a dedicated queue page opened from a top-right toolbar icon in room details.
-  - join/leave/claim/rating and other confirmations still use shared `HoneyMessageBox` for consistent action layout.
+  - join/leave/claim/rating and other confirmations still use shared `MessageBox` for consistent action layout.
 - Host raid confirmation prompt uses a generic confirmation message without attendee-name list text.
 - Joiner room details now shows a top-right confirmation-queue icon with a red dot when there are pending room confirmations.
 - Joiner confirmation queue page shows all unprocessed confirmations for the current room and renders newest-first ordering.
@@ -114,7 +114,7 @@
   - `Yes, I joined the mushroom`
   - `Yes, but the mushroom is full`
   - `No, I didn't see invitation`
-- Honey-tokenized message text in shared `HoneyMessageBox` renders `HoneyIcon` as true inline text content, so long localized sentences wrap naturally without pushing the icon to the trailing edge.
+- Honey-tokenized message text in shared `MessageBox` renders `HoneyIcon` as true inline text content, so long localized sentences wrap naturally without pushing the icon to the trailing edge.
 - Inline HoneyIcon size used in message-box tokenized text is owner-tunable via `AppConfig.SharedUI.honeyMessageIconSize`.
 - Host room form minimum-payment row now token-renders `host_min_bid_label` so `{honey_icon}` displays as inline `HoneyIcon` instead of raw text.
 - Room details includes invite share tools for host:
@@ -122,7 +122,7 @@
   - Share/copy room invite link using deep link format `honeyhub://room/{roomId}`.
 - Room details copy-feedback toast (`Copied to clipboard`) now uses the same visual style and timing as postcard screens to keep cross-feature behavior consistent.
 - Room header no longer shows `Last Successful Raid`; header now focuses on title, attendee count, location, and description.
-- Room attendee list statuses now use the same rounded-rectangle urgency badge style as Profile status labels (`Host` blue, `Asking/Waiting` orange, `Ready` green).
+- Room attendee list statuses now use the shared colorful tag mapping (`Host` blue, `Asking/Waiting` yellow, `Ready` green).
 - Room attendee star display now uses a yellow rounded badge with star icon to improve readability.
 - Room attendee deposit honey display now uses a rounded orange HoneyIcon badge style to match the star badge treatment.
 - In Room details, host-visible `AskingToJoin` attendee rows now show a tiny red dot before the attendee name to identify the notification source quickly.

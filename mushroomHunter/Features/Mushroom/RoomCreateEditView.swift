@@ -316,7 +316,7 @@ struct RoomCreateEditView: View {
             Form {
                 // Host name
                 Section {
-                    SelectAllTextField(
+                    SmartTextField(
                         placeholderKey: "host_room_name_placeholder",
                         text: $vm.hostName,
                         isFirstResponder: $isNameFirstResponder,
@@ -359,7 +359,7 @@ struct RoomCreateEditView: View {
 
                         Spacer()
 
-                        SelectAllTextField(
+                        SmartTextField(
                             placeholderKey: "host_city_placeholder",
                             text: $vm.city,
                             isFirstResponder: $isAreaFirstResponder,
@@ -394,7 +394,7 @@ struct RoomCreateEditView: View {
 
                 // Other message (100 chars max)
                 Section {
-                    SelectAllTextEditor(
+                    SmartTextEditor(
                         text: $vm.otherMessage,
                         isFirstResponder: $isDescriptionFirstResponder,
                         autocapitalization: .sentences,
@@ -487,7 +487,7 @@ struct RoomCreateEditView: View {
             }
             .scrollDismissesKeyboard(.immediately)
             .background(
-                OutsideTapKeyboardDismissBridge {
+                KeyboardDismissBridge {
                     dismissKeyboard()
                 }
             )
@@ -514,11 +514,11 @@ struct RoomCreateEditView: View {
             }
             .overlay {
                 if vm.showSuccessAlert {
-                    HoneyMessageBox(
+                    MessageBox(
                         title: vm.successAlertTitle,
                         message: vm.successAlertMessage,
                         buttons: [
-                            HoneyMessageBoxButton(
+                            MessageBoxButton(
                                 id: "room_form_success_ok",
                                 title: NSLocalizedString("common_ok", comment: "")
                             ) {
@@ -528,11 +528,11 @@ struct RoomCreateEditView: View {
                         ]
                     )
                 } else if vm.showLimitAlert {
-                    HoneyMessageBox(
+                    MessageBox(
                         title: NSLocalizedString("host_limit_title", comment: ""),
                         message: vm.limitAlertMessage,
                         buttons: [
-                            HoneyMessageBoxButton(
+                            MessageBoxButton(
                                 id: "room_form_limit_ok",
                                 title: NSLocalizedString("common_ok", comment: "")
                             ) {
@@ -541,11 +541,11 @@ struct RoomCreateEditView: View {
                         ]
                     )
                 } else if vm.showRequiredAlert {
-                    HoneyMessageBox(
+                    MessageBox(
                         title: NSLocalizedString("host_required_title", comment: ""),
                         message: NSLocalizedString("host_required_message", comment: ""),
                         buttons: [
-                            HoneyMessageBoxButton(
+                            MessageBoxButton(
                                 id: "room_form_required_ok",
                                 title: NSLocalizedString("common_ok", comment: "")
                             ) {
