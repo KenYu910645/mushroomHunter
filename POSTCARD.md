@@ -88,8 +88,10 @@
     - Shows `Confirm received, complete transaction` when order is `Shipped` (replaces buy action).
 - Postcard create/edit/delete confirmations, shipping confirmations, buyer receive confirmations, success notices, and error notices all use shared `MessageBox` (no system alerts/confirmation dialogs).
 - Register/edit forms use left-label and right-input rows.
+- Register/edit selling price row renders a trailing honey icon and keeps that icon right-aligned to the row edge.
 - Register/edit forms start with pre-filled defaults for title, price, province, stock, and description (instead of gray placeholder hints).
 - Register/edit forms dismiss keyboard on outside taps (without collapsing during scroll), on keyboard `Enter`/`Done`, and before submit/delete actions, and auto-scroll focused inputs above keyboard overlap.
+- Edit save now shows a localized success `MessageBox` (`Postcard Updated` / `Your postcard settings were saved.`) and dismisses after user taps `OK`.
 - Register/edit description field auto-selects all content on focus.
 - Country selector is dropdown-based and uses the same country source as room host form.
 - Register form defaults country to Taiwan (`TW`).
@@ -97,6 +99,7 @@
 - Register form snapshot section shows a user instruction hint for Pikmin Bloom snapshot export (`Postcard -> pick card -> tap snapshot -> Save -> upload here`).
 - Postcard snapshot is immutable after create; edit flow does not allow snapshot replacement.
 - Edit save now applies updated listing fields to detail screen immediately before background refresh.
+- Postcard delete from seller edit flow now removes the listing from postcard browse immediately via local deleted-id suppression, preventing stale cards from reappearing while backend/cache catches up.
 - UI-test mock postcard mode (`--mock-postcards`) shows a quick submit button in create flow to bypass image upload and backend writes.
 - UI-test mock postcard mode also mocks seller shipping recipients and "mark sent" flow without Firestore writes.
 - UI-test mode hides seller share/edit toolbar actions so shipping action remains directly tappable in automated UI runs.

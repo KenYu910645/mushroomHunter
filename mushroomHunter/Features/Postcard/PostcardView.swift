@@ -11,6 +11,8 @@ import SwiftUI
 
 /// Postcard detail screen with buyer/seller actions for one listing.
 struct PostcardView: View {
+    /// Callback fired when this listing is deleted, used by browse to remove stale rows immediately.
+    private let onListingDeleted: ((String) -> Void)?
     /// Indicates push/deep-link should open order context immediately after first refresh.
     private let isOpeningOrderPageOnAppear: Bool
     /// Indicates first load should force latest backend state.
@@ -71,9 +73,11 @@ struct PostcardView: View {
     ///   - isForceRefreshOnAppear: True when first refresh should prioritize latest backend state.
     init(
         listing: PostcardListing,
+        onListingDeleted: ((String) -> Void)? = nil,
         isOpeningOrderPageOnAppear: Bool = false,
         isForceRefreshOnAppear: Bool = false
     ) {
+        self.onListingDeleted = onListingDeleted
         self.isOpeningOrderPageOnAppear = isOpeningOrderPageOnAppear
         self.isForceRefreshOnAppear = isForceRefreshOnAppear
         _currentListing = State(initialValue: listing)
@@ -295,6 +299,7 @@ struct PostcardView: View {
                 PostcardCreateEditView(
                     listing: currentListing,
                     onDeleted: {
+                        onListingDeleted?(currentListing.id)
                         dismiss()
                     },
                     onUpdated: { updatedListing in
@@ -447,6 +452,7 @@ struct PostcardView: View {
                     await refreshPendingShippingCount(postcardId: refreshed.id)
                 }
             } else {
+                onListingDeleted?(currentListing.id)
                 dismiss()
             }
         } catch {

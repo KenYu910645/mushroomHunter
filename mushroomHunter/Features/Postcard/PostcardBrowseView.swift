@@ -106,7 +106,10 @@ struct PostcardBrowseView: View {
                     LazyVGrid(columns: gridColumns, spacing: 12) {
                         ForEach(vm.filteredListings) { listing in
                             NavigationLink {
-                                PostcardView(listing: listing)
+                                PostcardView(
+                                    listing: listing,
+                                    onListingDeleted: handleDeletedListing
+                                )
                             } label: {
                                 PostcardCardView(
                                     listing: listing,
@@ -316,6 +319,13 @@ struct PostcardBrowseView: View {
         }
     }
 
+    /// Applies immediate local removal for one deleted listing id and schedules a backend sync refresh.
+    /// - Parameter postcardId: Listing id confirmed deleted from detail edit flow.
+    private func handleDeletedListing(_ postcardId: String) {
+        vm.markListingDeletedLocally(postcardId: postcardId)
+        browseDataRefreshToken += 1
+    }
+
 }
 
 /// Postcard push destination loader that opens normal postcard detail route in-stack.
@@ -334,6 +344,7 @@ private struct PostcardBrowseDestinationView: View {
             if let listing {
                 PostcardView(
                     listing: listing,
+                    onListingDeleted: nil,
                     isOpeningOrderPageOnAppear: route.isOpeningOrderPage,
                     isForceRefreshOnAppear: route.isForceRefresh
                 )

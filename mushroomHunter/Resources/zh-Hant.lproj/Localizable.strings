@@ -373,10 +373,10 @@
 "postcard_info_section" = "資訊";
 "postcard_title_field" = "標題";
 "postcard_default_title" = "明信片";
-"postcard_price_field" = "價格（蜂蜜）";
+"postcard_price_field" = "販賣價格";
 "postcard_default_price" = "1";
 "postcard_country_field" = "國家";
-"postcard_province_field" = "省／州";
+"postcard_province_field" = "區域";
 "postcard_default_province" = "某個地方";
 "postcard_detail_field" = "描述";
 "postcard_detail_placeholder" = "我在森林裡發現了這張明信片……";
@@ -385,11 +385,13 @@
 "postcard_submit_button" = "送出明信片";
 "postcard_edit_title" = "編輯明信片";
 "postcard_remove_button" = "移除明信片";
+"postcard_msg_updated_title" = "明信片已更新";
+"postcard_msg_updated_message" = "你的明信片設定已儲存。";
 "postcard_msg_remove_confirm_title" = "要移除此明信片嗎？";
 "postcard_validation_title_error" = "請輸入標題。";
 "postcard_validation_price_error" = "請輸入有效價格。";
 "postcard_validation_stock_error" = "請輸入有效庫存。";
-"postcard_validation_location_error" = "國家與省／州為必填。";
+"postcard_validation_location_error" = "國家與區域為必填。";
 "postcard_error_not_enough_honey" = "蜂蜜不足。";
 "postcard_location_unknown" = "未知";
 

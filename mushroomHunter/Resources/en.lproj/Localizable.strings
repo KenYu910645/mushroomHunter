@@ -57,7 +57,7 @@
 "host_success_updated_title" = "Room Updated!";
 "host_success_created_title" = "Room Created!";
 "host_success_updated_message" = "Your room settings were saved.";
-"host_success_created_message" = "You can now invite your friends .";
+"host_success_created_message" = "You can now invite your friends by sharing room QR code.";
 "host_limit_title" = "Room Limit";
 "host_limit_message_format" = "You can only host up to %d rooms.";
 "host_room_name_placeholder" = "Ex: Let's fight mushroom";
@@ -404,7 +404,9 @@
 "postcard_default_stock" = "1";
 "postcard_submit_button" = "Submit Postcard";
 "postcard_edit_title" = "Edit Postcard";
-"postcard_remove_button" = "Remove from Market";
+"postcard_remove_button" = "Remove";
+"postcard_msg_updated_title" = "Postcard Updated";
+"postcard_msg_updated_message" = "Your postcard settings were saved.";
 "postcard_msg_remove_confirm_title" = "Remove this postcard listing?";
 "postcard_validation_title_error" = "Please enter a title.";
 "postcard_validation_price_error" = "Please enter a valid price.";

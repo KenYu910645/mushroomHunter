@@ -21,7 +21,9 @@ Need to check both English and Chinese
 1. Taps check: navigate to all three tags, don't touch anything else, see if it works
 2. Create a host room and edit everything to see if the change apply , and delete the room
    - can try exceed the host room limit
-
+   - check the event list, if it is correctly updated.
+3. Register a postcard and edit everything to make sure changes apply, and delete the postcard
+   - check the event list, if it is correctly updated.
 TODO: invite code?
 
 ## Test Cases

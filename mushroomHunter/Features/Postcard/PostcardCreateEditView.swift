@@ -21,6 +21,8 @@ private let postcardMaxTitleChars: Int = AppConfig.Postcard.maxTitleChars
 private let postcardMaxProvinceChars: Int = AppConfig.Postcard.maxProvinceChars
 /// Snapshot preview width/height used in postcard forms.
 private let postcardSnapshotSize: CGFloat = AppConfig.Postcard.snapshotSize
+/// Honey icon width/height used in the selling-price input row.
+private let postcardPriceHoneyIconSize: CGFloat = 14
 
 /// Returns only numeric characters and clamps the value to `max`.
 private func clampedNumericText(_ value: String, max: Int) -> String {
@@ -111,6 +113,8 @@ struct PostcardCreateEditView: View {
     @State private var uploadedImageURL: URL? = nil
     /// Delete confirmation dialog visibility.
     @State private var isDeleteConfirmPresented: Bool = false
+    /// Edit-save success dialog visibility.
+    @State private var isEditSavedMessagePresented: Bool = false
 
     /// Repository used for create/update/delete listing operations.
     private let repo = FbPostcardRepo()
@@ -217,6 +221,20 @@ struct PostcardCreateEditView: View {
                             title: NSLocalizedString("common_ok", comment: "")
                         ) {
                             isErrorAlertPresented = false
+                        }
+                    ]
+                )
+            } else if isEditSavedMessagePresented, isEditMode {
+                MessageBox(
+                    title: NSLocalizedString("postcard_msg_updated_title", comment: ""),
+                    message: NSLocalizedString("postcard_msg_updated_message", comment: ""),
+                    buttons: [
+                        MessageBoxButton(
+                            id: "postcard_form_edit_saved_ok",
+                            title: NSLocalizedString("common_ok", comment: "")
+                        ) {
+                            isEditSavedMessagePresented = false
+                            dismiss()
                         }
                     ]
                 )
@@ -369,22 +387,31 @@ struct PostcardCreateEditView: View {
             HStack(spacing: 12) {
                 Text(LocalizedStringKey("postcard_price_field"))
                 Spacer()
-                SmartTextField(
-                    placeholderKey: "postcard_default_price",
-                    text: $priceText,
-                    isFirstResponder: $isPriceFieldFocused,
-                    keyboardType: .numberPad,
-                    textContentType: .none,
-                    autocapitalization: .none,
-                    autocorrection: .no,
-                    textAlignment: .right
-                ) { newValue in
-                    let clamped = clampedNumericText(newValue, max: postcardMaxPriceHoney)
-                    if clamped != newValue { priceText = clamped }
+                HStack(spacing: 6) {
+                    SmartTextField(
+                        placeholderKey: "postcard_default_price",
+                        text: $priceText,
+                        isFirstResponder: $isPriceFieldFocused,
+                        keyboardType: .numberPad,
+                        textContentType: .none,
+                        autocapitalization: .none,
+                        autocorrection: .no,
+                        textAlignment: .right
+                    ) { newValue in
+                        let clamped = clampedNumericText(newValue, max: postcardMaxPriceHoney)
+                        if clamped != newValue { priceText = clamped }
+                    }
+                    .frame(height: 22)
+                    .multilineTextAlignment(.trailing)
+                    .accessibilityIdentifier("postcard_form_price_field")
+
+                    Image("HoneyIcon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: postcardPriceHoneyIconSize, height: postcardPriceHoneyIconSize)
+                        .accessibilityHidden(true)
                 }
-                .frame(height: 22)
-                .multilineTextAlignment(.trailing)
-                .accessibilityIdentifier("postcard_form_price_field")
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
 
             HStack(spacing: 12) {
@@ -687,7 +714,7 @@ struct PostcardCreateEditView: View {
                 createdAt: listing.createdAt
             )
             onUpdated?(updatedListing)
-            dismiss()
+            isEditSavedMessagePresented = true
         } catch {
             presentError((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
         }

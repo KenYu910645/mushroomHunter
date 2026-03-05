@@ -67,6 +67,8 @@ final class PostcardBrowseViewModel: ObservableObject {
     private var onShelfListingIds: Set<String> = []
     /// Ordered listing ids used for ownership tag lookup.
     private var orderedListingIds: Set<String> = []
+    /// Listing ids deleted in current session; used to suppress stale backend/cache echoes.
+    private var locallyDeletedListingIds: Set<String> = []
 
     /// Loads data only when no listings have been fetched yet.
     func loadIfNeeded(session: UserSessionStore) async {
@@ -147,9 +149,13 @@ final class PostcardBrowseViewModel: ObservableObject {
             }
 
             if isReset {
-                listings = result.listings
+                listings = result.listings.filter { listing in
+                    locallyDeletedListingIds.contains(listing.id) == false
+                }
             } else {
-                listings.append(contentsOf: result.listings)
+                listings.append(contentsOf: result.listings.filter { listing in
+                    locallyDeletedListingIds.contains(listing.id) == false
+                })
             }
             nextPageCursor = result.nextCursor
             isHasMorePages = result.isHasMore && result.nextCursor != nil
@@ -260,6 +266,17 @@ final class PostcardBrowseViewModel: ObservableObject {
             || listing.location.fullLabel.lowercased().contains(normalizedQuery)
     }
 
+    /// Marks one listing as locally deleted and removes it from all visible browse datasets.
+    /// - Parameter postcardId: Listing id confirmed deleted by seller action.
+    func markListingDeletedLocally(postcardId: String) {
+        locallyDeletedListingIds.insert(postcardId)
+        listings.removeAll { $0.id == postcardId }
+        pinnedOnShelfListings.removeAll { $0.id == postcardId }
+        pinnedOrderedListings.removeAll { $0.id == postcardId }
+        onShelfListingIds.remove(postcardId)
+        orderedListingIds.remove(postcardId)
+    }
+
     /// Refreshes user-owned on-shelf and ordered postcard slots for pinned browse display.
     /// - Parameter session: Current signed-in session.
     private func refreshPinnedListings(session: UserSessionStore) async {
@@ -283,10 +300,18 @@ final class PostcardBrowseViewModel: ObservableObject {
             async let orderedLoad = repo.fetchMyOrderedPostcards(userId: userId, limit: AppConfig.Postcard.profileListFetchLimit)
             let onShelfListings = try await onShelfLoad
             let orderedSummaries = try await orderedLoad
-            pinnedOnShelfListings = onShelfListings
-            pinnedOrderedListings = orderedSummaries.map(\.listing)
-            onShelfListingIds = Set(onShelfListings.map(\.id))
-            orderedListingIds = Set(orderedSummaries.map(\.listing.id))
+            let visibleOnShelfListings = onShelfListings.filter { listing in
+                locallyDeletedListingIds.contains(listing.id) == false
+            }
+            let visibleOrderedListings = orderedSummaries
+                .map(\.listing)
+                .filter { listing in
+                    locallyDeletedListingIds.contains(listing.id) == false
+                }
+            pinnedOnShelfListings = visibleOnShelfListings
+            pinnedOrderedListings = visibleOrderedListings
+            onShelfListingIds = Set(visibleOnShelfListings.map(\.id))
+            orderedListingIds = Set(visibleOrderedListings.map(\.id))
         } catch {
             print("❌ refreshPinnedListings error:", error)
             pinnedOnShelfListings = []
