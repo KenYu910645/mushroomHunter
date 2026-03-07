@@ -57,8 +57,12 @@ final class PostcardBrowseViewModel: ObservableObject {
     @Published var sortOrder: PostcardSortOrder = .newest
     /// Firebase-backed repository used to fetch postcard listings.
     private let repo = FbPostcardRepo()
+    /// Shared structured payload cache used for postcard browse stale-first loading.
+    private let cache = RoomCache.shared
     /// Shared dirty-bit state used to force backend refresh after postcard mutations/events.
     private let dirtyBits = CacheDirtyBitStore.shared
+    /// Stable cache key for postcard browse list payload.
+    private let browseCacheKey = "postcard.browse.listings.v1"
     /// Cursor for loading the next browse page.
     private var nextPageCursor: FbPostcardRepo.ListingPageCursor? = nil
     /// Last query committed to backend search.
@@ -83,7 +87,15 @@ final class PostcardBrowseViewModel: ObservableObject {
     /// - Parameter session: Current signed-in session.
     func loadOnAppear(session: UserSessionStore) async {
         let isBrowseDirty = await dirtyBits.isPostcardBrowseDirty()
-        if listings.isEmpty || isBrowseDirty {
+        if isBrowseDirty {
+            await refresh(session: session)
+            return
+        }
+        if listings.isEmpty, confirmedQuery.isEmpty, await loadBrowseListingsFromCache() {
+            await refreshPinnedListings(session: session)
+            return
+        }
+        if listings.isEmpty {
             await refresh(session: session)
             return
         }
@@ -118,6 +130,9 @@ final class PostcardBrowseViewModel: ObservableObject {
         activeSearchToken = tokens.first
         let isLoadSuccess = await loadNextPage(isReset: true)
         await refreshPinnedListings(session: session)
+        if isLoadSuccess && activeSearchToken == nil {
+            await cache.save(listings, key: browseCacheKey)
+        }
         if isLoadSuccess {
             await dirtyBits.clearPostcardBrowseDirty()
         }
@@ -340,5 +355,18 @@ final class PostcardBrowseViewModel: ObservableObject {
             onShelfListingIds = []
             orderedListingIds = []
         }
+    }
+
+    /// Loads postcard browse listings from structured cache into current state.
+    /// - Returns: `true` when cache exists and is applied.
+    private func loadBrowseListingsFromCache() async -> Bool {
+        guard let payload = await cache.load(key: browseCacheKey, as: [PostcardListing].self) else {
+            return false
+        }
+        listings = payload.value.filter { listing in
+            locallyDeletedListingIds.contains(listing.id) == false
+        }
+        errorMessage = nil
+        return true
     }
 }

@@ -300,7 +300,6 @@ struct PostcardOrdersView: View {
 
         do {
             try await repo.markPostcardSent(orderId: recipient.id)
-            await dirtyBits.markPostcardBrowseDirty()
             await dirtyBits.markPostcardDetailDirty(postcardId: postcard.id)
             recipients.removeAll { $0.id == recipient.id }
             isShipSuccessAlertPresented = true

@@ -1,12 +1,11 @@
 # Cache
 
-`CACHE.md` is the single source of truth for HoneyHub cache + dirty-bit behavior.
-
 ## Scope
-- Mushroom browse structured cache.
-- Mushroom room-detail structured cache.
-- Postcard image byte cache.
-- Mushroom/Postcard dirty-bit invalidation.
+- Mushroom browse list cache.
+- Mushroom room page cache.
+- Postcard browse list cache.
+- Postcard image cache.
+- Postcard page cache.
 
 ## Related Files
 - `mushroomHunter/Features/Mushroom/RoomCache.swift`: `RoomCache` structured payload cache and `CacheDirtyBitStore`.
@@ -53,6 +52,8 @@
 ### Structured cache keys
 - Mushroom browse: `mushroom.browse.listings.v1`
 - Mushroom room detail: `mushroom.room.detail.{roomId}`
+- Postcard browse: `postcard.browse.listings.v1`
+- Postcard detail: `postcard.detail.{postcardId}`
 
 ### Dirty-bit keys
 - Mushroom browse dirty: `dirty.mushroom.browse.listings.v1`
@@ -61,38 +62,33 @@
 - Postcard detail dirty: `dirty.postcard.detail.{postcardId}`
 
 ## Dirty-Bit Core Rules
-- If dirty bit is `ON`, load path must force backend fetch even if cache/local state exists.
+- If dirty bit is `ON`, force backend fetch even if cache/local state exists.
 - Pull-to-refresh always forces backend fetch regardless of dirty bit.
-- Successful forced fetch clears corresponding dirty bit.
+- Successful backend fetch clears corresponding dirty bit.
 - Failed fetch keeps dirty bit `ON` (retry on next load).
 
-## When Server Fetch Happens
-### Mushroom browse
-- Dirty bit `ON` for browse.
+## When Backend Fetch Happens
+### Mushroom browse list
+- Dirty bit `ON`.
 - Pull-to-refresh.
 - Search submit (`performConfirmedSearch`).
-- Initial entry behavior:
-- If dirty `ON`: force backend fetch.
-- If dirty `OFF`: apply cache first when available, then fetch latest.
 
 ### Mushroom room detail
 - Dirty bit `ON` for this room.
 - Pull-to-refresh.
-- Room opened with explicit force-refresh route.
-- Initial open behavior:
-- If dirty `ON`: force backend fetch.
-- If dirty `OFF`: use cache when present; otherwise fetch backend.
+- Room opened with explicit force-refresh route. this means `RoomView` is initialized with `isForceRefreshOnAppear=true`, so first load calls `vm.load(forceRefresh: true)` and bypasses cache. Flows that set this route flag are push room-open (`didOpenRoomFromPush`), push confirmation-open (`didOpenRoomConfirmationFromPush`), room invite deep-link open (`honeyhub://room/{roomId}` routed through `didOpenRoomFromPush`), and UI-test launch argument route (`--ui-open-room`).
 
 ### Postcard browse
 - Dirty bit `ON` for postcard browse.
 - Pull-to-refresh.
 - Search/clear-search backend fetch flow.
-- On tab appear when listings are empty.
+- Dirty bit `OFF` and in-memory list empty: apply postcard browse disk cache first when available.
 
 ### Postcard detail
 - Dirty bit `ON` for this postcard.
 - Pull-to-refresh.
-- Sheet dismiss callbacks that call forced refresh (edit/shipping flows).
+- Sheet dismiss callbacks (edit/shipping flows) call normal refresh; dirty bit decides whether backend fetch is required.
+- Dirty bit `OFF`: detail can use `postcard.detail.{postcardId}` cache payload.
 
 ### Postcard image bytes
 - Memory miss and disk miss.
@@ -108,7 +104,6 @@
 - Set browse dirty
 - Set current room dirty
 - `update deposit`:
-- Set browse dirty
 - Set current room dirty
 - `approve join request`:
 - Set browse dirty
@@ -120,13 +115,10 @@
 - Set browse dirty
 - Set current room dirty
 - `finish raid`:
-- Set browse dirty
 - Set current room dirty
 - `respond to raid confirmation`:
-- Set browse dirty
 - Set current room dirty
 - `rate host` / `rate attendee`:
-- Set browse dirty
 - Set current room dirty
 - `close room`:
 - Set browse dirty
@@ -149,7 +141,6 @@
 - Set postcard browse dirty
 - Set postcard detail dirty
 - `seller mark sent`:
-- Set postcard browse dirty
 - Set postcard detail dirty
 - `seller reject order`:
 - Set postcard browse dirty

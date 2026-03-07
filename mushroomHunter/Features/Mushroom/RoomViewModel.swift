@@ -122,7 +122,7 @@ final class RoomViewModel: ObservableObject {
                 confirmationId: confirmationId,
                 settlementOutcome: settlementOutcome
             )
-            await markCurrentRoomAndBrowseDirty()
+            await markCurrentRoomDirty()
             await load(forceRefresh: true)
             return true
         } catch {
@@ -148,7 +148,7 @@ final class RoomViewModel: ObservableObject {
         guard let room, let uid = session.authUid else { return }
         do {
             try await actions.rateHostAfterConfirmation(roomId: room.id, attendeeUid: uid, stars: stars)
-            await markCurrentRoomAndBrowseDirty()
+            await markCurrentRoomDirty()
             await load(forceRefresh: true)
             await session.refreshProfileFromBackend()
         } catch {
@@ -160,7 +160,7 @@ final class RoomViewModel: ObservableObject {
         guard let room else { return }
         do {
             try await actions.rateAttendeeAfterConfirmation(roomId: room.id, attendeeUid: attendeeId, stars: stars)
-            await markCurrentRoomAndBrowseDirty()
+            await markCurrentRoomDirty()
             await load(forceRefresh: true)
             await session.refreshProfileFromBackend()
         } catch {
@@ -348,7 +348,7 @@ final class RoomViewModel: ObservableObject {
             }
 
             try await actions.updateDeposit(roomId: room.id, depositHoney: newDeposit, attendeeHoney: newBalance)
-            await markCurrentRoomAndBrowseDirty()
+            await markCurrentRoomDirty()
 
             if delta > 0 {
                 _ = session.spendHoney(delta)
@@ -415,7 +415,7 @@ final class RoomViewModel: ObservableObject {
                 attendeeUids: attendeeIds,
                 allNonHostAttendeeUids: allNonHostAttendeeUids
             )
-            await markCurrentRoomAndBrowseDirty()
+            await markCurrentRoomDirty()
             await load(forceRefresh: true)
         } catch is CancellationError {
             return
@@ -566,6 +566,11 @@ final class RoomViewModel: ObservableObject {
     private func markCurrentRoomAndBrowseDirty() async {
         await dirtyBits.markMushroomRoomDirty(roomId: roomId)
         await dirtyBits.markMushroomBrowseDirty()
+    }
+
+    /// Marks only current room detail dataset dirty after a room-local mutation.
+    private func markCurrentRoomDirty() async {
+        await dirtyBits.markMushroomRoomDirty(roomId: roomId)
     }
     
 }

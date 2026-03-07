@@ -9,6 +9,18 @@ import SwiftUI
 
 // MARK: - Detail
 
+/// Codable postcard detail cache payload used for stale-first detail rendering.
+struct PostcardDetailCachePayload: Codable {
+    /// Cached postcard listing snapshot.
+    let listing: PostcardListing
+    /// Cached buyer order snapshot when current viewer is a buyer.
+    let buyerOrder: PostcardBuyerOrder?
+    /// Cached pending shipping count for seller toolbar badge.
+    let pendingShippingCount: Int
+    /// Cached seller friend code displayed in detail metadata.
+    let sellerFriendCode: String
+}
+
 /// Postcard detail screen with buyer/seller actions for one listing.
 struct PostcardView: View {
     /// Callback fired when this listing is deleted, used by browse to remove stale rows immediately.
@@ -61,6 +73,8 @@ struct PostcardView: View {
     @EnvironmentObject private var session: UserSessionStore
     /// Firebase-backed repository for listing/order actions.
     private let repo = FbPostcardRepo()
+    /// Shared structured payload cache used for postcard detail stale-first loading.
+    private let cache = RoomCache.shared
     /// Shared dirty-bit state used to force refresh after postcard/order mutations.
     private let dirtyBits = CacheDirtyBitStore.shared
     /// Fixed aspect ratio for the hero listing image.
@@ -295,7 +309,7 @@ struct PostcardView: View {
             await refreshListing(isForceRefresh: true)
         }
         .sheet(isPresented: $isEditSheetPresented, onDismiss: {
-            Task { await refreshListing(isForceRefresh: true) }
+            Task { await refreshListing() }
         }) {
             NavigationStack {
                 PostcardCreateEditView(
@@ -313,7 +327,7 @@ struct PostcardView: View {
             }
         }
         .sheet(isPresented: $isShippingSheetPresented, onDismiss: {
-            Task { await refreshListing(isForceRefresh: true) }
+            Task { await refreshListing() }
         }) {
             NavigationStack {
                 PostcardOrdersView(postcard: currentListing)
@@ -431,6 +445,9 @@ struct PostcardView: View {
     private func refreshListing(isForceRefresh: Bool = false) async {
         let isListingDirty = await dirtyBits.isPostcardDetailDirty(postcardId: currentListing.id)
         let isShouldForceRefresh = isForceRefresh || isListingDirty
+        if !isShouldForceRefresh, await loadDetailFromCache() {
+            return
+        }
         if AppTesting.useMockPostcards {
             currentListing = currentListing.sellerId == AppTesting.userId
                 ? AppTesting.fixtureOwnedPostcardListing()
@@ -456,6 +473,7 @@ struct PostcardView: View {
                     buyerOrder = nil
                     await refreshPendingShippingCount(postcardId: refreshed.id)
                 }
+                await saveDetailToCache()
             } else {
                 onListingDeleted?(currentListing.id)
                 dismiss()
@@ -607,6 +625,36 @@ struct PostcardView: View {
         } catch {
             // Keep last badge count if recipient refresh fails.
         }
+    }
+
+    /// Returns stable cache key for current postcard detail payload.
+    /// - Returns: Namespaced postcard detail cache key.
+    private func detailCacheKey() -> String {
+        "postcard.detail.\(currentListing.id)"
+    }
+
+    /// Applies cached postcard detail payload when available.
+    /// - Returns: `true` when cached detail payload is loaded into state.
+    private func loadDetailFromCache() async -> Bool {
+        guard let payload = await cache.load(key: detailCacheKey(), as: PostcardDetailCachePayload.self) else {
+            return false
+        }
+        currentListing = payload.value.listing
+        buyerOrder = payload.value.buyerOrder
+        pendingShippingCount = payload.value.pendingShippingCount
+        sellerFriendCode = payload.value.sellerFriendCode
+        return true
+    }
+
+    /// Saves current postcard detail state into structured cache.
+    private func saveDetailToCache() async {
+        let payload = PostcardDetailCachePayload(
+            listing: currentListing,
+            buyerOrder: buyerOrder,
+            pendingShippingCount: pendingShippingCount,
+            sellerFriendCode: sellerFriendCode
+        )
+        await cache.save(payload, key: detailCacheKey())
     }
 
 }

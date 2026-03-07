@@ -141,7 +141,7 @@ struct PostcardShippingRecipient: Identifiable, Equatable {
 }
 
 /// Latest order snapshot for current buyer and listing.
-struct PostcardBuyerOrder: Identifiable, Equatable {
+struct PostcardBuyerOrder: Identifiable, Equatable, Codable {
     /// Firestore order document id.
     let id: String
     /// Related postcard listing id.
