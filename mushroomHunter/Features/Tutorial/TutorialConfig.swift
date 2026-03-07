@@ -227,19 +227,6 @@ enum TutorialConfig {
                 )
             ),
             StepTemplate(
-                highlightTarget: .mushroomBrowseJoinableRoomsArea,
-                normalizedRect: CGRect(x: 0.79, y: 0.20, width: 0.17, height: 0.09),
-                messageBoxNormalizedY: 0.6,
-                title: BilingualText(
-                    en: "Joinable rooms",
-                    cn: "房間資訊"
-                ),
-                message: BilingualText(
-                    en: "This list shows each mushroom's approximate location and attendee count.",
-                    cn: "包含主持人所在位置跟參加人數"
-                )
-            ),
-            StepTemplate(
                 highlightTarget: .mushroomBrowsePinnedRoomsArea,
                 normalizedRect: CGRect(x: 0.79, y: 0.20, width: 0.17, height: 0.09),
                 messageBoxNormalizedY: 0.6,
@@ -250,6 +237,19 @@ enum TutorialConfig {
                 message: BilingualText(
                     en: "Rooms you host and rooms you have joined will be pinned to the top.",
                     cn: "創造的房間跟已加入的房間會於列表上置頂以方便查看"
+                )
+            ),
+            StepTemplate(
+                highlightTarget: .mushroomBrowseJoinableRoomsArea,
+                normalizedRect: CGRect(x: 0.79, y: 0.20, width: 0.17, height: 0.09),
+                messageBoxNormalizedY: 0.6,
+                title: BilingualText(
+                    en: "Joinable rooms",
+                    cn: "房間資訊"
+                ),
+                message: BilingualText(
+                    en: "This list shows each mushroom's approximate location and attendee count.",
+                    cn: "主持人所在位置跟參加人數"
                 )
             )
         ]

@@ -93,6 +93,7 @@ For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buy
 - Always allow skip.
 - Do not show multiple tutorials at the same time.
 - Help replay should stay in root tab navigation context (not a modal sheet) so tutorial pages match real tab-based layout.
+- When a tutorial is opened from Settings -> Help -> Tutorial list, tapping `Done` should pop back to the tutorial list.
 - If deep-link/push opens a page with pending critical action, defer tutorial until action is cleared.
 
 ## Rollout Plan (Several Steps)

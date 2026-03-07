@@ -90,6 +90,24 @@ struct TutorialCatalogView: View {
     /// - Returns: Tutorial replay destination.
     @ViewBuilder
     private func tutorialDestination(for scenario: TutorialScenario) -> some View {
+        TutorialReplayDestinationView(scenario: scenario)
+            .environmentObject(session)
+    }
+}
+
+/// Navigation destination wrapper for tutorial replay entries.
+/// Uses destination-local dismiss so "Done" pops back to the tutorial list.
+private struct TutorialReplayDestinationView: View {
+    /// Target replay scenario selected from the catalog list.
+    let scenario: TutorialScenario
+    /// Shared user session propagated from catalog.
+    @EnvironmentObject private var session: UserSessionStore
+    /// Local dismiss action for the pushed replay destination.
+    @Environment(\.dismiss) private var dismiss
+
+    /// Builds the replay destination for one tutorial scenario.
+    @ViewBuilder
+    var body: some View {
         switch scenario {
         case .mushroomBrowseFirstVisit:
             RoomBrowseView(
