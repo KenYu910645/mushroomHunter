@@ -26,10 +26,8 @@
 //  [R] - `createdAt`: Reads for query ordering (`order by createdAt desc`).
 //  [X] - `updatedAt`: Not used by browse list UI.
 //  [R] - `lastSuccessfulRaidAt`: Reads for dormant-room priority downgrade logic.
-//  [R] - `targetColor`: Reads target color for browse filters/badges.
-//  [R] - `targetAttribute`: Reads target attribute and derives `mushroomType`.
-//  [R] - `attribute` (legacy fallback): Reads fallback when `targetAttribute` is missing.
-//  [R] - `targetSize`: Reads target size for browse filters/badges.
+//  [R] - `mushroomType`: Reads normalized room mushroom type label for browse cards.
+//  [R] - `attribute` (legacy fallback): Reads fallback mushroom type when `mushroomType` is missing.
 //  [R] - `expiresAt`: Reads optional expiration timestamp for display logic.
 //
 //  Attendee document (`rooms/{roomId}/attendees/{uid}`):
@@ -52,9 +50,6 @@ struct RoomListing: Identifiable, Hashable, Codable {
     let id: String
     var title: String
     var mushroomType: String
-    var targetColor: String
-    var targetAttribute: String
-    var targetSize: String
     var joinedPlayers: Int
     let maxPlayers: Int  // store from backend (default 10)
     var hostUid: String
@@ -113,22 +108,16 @@ final class FbRoomBrowseRepo {
         let title = (data["title"] as? String)
             ?? (data["roomTitle"] as? String)
             ?? "Untitled Room"
-        let mushroomType = (data["targetAttribute"] as? String)
+        let mushroomType = (data["mushroomType"] as? String)
             ?? (data["attribute"] as? String)
             ?? "normal"
         let joined = data["joinedCount"] as? Int ?? 0
         let maxPlayers = data["maxPlayers"] as? Int ?? AppConfig.Mushroom.defaultMaxPlayersPerRoom
-        let targetColor = (data["targetColor"] as? String) ?? ""
-        let targetAttribute = (data["targetAttribute"] as? String) ?? ""
-        let targetSize = (data["targetSize"] as? String) ?? ""
 
         return RoomListing(
             id: document.documentID,
             title: title,
             mushroomType: mushroomType.capitalized,
-            targetColor: targetColor,
-            targetAttribute: targetAttribute,
-            targetSize: targetSize,
             joinedPlayers: joined,
             maxPlayers: maxPlayers,
             hostUid: data["hostUid"] as? String ?? "",

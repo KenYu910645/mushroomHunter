@@ -143,8 +143,8 @@ struct ProfileView: View {
                         isFeedbackSubmittedAlertPresented = true
                     }
                 }
-            case .help:
-                TutorialView()
+        case .help:
+                TutorialCatalogView()
             case .editProfile:
                 ProfileCreateEditView(mode: .edit)
             }

@@ -120,6 +120,30 @@ async function sendPushToUser(uid, message, context, snapshotToken = "") {
     sound: "default",
     ...incomingAps,
   };
+  const pushType = stringifyValue(message?.data?.type, "");
+  const eventId = stringifyValue(message?.data?.eventId || message?.data?.event_id, "");
+  let isActionPush = isActionEventType(pushType);
+  if (!isActionPush && eventId) {
+    try {
+      const eventSnap = await db.collection("users")
+          .doc(uid)
+          .collection("events")
+          .doc(eventId)
+          .get();
+      isActionPush = eventSnap.exists && eventSnap.data()?.isActionEvent === true;
+    } catch (error) {
+      logger.warn("Failed to resolve push Action Event flag from event document", {
+        uid,
+        eventId,
+        type: pushType,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  if (isActionPush && mergedAps.badge === undefined) {
+    const badgeCount = await unresolvedActionEventBadgeCount(uid);
+    mergedAps.badge = Math.max(1, badgeCount);
+  }
 
   await messaging.send({
     token,
@@ -212,31 +236,31 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
   const byType = {
     ROOM_CREATED_HOST: {
       en: ["Mushroom Room Created", "You created a mushroom room: %@."],
-      zh: ["已建立蘑菇房", "你已建立蘑菇房間：%@。"],
+      zh: ["已建立蘑菇房", "您已建立蘑菇房間：%@。"],
     },
     ROOM_CLOSED_HOST: {
       en: ["Mushroom Room Closed", "You closed a mushroom room: %@."],
-      zh: ["已關閉蘑菇房", "你已關閉蘑菇房間：%@。"],
+      zh: ["已關閉蘑菇房", "您已關閉蘑菇房間：%@。"],
     },
     RAID_INVITED_HOST: {
       en: ["Mushroom Raid Invited", "Raid confirmation invitations were sent to all attendees, wait for them to confirm."],
-      zh: ["已發送蘑菇邀請", "你已發送蘑菇邀請確認，等待所有參加者確認。"],
+      zh: ["已發送蘑菇邀請", "您已發送蘑菇邀請確認，等待所有參加者確認。"],
     },
     POSTCARD_CREATED_SELLER: {
       en: ["Postcard Registered", "You registered a postcard: %@."],
-      zh: ["已上架明信片", "你已上架明信片：%@。"],
+      zh: ["已上架明信片", "您已上架明信片：%@。"],
     },
     POSTCARD_CLOSED_SELLER: {
       en: ["Postcard Removed", "You removed a postcard from market: %@."],
-      zh: ["明信片已下架", "你已將明信片從市場下架：%@。"],
+      zh: ["明信片已下架", "您已將明信片從市場下架：%@。"],
     },
     NAME_UPDATED: {
       en: ["Display Name Updated", "Your display name was updated."],
-      zh: ["名稱已更新", "你的顯示名稱已更新。"],
+      zh: ["名稱已更新", "您的顯示名稱已更新。"],
     },
     FRIEND_CODE_UPDATED: {
       en: ["Friend Code Updated", "Your friend code was updated to %@."],
-      zh: ["好友碼已更新", "你的好友碼已更新為 %@。"],
+      zh: ["好友碼已更新", "您的好友碼已更新為 %@。"],
     },
     RAID_CONFIRM_ATTENDEE: {
       en: ["Mushroom Invitation", "Action required: confirm your mushroom raid result."],
@@ -244,15 +268,15 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
     },
     JOIN_REQUESTED_ATTENDEE: {
       en: ["Sent Join Request", "You sent a request to join %@."],
-      zh: ["已送出加入申請", "你已送出加入 %@ 申請。"],
+      zh: ["已送出加入申請", "您已送出加入 %@ 申請。"],
     },
     JOIN_REQUESTED_HOST: {
       en: ["New Join Request", "%@ requested to join %@. Tap to respond"],
-      zh: ["新加入申請", "%@ 申請加入 %@。"],
+      zh: ["申請加入", "%@ 申請加入 %@，點擊以回覆。"],
     },
     JOIN_ACCEPTED_ATTENDEE: {
       en: ["Join Request Accepted", "Host accepted your request to join %@."],
-      zh: ["加入申請已接受", "主持人已接受你加入 %@ 的申請。"],
+      zh: ["加入申請已接受", "主持人已接受您加入 %@ 的申請。"],
     },
     JOIN_ACCEPTED_HOST: {
       en: ["New Joiner Accepted", "%@ joined your room: %@."],
@@ -260,11 +284,11 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
     },
     JOIN_REJECTED_ATTENDEE: {
       en: ["Join Request Rejected", "Host rejected your request to join %@."],
-      zh: ["加入申請已拒絕", "主持人已拒絕你加入 %@ 的申請。"],
+      zh: ["加入申請已拒絕", "主持人已拒絕您加入 %@ 的申請。"],
     },
     JOIN_REJECTED_HOST: {
       en: ["Joiner Rejected", "You rejected a join request from %@."],
-      zh: ["已拒絕加入申請", "你已拒絕來自 %@ 的加入申請。"],
+      zh: ["已拒絕加入申請", "您已拒絕來自 %@ 的加入申請。"],
     },
     REPLY_HOST: {
       en: ["Attendee Replied", "Attendee confirmation was submitted."],
@@ -272,7 +296,7 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
     },
     STAR_RECEIVED: {
       en: ["Stars Received", "%@ gave you %@ stars."],
-      zh: ["收到評價", "%@ 給了你 %@ 顆星。"],
+      zh: ["收到評價", "%@ 給了您 %@ 顆星。"],
     },
     POSTCARD_ORDER_SELLER: {
       en: ["New Postcard Order", "Action required: process a new order."],
@@ -280,7 +304,7 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
     },
     POSTCARD_ORDER_BUYER: {
       en: ["Order Sent", "You placed a postcard order on %@."],
-      zh: ["訂單已送出", "你已送出明信片訂單：%@。"],
+      zh: ["訂單已送出", "您已送出明信片訂單：%@。"],
     },
     POSTCARD_SENT_BUYER: {
       en: ["Postcard Shipped", "Action required: confirm postcard receipt: %@."],
@@ -288,23 +312,23 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
     },
     POSTCARD_SENT_SELLER: {
       en: ["Postcard Sent", "You have shipped postcard %@ to %@."],
-      zh: ["明信片已寄出", "你已將 %@ 寄給 %@。"],
+      zh: ["明信片已寄出", "您已將 %@ 寄給 %@。"],
     },
     POSTCARD_RECEIVED_SELLER: {
       en: ["Order Completed", "%@ confirmed receipt. %@ honey has been transferred to you."],
-      zh: ["訂單完成", "%@ 已確認收件，%@ 蜂蜜已轉給你。"],
+      zh: ["訂單完成", "%@ 已確認收件，%@ 蜂蜜已轉給您。"],
     },
     POSTCARD_RECEIVED_BUYER: {
       en: ["Postcard Received", "You confirmed to receive postcard: %@."],
-      zh: ["買家已收到明信片", "你已確認收到明信片：%@。"],
+      zh: ["買家已收到明信片", "您已確認收到明信片：%@。"],
     },
     POSTCARD_REJECTED_BUYER: {
       en: ["Order Rejected", "Your order for \"%@\" was rejected and canceled. %@ honey has been fully refunded to your account."],
-      zh: ["訂單已拒絕", "你購買「%@」的訂單已被拒絕並取消，%@ 蜂蜜已全額退回。"],
+      zh: ["訂單已拒絕", "您購買「%@」的訂單已被拒絕並取消，%@ 蜂蜜已全額退回。"],
     },
     POSTCARD_REJECTED_SELLER: {
       en: ["Order Rejected", "You rejected a postcard order: %@."],
-      zh: ["訂單已拒絕", "你已拒絕明信片訂單：%@。"],
+      zh: ["訂單已拒絕", "您已拒絕明信片訂單：%@。"],
     },
   };
 
@@ -320,16 +344,16 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
   let templateArgs = argValues;
 
   if (normalizedType === "JOIN_REQUESTED_HOST") {
-    titleTemplate = isChinese ? "新加入申請" : "New Join Request";
+    titleTemplate = isChinese ? "申請加入" : "New Join Request";
     messageTemplate = isChinese ?
-      "%@ 申請加入 %@。" :
+      "%@ 申請加入 %@，點擊以回覆。" :
       "%@ requested to join %@. Tap to respond";
     templateArgs = argValues.slice(0, 2);
   } else if (normalizedType === "REPLY_HOST") {
     if (firstArg === "raid_confirmation_seat_full") {
       titleTemplate = isChinese ? "參加者已確認" : "Attendee Confirmed";
       messageTemplate = isChinese ?
-        "%@ 回報蘑菇滿位。你獲得 %@ 蜂蜜。" :
+        "%@ 回報蘑菇滿位。您獲得 %@ 蜂蜜。" :
         "%@ reported invited but seat full. You earned %@ honey.";
       templateArgs = [argValues[1] || "", argValues[2] || "0"];
     } else if (firstArg === "raid_confirmation_missed_invite") {
@@ -341,7 +365,7 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
     } else {
       titleTemplate = isChinese ? "參加者已確認" : "Attendee Confirmed";
       messageTemplate = isChinese ?
-        "%@ 已確認參加戰鬥。你獲得 %@ 蜂蜜。" :
+        "%@ 已確認參加戰鬥。您獲得 %@ 蜂蜜。" :
         "%@ confirmed raid join. You earned %@ honey.";
       templateArgs = [argValues[1] || "", argValues[2] || "0"];
     }
@@ -349,7 +373,7 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
     const isAutoCompleted = firstArg === "auto";
     if (isAutoCompleted) {
       messageTemplate = isChinese ?
-        "「%@」收件確認逾時，%@ 蜂蜜已轉給你。" :
+        "「%@」收件確認逾時，%@ 蜂蜜已轉給您。" :
         "%@ postcard received timed out. %@ honey has been transferred to you.";
       templateArgs = [argValues[1] || "", argValues[2] || "0"];
     }
@@ -406,6 +430,30 @@ const ACTION_EVENT_TYPES = new Set([
 function isActionEventType(type) {
   const normalizedType = stringifyValue(type, "unknown");
   return ACTION_EVENT_TYPES.has(normalizedType);
+}
+
+// Count unresolved Action Events for APNs badge synchronization.
+async function unresolvedActionEventBadgeCount(uid) {
+  const normalizedUid = stringifyValue(uid, "");
+  if (!normalizedUid) return 0;
+
+  try {
+    const unresolvedQuery = db.collection("users")
+        .doc(normalizedUid)
+        .collection("events")
+        .where("isActionEvent", "==", true)
+        .where("isResolved", "==", false);
+    const aggregateSnapshot = await unresolvedQuery.count().get();
+    const rawCount = Number(aggregateSnapshot.data().count ?? 0);
+    if (!Number.isFinite(rawCount)) return 0;
+    return Math.max(0, Math.trunc(rawCount));
+  } catch (error) {
+    logger.warn("Failed to resolve unresolved Action Event count for badge", {
+      uid: normalizedUid,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return 0;
+  }
 }
 
 // Persist one event-history row in users/{uid}/events with current schema only.

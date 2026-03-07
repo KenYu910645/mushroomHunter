@@ -103,9 +103,9 @@ struct InviteShareSheet: View {
         let outputSize = outputImage.extent.size
         guard outputSize.width > 0, outputSize.height > 0 else { return nil }
 
-        let targetSize: CGFloat = 260
-        let scaleX = targetSize / outputSize.width
-        let scaleY = targetSize / outputSize.height
+        let outputEdge: CGFloat = 260
+        let scaleX = outputEdge / outputSize.width
+        let scaleY = outputEdge / outputSize.height
         let transformedImage = outputImage.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
         guard let cgImage = qrContext.createCGImage(transformedImage, from: transformedImage.extent) else { return nil }
 

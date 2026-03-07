@@ -19,11 +19,19 @@ In UI testing mode, profile refresh/sync paths are also short-circuited so no Fi
 This section is for human testcase checking flow 
 Need to check both English and Chinese
 1. Taps check: navigate to all three tags, don't touch anything else, see if it works
-2. Create a host room and edit everything to see if the change apply , and delete the room
+2. Create, Edit, and Delete Room:
+   - Create a host room and edit everything to see if the change apply , and delete the room
    - can try exceed the host room limit
    - check the event list, if it is correctly updated.
-3. Register a postcard and edit everything to make sure changes apply, and delete the postcard
+3. Create, Edit and Delete postcard: 
+   - Register a postcard and edit everything to make sure changes apply, and delete the postcard
    - check the event list, if it is correctly updated.
+4. Join room(Accept, Reject and Kick)
+   - use QR code to scan to the room
+   - Attendee apply join -> Check event and host MUSH receive a notification(Action EVENT) -> the badget counter need to increment
+   - The event need to record correctly on both side
+   - The deposit honey need to be calculated correctly 
+   
 TODO: invite code?
 
 ## Test Cases

@@ -64,9 +64,6 @@ extension UserSessionStore {
         }
         if source == .onboarding {
             await ensureUserProfile()
-            if !hasShownOnboardingTutorial() {
-                isShowingOnboardingTutorial = true
-            }
         }
         return true
     }

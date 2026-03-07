@@ -26,10 +26,8 @@
 //  [W] - `createdAt`: Writes create timestamp when creating room.
 //  [W] - `updatedAt`: Writes update timestamp on create/edit.
 //  [X] - `lastSuccessfulRaidAt`: Not touched by form flow.
-//  [X] - `targetColor`: Not touched by current form flow.
-//  [X] - `targetAttribute`: Not touched by current form flow.
+//  [X] - `mushroomType`: Not touched by current form flow.
 //  [X] - `attribute` (legacy fallback): Not touched by current form flow.
-//  [X] - `targetSize`: Not touched by current form flow.
 //  [X] - `expiresAt`: Not touched by current form flow.
 //
 //  Attendee document (`rooms/{roomId}/attendees/{uid}`):

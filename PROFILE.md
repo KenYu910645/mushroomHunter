@@ -5,6 +5,8 @@
 - `mushroomHunter/Features/Profile/ProfileCreateEditView.swift`: shared profile form used by profile edit and onboarding profile creation.
 - `mushroomHunter/Features/Profile/FeedbackView.swift`: in-app feedback compose view and submission payload model.
 - `mushroomHunter/Features/Profile/AboutView.swift`: settings-linked about page with contact links.
+- `mushroomHunter/Features/Tutorial/TutorialCatalogView.swift`: settings-linked tutorial scenario list.
+- `mushroomHunter/Features/Mushroom/RoomBrowseView.swift`: first interactive tutorial replay destination (`Mushroom Browse Basics`) using the real browse page.
 - `mushroomHunter/Features/EventInbox/EventInboxView.swift`: shared in-app event inbox sheet opened from the profile top-right bell.
 - `mushroomHunter/Features/EventInbox/EventInboxStore.swift`: shared Firestore-backed event history state used by the bell badge and inbox list.
 - `mushroomHunter/Features/Shared/TopActionBar.swift`: shared top action bar in honey+stars display mode.
@@ -22,6 +24,7 @@
   - Top-right settings icon was removed.
   - `Settings` button now appears in the form section above `Sign Out`, opens the same settings sheet as before, and uses localized text (`settings_title`).
   - Settings routes now include `Edit Profile`, `Feedback`, `Help`, and `About`.
+  - `Help` now opens the tutorial scenario list so users can choose which tutorial to replay.
   - Sign-out action now shows a confirmation dialog (`Are you sure you want to sign out?`) before session sign-out executes.
 - Mushroom and postcard owned activity lists were removed from profile and moved into browse tabs:
   - Mushroom browse pins user `Joined` and `Host` rooms at the top with ownership tags.

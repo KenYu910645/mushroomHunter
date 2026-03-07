@@ -23,9 +23,7 @@
 //  [X] - `location`: Not required for current profile room summaries.
 //  [X] - `description`: Not required for current profile room summaries.
 //  [X] - `fixedRaidCost`: Not required for current profile room summaries.
-//  [X] - `targetColor`: Not required for current profile room summaries.
-//  [X] - `targetAttribute`: Not required for current profile room summaries.
-//  [X] - `targetSize`: Not required for current profile room summaries.
+//  [X] - `mushroomType`: Not required for current profile room summaries.
 //  [X] - `lastSuccessfulRaidAt`: Not required for current profile room summaries.
 //
 //  Attendee document (`rooms/{roomId}/attendees/{uid}`):

@@ -444,9 +444,12 @@ struct RoomView: View {
 
                     Spacer()
 
-                    Text(String(format: NSLocalizedString("room_attendee_count_format", comment: ""), room.attendees.count, room.maxPlayers))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.fill")
+                        Text(String(format: NSLocalizedString("room_attendee_count_number_format", comment: ""), room.attendees.count, room.maxPlayers))
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 }
 
                 if !room.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

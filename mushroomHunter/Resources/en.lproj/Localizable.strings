@@ -39,6 +39,7 @@
 "browse_create_accessibility" = "Create host room";
 "browse_empty_title" = "No rooms found";
 "browse_attendee_format" = "👤 %d/%d";
+"browse_attendee_count_number_format" = "%d/%d";
 "browse_expires_format" = "Expires: %dm";
 "browse_tag_joined" = "Joined";
 "browse_tag_host" = "Host";
@@ -121,6 +122,7 @@
 "room_claim_rewards_title" = "Mushroom Invited";
 "room_load_error_title" = "Unable to load room";
 "room_attendee_count_format" = "👤 %d/%d";
+"room_attendee_count_number_format" = "%d/%d";
 "room_last_successful_raid_format" = "Last Successful Raid: %@";
 "room_copy_host_code_accessibility" = "Copy host friend code";
 "room_attendees_empty_title" = "No attendees yet";
@@ -296,6 +298,23 @@
 "tutorial_profile_description" = "Manage your account, review your activity, and update display name or friend code.";
 "tutorial_profile_callout_manage" = "Manage your mushroom raids and postcards in profile";
 "tutorial_profile_callout_profile" = "Your profile";
+"tutorial_back" = "Back";
+"tutorial_catalog_title" = "Tutorial";
+"tutorial_catalog_footer" = "You can replay any available tutorial at any time.";
+"tutorial_catalog_coming_soon" = "Coming soon";
+"tutorial_catalog_completed_chip" = "Completed";
+"tutorial_scenario_mushroom_browse_title" = "Mushroom Browse Basics";
+"tutorial_scenario_mushroom_browse_subtitle" = "Understand list layout, ownership tags, and create action.";
+"tutorial_scenario_room_personal_title" = "Room Page (Personal View)";
+"tutorial_scenario_room_personal_subtitle" = "Learn attendee controls and status meanings.";
+"tutorial_scenario_room_host_title" = "Room Page (Host View)";
+"tutorial_scenario_room_host_subtitle" = "Learn host actions such as approve, invite, and finish.";
+"tutorial_scenario_postcard_browse_title" = "Postcard Browse Basics";
+"tutorial_scenario_postcard_browse_subtitle" = "Understand listing cards, search, and register action.";
+"tutorial_scenario_postcard_buyer_title" = "Postcard Page (Buyer View)";
+"tutorial_scenario_postcard_buyer_subtitle" = "Learn order flow and receive confirmation.";
+"tutorial_scenario_postcard_seller_title" = "Postcard Page (Seller View)";
+"tutorial_scenario_postcard_seller_subtitle" = "Learn shipping queue and seller actions.";
 "postcard_status_waiting_seller_ship" = "Waiting for seller to ship the postcard";
 "postcard_status_shipped_on_way" = "Seller shipped; postcard on the way!";
 

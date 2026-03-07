@@ -28,10 +28,8 @@
 //  [X] - `updatedAt`: Not used by detail mapping.
 //  [R] - `lastSuccessfulRaidAt`: Reads last raid timestamp for detail status.
 //  [R] - `raidConfirmationHistory`: Reads host raid-confirmation history snapshots.
-//  [R] - `targetColor`: Reads target color into `MushroomTarget`.
-//  [R] - `targetAttribute`: Reads target attribute into `MushroomTarget`.
+//  [X] - `mushroomType`: Detail repo does not map browse-only mushroom type field.
 //  [X] - `attribute` (legacy fallback): Detail repo does not use legacy attribute key.
-//  [R] - `targetSize`: Reads target size into `MushroomTarget`.
 //  [X] - `expiresAt`: Not used by detail mapping.
 //
 //  Attendee document (`rooms/{roomId}/attendees/{uid}`):
@@ -73,17 +71,6 @@ final class FbRoomRepo {
         let location = data["location"] as? String ?? ""
         let description = data["description"] as? String ?? ""
         let fixedRaidCost = (data["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
-
-        // Mushroom target
-        let colorRaw = (data["targetColor"] as? String) ?? "All"
-        let attrRaw  = (data["targetAttribute"] as? String) ?? "All"
-        let sizeRaw  = (data["targetSize"] as? String) ?? "All"
-
-        let target = MushroomTarget(
-            color: MushroomColor(rawValue: normalizeTargetRaw(colorRaw)) ?? .All,
-            attribute: MushroomAttribute(rawValue: normalizeTargetRaw(attrRaw)) ?? .All,
-            size: MushroomSize(rawValue: normalizeTargetRaw(sizeRaw)) ?? .All
-        )
 
         // Meta
         let maxPlayers = data["maxPlayers"] as? Int ?? AppConfig.Mushroom.defaultMaxPlayersPerRoom
@@ -128,7 +115,7 @@ final class FbRoomRepo {
             title: title,
             location: location,
             description: description,
-            targetMushroom: target,
+            targetMushroom: MushroomTarget(color: .All, attribute: .All, size: .All),
             fixedRaidCost: fixedRaidCost,
             lastSuccessfulRaidAt: lastRaidAt,
             raidConfirmationHistory: raidConfirmationHistory,
@@ -183,10 +170,6 @@ final class FbRoomRepo {
                 pendingConfirmationRequests: pendingConfirmationRequests
             )
         }
-    }
-
-    private func normalizeTargetRaw(_ raw: String) -> String {
-        raw.trimmingCharacters(in: .whitespacesAndNewlines).capitalized
     }
 
 }

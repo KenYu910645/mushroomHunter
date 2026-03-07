@@ -165,38 +165,38 @@ final class PostcardImageUploader {
     private func normalizedImage(_ image: UIImage) -> UIImage {
         let pixelWidth = max(1, Int(image.size.width * image.scale))
         let pixelHeight = max(1, Int(image.size.height * image.scale))
-        let targetSize = CGSize(width: pixelWidth, height: pixelHeight)
+        let renderSize = CGSize(width: pixelWidth, height: pixelHeight)
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
         format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+        let renderer = UIGraphicsImageRenderer(size: renderSize, format: format)
         return renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: targetSize))
+            image.draw(in: CGRect(origin: .zero, size: renderSize))
         }
     }
 
     private func resizedSquareImage(from image: UIImage, edge: Int) -> UIImage {
         let normalized = normalizedImage(image)
-        let targetSize = CGSize(width: edge, height: edge)
+        let renderSize = CGSize(width: edge, height: edge)
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
         format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+        let renderer = UIGraphicsImageRenderer(size: renderSize, format: format)
         return renderer.image { _ in
             let sourceSize = normalized.size
             guard sourceSize.width > 0, sourceSize.height > 0 else {
-                normalized.draw(in: CGRect(origin: .zero, size: targetSize))
+                normalized.draw(in: CGRect(origin: .zero, size: renderSize))
                 return
             }
 
-            let widthRatio = targetSize.width / sourceSize.width
-            let heightRatio = targetSize.height / sourceSize.height
+            let widthRatio = renderSize.width / sourceSize.width
+            let heightRatio = renderSize.height / sourceSize.height
             let fillScale = max(widthRatio, heightRatio)
             let scaledWidth = sourceSize.width * fillScale
             let scaledHeight = sourceSize.height * fillScale
             let drawRect = CGRect(
-                x: (targetSize.width - scaledWidth) * 0.5,
-                y: (targetSize.height - scaledHeight) * 0.5,
+                x: (renderSize.width - scaledWidth) * 0.5,
+                y: (renderSize.height - scaledHeight) * 0.5,
                 width: scaledWidth,
                 height: scaledHeight
             )

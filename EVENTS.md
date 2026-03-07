@@ -47,6 +47,7 @@ Current event document fields:
 - Not all events send push notifications.
 - Every Action Event must always send push notification.
 - Badge count counts unresolved Action Events only.
+- Action Event push payload must include APNs `aps.badge` using latest unresolved Action Event count for receiver, so home-screen app icon badge updates immediately even when app is backgrounded.
 - For push-enabled events, push copy and event-list copy are generated from the same server-side snapshot text (`title`/`message`) per user locale at event creation time.
 
 ## Stored Event Types (`users/{uid}/events.type`)
@@ -61,7 +62,7 @@ Current event document fields:
   - Title(Eng): `Mushroom Room Created`
   - Title(Chinese): `已建立蘑菇房`
   - Message(Eng): `You created a mushroom room: %@.`
-  - Message(Chinese): `你已建立蘑菇房間：%@。`
+  - Message(Chinese): `您已建立蘑菇房間：%@。`
   - Push: none.
 
 - `ROOM_CLOSED_HOST`
@@ -72,7 +73,7 @@ Current event document fields:
   - Title(Eng): `Mushroom Room Closed`
   - Title(Chinese): `已關閉蘑菇房`
   - Message(Eng): `You closed a mushroom room: %@.`
-  - Message(Chinese): `你已關閉蘑菇房間：%@。`
+  - Message(Chinese): `您已關閉蘑菇房間：%@。`
   - Push: none.
 
 - `JOIN_REQUESTED_ATTENDEE`
@@ -83,7 +84,7 @@ Current event document fields:
   - Title(Eng): `Sent Join Request`
   - Title(Chinese): `已送出加入申請`
   - Message(Eng): `You sent a request to join %@.`
-  - Message(Chinese): `你已送出加入 %@ 申請。`
+  - Message(Chinese): `您已送出加入 %@ 申請。`
   - Push: none.
 
 - `JOIN_REQUESTED_HOST`
@@ -93,9 +94,9 @@ Current event document fields:
   - Target: host
   - Push: `notifyHostJoinRequest`.
   - Title(Eng): `New Join Request`
-  - Title(Chinese): `新加入申請`
+  - Title(Chinese): `申請加入`
   - Message(Eng): `%@ requested to join %@. Tap to respond`
-  - Message(Chinese): `%@ 申請加入 %@。`
+  - Message(Chinese): `%@ 申請加入 %@，點擊以回覆。`
 
 - `JOIN_ACCEPTED_ATTENDEE`
   - Class: Record Event.
@@ -106,7 +107,7 @@ Current event document fields:
   - Title(Eng): `Join Request Accepted`
   - Title(Chinese): `加入申請已接受`
   - Message(Eng): `Host accepted your request to join %@.`
-  - Message(Chinese): `主持人已接受你加入 %@ 的申請。`
+  - Message(Chinese): `主持人已接受您加入 %@ 的申請。`
 
 - `JOIN_ACCEPTED_HOST`
   - Class: Record Event.
@@ -128,7 +129,7 @@ Current event document fields:
   - Title(Eng): `Join Request Rejected`
   - Title(Chinese): `已拒絕加入申請`
   - Message(Eng): `Host rejected your request to join %@.`
-  - Message(Chinese): `主持人已拒絕你加入 %@ 的申請。`
+  - Message(Chinese): `主持人已拒絕您加入 %@ 的申請。`
 
 - `JOIN_REJECTED_HOST`
   - Class: Record Event.
@@ -138,7 +139,7 @@ Current event document fields:
   - Title(Eng): `Joiner Rejected`
   - Title(Chinese): `已拒絕加入申請`
   - Message(Eng): `You rejected a join request from %@.`
-  - Message(Chinese): `你已拒絕來自 %@ 的加入申請。`
+  - Message(Chinese): `您已拒絕來自 %@ 的加入申請。`
   - Push: none.
 
 - `RAID_INVITED_HOST`
@@ -149,7 +150,7 @@ Current event document fields:
   - Title(Eng): `Mushroom Raid Invited`
   - Title(Chinese): `已發送蘑菇邀請`
   - Message(Eng): `Raid confirmation invitations were sent to all attendees, wait for them to confirm.`
-  - Message(Chinese): `你已發送蘑菇邀請確認，等待所有參加者確認。`
+  - Message(Chinese): `您已發送蘑菇邀請確認，等待所有參加者確認。`
   - Push: none.
 
 - `RAID_CONFIRM_ATTENDEE`
@@ -172,7 +173,7 @@ Current event document fields:
   - Title(Eng): `Attendee Confirmed` or `Attendee Missed Invite`
   - Title(Chinese): `參加者已確認` or `參加者未看到邀請`
   - Message(Eng): `%@ confirmed raid join. You earned %@ honey.` or `%@ reported invited but seat full. You earned %@ honey.` or `%@ reported no invitation was seen.`
-  - Message(Chinese): `%@ 已確認參加戰鬥。你獲得 %@ 蜂蜜。` or `%@ 回報蘑菇滿位。你獲得 %@ 蜂蜜。` or `%@ 回報未看到邀請。`
+  - Message(Chinese): `%@ 已確認參加戰鬥。您獲得 %@ 蜂蜜。` or `%@ 回報蘑菇滿位。您獲得 %@ 蜂蜜。` or `%@ 回報未看到邀請。`
 
 - `STAR_RECEIVED`
   - Class: Record Event.
@@ -183,7 +184,7 @@ Current event document fields:
   - Title(Eng): `Stars Received`
   - Title(Chinese): `收到評價`
   - Message(Eng): `%@ gave you %@ stars.`
-  - Message(Chinese): `%@ 給了你 %@ 顆星。`
+  - Message(Chinese): `%@ 給了您 %@ 顆星。`
 
 ### Postcard Events
 
@@ -195,7 +196,7 @@ Current event document fields:
   - Title(Eng): `Postcard Registered`
   - Title(Chinese): `已上架明信片`
   - Message(Eng): `You registered a postcard: %@.`
-  - Message(Chinese): `你已上架明信片：%@。`
+  - Message(Chinese): `您已上架明信片：%@。`
   - Push: none.
 
 - `POSTCARD_CLOSED_SELLER`
@@ -206,7 +207,7 @@ Current event document fields:
   - Title(Eng): `Postcard Removed`
   - Title(Chinese): `明信片已下架`
   - Message(Eng): `You removed a postcard from market: %@.`
-  - Message(Chinese): `你已將明信片從市場下架：%@。`
+  - Message(Chinese): `您已將明信片從市場下架：%@。`
   - Push: none.
 
 - `POSTCARD_ORDER_SELLER`
@@ -228,7 +229,7 @@ Current event document fields:
   - Title(Eng): `Order Sent`
   - Title(Chinese): `訂單已送出`
   - Message(Eng): `You placed a postcard order on %@.`
-  - Message(Chinese): `你已送出明信片訂單：%@。`
+  - Message(Chinese): `您已送出明信片訂單：%@。`
   - Push: none.
 
 - `POSTCARD_SENT_BUYER`
@@ -250,7 +251,7 @@ Current event document fields:
   - Title(Eng): `Postcard Sent`
   - Title(Chinese): `明信片已寄出`
   - Message(Eng): `You have shipped postcard %@ to %@.`
-  - Message(Chinese): `你已將 %@ 寄給 %@。`
+  - Message(Chinese): `您已將 %@ 寄給 %@。`
   - Push: none.
 
 - `POSTCARD_RECEIVED_SELLER`
@@ -262,8 +263,8 @@ Current event document fields:
   - Title(Eng): `Order Completed`
   - Title(Chinese): `訂單完成`
   - Message(Eng): `%@ confirmed receipt. %@ honey has been transferred to you.`
-  - Message(Chinese): `%@ 已確認收件，%@ 蜂蜜已轉給你。`
-  - Note: if order is `CompletedAuto`, the message becomes `%@ postcard received timed out. %@ honey has been transferred to you.` / `「%@」收件確認逾時，%@ 蜂蜜已轉給你。`.
+  - Message(Chinese): `%@ 已確認收件，%@ 蜂蜜已轉給您。`
+  - Note: if order is `CompletedAuto`, the message becomes `%@ postcard received timed out. %@ honey has been transferred to you.` / `「%@」收件確認逾時，%@ 蜂蜜已轉給您。`.
 
 - `POSTCARD_RECEIVED_BUYER`
   - Class: Record Event.
@@ -273,7 +274,7 @@ Current event document fields:
   - Title(Eng): `Postcard Received`
   - Title(Chinese): `買家已收到明信片`
   - Message(Eng): `You confirmed to receive postcard: %@.`
-  - Message(Chinese): `你已確認收到明信片：%@。`
+  - Message(Chinese): `您已確認收到明信片：%@。`
   - Push: none.
 
 - `POSTCARD_REJECTED_BUYER`
@@ -285,7 +286,7 @@ Current event document fields:
   - Title(Eng): `Order Rejected`
   - Title(Chinese): `訂單已拒絕`
   - Message(Eng): `Your order for "%@" was rejected and canceled. %@ honey has been fully refunded to your account.`
-  - Message(Chinese): `你購買「%@」的訂單已被拒絕並取消，%@ 蜂蜜已全額退回。`
+  - Message(Chinese): `您購買「%@」的訂單已被拒絕並取消，%@ 蜂蜜已全額退回。`
 
 - `POSTCARD_REJECTED_SELLER`
   - Class: Record Event.
@@ -295,7 +296,7 @@ Current event document fields:
   - Title(Eng): `Order Rejected`
   - Title(Chinese): `訂單已拒絕`
   - Message(Eng): `You rejected a postcard order: %@.`
-  - Message(Chinese): `你已拒絕明信片訂單：%@。`
+  - Message(Chinese): `您已拒絕明信片訂單：%@。`
   - Push: none.
 
 ### Profile Events
@@ -308,7 +309,7 @@ Current event document fields:
   - Title(Eng): `Display Name Updated`
   - Title(Chinese): `名稱已更新`
   - Message(Eng): `Your display name was updated.`
-  - Message(Chinese): `你的顯示名稱已更新。`
+  - Message(Chinese): `您的顯示名稱已更新。`
   - Push: none.
 
 - `FRIEND_CODE_UPDATED`
@@ -319,7 +320,7 @@ Current event document fields:
   - Title(Eng): `Friend Code Updated`
   - Title(Chinese): `好友碼已更新`
   - Message(Eng): `Your friend code was updated to %@.`
-  - Message(Chinese): `你的好友碼已更新為 %@。`
+  - Message(Chinese): `您的好友碼已更新為 %@。`
   - Push: none.
 
 ## Resolution Rules
@@ -330,4 +331,6 @@ Current event document fields:
 
 ## Implementation Notes
 - Push data `type` now matches the event type for all push-enabled events.
+- Action Event pushes set `aps.badge` from `users/{uid}/events` unresolved Action Event aggregate count.
+- Badge injection classifies Action Event by `type` and also falls back to pushed `eventId` doc (`users/{uid}/events/{eventId}.isActionEvent`) so newly added Action Event types still get badge updates without missing APNs badge.
 - `REPLY_HOST` includes extra push field `outcome` with values `raid_confirmation_seat_full`, `raid_confirmation_missed_invite`, or `raid_confirmation_accepted`.

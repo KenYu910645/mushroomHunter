@@ -29,10 +29,8 @@
 //  [W] - `updatedAt`: Updates timestamp on every room mutation.
 //  [W] - `lastSuccessfulRaidAt`: Writes when host finishes raid confirmation cycle.
 //  [W] - `raidConfirmationHistory`: Writes and updates host read-only raid confirmation history snapshots.
-//  [X] - `targetColor`: Not used by actions logic.
-//  [X] - `targetAttribute`: Not used by actions logic.
+//  [X] - `mushroomType`: Not used by actions logic.
 //  [X] - `attribute` (legacy fallback): Not used by actions logic.
-//  [X] - `targetSize`: Not used by actions logic.
 //  [X] - `expiresAt`: Not used by actions logic.
 //
 //  Attendee document (`rooms/{roomId}/attendees/{uid}`):

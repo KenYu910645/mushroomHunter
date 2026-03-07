@@ -13,7 +13,7 @@ Main app flow after sign-in:
 2. Postcard tab
 3. Profile tab
 
-If signed out, users see the sign-in flow. First-time users must complete profile creation, then receive a one-time swipe tutorial (Mushroom -> Postcard -> Profile) with screenshot annotations (circle/arrow/text) rendered in-app.
+If signed out, users see the sign-in flow. First-time users complete profile creation, then interactive feature tutorials are triggered contextually (first-entry per scenario) with in-app highlight overlays and local tutorial scene data.
 
 ## Documentation Map (Must Keep In Sync)
 Use and maintain these files when related code changes:
@@ -25,6 +25,7 @@ Use and maintain these files when related code changes:
 - `POSTCARD.md`: postcard marketplace, listing/order lifecycle, shipping/receipt behavior.
 - `PROFILE.md`: profile editing, settings, feedback/about, profile-owned content views.
 - `SIGNIN.md`: authentication and first-time onboarding/profile-completion behavior.
+- `TUTORIAL.md`: dynamic interactive tutorial strategy, trigger matrix, scripted steps, and fake-data tutorial scenes.
 - `TESTCASE.md`: UI test case inventory and covered end-to-end flow scope.
 
 Rule: any code change that affects behavior must update the relevant markdown file(s) above.
@@ -142,7 +143,6 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 ### SIGNIN (`SIGNIN.md`)
 - `mushroomHunter/Features/Profile/LoginView.swift`
 - `mushroomHunter/Features/Profile/ProfileCreateEditView.swift` (shared create/edit profile form, signin flow uses create mode)
-- `mushroomHunter/Features/Profile/TutorialView.swift` (one-time swipe tutorial presented after first successful profile creation)
 - `mushroomHunter/Features/Shared/SmartTextField.swift` (shared auto-select text field wrapper used in create-profile form)
 - `mushroomHunter/Features/Shared/SmartTextEditor.swift` (shared auto-select text editor wrapper for multiline form inputs)
 - `mushroomHunter/Features/Shared/KeyboardDismissBridge.swift` (shared UIKit bridge for dismissing keyboard on outside taps without scroll interference)
@@ -153,6 +153,15 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/App/ContentView.swift` (auth/profile-complete routing)
 - `mushroomHunter/App/HoneyHubApp.swift` (URL routing bootstrap)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile create flow)
+
+### TUTORIAL (`TUTORIAL.md`)
+- `mushroomHunter/Features/Tutorial/TutorialConfig.swift` (single-source tuning for Mushroom browse tutorial step copy, highlight geometry, page count, and fake scene data in EN/zh-Hant)
+- `mushroomHunter/Features/Tutorial/TutorialScenario.swift`
+- `mushroomHunter/Features/Tutorial/TutorialProgress.swift`
+- `mushroomHunter/Features/Tutorial/TutorialCatalogView.swift`
+- `mushroomHunter/Features/Mushroom/RoomBrowseView.swift` (real browse UI reused for first-entry tutorial and replay; fake tutorial dataset + highlight overlay + real-data handoff)
+- `mushroomHunter/Features/Mushroom/RoomBrowseViewModel.swift` (Mushroom browse tutorial fake dataset seeding for reused browse UI)
+- `mushroomHunter/Features/Profile/ProfileView.swift` (settings help route to tutorial scenario list)
 
 ## Backend
 - Auth: Firebase Authentication (Apple + Google)

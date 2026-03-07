@@ -112,10 +112,10 @@ struct MessageBox: View {
             return Image(systemName: "drop.fill")
         }
 
-        let targetSize = CGSize(width: honeyIconSize, height: honeyIconSize)
-        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        let iconRenderSize = CGSize(width: honeyIconSize, height: honeyIconSize)
+        let renderer = UIGraphicsImageRenderer(size: iconRenderSize)
         let resizedImage = renderer.image { _ in
-            sourceImage.draw(in: CGRect(origin: .zero, size: targetSize))
+            sourceImage.draw(in: CGRect(origin: .zero, size: iconRenderSize))
         }
         return Image(uiImage: resizedImage)
     }

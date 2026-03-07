@@ -57,6 +57,39 @@ final class RoomBrowseViewModel: ObservableObject {
         self.session = session
     }
 
+    /// Applies local tutorial scene data for first-entry Mushroom browse walkthrough.
+    /// This bypasses Firebase and mirrors real browse-list composition.
+    func loadMushroomBrowseTutorialScene() {
+        isLoading = false
+        errorMessage = nil
+        showOnlyAvailable = true
+        query = ""
+        let tutorialScenario = TutorialConfig.MushroomBrowse.scenario
+        hostRoomIds = tutorialScenario.hostRoomIds
+        joinedRoomIds = tutorialScenario.joinedRoomIds
+
+        let now = Date()
+        let tutorialRows = tutorialScenario.fakeRooms.map { room in
+            RoomListing(
+                id: room.id,
+                title: room.title,
+                mushroomType: room.mushroomType,
+                joinedPlayers: room.joinedPlayers,
+                maxPlayers: room.maxPlayers,
+                hostUid: room.hostUid,
+                hostStars: room.hostStars,
+                location: room.location,
+                createdAt: now.addingTimeInterval(room.createdAtOffsetSeconds),
+                lastSuccessfulRaidAt: now.addingTimeInterval(room.lastSuccessfulRaidAtOffsetSeconds),
+                expiresAt: nil
+            )
+        }
+        listings = tutorialRows
+        pinnedListings = tutorialRows.filter { listing in
+            hostRoomIds.contains(listing.id) || joinedRoomIds.contains(listing.id)
+        }
+    }
+
     /// Loads browse listings with stale-first strategy.
     /// Uses cache on enter and always follows with a server refresh.
     func loadListingsOnAppear() async { // Handles loadListingsOnAppear flow.

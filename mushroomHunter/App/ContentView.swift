@@ -31,10 +31,6 @@ struct ContentView: View {
                 }
             }
         }
-        .fullScreenCover(isPresented: $session.isShowingOnboardingTutorial) {
-            TutorialView()
-                .environmentObject(session)
-        }
     }
 }
 
@@ -146,7 +142,6 @@ struct MainTabView: View {
                 session.stars = 1
                 session.honey = 100
                 session.isProfileComplete = true
-                session.isShowingOnboardingTutorial = false
 
                 if let postcardId = AppTesting.launchArgumentValue(after: AppTesting.openPostcardArgument) {
                     selectedTab = .postcard

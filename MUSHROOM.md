@@ -2,7 +2,7 @@
 
 ## Related Files
 - `mushroomHunter/Features/Mushroom/RoomBrowseView.swift`: mushroom room list UI and room entry points.
-- `mushroomHunter/Features/Mushroom/RoomBrowseViewModel.swift`: browse state, filtering, and join flow orchestration.
+- `mushroomHunter/Features/Mushroom/RoomBrowseViewModel.swift`: browse state, filtering, join flow orchestration, and local fake Mushroom tutorial dataset seeding.
 - `mushroomHunter/Features/Mushroom/RoomCreateEditView.swift`: host room create/edit UI and form validation.
 - `mushroomHunter/Features/Mushroom/RoomView.swift`: room details UI, attendee actions, finish flow, invite share sheet.
 - `mushroomHunter/Features/Mushroom/RoomView.swift`: includes room-specific invite sheet wrapper used by room view.
@@ -35,6 +35,7 @@
 - Browse header uses shared top action bar (`honey/search/create`) and scrolls with content (`ScrollView + LazyVStack`).
 - Browse has top-right bell to open shared notification inbox.
 - Push/deep-link routing opens Mushroom tab and pushes the standard room detail page (not a sheet).
+- First time entering Mushroom browse runs tutorial mode on the real browse page (same layout/styles as production), seeds local fake listings, blocks interactions with highlight steps, then loads real Firebase listings after completion.
 
 ### 2) Browse and Search
 - Search UI is inline (not sheet/alert), with toggle, clear `x`, keyboard `Search`, and hide-to-clear behavior.
@@ -180,7 +181,6 @@ Notes:
 - Host identity and info are stored in `attendees/{uid}` with `status = Host` (the host is just an attendee).
 - Browse no longer searches host display name from room docs.
 - Browse host-star priority is resolved from `users/{hostUid}.stars` (room-level `hostStars` is treated as legacy fallback only).
-- Legacy rooms may still include `targetColor`/`targetAttribute`/`targetSize`, but create/edit no longer writes or edits those fields.
 - Host-room limit checks query `rooms.hostUid`.
 - Join-room limit checks query attendee docs by `uid + active status` without per-room read fan-out.
 
