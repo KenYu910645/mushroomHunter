@@ -471,6 +471,73 @@ final class RoomViewModel: ObservableObject {
         return room.attendees.first(where: { $0.id == uid })?.depositHoney
     }
 
+    /// Returns role seeded by caller before first backend load.
+    var initialRoleSeed: RoomRole? {
+        seededRole
+    }
+
+    /// Applies fake room scene for interactive room tutorial flows.
+    /// - Parameter tutorialScenario: Tutorial scenario to present in room detail.
+    func loadRoomTutorialScene(for tutorialScenario: TutorialScenario) {
+        let tutorialConfig: TutorialConfig.RoomDetailTutorial.Scenario
+        switch tutorialScenario {
+        case .roomPersonalFirstVisit:
+            tutorialConfig = TutorialConfig.RoomPersonal.scenario
+        case .roomHostFirstVisit:
+            tutorialConfig = TutorialConfig.RoomHost.scenario
+        case .mushroomBrowseFirstVisit,
+             .postcardBrowseFirstVisit,
+             .postcardBuyerFirstVisit,
+             .postcardSellerFirstVisit:
+            return
+        }
+
+        let currentUid = currentUserId ?? "tutorial-current-user"
+        let now = Date()
+        let attendees = tutorialConfig.fakeRoom.attendees.map { fakeAttendee in
+            let attendeeId = fakeAttendee.isCurrentUser ? currentUid : fakeAttendee.id
+            let pendingConfirmationRequests = Dictionary(
+                uniqueKeysWithValues: fakeAttendee.pendingConfirmationRequestOffsets.enumerated().map { offsetIndex, offsetSeconds in
+                    ("tutorial-confirm-\(attendeeId)-\(offsetIndex)", now.addingTimeInterval(offsetSeconds))
+                }
+            )
+            return RoomAttendee(
+                id: attendeeId,
+                name: fakeAttendee.name.value(for: TutorialConfig.currentLanguage),
+                friendCode: fakeAttendee.friendCode,
+                stars: fakeAttendee.stars,
+                depositHoney: fakeAttendee.depositHoney,
+                joinGreetingMessage: fakeAttendee.joinGreetingMessage.value(for: TutorialConfig.currentLanguage),
+                joinedAt: now.addingTimeInterval(fakeAttendee.joinedAtOffsetSeconds),
+                status: fakeAttendee.status,
+                isHostRatingRequired: fakeAttendee.isHostRatingRequired,
+                pendingConfirmationRequests: pendingConfirmationRequests
+            )
+        }
+
+        room = RoomDetail(
+            id: tutorialConfig.fakeRoom.id,
+            title: tutorialConfig.fakeRoom.title.value(for: TutorialConfig.currentLanguage),
+            location: tutorialConfig.fakeRoom.location.value(for: TutorialConfig.currentLanguage),
+            description: tutorialConfig.fakeRoom.description.value(for: TutorialConfig.currentLanguage),
+            targetMushroom: MushroomTarget(
+                color: tutorialConfig.fakeRoom.targetColor,
+                attribute: tutorialConfig.fakeRoom.targetAttribute,
+                size: tutorialConfig.fakeRoom.targetSize
+            ),
+            fixedRaidCost: tutorialConfig.fakeRoom.fixedRaidCost,
+            lastSuccessfulRaidAt: now.addingTimeInterval(tutorialConfig.fakeRoom.lastSuccessfulRaidAtOffsetSeconds),
+            raidConfirmationHistory: [],
+            attendees: attendees,
+            maxPlayers: tutorialConfig.fakeRoom.maxPlayers
+        )
+        isLoading = false
+        errorMessage = nil
+        recomputeRole()
+        recomputeConfirmationStates()
+        sortAttendees(by: attendeeSort)
+    }
+
     var isCurrentUserAllowedToEditDeposit: Bool {
         currentUserAttendeeStatus == .ready
     }

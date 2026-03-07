@@ -4,10 +4,10 @@
 - `mushroomHunter/Features/Mushroom/RoomBrowseView.swift`: mushroom room list UI and room entry points.
 - `mushroomHunter/Features/Mushroom/RoomBrowseViewModel.swift`: browse state, filtering, join flow orchestration, and local fake Mushroom tutorial dataset seeding.
 - `mushroomHunter/Features/Mushroom/RoomCreateEditView.swift`: host room create/edit UI and form validation.
-- `mushroomHunter/Features/Mushroom/RoomView.swift`: room details UI, attendee actions, finish flow, invite share sheet.
+- `mushroomHunter/Features/Mushroom/RoomView.swift`: room details UI, attendee actions, finish flow, invite share sheet, and first-entry room personal/host interactive tutorials.
 - `mushroomHunter/Features/Mushroom/RoomView.swift`: includes room-specific invite sheet wrapper used by room view.
 - `mushroomHunter/Features/Shared/InviteShareSheet.swift`: shared invite QR sheet component used by room and postcard screens.
-- `mushroomHunter/Features/Mushroom/RoomViewModel.swift`: room details state, role/join gating logic, and action orchestration.
+- `mushroomHunter/Features/Mushroom/RoomViewModel.swift`: room details state, role/join gating logic, action orchestration, and fake room tutorial scene seeding.
 - `mushroomHunter/Features/Mushroom/RoomDomainModels.swift`: room/attendee data models and status enums.
 - `mushroomHunter/Features/Shared/TopActionBar.swift`: shared honey/search/create header used by browse screens (stars hidden on mushroom browse).
 - `mushroomHunter/Features/EventInbox/EventInboxView.swift`: shared in-app notification inbox list opened from mushroom/postcard top-right bell actions.
@@ -36,6 +36,7 @@
 - Browse has top-right bell to open shared notification inbox.
 - Push/deep-link routing opens Mushroom tab and pushes the standard room detail page (not a sheet).
 - First time entering Mushroom browse runs tutorial mode on the real browse page (same layout/styles as production), seeds local fake listings, blocks interactions with highlight steps, then loads real Firebase listings after completion.
+- First time entering room detail in personal/host view runs in-place tutorial mode on the real room page, loads fake room scene from `TutorialConfig`, blocks interactions, then restores real Firebase room payload after completion.
 
 ### 2) Browse and Search
 - Search UI is inline (not sheet/alert), with toggle, clear `x`, keyboard `Search`, and hide-to-clear behavior.

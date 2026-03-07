@@ -97,12 +97,43 @@ struct TutorialCatalogView: View {
                 tutorialScenarioOverride: .mushroomBrowseFirstVisit,
                 onTutorialReplayFinished: { dismiss() }
             )
-        case .roomPersonalFirstVisit,
-             .roomHostFirstVisit,
-             .postcardBrowseFirstVisit,
-             .postcardBuyerFirstVisit,
-             .postcardSellerFirstVisit:
-            EmptyView()
+        case .roomPersonalFirstVisit:
+            RoomView(
+                vm: RoomViewModel(
+                    roomId: TutorialConfig.RoomPersonal.replayRoomId,
+                    session: session,
+                    seededRole: .attendee
+                ),
+                tutorialScenarioOverride: .roomPersonalFirstVisit,
+                onTutorialReplayFinished: { dismiss() }
+            )
+        case .roomHostFirstVisit:
+            RoomView(
+                vm: RoomViewModel(
+                    roomId: TutorialConfig.RoomHost.replayRoomId,
+                    session: session,
+                    seededRole: .host
+                ),
+                tutorialScenarioOverride: .roomHostFirstVisit,
+                onTutorialReplayFinished: { dismiss() }
+            )
+        case .postcardBrowseFirstVisit:
+            PostcardBrowseView(
+                tutorialScenarioOverride: .postcardBrowseFirstVisit,
+                onTutorialReplayFinished: { dismiss() }
+            )
+        case .postcardBuyerFirstVisit:
+            PostcardView(
+                listing: TutorialConfig.PostcardBuyer.scenario.fakeListing,
+                tutorialScenarioOverride: .postcardBuyerFirstVisit,
+                onTutorialReplayFinished: { dismiss() }
+            )
+        case .postcardSellerFirstVisit:
+            PostcardView(
+                listing: TutorialConfig.PostcardSeller.scenario.fakeListing,
+                tutorialScenarioOverride: .postcardSellerFirstVisit,
+                onTutorialReplayFinished: { dismiss() }
+            )
         }
     }
 }

@@ -52,6 +52,8 @@
 - Postcard browse card thumbnail overlays the honey price badge (honey icon + value) at the top-right corner using shared `ColorfulTag` with a solid accent-orange background matching confirm buttons for readability over images; stock count is not shown on browse cards.
 - Postcard browse card title stays single-line, scales down for longer names, then truncates with trailing ellipsis.
 - Postcard location country labels are rendered in the current user locale when possible (including legacy listings that stored English country names).
+- First time entering Postcard browse runs tutorial mode on the real browse page (same layout/styles as production), seeds local fake listings, blocks interactions with highlight steps, then loads real Firebase listings after completion.
+- First time entering Postcard detail in buyer/seller view runs in-place tutorial mode on the real postcard page, loads fake detail scene from `TutorialConfig`, blocks interactions, then restores real Firebase postcard payload after completion.
 - Postcard detail view hides the navigation title so the postcard snapshot is the first visible content at the top.
 - Postcard detail view renders title and price on the same first line; price uses a right-aligned honey `ColorfulTag` (HoneyIcon + value).
 - Postcard detail view metadata is shown as left-aligned stacked rows: `Seller: {name}` then `Friend Code: {code}` with inline copy action icon.

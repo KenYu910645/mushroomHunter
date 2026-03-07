@@ -85,6 +85,12 @@ struct RoomBrowseView: View {
                     }
                     startMushroomBrowseTutorialIfNeeded()
                 }
+                .onDisappear {
+                    if isMushroomBrowseTutorialActive {
+                        isMushroomBrowseTutorialActive = false
+                        session.endFeatureTutorialPresentation()
+                    }
+                }
                 .onChange(of: pendingPushRoute) { _, route in
                     guard let route else { return }
                     activePushRoute = route
@@ -575,6 +581,7 @@ struct RoomBrowseView: View {
         mushroomBrowseTutorialStepIndex = 0
         vm.loadMushroomBrowseTutorialScene()
         isMushroomBrowseTutorialActive = true
+        session.beginFeatureTutorialPresentation()
     }
 
     /// Shows previous tutorial step when current step is not first.
@@ -595,6 +602,7 @@ struct RoomBrowseView: View {
     /// Completes tutorial and restores normal browse data flow.
     private func finishMushroomBrowseTutorial() {
         isMushroomBrowseTutorialActive = false
+        session.endFeatureTutorialPresentation()
 
         if tutorialScenarioOverride == .mushroomBrowseFirstVisit {
             onTutorialReplayFinished?()

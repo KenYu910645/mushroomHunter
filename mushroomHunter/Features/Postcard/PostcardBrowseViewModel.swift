@@ -76,6 +76,33 @@ final class PostcardBrowseViewModel: ObservableObject {
     /// Listing ids deleted in current session; used to suppress stale backend/cache echoes.
     private var locallyDeletedListingIds: Set<String> = []
 
+    /// Applies local tutorial scene data for first-entry postcard browse walkthrough.
+    /// This bypasses Firebase and mirrors real postcard browse card composition.
+    func loadPostcardBrowseTutorialScene() {
+        isLoading = false
+        errorMessage = nil
+        query = ""
+        confirmedQuery = ""
+        selectedCountry = "All"
+        selectedProvince = "All"
+        sortOrder = .newest
+        nextPageCursor = nil
+        isLoadingNextPage = false
+        isHasMorePages = false
+        activeSearchToken = nil
+
+        let tutorialScenario = TutorialConfig.PostcardBrowse.scenario
+        listings = tutorialScenario.fakeListings
+        pinnedOnShelfListings = tutorialScenario.fakeListings.filter { listing in
+            tutorialScenario.onShelfListingIds.contains(listing.id)
+        }
+        pinnedOrderedListings = tutorialScenario.fakeListings.filter { listing in
+            tutorialScenario.orderedListingIds.contains(listing.id)
+        }
+        onShelfListingIds = tutorialScenario.onShelfListingIds
+        orderedListingIds = tutorialScenario.orderedListingIds
+    }
+
     /// Loads data only when no listings have been fetched yet.
     func loadIfNeeded(session: UserSessionStore) async {
         if listings.isEmpty {

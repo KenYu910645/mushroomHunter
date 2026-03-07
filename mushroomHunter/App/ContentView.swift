@@ -55,9 +55,19 @@ struct MainTabView: View {
     @State private var pendingRoomPushRoute: RoomBrowsePushRoute? = nil
     /// Pending postcard push-link route consumed by Postcard browse navigation stack.
     @State private var pendingPostcardPushRoute: PostcardBrowsePushRoute? = nil
+    /// Tab selection binding that ignores user tab-tap changes while any tutorial is active.
+    private var tabSelectionBinding: Binding<RootTab> {
+        Binding(
+            get: { selectedTab },
+            set: { nextTab in
+                guard !session.isFeatureTutorialActive else { return }
+                selectedTab = nextTab
+            }
+        )
+    }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: tabSelectionBinding) {
             RoomBrowseView(
                 session: session,
                 pendingPushRoute: $pendingRoomPushRoute
@@ -83,6 +93,11 @@ struct MainTabView: View {
                 }
                 .tag(RootTab.profile)
                 .accessibilityIdentifier("tab_profile")
+        }
+        .overlay(alignment: .bottom) {
+            TabBarTouchBlocker(
+                isActive: session.isFeatureTutorialActive
+            )
         }
         .onReceive(NotificationCenter.default.publisher(for: .didOpenRoomFromPush)) { notif in
             guard let roomId = notif.object as? String else { return }
@@ -212,6 +227,33 @@ struct MainTabView: View {
         } catch {
             // Keep current badge count when refresh fails.
         }
+    }
+}
+
+/// Transparent overlay that blocks touches on the tab bar region while tutorials are active.
+private struct TabBarTouchBlocker: View {
+    /// Indicates whether tab-bar touches should be blocked.
+    let isActive: Bool
+
+    /// Renders an invisible hit-test layer over the bottom tab bar area only.
+    var body: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .frame(height: tabBarOverlayHeight(for: proxy))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .contentShape(Rectangle())
+                .allowsHitTesting(isActive)
+                .accessibilityHidden(true)
+        }
+        .ignoresSafeArea(edges: .bottom)
+    }
+
+    /// Computes overlay height using tab-bar base height plus device bottom inset.
+    /// - Parameter proxy: Geometry context used to read safe area insets.
+    /// - Returns: Bottom overlay height covering the tappable tab bar region.
+    private func tabBarOverlayHeight(for proxy: GeometryProxy) -> CGFloat {
+        let baseTabBarHeight: CGFloat = 49
+        return baseTabBarHeight + proxy.safeAreaInsets.bottom
     }
 }
 

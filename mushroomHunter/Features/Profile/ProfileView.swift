@@ -18,9 +18,6 @@ struct ProfileView: View {
         /// Feedback compose sheet.
         case feedback
 
-        /// Tutorial walkthrough sheet opened from settings help.
-        case help
-
         /// Edit-profile form sheet.
         case editProfile
 
@@ -43,6 +40,10 @@ struct ProfileView: View {
 
     /// Deferred sheet route opened after current sheet dismisses.
     @State private var pendingSheetAfterDismiss: ActiveSheet? = nil
+    /// Controls navigation push of tutorial catalog from profile root stack.
+    @State private var isTutorialCatalogPresented: Bool = false
+    /// Defers tutorial catalog push until settings sheet dismissal completes.
+    @State private var isPendingTutorialCatalogAfterDismiss: Bool = false
 
     /// Shows success alert after feedback submission.
     @State private var isFeedbackSubmittedAlertPresented: Bool = false
@@ -105,6 +106,9 @@ struct ProfileView: View {
                     .accessibilityIdentifier("profile_notification_button")
                 }
             }
+            .navigationDestination(isPresented: $isTutorialCatalogPresented) {
+                TutorialCatalogView()
+            }
         }
         .sheet(isPresented: $isNotificationInboxPresented) {
             EventInboxView { route in
@@ -116,6 +120,11 @@ struct ProfileView: View {
             if let pendingSheetAfterDismiss, activeSheet == nil {
                 activeSheet = pendingSheetAfterDismiss
                 self.pendingSheetAfterDismiss = nil
+                return
+            }
+            if isPendingTutorialCatalogAfterDismiss, activeSheet == nil {
+                isPendingTutorialCatalogAfterDismiss = false
+                isTutorialCatalogPresented = true
             }
         }) {
             switch $0 {
@@ -143,8 +152,6 @@ struct ProfileView: View {
                         isFeedbackSubmittedAlertPresented = true
                     }
                 }
-        case .help:
-                TutorialCatalogView()
             case .editProfile:
                 ProfileCreateEditView(mode: .edit)
             }
@@ -262,7 +269,7 @@ struct ProfileView: View {
                     .accessibilityIdentifier("settings_feedback_button")
 
                     Button {
-                        pendingSheetAfterDismiss = .help
+                        isPendingTutorialCatalogAfterDismiss = true
                         activeSheet = nil
                     } label: {
                         Label(LocalizedStringKey("settings_help_button"), systemImage: "questionmark.circle")

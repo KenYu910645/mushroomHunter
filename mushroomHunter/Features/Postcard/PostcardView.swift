@@ -25,6 +25,10 @@ struct PostcardDetailCachePayload: Codable {
 struct PostcardView: View {
     /// Callback fired when this listing is deleted, used by browse to remove stale rows immediately.
     private let onListingDeleted: ((String) -> Void)?
+    /// Optional postcard detail tutorial override used by replay entry points.
+    private let tutorialScenarioOverride: TutorialScenario?
+    /// Optional callback fired when replayed postcard detail tutorial finishes.
+    private let onTutorialReplayFinished: (() -> Void)?
     /// Indicates push/deep-link should open order context immediately after first refresh.
     private let isOpeningOrderPageOnAppear: Bool
     /// Indicates first load should force latest backend state.
@@ -65,6 +69,12 @@ struct PostcardView: View {
     @State private var isDidRunInitialRefresh: Bool = false
     /// Tracks whether order-context jump is still pending after first refresh.
     @State private var isPendingOpenOrderPageOnAppear: Bool
+    /// Controls in-place postcard detail interactive tutorial overlay visibility.
+    @State private var isPostcardTutorialActive: Bool = false
+    /// Current step index for postcard detail interactive tutorial.
+    @State private var postcardTutorialStepIndex: Int = 0
+    /// Active postcard detail tutorial scenario for step/content lookup.
+    @State private var activePostcardTutorialScenario: TutorialScenario? = nil
     /// Current color scheme used for themed background.
     @Environment(\.colorScheme) private var scheme
     /// Dismiss action for this detail screen.
@@ -90,10 +100,14 @@ struct PostcardView: View {
     init(
         listing: PostcardListing,
         onListingDeleted: ((String) -> Void)? = nil,
+        tutorialScenarioOverride: TutorialScenario? = nil,
+        onTutorialReplayFinished: (() -> Void)? = nil,
         isOpeningOrderPageOnAppear: Bool = false,
         isForceRefreshOnAppear: Bool = false
     ) {
         self.onListingDeleted = onListingDeleted
+        self.tutorialScenarioOverride = tutorialScenarioOverride
+        self.onTutorialReplayFinished = onTutorialReplayFinished
         self.isOpeningOrderPageOnAppear = isOpeningOrderPageOnAppear
         self.isForceRefreshOnAppear = isForceRefreshOnAppear
         _currentListing = State(initialValue: listing)
@@ -263,6 +277,7 @@ struct PostcardView: View {
             .padding()
         }
         .background(Theme.backgroundGradient(for: scheme))
+        .allowsHitTesting(!isPostcardTutorialActive)
         .toolbar {
             if isSeller {
                 ToolbarItemGroup(placement: .topBarTrailing) {
@@ -299,13 +314,10 @@ struct PostcardView: View {
         .task {
             guard !isDidRunInitialRefresh else { return }
             isDidRunInitialRefresh = true
-            await refreshListing(isForceRefresh: isForceRefreshOnAppear)
-            if isPendingOpenOrderPageOnAppear, isSeller {
-                isShippingSheetPresented = true
-            }
-            isPendingOpenOrderPageOnAppear = false
+            await handleInitialPostcardLoadFlow()
         }
         .refreshable {
+            guard !isPostcardTutorialActive else { return }
             await refreshListing(isForceRefresh: true)
         }
         .sheet(isPresented: $isEditSheetPresented, onDismiss: {
@@ -353,6 +365,11 @@ struct PostcardView: View {
                     .background(.ultraThinMaterial, in: Capsule())
                     .padding(.top, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .overlay {
+            if isPostcardTutorialActive {
+                postcardDetailTutorialOverlay
             }
         }
         .overlay {
@@ -437,6 +454,12 @@ struct PostcardView: View {
                         }
                     ]
                 )
+            }
+        }
+        .onDisappear {
+            if isPostcardTutorialActive {
+                isPostcardTutorialActive = false
+                session.endFeatureTutorialPresentation()
             }
         }
     }
@@ -655,6 +678,260 @@ struct PostcardView: View {
             sellerFriendCode: sellerFriendCode
         )
         await cache.save(payload, key: detailCacheKey())
+    }
+
+    /// Current postcard detail tutorial scenario configuration.
+    private var currentPostcardTutorialConfig: TutorialConfig.PostcardDetailTutorial.Scenario? {
+        switch activePostcardTutorialScenario {
+        case .postcardBuyerFirstVisit:
+            return TutorialConfig.PostcardBuyer.scenario
+        case .postcardSellerFirstVisit:
+            return TutorialConfig.PostcardSeller.scenario
+        case .mushroomBrowseFirstVisit,
+             .roomPersonalFirstVisit,
+             .roomHostFirstVisit,
+             .postcardBrowseFirstVisit,
+             .none:
+            return nil
+        }
+    }
+
+    /// Current postcard detail tutorial step payload.
+    private var currentPostcardTutorialStep: TutorialConfig.PostcardDetailTutorial.Step? {
+        guard let tutorialConfig = currentPostcardTutorialConfig else { return nil }
+        guard tutorialConfig.steps.isEmpty == false else { return nil }
+        return tutorialConfig.steps[postcardTutorialStepIndex]
+    }
+
+    /// Indicates current postcard tutorial step is first.
+    private var isPostcardTutorialFirstStep: Bool {
+        postcardTutorialStepIndex == 0
+    }
+
+    /// Indicates current postcard tutorial step is last.
+    private var isPostcardTutorialLastStep: Bool {
+        guard let tutorialConfig = currentPostcardTutorialConfig else { return true }
+        return postcardTutorialStepIndex >= tutorialConfig.steps.count - 1
+    }
+
+    /// Blocking highlight overlay rendered above live postcard detail content.
+    private var postcardDetailTutorialOverlay: some View {
+        GeometryReader { proxy in
+            if let step = currentPostcardTutorialStep {
+                let highlightFrame = step.normalizedRect.map { normalizedRect in
+                    CGRect(
+                        x: proxy.size.width * normalizedRect.minX,
+                        y: proxy.size.height * normalizedRect.minY,
+                        width: proxy.size.width * normalizedRect.width,
+                        height: proxy.size.height * normalizedRect.height
+                    )
+                }
+                let messageBoxY = max(0.12, min(step.messageBoxNormalizedY, 0.92)) * proxy.size.height
+
+                ZStack {
+                    Color.black.opacity(0.6)
+                        .overlay {
+                            if let highlightFrame {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .frame(width: highlightFrame.width, height: highlightFrame.height)
+                                    .position(x: highlightFrame.midX, y: highlightFrame.midY)
+                                    .blendMode(.destinationOut)
+                            }
+                        }
+                        .compositingGroup()
+                        .ignoresSafeArea()
+
+                    if let highlightFrame {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.yellow, lineWidth: 2)
+                            .frame(width: highlightFrame.width, height: highlightFrame.height)
+                            .position(x: highlightFrame.midX, y: highlightFrame.midY)
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(step.title)
+                            .font(.headline)
+                        Text(step.message)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 8) {
+                            Button(LocalizedStringKey("tutorial_back")) {
+                                showPreviousPostcardTutorialStep()
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isPostcardTutorialFirstStep)
+
+                            Button(isPostcardTutorialLastStep ? String(localized: "common_done") : String(localized: "tutorial_next")) {
+                                advancePostcardTutorialStep()
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                    .padding(16)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .frame(width: max(0, proxy.size.width - 32), alignment: .leading)
+                    .position(x: proxy.size.width * 0.5, y: messageBoxY)
+                }
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    /// Handles initial detail load with tutorial-first flow for first entry scenarios.
+    private func handleInitialPostcardLoadFlow() async {
+        if tutorialScenarioOverride == .postcardBuyerFirstVisit {
+            beginPostcardTutorial(scenario: .postcardBuyerFirstVisit)
+            return
+        }
+        if tutorialScenarioOverride == .postcardSellerFirstVisit {
+            beginPostcardTutorial(scenario: .postcardSellerFirstVisit)
+            return
+        }
+
+        if AppTesting.isUITesting {
+            await refreshListing(isForceRefresh: isForceRefreshOnAppear)
+            finalizePendingOrderPageAutoOpen()
+            return
+        }
+
+        let firstScenario = isSeller ? TutorialScenario.postcardSellerFirstVisit : .postcardBuyerFirstVisit
+        if !session.isTutorialScenarioCompleted(firstScenario) {
+            beginPostcardTutorial(scenario: firstScenario)
+            return
+        }
+
+        await refreshListing(isForceRefresh: isForceRefreshOnAppear)
+
+        let refreshedScenario = isSeller ? TutorialScenario.postcardSellerFirstVisit : .postcardBuyerFirstVisit
+        if !session.isTutorialScenarioCompleted(refreshedScenario) {
+            beginPostcardTutorial(scenario: refreshedScenario)
+            return
+        }
+
+        finalizePendingOrderPageAutoOpen()
+    }
+
+    /// Opens seller order queue once when push route requested auto-open behavior.
+    private func finalizePendingOrderPageAutoOpen() {
+        if isPendingOpenOrderPageOnAppear, isSeller {
+            isShippingSheetPresented = true
+        }
+        isPendingOpenOrderPageOnAppear = false
+    }
+
+    /// Starts postcard interactive tutorial and applies fake tutorial detail scene.
+    /// - Parameter scenario: Target postcard tutorial scenario.
+    private func beginPostcardTutorial(scenario: TutorialScenario) {
+        guard !isPostcardTutorialActive else { return }
+        activePostcardTutorialScenario = scenario
+        guard let tutorialConfig = currentPostcardTutorialConfig,
+              tutorialConfig.steps.isEmpty == false else {
+            activePostcardTutorialScenario = nil
+            return
+        }
+        postcardTutorialStepIndex = 0
+        applyPostcardTutorialScene(tutorialConfig, scenario: scenario)
+        isPostcardTutorialActive = true
+        session.beginFeatureTutorialPresentation()
+    }
+
+    /// Applies fake postcard detail scene for the active tutorial.
+    /// - Parameters:
+    ///   - tutorialConfig: Resolved tutorial scene data.
+    ///   - scenario: Active postcard tutorial scenario.
+    private func applyPostcardTutorialScene(
+        _ tutorialConfig: TutorialConfig.PostcardDetailTutorial.Scenario,
+        scenario: TutorialScenario
+    ) {
+        let sessionUserId = session.authUid?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        var tutorialListing = tutorialConfig.fakeListing
+        if scenario == .postcardSellerFirstVisit, !sessionUserId.isEmpty {
+            tutorialListing = PostcardListing(
+                id: tutorialListing.id,
+                sellerId: sessionUserId,
+                title: tutorialListing.title,
+                priceHoney: tutorialListing.priceHoney,
+                location: tutorialListing.location,
+                sellerName: session.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? tutorialListing.sellerName
+                    : session.displayName,
+                sellerFriendCode: session.friendCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? tutorialListing.sellerFriendCode
+                    : session.friendCode,
+                stock: tutorialListing.stock,
+                imageUrl: tutorialListing.imageUrl,
+                thumbnailUrl: tutorialListing.thumbnailUrl,
+                createdAt: tutorialListing.createdAt
+            )
+        }
+        if scenario == .postcardBuyerFirstVisit, !sessionUserId.isEmpty, tutorialListing.sellerId == sessionUserId {
+            tutorialListing = PostcardListing(
+                id: tutorialListing.id,
+                sellerId: "tutorial-postcard-buyer-seller",
+                title: tutorialListing.title,
+                priceHoney: tutorialListing.priceHoney,
+                location: tutorialListing.location,
+                sellerName: tutorialListing.sellerName,
+                sellerFriendCode: tutorialListing.sellerFriendCode,
+                stock: tutorialListing.stock,
+                imageUrl: tutorialListing.imageUrl,
+                thumbnailUrl: tutorialListing.thumbnailUrl,
+                createdAt: tutorialListing.createdAt
+            )
+        }
+
+        currentListing = tutorialListing
+        sellerFriendCode = tutorialListing.sellerFriendCode
+        pendingShippingCount = tutorialConfig.fakePendingShippingCount
+        if let fakeBuyerOrderStatus = tutorialConfig.fakeBuyerOrderStatus {
+            buyerOrder = PostcardBuyerOrder(
+                id: "tutorial-buyer-order-\(tutorialListing.id)",
+                postcardId: tutorialListing.id,
+                status: fakeBuyerOrderStatus,
+                holdHoney: tutorialListing.priceHoney,
+                createdAt: Date().addingTimeInterval(-900)
+            )
+        } else {
+            buyerOrder = nil
+        }
+    }
+
+    /// Moves postcard tutorial to previous step when available.
+    private func showPreviousPostcardTutorialStep() {
+        guard postcardTutorialStepIndex > 0 else { return }
+        postcardTutorialStepIndex -= 1
+    }
+
+    /// Advances postcard tutorial to next step or completes when on final step.
+    private func advancePostcardTutorialStep() {
+        if isPostcardTutorialLastStep {
+            finishPostcardTutorial()
+            return
+        }
+        postcardTutorialStepIndex += 1
+    }
+
+    /// Completes postcard tutorial and restores normal detail data flow.
+    private func finishPostcardTutorial() {
+        let finishedScenario = activePostcardTutorialScenario
+        isPostcardTutorialActive = false
+        session.endFeatureTutorialPresentation()
+        activePostcardTutorialScenario = nil
+
+        if tutorialScenarioOverride == .postcardBuyerFirstVisit
+            || tutorialScenarioOverride == .postcardSellerFirstVisit {
+            onTutorialReplayFinished?()
+            return
+        }
+
+        if let finishedScenario {
+            session.markTutorialScenarioCompleted(finishedScenario)
+        }
+        Task {
+            await refreshListing(isForceRefresh: true)
+            finalizePendingOrderPageAutoOpen()
+        }
     }
 
 }

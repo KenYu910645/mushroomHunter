@@ -25,6 +25,7 @@ final class UserSessionStore: ObservableObject {
     @Published var fcmToken: String? = nil // State or dependency property.
     @Published var isProfileComplete: Bool = false // State or dependency property.
     @Published var isShowingOnboardingTutorial: Bool = false // Tracks whether the first-time tutorial sheet is currently presented.
+    @Published var isFeatureTutorialActive: Bool = false // Indicates any interactive feature tutorial is currently active and should lock tab switching.
     @Published var profileActionBadgeCount: Int = 0 // Actionable item count used by profile tab/app icon badges.
     @Published var isLoading: Bool = false // State or dependency property.
     @Published var errorMessage: String? = nil // State or dependency property.
@@ -43,6 +44,7 @@ final class UserSessionStore: ObservableObject {
     var lastSyncedFcmTokenByUid: [String: String] = [:] // Tracks the most recently synced FCM token per uid to avoid duplicate writes.
     var isUserProfileEnsuredInCurrentSession: Bool = false // Tracks whether ensureUserProfile already wrote for the current signed-in uid.
     var lastObservedAuthUid: String? = nil // Keeps the previous auth uid so session-scoped sync guards reset when user changes.
+    private var activeFeatureTutorialCount: Int = 0 // Reference count for active feature tutorials to keep lock state consistent across nested presentations.
 
     init() { // Initializes this type.
         resetToDefaults()
@@ -132,7 +134,23 @@ final class UserSessionStore: ObservableObject {
         maxJoinRoom = AppConfig.Mushroom.defaultJoinRoomLimit
         isProfileComplete = false
         isShowingOnboardingTutorial = false
+        isFeatureTutorialActive = false
+        activeFeatureTutorialCount = 0
         profileActionBadgeCount = 0
+    }
+
+    /// Marks that one interactive feature tutorial presentation started.
+    /// Uses a reference count so multiple begin/end pairs remain balanced.
+    func beginFeatureTutorialPresentation() {
+        activeFeatureTutorialCount += 1
+        isFeatureTutorialActive = activeFeatureTutorialCount > 0
+    }
+
+    /// Marks that one interactive feature tutorial presentation finished.
+    /// Prevents negative counts when end is called defensively on disappear.
+    func endFeatureTutorialPresentation() {
+        activeFeatureTutorialCount = max(0, activeFeatureTutorialCount - 1)
+        isFeatureTutorialActive = activeFeatureTutorialCount > 0
     }
 
     /// Stores a sanitized actionable badge count for profile/tab/app-icon updates.

@@ -16,6 +16,10 @@ struct RoomView: View {
     @EnvironmentObject private var session: UserSessionStore // State or dependency property.
     @Environment(\.colorScheme) private var scheme // State or dependency property.
     let onRoomClosed: (() -> Void)?
+    /// Optional room tutorial override for replay entry points.
+    private let tutorialScenarioOverride: TutorialScenario?
+    /// Optional callback fired when replayed room tutorial finishes.
+    private let onTutorialReplayFinished: (() -> Void)?
     /// Indicates push/deep-link should open attendee confirmation queue on first appearance.
     private let isOpeningConfirmationQueueOnAppear: Bool
     /// Indicates first load should force latest backend payload.
@@ -58,13 +62,20 @@ struct RoomView: View {
     @State private var showInviteSheet: Bool = false // State or dependency property.
     @State private var isDidRunInitialLoad: Bool = false // Ensures first-load sequence executes only once.
     @State private var isPendingOpenConfirmationQueueOnAppear: Bool // Tracks one-time auto-open request for attendee confirmation queue.
+    @State private var isRoomTutorialActive: Bool = false // Controls in-place room interactive tutorial overlay visibility.
+    @State private var roomTutorialStepIndex: Int = 0 // Current step index for room interactive tutorial.
+    @State private var activeRoomTutorialScenario: TutorialScenario? = nil // Active room tutorial scenario for step/content lookup.
     /// ✅ New initializer: pass VM from caller (RoomBrowseView already does this)
     init(
         vm: RoomViewModel,
         onRoomClosed: (() -> Void)? = nil,
+        tutorialScenarioOverride: TutorialScenario? = nil,
+        onTutorialReplayFinished: (() -> Void)? = nil,
         isOpeningConfirmationQueueOnAppear: Bool = false,
         isForceRefreshOnAppear: Bool = false
     ) { // Initializes this type.
+        self.tutorialScenarioOverride = tutorialScenarioOverride
+        self.onTutorialReplayFinished = onTutorialReplayFinished
         self.isOpeningConfirmationQueueOnAppear = isOpeningConfirmationQueueOnAppear
         self.isForceRefreshOnAppear = isForceRefreshOnAppear
         _vm = StateObject(wrappedValue: vm)
@@ -81,11 +92,7 @@ struct RoomView: View {
                 .task {
                     guard !isDidRunInitialLoad else { return }
                     isDidRunInitialLoad = true
-                    await vm.load(forceRefresh: isForceRefreshOnAppear)
-                    if isPendingOpenConfirmationQueueOnAppear, vm.role == .attendee {
-                        isRaidConfirmationQueueSheetPresented = true
-                    }
-                    isPendingOpenConfirmationQueueOnAppear = false
+                    await handleInitialRoomLoadFlow()
                 }
                 .onChange(of: vm.hostPendingRatingAttendeeIds) { _, _ in
                     presentNextHostRatingAlertIfNeeded()
@@ -121,6 +128,17 @@ struct RoomView: View {
         }
         .overlay {
             messageBoxOverlay
+        }
+        .overlay {
+            if isRoomTutorialActive {
+                roomTutorialOverlay
+            }
+        }
+        .onDisappear {
+            if isRoomTutorialActive {
+                isRoomTutorialActive = false
+                session.endFeatureTutorialPresentation()
+            }
         }
         .sheet(isPresented: $showJoinSheet) {
             NavigationStack {
@@ -427,10 +445,12 @@ struct RoomView: View {
                 }
             }
             .refreshable {
+                guard !isRoomTutorialActive else { return }
                 await vm.load(forceRefresh: true)
             }
             .scrollContentBackground(.hidden)
             .background(Theme.backgroundGradient(for: scheme))
+            .allowsHitTesting(!isRoomTutorialActive)
         }
     }
 
@@ -670,6 +690,211 @@ struct RoomView: View {
     }
 
     // MARK: - Helpers
+
+    /// Current room tutorial scenario configuration.
+    private var currentRoomTutorialConfig: TutorialConfig.RoomDetailTutorial.Scenario? {
+        switch activeRoomTutorialScenario {
+        case .roomPersonalFirstVisit:
+            return TutorialConfig.RoomPersonal.scenario
+        case .roomHostFirstVisit:
+            return TutorialConfig.RoomHost.scenario
+        case .mushroomBrowseFirstVisit,
+             .postcardBrowseFirstVisit,
+             .postcardBuyerFirstVisit,
+             .postcardSellerFirstVisit,
+             .none:
+            return nil
+        }
+    }
+
+    /// Current room tutorial step payload.
+    private var currentRoomTutorialStep: TutorialConfig.RoomDetailTutorial.Step? {
+        guard let tutorialConfig = currentRoomTutorialConfig else { return nil }
+        guard tutorialConfig.steps.isEmpty == false else { return nil }
+        return tutorialConfig.steps[roomTutorialStepIndex]
+    }
+
+    /// Indicates current room tutorial step is first.
+    private var isRoomTutorialFirstStep: Bool {
+        roomTutorialStepIndex == 0
+    }
+
+    /// Indicates current room tutorial step is last.
+    private var isRoomTutorialLastStep: Bool {
+        guard let tutorialConfig = currentRoomTutorialConfig else { return true }
+        return roomTutorialStepIndex >= tutorialConfig.steps.count - 1
+    }
+
+    /// Blocking highlight overlay rendered above live room content.
+    private var roomTutorialOverlay: some View {
+        GeometryReader { proxy in
+            if let step = currentRoomTutorialStep {
+                let highlightFrame = step.normalizedRect.map { normalizedRect in
+                    CGRect(
+                        x: proxy.size.width * normalizedRect.minX,
+                        y: proxy.size.height * normalizedRect.minY,
+                        width: proxy.size.width * normalizedRect.width,
+                        height: proxy.size.height * normalizedRect.height
+                    )
+                }
+                let messageBoxY = max(0.12, min(step.messageBoxNormalizedY, 0.92)) * proxy.size.height
+
+                ZStack {
+                    Color.black.opacity(0.6)
+                        .overlay {
+                            if let highlightFrame {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .frame(width: highlightFrame.width, height: highlightFrame.height)
+                                    .position(x: highlightFrame.midX, y: highlightFrame.midY)
+                                    .blendMode(.destinationOut)
+                            }
+                        }
+                        .compositingGroup()
+                        .ignoresSafeArea()
+
+                    if let highlightFrame {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.yellow, lineWidth: 2)
+                            .frame(width: highlightFrame.width, height: highlightFrame.height)
+                            .position(x: highlightFrame.midX, y: highlightFrame.midY)
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(step.title)
+                            .font(.headline)
+                        Text(step.message)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 8) {
+                            Button(LocalizedStringKey("tutorial_back")) {
+                                showPreviousRoomTutorialStep()
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isRoomTutorialFirstStep)
+
+                            Button(isRoomTutorialLastStep ? String(localized: "common_done") : String(localized: "tutorial_next")) {
+                                advanceRoomTutorialStep()
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                    .padding(16)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .frame(width: max(0, proxy.size.width - 32), alignment: .leading)
+                    .position(x: proxy.size.width * 0.5, y: messageBoxY)
+                }
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    /// Handles initial room load with tutorial-first flow for first entry scenarios.
+    private func handleInitialRoomLoadFlow() async {
+        if tutorialScenarioOverride == .roomPersonalFirstVisit {
+            beginRoomTutorial(scenario: .roomPersonalFirstVisit)
+            return
+        }
+        if tutorialScenarioOverride == .roomHostFirstVisit {
+            beginRoomTutorial(scenario: .roomHostFirstVisit)
+            return
+        }
+
+        if AppTesting.isUITesting {
+            await vm.load(forceRefresh: isForceRefreshOnAppear)
+            finalizePendingConfirmationQueueAutoOpen()
+            return
+        }
+
+        if let initialRoleSeed = vm.initialRoleSeed {
+            if initialRoleSeed == .host,
+               !session.isTutorialScenarioCompleted(.roomHostFirstVisit) {
+                beginRoomTutorial(scenario: .roomHostFirstVisit)
+                return
+            }
+            if initialRoleSeed != .host,
+               !session.isTutorialScenarioCompleted(.roomPersonalFirstVisit) {
+                beginRoomTutorial(scenario: .roomPersonalFirstVisit)
+                return
+            }
+        }
+
+        await vm.load(forceRefresh: isForceRefreshOnAppear)
+
+        if vm.role == .host,
+           !session.isTutorialScenarioCompleted(.roomHostFirstVisit) {
+            beginRoomTutorial(scenario: .roomHostFirstVisit)
+            return
+        }
+        if vm.role != .host,
+           !session.isTutorialScenarioCompleted(.roomPersonalFirstVisit) {
+            beginRoomTutorial(scenario: .roomPersonalFirstVisit)
+            return
+        }
+
+        finalizePendingConfirmationQueueAutoOpen()
+    }
+
+    /// Opens confirmation queue once when push route requested auto-open behavior.
+    private func finalizePendingConfirmationQueueAutoOpen() {
+        if isPendingOpenConfirmationQueueOnAppear, vm.role == .attendee {
+            isRaidConfirmationQueueSheetPresented = true
+        }
+        isPendingOpenConfirmationQueueOnAppear = false
+    }
+
+    /// Starts room interactive tutorial and applies fake tutorial room scene.
+    /// - Parameter scenario: Target room tutorial scenario.
+    private func beginRoomTutorial(scenario: TutorialScenario) {
+        guard !isRoomTutorialActive else { return }
+        activeRoomTutorialScenario = scenario
+        guard let tutorialConfig = currentRoomTutorialConfig,
+              tutorialConfig.steps.isEmpty == false else {
+            activeRoomTutorialScenario = nil
+            return
+        }
+        roomTutorialStepIndex = 0
+        vm.loadRoomTutorialScene(for: scenario)
+        isRoomTutorialActive = true
+        session.beginFeatureTutorialPresentation()
+    }
+
+    /// Moves room tutorial to previous step when available.
+    private func showPreviousRoomTutorialStep() {
+        guard roomTutorialStepIndex > 0 else { return }
+        roomTutorialStepIndex -= 1
+    }
+
+    /// Advances room tutorial to next step or completes when on final step.
+    private func advanceRoomTutorialStep() {
+        if isRoomTutorialLastStep {
+            finishRoomTutorial()
+            return
+        }
+        roomTutorialStepIndex += 1
+    }
+
+    /// Completes room tutorial and restores normal room data flow.
+    private func finishRoomTutorial() {
+        let finishedScenario = activeRoomTutorialScenario
+        isRoomTutorialActive = false
+        session.endFeatureTutorialPresentation()
+        activeRoomTutorialScenario = nil
+
+        if tutorialScenarioOverride == .roomPersonalFirstVisit
+            || tutorialScenarioOverride == .roomHostFirstVisit {
+            onTutorialReplayFinished?()
+            return
+        }
+
+        if let finishedScenario {
+            session.markTutorialScenarioCompleted(finishedScenario)
+        }
+        Task {
+            await vm.load(forceRefresh: true)
+            finalizePendingConfirmationQueueAutoOpen()
+        }
+    }
 
     @ViewBuilder
     private var messageBoxOverlay: some View {

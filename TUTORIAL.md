@@ -18,21 +18,24 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
 ## Current Implementation Status
 - Implemented:
   - Mushroom browse first-entry tutorial (`mushroomBrowseFirstVisit`).
+  - Room detail personal first-entry tutorial (`roomPersonalFirstVisit`).
+  - Room detail host first-entry tutorial (`roomHostFirstVisit`).
+  - Postcard browse first-entry tutorial (`postcardBrowseFirstVisit`).
+  - Postcard detail buyer first-entry tutorial (`postcardBuyerFirstVisit`).
+  - Postcard detail seller first-entry tutorial (`postcardSellerFirstVisit`).
   - Help entry now opens a tutorial scenario list so users can replay available tutorials.
   - Single-file tuning support via `mushroomHunter/Features/Tutorial/TutorialConfig.swift`.
-- Planned (not implemented yet):
-  - Room personal/host tutorials.
-  - Postcard browse/buyer/seller tutorials.
 
 ## Core Tutorial Pattern
 - Load a predefined tutorial scene model for the target page.
 - Freeze interactive mutations during tutorial (no real create/join/order/close actions).
 - Render scripted fake data directly in the page so the user learns from a realistic UI.
+- Keep bottom tab bar visible during tutorial, but lock tab switching until tutorial completes.
 - Show multi-step coach marks:
   - Dim background.
   - Highlight target component.
   - Show 1-2 short explanatory sentences.
-  - Provide `Next`, `Back`, `Skip`, and `Done`.
+  - Provide `Next`, `Back`, and `Done`.
 - After final step:
   - Mark scenario as completed.
   - Unfreeze the page.
@@ -50,12 +53,14 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
 - Scene data must be isolated from caches and never persisted as real content.
 
 ## Single-File Tuning
-For Mushroom browse tutorial, tune these values in one place:
+For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buyer + Postcard seller tutorials, tune these values in one place:
 - File: `mushroomHunter/Features/Tutorial/TutorialConfig.swift`
 - Tunable content:
-  - `steps`: controls page count, step card title/message copy, and optional highlight rectangle geometry (`normalizedRect = nil` means full-screen highlight with no focus rectangle).
-  - `fakeRooms`: controls fake room list content (room names, types, colors, size, location, etc.).
-  - `hostRoomIds` / `joinedRoomIds`: controls which fake rows show Host/Joined ownership tags.
+  - `steps`: controls page count, step card title/message copy, highlight rectangle geometry, and message-card Y position.
+  - `normalizedRect: nil`: creates an intro step with no highlight cutout (full dim background).
+  - `messageBoxNormalizedY`: per-step message card vertical position (`0.0` top to `1.0` bottom).
+  - `fakeRooms` / `fakeRoom` / `fakeListing` / `fakeListings`: controls fake scene content (room/postcard names, attendees, location, status, etc.).
+  - `hostRoomIds` / `joinedRoomIds` / `onShelfListingIds` / `orderedListingIds`: controls ownership tag rendering for fake browse scenes.
 - Language format:
   - EN/zh-Hant are defined side-by-side in each entry (`BilingualText`) so translators can edit line by line.
 
@@ -84,6 +89,7 @@ For Mushroom browse tutorial, tune these values in one place:
 - Keep each message concise and action-oriented.
 - Always allow skip.
 - Do not show multiple tutorials at the same time.
+- Help replay should stay in root tab navigation context (not a modal sheet) so tutorial pages match real tab-based layout.
 - If deep-link/push opens a page with pending critical action, defer tutorial until action is cleared.
 
 ## Rollout Plan (Several Steps)
