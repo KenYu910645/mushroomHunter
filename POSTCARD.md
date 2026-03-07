@@ -15,6 +15,7 @@
 - `mushroomHunter/Features/Shared/MessageBox.swift`: shared custom confirmation/error dialog used across postcard screens.
 - `mushroomHunter/Features/Shared/ColorfulTag.swift`: shared colorful tag + red action-dot UI primitives used by room/postcard status rows.
 - `mushroomHunter/Features/Postcard/PostcardImageCache.swift`: shared postcard image rendering component.
+- `mushroomHunter/Features/Mushroom/RoomCache.swift`: cross-feature cache dirty-bit store used by postcard invalidation flow.
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift`: Firestore operations for listings, orders, shipping, and receipt confirmation.
 - `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`: image crop/encode/upload to Firebase Storage.
 - `mushroomHunter/Utilities/RoomInviteLink.swift`: postcard invite link generation/parsing for `honeyhub://postcard/{postcardId}`.
@@ -57,6 +58,7 @@
 - Postcard detail view stock visibility is role-based: buyers do not see stock; sellers see a left-aligned `Stock: {count}` row.
 - Seller/friend-code/stock metadata rows share the same gray `subheadline` text style for visual consistency.
 - Cache behavior and refresh/invalidation rules are documented only in `CACHE.md`.
+- Postcard browse/detail now honor dirty bits so push-triggered/local mutations can force the next refresh cycle.
 - Register flow uploads full image + thumbnail to Firebase Storage, then creates Firestore listing.
 - Register success dismisses the sheet and refreshes browse list.
 - Pull-to-refresh is supported in postcard browse, detail, and shipping flows.

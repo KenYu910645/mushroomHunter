@@ -70,7 +70,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Services/Firebase/RoomActionsRepo.swift`
 - `mushroomHunter/Utilities/RoomInviteLink.swift`
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed mushroom defaults, limits, and option sets)
-- `mushroomHunter/Utilities/AppDataCache.swift` (shared app-level Codable payload cache utility)
+- `mushroomHunter/Features/Mushroom/RoomCache.swift` (shared Mushroom payload cache utility + cross-feature cache dirty-bit store)
 - `mushroomHunter/Utilities/CountryLocalization.swift` (shared locale-aware country + room-location display resolver used by mushroom/postcard views/forms)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile/room/postcard)
 - `mushroomHunter/Features/EventInbox/EventInboxStore.swift` (shared Firestore-backed notification event history pagination, unread state, and deep-link route metadata)
@@ -100,6 +100,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Shared/MessageBox.swift` (shared custom confirmation/error dialog used across postcard flows)
 - `mushroomHunter/Features/Shared/ColorfulTag.swift` (shared colorful tag + red action-dot primitives used by room/postcard status rows)
 - `mushroomHunter/Features/Postcard/PostcardImageCache.swift` (shared postcard image rendering component)
+- `mushroomHunter/Features/Mushroom/RoomCache.swift` (cross-feature cache dirty-bit store used by postcard invalidation flow)
 - `mushroomHunter/Services/Firebase/PostcardRepo.swift` (browse/recent paging plus on-shelf/ordered queries used to pin user-owned postcards at the top of browse)
 - `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`
 - `mushroomHunter/Utilities/RoomInviteLink.swift` (postcard invite link generation/parsing)
@@ -132,7 +133,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/User/UserAuth.swift` (auth lifecycle and sign-in/sign-out flows)
 - `mushroomHunter/User/UserProfile.swift` (profile fields, user sync, token sync)
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed profile validation and shared limits)
-- `mushroomHunter/Utilities/AppDataCache.swift` (shared app-level Codable payload cache utility)
+- `mushroomHunter/Features/Mushroom/RoomCache.swift` (shared Mushroom Codable payload cache utility)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile form and display)
 - Cloud Functions in `functions/index.js`:
   - `sendFeedbackNotificationEmail`

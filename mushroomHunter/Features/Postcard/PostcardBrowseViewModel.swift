@@ -57,6 +57,8 @@ final class PostcardBrowseViewModel: ObservableObject {
     @Published var sortOrder: PostcardSortOrder = .newest
     /// Firebase-backed repository used to fetch postcard listings.
     private let repo = FbPostcardRepo()
+    /// Shared dirty-bit state used to force backend refresh after postcard mutations/events.
+    private let dirtyBits = CacheDirtyBitStore.shared
     /// Cursor for loading the next browse page.
     private var nextPageCursor: FbPostcardRepo.ListingPageCursor? = nil
     /// Last query committed to backend search.
@@ -77,42 +79,59 @@ final class PostcardBrowseViewModel: ObservableObject {
         }
     }
 
+    /// Loads postcard browse on appear with dirty-bit aware refresh policy.
+    /// - Parameter session: Current signed-in session.
+    func loadOnAppear(session: UserSessionStore) async {
+        let isBrowseDirty = await dirtyBits.isPostcardBrowseDirty()
+        if listings.isEmpty || isBrowseDirty {
+            await refresh(session: session)
+            return
+        }
+        await refreshPinnedListings(session: session)
+    }
+
     /// Refreshes browse data for the current query value.
     func refresh(session: UserSessionStore) async {
-        await fetchForQuery(confirmedQuery, session: session)
+        _ = await fetchForQuery(confirmedQuery, session: session)
     }
 
     /// Executes backend search using the current query text.
     func performConfirmedSearch(session: UserSessionStore) async {
         confirmedQuery = query
-        await fetchForQuery(confirmedQuery, session: session)
+        _ = await fetchForQuery(confirmedQuery, session: session)
     }
 
     /// Clears search query and restores default recent results.
     func clearConfirmedSearch(session: UserSessionStore) async {
         query = ""
         confirmedQuery = ""
-        await fetchForQuery(confirmedQuery, session: session)
+        _ = await fetchForQuery(confirmedQuery, session: session)
     }
 
     /// Fetches listings from backend using the provided raw query text.
     /// - Parameter rawQuery: User-entered search text before tokenization.
-    func fetchForQuery(_ rawQuery: String, session: UserSessionStore) async {
+    @discardableResult
+    func fetchForQuery(_ rawQuery: String, session: UserSessionStore) async -> Bool {
         errorMessage = nil
         nextPageCursor = nil
         let tokens = SearchTokenBuilder.queryTokens(from: rawQuery)
         activeSearchToken = tokens.first
-        await loadNextPage(isReset: true)
+        let isLoadSuccess = await loadNextPage(isReset: true)
         await refreshPinnedListings(session: session)
+        if isLoadSuccess {
+            await dirtyBits.clearPostcardBrowseDirty()
+        }
+        return isLoadSuccess
     }
 
     /// Loads the next browse page using current confirmed search context.
-    func loadNextPage(isReset: Bool = false) async {
+    @discardableResult
+    func loadNextPage(isReset: Bool = false) async -> Bool {
         if isReset {
             isLoading = true
             errorMessage = nil
         } else {
-            if isLoading || isLoadingNextPage || !isHasMorePages { return }
+            if isLoading || isLoadingNextPage || !isHasMorePages { return false }
             isLoadingNextPage = true
         }
 
@@ -130,7 +149,7 @@ final class PostcardBrowseViewModel: ObservableObject {
                 AppTesting.fixtureOwnedPostcardListing()
             ]
             isHasMorePages = false
-            return
+            return true
         }
 
         do {
@@ -159,8 +178,9 @@ final class PostcardBrowseViewModel: ObservableObject {
             }
             nextPageCursor = result.nextCursor
             isHasMorePages = result.isHasMore && result.nextCursor != nil
+            return true
         } catch is CancellationError {
-            return
+            return false
         } catch {
             print("❌ fetch postcards page error:", error)
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -168,6 +188,7 @@ final class PostcardBrowseViewModel: ObservableObject {
                 listings = []
                 isHasMorePages = false
             }
+            return false
         }
     }
 

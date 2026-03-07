@@ -24,7 +24,7 @@
 - `mushroomHunter/Utilities/RoomInviteLink.swift`: deep link generation/parsing for `honeyhub://room/{roomId}`.
 - `mushroomHunter/Utilities/CountryLocalization.swift`: shared locale-aware country + room-location display resolver used by mushroom/postcard labels.
 - `mushroomHunter/Utilities/AppConfig.swift`: centralized owner-managed mushroom settings (attribute lists, fixed raid defaults, room limits, query limits).
-- `mushroomHunter/Utilities/AppDataCache.swift`: shared app-level Codable payload cache utility.
+- `mushroomHunter/Features/Mushroom/RoomCache.swift`: shared Mushroom payload cache utility + cross-feature cache dirty-bit store.
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used across profile, room, and postcard flows.
 - `mushroomHunter/Features/EventInbox/EventInboxStore.swift`: shared Firestore-backed notification event history pagination, Action/Record state handling, and deep-link route metadata.
 - `functions/index.js`: server-side push triggers used by mushroom confirmation flows.
@@ -47,6 +47,7 @@
 - Dormancy reference: `lastSuccessfulRaidAt` fallback to `createdAt`; no penalty before threshold hours.
 - User-owned rooms are always pinned and tagged in this order: `Host` -> `Joined` -> other rooms.
 - Pinned rows are deduplicated from general rows and still obey current search/availability filters.
+- Browse attendee count always renders SF Symbol `person.fill` with localized numeric count text (`%d/%d`) so locale translation does not replace the icon.
 
 ### 3) Host Room Form (Create/Edit)
 - Host form manages room `title`, `location`, `description`, and fixed raid cost only (no target mushroom selectors).
@@ -87,6 +88,7 @@
 
 ### 6) Room Detail UI
 - Room header focuses on title, attendee count, location, and description (no last-raid line in header).
+- Room header attendee count always renders SF Symbol `person.fill` with localized numeric count text (`%d/%d`) across all languages.
 - Top-right action order:
 - Host: `Share -> Raid History -> Edit`.
 - Joined attendee: `Confirmation Queue -> Edit Deposit`.
@@ -122,6 +124,7 @@
 
 ### 10) Cache and Refresh
 - Cache behavior and invalidation rules are defined only in `CACHE.md`.
+- Mushroom browse/detail now checks dirty bits before reusing cache; dirty state forces backend refresh and is cleared only after successful fetch.
 
 ### Confirmation stars flow
 - Attendee settlement flow now has three outcomes after host taps `Mushroom Raid Done`:

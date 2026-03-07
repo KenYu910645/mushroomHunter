@@ -193,6 +193,9 @@ struct PostcardBrowseView: View {
             NavigationStack {
                 PostcardCreateEditView(onSubmitted: {
                     isRegisterSheetPresented = false
+                    Task {
+                        await CacheDirtyBitStore.shared.markPostcardBrowseDirty()
+                    }
                     browseDataRefreshToken += 1
                 })
                 .navigationTitle(LocalizedStringKey("postcard_register_title"))
@@ -219,7 +222,7 @@ struct PostcardBrowseView: View {
         .onAppear {
             Task {
                 await session.refreshProfileFromBackend()
-                await vm.refresh(session: session)
+                await vm.loadOnAppear(session: session)
             }
         }
         .onChange(of: pendingPushRoute) { _, route in
@@ -323,6 +326,10 @@ struct PostcardBrowseView: View {
     /// - Parameter postcardId: Listing id confirmed deleted from detail edit flow.
     private func handleDeletedListing(_ postcardId: String) {
         vm.markListingDeletedLocally(postcardId: postcardId)
+        Task {
+            await CacheDirtyBitStore.shared.markPostcardBrowseDirty()
+            await CacheDirtyBitStore.shared.markPostcardDetailDirty(postcardId: postcardId)
+        }
         browseDataRefreshToken += 1
     }
 

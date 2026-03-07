@@ -1,99 +1,181 @@
 # Cache
 
-`CACHE.md` for HoneyHub cache behavior.
+`CACHE.md` is the single source of truth for HoneyHub cache + dirty-bit behavior.
 
 ## Scope
-- Postcard image cache used by browse thumbnails, postcard detail hero image, and postcard form preview.
-- Mushroom browse-list cache.
-- Mushroom room-detail cache (`room header + attendees`).
+- Mushroom browse structured cache.
+- Mushroom room-detail structured cache.
+- Postcard image byte cache.
+- Mushroom/Postcard dirty-bit invalidation.
 
 ## Related Files
-- `mushroomHunter/Utilities/AppDataCache.swift`: app-level Codable payload cache (memory + disk).
-- `mushroomHunter/Features/Postcard/PostcardImageCache.swift`: postcard image cache/view wrapper.
-- `mushroomHunter/Features/Mushroom/RoomBrowseViewModel.swift`: browse cache read/write flow.
-- `mushroomHunter/Features/Mushroom/RoomViewModel.swift`: room-detail cache read/write/remove flow.
-- `mushroomHunter/Utilities/AppConfig.swift`: postcard cache tuning knobs.
-- `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`: Storage `Cache-Control` metadata for uploaded postcard images.
+- `mushroomHunter/Features/Mushroom/RoomCache.swift`: `RoomCache` structured payload cache and `CacheDirtyBitStore`.
+- `mushroomHunter/Features/Mushroom/RoomBrowseViewModel.swift`: mushroom browse load + dirty-bit checks.
+- `mushroomHunter/Features/Mushroom/RoomViewModel.swift`: room-detail load + mutation dirty-bit writes.
+- `mushroomHunter/Features/Postcard/PostcardBrowseViewModel.swift`: postcard browse load + dirty-bit checks.
+- `mushroomHunter/Features/Postcard/PostcardBrowseView.swift`: postcard browse on-appear and local-delete invalidation.
+- `mushroomHunter/Features/Postcard/PostcardView.swift`: postcard detail dirty-bit checks and buyer mutation invalidation.
+- `mushroomHunter/Features/Postcard/PostcardCreateEditView.swift`: seller create/edit/delete invalidation.
+- `mushroomHunter/Features/Postcard/PostcardOrdersView.swift`: seller ship/reject invalidation.
+- `mushroomHunter/Features/EventInbox/EventInboxStore.swift`: push payload invalidation.
+- `mushroomHunter/Features/Postcard/PostcardImageCache.swift`: postcard image memory+disk cache.
+- `mushroomHunter/Services/Firebase/PostcardImageUploader.swift`: Storage `Cache-Control` metadata.
+- `mushroomHunter/Utilities/AppConfig.swift`: image-cache sizing/TTL.
 
-## Storage Model
-### AppDataCache (structured payloads)
+## Cache Storage Model
+### RoomCache (structured payloads)
 - Type: app-level memory + disk cache.
-- Payload wrapper: `CachedPayload<Value>` with:
-  - `cachedAt`
-  - `value`
-- Disk path: app caches directory `/AppDataCache`.
-- Disk filename: SHA256 hash of logical key + `.json`.
-- Behavior:
-  - Load order: memory -> disk.
-  - Corrupt payloads are ignored; bad disk files are removed.
-  - Save writes memory first, then best-effort atomic disk write.
+- Wrapper: `CachedPayload<Value>` with fields `cachedAt` and `value`.
+- Disk root: app caches directory `/RoomCache`.
+- Disk filename: `SHA256(logicalKey).json`.
+- Read order: memory -> disk.
+- Corrupt payload behavior: decode failure removes bad disk file and treats as miss.
+- Write behavior: memory first, then best-effort atomic disk write.
 
 ### PostcardImageCache (UIImage bytes)
-- Type: in-memory `NSCache` + disk folder cache.
-- Disk path: app caches directory `/PostcardImageCache`.
-- Disk filename: SHA256 hash of image URL + `.img`.
-- Load order: memory -> disk -> network.
-- Network request policy: `.returnCacheDataElseLoad`.
-- In-flight dedupe: same URL fan-outs one request to multiple callbacks.
-- Expiration and pruning:
-  - TTL based on file modification date.
-  - Over-capacity prune removes oldest files until target ratio is reached.
+- Type: `NSCache` memory + disk folder cache.
+- Disk root: app caches directory `/PostcardImageCache`.
+- Disk filename: `SHA256(imageURL).img`.
+- Read order: memory -> disk -> network.
+- URLSession request policy: `.returnCacheDataElseLoad`.
+- In-flight dedupe: same URL shares one network request.
+- Expiration/prune:
+- TTL check by file modification date.
+- Over-capacity prune deletes oldest files until target ratio.
 
-## Cache Keys
-### Mushroom
-- Browse list: `mushroom.browse.listings.v1`
-- Room detail: `mushroom.room.detail.{roomId}`
+### CacheDirtyBitStore
+- Type: in-memory dirty-key set + persistent `UserDefaults` storage.
+- Storage key: `mh.cache.dirty.keys.v1`.
+- Meaning: dirty key `ON` means next load for that scope must force backend refresh.
+- Clear policy: dirty key is cleared only after successful backend fetch for that same scope.
 
-## Hit/Miss Behavior
-### Postcard image cache
-- Hit: image bytes found in memory or disk; UI renders without Storage fetch.
-- Miss: network fetch runs, then memory+disk cache are populated.
+## Logical Keys
+### Structured cache keys
+- Mushroom browse: `mushroom.browse.listings.v1`
+- Mushroom room detail: `mushroom.room.detail.{roomId}`
 
-### Mushroom browse cache
-- Hit: cached room listings applied immediately.
-- Miss: Firestore query fills state and overwrites cache.
+### Dirty-bit keys
+- Mushroom browse dirty: `dirty.mushroom.browse.listings.v1`
+- Mushroom room dirty: `dirty.mushroom.room.detail.{roomId}`
+- Postcard browse dirty: `dirty.postcard.browse.listings.v1`
+- Postcard detail dirty: `dirty.postcard.detail.{postcardId}`
 
-### Mushroom room-detail cache
-- Hit: cached room detail payload applied immediately.
-- Miss: Firestore `rooms/{roomId}` + `attendees` query fills state and overwrites cache.
-
-## Refresh and Invalidation Rules
-- Pull-to-refresh always forces backend refresh and cache overwrite.
-- Mushroom browse keyboard search submit forces backend refresh before local filter application.
-- Mushroom room state-changing actions force backend refresh and cache overwrite, including:
-  - join / leave / update deposit
-  - approve / reject join application
-  - kick attendee
-  - finish raid
-  - attendee confirmation response
-  - host/attendee rating
-- Room close removes that room-detail cache key.
+## Dirty-Bit Core Rules
+- If dirty bit is `ON`, load path must force backend fetch even if cache/local state exists.
+- Pull-to-refresh always forces backend fetch regardless of dirty bit.
+- Successful forced fetch clears corresponding dirty bit.
+- Failed fetch keeps dirty bit `ON` (retry on next load).
 
 ## When Server Fetch Happens
+### Mushroom browse
+- Dirty bit `ON` for browse.
+- Pull-to-refresh.
+- Search submit (`performConfirmedSearch`).
+- Initial entry behavior:
+- If dirty `ON`: force backend fetch.
+- If dirty `OFF`: apply cache first when available, then fetch latest.
+
+### Mushroom room detail
+- Dirty bit `ON` for this room.
+- Pull-to-refresh.
+- Room opened with explicit force-refresh route.
+- Initial open behavior:
+- If dirty `ON`: force backend fetch.
+- If dirty `OFF`: use cache when present; otherwise fetch backend.
+
+### Postcard browse
+- Dirty bit `ON` for postcard browse.
+- Pull-to-refresh.
+- Search/clear-search backend fetch flow.
+- On tab appear when listings are empty.
+
+### Postcard detail
+- Dirty bit `ON` for this postcard.
+- Pull-to-refresh.
+- Sheet dismiss callbacks that call forced refresh (edit/shipping flows).
+
+### Postcard image bytes
+- Memory miss and disk miss.
+- Disk entry expired/pruned.
+- Image URL changes (new key).
+
+## Dirty-Bit Write Matrix (Local Operations)
+### Mushroom operations
+- `join room` (browse or detail):
+- Set `dirty.mushroom.browse.listings.v1`
+- Set `dirty.mushroom.room.detail.{roomId}`
+- `leave room`:
+- Set browse dirty
+- Set current room dirty
+- `update deposit`:
+- Set browse dirty
+- Set current room dirty
+- `approve join request`:
+- Set browse dirty
+- Set current room dirty
+- `reject join request`:
+- Set browse dirty
+- Set current room dirty
+- `kick attendee`:
+- Set browse dirty
+- Set current room dirty
+- `finish raid`:
+- Set browse dirty
+- Set current room dirty
+- `respond to raid confirmation`:
+- Set browse dirty
+- Set current room dirty
+- `rate host` / `rate attendee`:
+- Set browse dirty
+- Set current room dirty
+- `close room`:
+- Set browse dirty
+- Clear current room dirty
+- Remove room structured cache entry
+
+### Postcard operations
+- `create postcard`:
+- Set `dirty.postcard.browse.listings.v1`
+- `edit postcard`:
+- Set postcard browse dirty
+- Set `dirty.postcard.detail.{postcardId}`
+- `delete postcard`:
+- Set postcard browse dirty
+- Set postcard detail dirty
+- `buy postcard`:
+- Set postcard browse dirty
+- Set postcard detail dirty
+- `confirm received`:
+- Set postcard browse dirty
+- Set postcard detail dirty
+- `seller mark sent`:
+- Set postcard browse dirty
+- Set postcard detail dirty
+- `seller reject order`:
+- Set postcard browse dirty
+- Set postcard detail dirty
+
+## Dirty-Bit Write Matrix (Push / Event Ingestion)
+- On push receive, if payload has `roomId`:
+- Set mushroom browse dirty
+- Set mushroom room dirty for that `roomId`
+- On push receive, if payload has `postcardId`:
+- Set postcard browse dirty
+- Set postcard detail dirty for that `postcardId`
+
+This includes Cloud Function event types where payload carries room/postcard ids (for example join-request outcomes, raid confirmations, postcard order/shipping lifecycle pushes).
+
+## Hit/Miss Behavior Summary
+### Mushroom structured cache
+- Hit (dirty `OFF`): cached payload can be used for immediate render.
+- Miss or dirty `ON`: backend fetch and overwrite cache.
+
 ### Postcard image cache
-- Server fetch happens when image bytes are not available from memory or disk cache.
-- Server fetch also happens when disk entry is expired or pruned.
-- If image URL changes, it is treated as a new cache key and fetches again.
-
-### Mushroom browse cache
-- On Mushroom tab initial entry (`loadListingsOnAppear`), app applies cached list first (if any), then always fetches latest list from Firestore and overwrites cache.
-- Pull-to-refresh always fetches latest list from Firestore and overwrites cache.
-- Keyboard search submit always fetches latest list from Firestore before applying local filtering.
-- After successful join, browse list is fetched again to sync latest counts/status.
-
-### Mushroom room-detail cache
-- Opening room fetches from Firestore only when cache is missing.
-- Pull-to-refresh always fetches latest `rooms/{roomId}` + `attendees` and overwrites cache.
-- Room state-changing actions fetch latest backend state and overwrite cache:
-  - join / leave / update deposit
-  - approve / reject join application
-  - kick attendee
-  - finish raid
-  - attendee confirmation response
-  - host/attendee rating
+- Hit: image renders from memory/disk without Storage fetch.
+- Miss: network fetch fills memory+disk.
 
 ## Config Tunables
-`AppConfig.Postcard` controls image cache sizing and retention:
+`AppConfig.Postcard` image cache knobs:
 - `imageMemoryCacheEntryLimit`
 - `imageDiskCacheMaxBytes`
 - `imageDiskCachePruneTargetRatio`
@@ -101,8 +183,8 @@
 
 ## Firebase Storage Cache Metadata
 - Uploaded postcard images are tagged with `Cache-Control: public,max-age=86400`.
-- This is set in `PostcardImageUploader.uploadImageData(...)`.
+- Set in `PostcardImageUploader.uploadImageData(...)`.
 
 ## Documentation Policy
-- Cache behavior must be documented only in `CACHE.md`.
+- Cache and dirty-bit behavior must be documented in `CACHE.md` only.
 - Other docs should reference this file instead of duplicating cache semantics.

@@ -120,6 +120,8 @@ struct PostcardCreateEditView: View {
     private let repo = FbPostcardRepo()
     /// Uploader used for image processing and storage upload.
     private let uploader = PostcardImageUploader()
+    /// Shared dirty-bit state used to invalidate postcard caches after seller mutations.
+    private let dirtyBits = CacheDirtyBitStore.shared
 
     /// Initializes the unified form in create mode.
     init(onSubmitted: @escaping () -> Void = {}) {
@@ -585,6 +587,7 @@ struct PostcardCreateEditView: View {
         }
 
         if AppTesting.useMockPostcards {
+            await dirtyBits.markPostcardBrowseDirty()
             onSubmitted()
             return
         }
@@ -633,6 +636,7 @@ struct PostcardCreateEditView: View {
                 thumbnailUrl: uploadedThumbnail.absoluteString
             )
 
+            await dirtyBits.markPostcardBrowseDirty()
             resetCreateForm()
             onSubmitted()
         } catch {
@@ -713,6 +717,8 @@ struct PostcardCreateEditView: View {
                 thumbnailUrl: listing.thumbnailUrl,
                 createdAt: listing.createdAt
             )
+            await dirtyBits.markPostcardBrowseDirty()
+            await dirtyBits.markPostcardDetailDirty(postcardId: listing.id)
             onUpdated?(updatedListing)
             isEditSavedMessagePresented = true
         } catch {
@@ -728,6 +734,8 @@ struct PostcardCreateEditView: View {
 
         do {
             try await repo.deletePostcard(postcardId: listing.id)
+            await dirtyBits.markPostcardBrowseDirty()
+            await dirtyBits.markPostcardDetailDirty(postcardId: listing.id)
             dismiss()
             onDeleted()
         } catch {

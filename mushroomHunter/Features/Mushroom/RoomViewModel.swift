@@ -51,7 +51,8 @@ final class RoomViewModel: ObservableObject {
     private unowned let session: UserSessionStore
     private let repo = FbRoomRepo()
     private let actions = FbRoomActionsRepo()
-    private let cache = AppDataCache.shared // Shared app-level cache used for stale-first room detail loading.
+    private let cache = RoomCache.shared // Shared Mushroom cache used for stale-first room detail loading.
+    private let dirtyBits = CacheDirtyBitStore.shared // Shared dirty-bit state used to force backend refresh after room mutations/events.
     
     // MARK: Init
     
@@ -73,7 +74,9 @@ final class RoomViewModel: ObservableObject {
     // MARK: Public API
     
     func load(forceRefresh isForceRefresh: Bool = false) async { // Handles load flow.
-        if !isForceRefresh, await loadRoomFromCache() {
+        let isRoomDirty = await dirtyBits.isMushroomRoomDirty(roomId: roomId)
+        let isShouldForceRefresh = isForceRefresh || isRoomDirty
+        if !isShouldForceRefresh, await loadRoomFromCache() {
             return
         }
 
@@ -98,6 +101,7 @@ final class RoomViewModel: ObservableObject {
             merged.attendees = attendees
             self.room = merged
             await cache.save(merged, key: roomCacheKey(roomId: roomId))
+            await dirtyBits.clearMushroomRoomDirty(roomId: roomId)
             
             recomputeRole()
             recomputeConfirmationStates()
@@ -118,6 +122,7 @@ final class RoomViewModel: ObservableObject {
                 confirmationId: confirmationId,
                 settlementOutcome: settlementOutcome
             )
+            await markCurrentRoomAndBrowseDirty()
             await load(forceRefresh: true)
             return true
         } catch {
@@ -143,6 +148,7 @@ final class RoomViewModel: ObservableObject {
         guard let room, let uid = session.authUid else { return }
         do {
             try await actions.rateHostAfterConfirmation(roomId: room.id, attendeeUid: uid, stars: stars)
+            await markCurrentRoomAndBrowseDirty()
             await load(forceRefresh: true)
             await session.refreshProfileFromBackend()
         } catch {
@@ -154,6 +160,7 @@ final class RoomViewModel: ObservableObject {
         guard let room else { return }
         do {
             try await actions.rateAttendeeAfterConfirmation(roomId: room.id, attendeeUid: attendeeId, stars: stars)
+            await markCurrentRoomAndBrowseDirty()
             await load(forceRefresh: true)
             await session.refreshProfileFromBackend()
         } catch {
@@ -182,6 +189,7 @@ final class RoomViewModel: ObservableObject {
         guard let room else { return }
         do {
             try await actions.approveJoinApplication(roomId: room.id, attendeeUid: attendeeId)
+            await markCurrentRoomAndBrowseDirty()
             await load(forceRefresh: true)
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -192,6 +200,7 @@ final class RoomViewModel: ObservableObject {
         guard let room else { return }
         do {
             try await actions.rejectJoinApplication(roomId: room.id, attendeeUid: attendeeId)
+            await markCurrentRoomAndBrowseDirty()
             await load(forceRefresh: true)
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -257,6 +266,7 @@ final class RoomViewModel: ObservableObject {
                 stars: session.stars,
                 attendeeHoney: balanceAfter
             )
+            await markCurrentRoomAndBrowseDirty()
             _ = session.spendHoney(trimmedDeposit)
             await load(forceRefresh: true) // refresh room + attendees
         } catch is CancellationError {
@@ -294,6 +304,7 @@ final class RoomViewModel: ObservableObject {
         do {
             let currentDeposit = currentUserDepositHoney() ?? 0
             try await actions.leaveRoom(roomId: room.id, attendeeHoney: session.honey)
+            await markCurrentRoomAndBrowseDirty()
             if currentDeposit > 0 {
                 session.addHoney(currentDeposit)
             }
@@ -337,6 +348,7 @@ final class RoomViewModel: ObservableObject {
             }
 
             try await actions.updateDeposit(roomId: room.id, depositHoney: newDeposit, attendeeHoney: newBalance)
+            await markCurrentRoomAndBrowseDirty()
 
             if delta > 0 {
                 _ = session.spendHoney(delta)
@@ -360,6 +372,7 @@ final class RoomViewModel: ObservableObject {
         
         do {
             try await actions.kickAttendee(roomId: room.id, attendeeUid: attendeeId)
+            await markCurrentRoomAndBrowseDirty()
             await load(forceRefresh: true)
         } catch is CancellationError {
             return
@@ -376,6 +389,8 @@ final class RoomViewModel: ObservableObject {
         
         do {
             try await actions.closeRoom(roomId: room.id)
+            await dirtyBits.markMushroomBrowseDirty()
+            await dirtyBits.clearMushroomRoomDirty(roomId: room.id)
             await cache.remove(key: roomCacheKey(roomId: room.id))
             self.room = nil
         } catch is CancellationError {
@@ -400,6 +415,7 @@ final class RoomViewModel: ObservableObject {
                 attendeeUids: attendeeIds,
                 allNonHostAttendeeUids: allNonHostAttendeeUids
             )
+            await markCurrentRoomAndBrowseDirty()
             await load(forceRefresh: true)
         } catch is CancellationError {
             return
@@ -544,6 +560,12 @@ final class RoomViewModel: ObservableObject {
         recomputeConfirmationStates()
         sortAttendees(by: attendeeSort)
         return true
+    }
+
+    /// Marks current room detail and mushroom browse datasets dirty after a successful room mutation.
+    private func markCurrentRoomAndBrowseDirty() async {
+        await dirtyBits.markMushroomRoomDirty(roomId: roomId)
+        await dirtyBits.markMushroomBrowseDirty()
     }
     
 }

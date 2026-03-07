@@ -47,7 +47,8 @@ final class RoomBrowseViewModel: ObservableObject {
     private let profileRepo = FbProfileListRepo() // Joined/hosted room summary source for current user.
     private let actions = FbRoomActionsRepo() // Join action source (writes attendee/honey-related data).
     private unowned let session: UserSessionStore // Shared session state (honey, profile fields, limits).
-    private let cache = AppDataCache.shared // Shared app-level cache used for stale-first browse loading.
+    private let cache = RoomCache.shared // Shared Mushroom cache used for stale-first browse loading.
+    private let dirtyBits = CacheDirtyBitStore.shared // Shared dirty-bit state used to force backend refresh after room mutations/events.
     private let browseCacheKey = "mushroom.browse.listings.v1" // Stable cache key for browse room listing payload.
     private var hostRoomIds: Set<String> = [] // Hosted room ids used for ownership tag lookup.
     private var joinedRoomIds: Set<String> = [] // Joined room ids used for ownership tag lookup.
@@ -59,6 +60,11 @@ final class RoomBrowseViewModel: ObservableObject {
     /// Loads browse listings with stale-first strategy.
     /// Uses cache on enter and always follows with a server refresh.
     func loadListingsOnAppear() async { // Handles loadListingsOnAppear flow.
+        let isBrowseDirty = await dirtyBits.isMushroomBrowseDirty()
+        if isBrowseDirty {
+            await fetchListings(forceRefresh: true)
+            return
+        }
         let isCacheLoaded = await loadListingsFromCache()
         if isCacheLoaded {
             await fetchListings(forceRefresh: true)
@@ -70,7 +76,9 @@ final class RoomBrowseViewModel: ObservableObject {
     /// Fetches latest open room listings from backend (or fixture in UI-test mode).
     /// - Parameter isForceRefresh: `true` to always query Firestore and overwrite cache.
     func fetchListings(forceRefresh isForceRefresh: Bool = false) async { // Handles fetchListings flow.
-        if !isForceRefresh, await loadListingsFromCache() {
+        let isBrowseDirty = await dirtyBits.isMushroomBrowseDirty()
+        let isShouldForceRefresh = isForceRefresh || isBrowseDirty
+        if !isShouldForceRefresh, await loadListingsFromCache() {
             await refreshPinnedListings()
             return
         }
@@ -90,6 +98,7 @@ final class RoomBrowseViewModel: ObservableObject {
             }
             self.listings = docs
             await cache.save(docs, key: browseCacheKey)
+            await dirtyBits.clearMushroomBrowseDirty()
             await refreshPinnedListings()
         } catch is CancellationError {
             // Normal: user pulled to refresh, view reloaded, or task replaced.
@@ -165,6 +174,8 @@ final class RoomBrowseViewModel: ObservableObject {
                     attendeeHoney: balanceAfter
                 )
             }
+            await dirtyBits.markMushroomBrowseDirty()
+            await dirtyBits.markMushroomRoomDirty(roomId: listing.id)
             _ = session.spendHoney(trimmedDeposit)
             // Optionally refresh listings after joining to update counts.
             await fetchListings(forceRefresh: true)

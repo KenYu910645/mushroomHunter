@@ -35,6 +35,8 @@ struct PostcardOrdersView: View {
     @State private var isCopyToastVisible: Bool = false
     /// Firebase-backed repository for shipping actions.
     private let repo = FbPostcardRepo()
+    /// Shared dirty-bit state used to invalidate postcard caches after seller order actions.
+    private let dirtyBits = CacheDirtyBitStore.shared
 
     /// Main shipping queue UI.
     var body: some View {
@@ -298,6 +300,8 @@ struct PostcardOrdersView: View {
 
         do {
             try await repo.markPostcardSent(orderId: recipient.id)
+            await dirtyBits.markPostcardBrowseDirty()
+            await dirtyBits.markPostcardDetailDirty(postcardId: postcard.id)
             recipients.removeAll { $0.id == recipient.id }
             isShipSuccessAlertPresented = true
         } catch {
@@ -319,6 +323,8 @@ struct PostcardOrdersView: View {
 
         do {
             try await repo.sellerRejectOrder(orderId: recipient.id)
+            await dirtyBits.markPostcardBrowseDirty()
+            await dirtyBits.markPostcardDetailDirty(postcardId: postcard.id)
             recipients.removeAll { $0.id == recipient.id }
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

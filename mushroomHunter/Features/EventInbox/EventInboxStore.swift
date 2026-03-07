@@ -84,6 +84,8 @@ final class EventInboxStore: ObservableObject {
     private var lastDocumentCursor: QueryDocumentSnapshot? = nil
     /// Number of events loaded per page.
     private let pageSize: Int = 10
+    /// Shared dirty-bit state used to invalidate feature caches on push events.
+    private let dirtyBits = CacheDirtyBitStore.shared
 
     /// Initializes auth synchronization and clears state until a user is signed in.
     private init() {
@@ -156,8 +158,24 @@ final class EventInboxStore: ObservableObject {
         message: String
     ) {
         let type = (userInfo["type"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let roomId = (userInfo["roomId"] as? String ?? userInfo["room_id"] as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let postcardId = (userInfo["postcardId"] as? String ?? userInfo["postcard_id"] as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         let _ = title
         let _ = message
+
+        // Push payload ids represent backend state changes and should invalidate related caches.
+        Task {
+            if roomId.isEmpty == false {
+                await self.dirtyBits.markMushroomBrowseDirty()
+                await self.dirtyBits.markMushroomRoomDirty(roomId: roomId)
+            }
+            if postcardId.isEmpty == false {
+                await self.dirtyBits.markPostcardBrowseDirty()
+                await self.dirtyBits.markPostcardDetailDirty(postcardId: postcardId)
+            }
+        }
 
         // Action events must force-refresh so the badge count stays accurate.
         guard isActionEventType(type: type) else { return }

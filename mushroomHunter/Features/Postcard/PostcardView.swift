@@ -61,6 +61,8 @@ struct PostcardView: View {
     @EnvironmentObject private var session: UserSessionStore
     /// Firebase-backed repository for listing/order actions.
     private let repo = FbPostcardRepo()
+    /// Shared dirty-bit state used to force refresh after postcard/order mutations.
+    private let dirtyBits = CacheDirtyBitStore.shared
     /// Fixed aspect ratio for the hero listing image.
     private let imageAspectRatio: CGFloat = 4.0 / 3.0
     /// Maximum width applied to hero listing image container.
@@ -427,6 +429,8 @@ struct PostcardView: View {
 
     /// Refreshes listing data, seller friend code, and buyer order state.
     private func refreshListing(isForceRefresh: Bool = false) async {
+        let isListingDirty = await dirtyBits.isPostcardDetailDirty(postcardId: currentListing.id)
+        let isShouldForceRefresh = isForceRefresh || isListingDirty
         if AppTesting.useMockPostcards {
             currentListing = currentListing.sellerId == AppTesting.userId
                 ? AppTesting.fixtureOwnedPostcardListing()
@@ -437,13 +441,14 @@ struct PostcardView: View {
         }
 
         do {
-            if isForceRefresh {
+            if isShouldForceRefresh {
                 await session.refreshProfileFromBackend()
             }
             if let refreshed = try await repo.fetchPostcard(postcardId: currentListing.id) {
                 currentListing = refreshed
                 let cachedFriendCode = refreshed.sellerFriendCode.trimmingCharacters(in: .whitespacesAndNewlines)
                 sellerFriendCode = cachedFriendCode
+                await dirtyBits.clearPostcardDetailDirty(postcardId: refreshed.id)
                 if !isSeller {
                     buyerOrder = try await repo.fetchLatestBuyerOrder(postcardId: refreshed.id)
                     pendingShippingCount = 0
@@ -520,6 +525,8 @@ struct PostcardView: View {
 
         do {
             _ = try await repo.buyPostcard(postcardId: currentListing.id)
+            await dirtyBits.markPostcardBrowseDirty()
+            await dirtyBits.markPostcardDetailDirty(postcardId: currentListing.id)
             await session.refreshProfileFromBackend()
             await refreshListing()
             isBuySuccessAlertPresented = true
@@ -560,6 +567,8 @@ struct PostcardView: View {
         guard let order = buyerOrder else { return }
         do {
             try await repo.confirmPostcardReceived(orderId: order.id)
+            await dirtyBits.markPostcardBrowseDirty()
+            await dirtyBits.markPostcardDetailDirty(postcardId: currentListing.id)
             await session.refreshProfileFromBackend()
             await refreshListing()
             receiveSuccessMessage = NSLocalizedString("postcard_msg_receive_success_message", comment: "")
