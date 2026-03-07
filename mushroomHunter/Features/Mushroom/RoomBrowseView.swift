@@ -233,7 +233,12 @@ struct RoomBrowseView: View {
         }
         .overlay {
             if isMushroomBrowseTutorialActive {
-                mushroomBrowseTutorialOverlay
+                Color.clear
+            }
+        }
+        .overlayPreferenceValue(TutorialHighlightAnchorPreferenceKey.self) { anchors in
+            if isMushroomBrowseTutorialActive {
+                mushroomBrowseTutorialOverlay(anchors: anchors)
             }
         }
     }
@@ -274,7 +279,10 @@ struct RoomBrowseView: View {
                         createAccessibilityLabel: "browse_create_accessibility",
                         searchButtonIdentifier: "browse_search_button",
                         createButtonIdentifier: "browse_create_button",
-                        isStarsVisible: false
+                        isStarsVisible: false,
+                        tutorialHoneyTarget: isMushroomBrowseTutorialActive ? .mushroomBrowseHoneyTag : nil,
+                        tutorialSearchButtonTarget: isMushroomBrowseTutorialActive ? .mushroomBrowseSearchButton : nil,
+                        tutorialCreateButtonTarget: isMushroomBrowseTutorialActive ? .mushroomBrowseCreateButton : nil
                     )
                     .padding(.horizontal)
 
@@ -317,6 +325,9 @@ struct RoomBrowseView: View {
                     // - mock-only quick join button for UI testing
                     LazyVStack(spacing: 0) {
                         ForEach(vm.filteredListings) { listing in
+                            let ownershipTag = vm.ownershipTag(for: listing.id)
+                            let isPinnedTutorialListing = isMushroomBrowseTutorialActive && ownershipTag != nil
+                            let isJoinableTutorialListing = isMushroomBrowseTutorialActive && ownershipTag == nil
                             HStack(alignment: .top, spacing: 12) {
                                 NavigationLink {
                                     RoomView(
@@ -329,7 +340,7 @@ struct RoomBrowseView: View {
                                 } label: {
                                     RoomRowContent(
                                         listing: listing,
-                                        ownershipTag: vm.ownershipTag(for: listing.id)
+                                        ownershipTag: ownershipTag
                                     )
                                 }
                                 .buttonStyle(.plain)
@@ -349,6 +360,11 @@ struct RoomBrowseView: View {
                                     .accessibilityIdentifier("browse_quick_join_button_\(listing.id)")
                                 }
                             }
+                            .tutorialHighlightAnchor(
+                                isPinnedTutorialListing
+                                    ? .mushroomBrowsePinnedRoomsArea
+                                    : (isJoinableTutorialListing ? .mushroomBrowseJoinableRoomsArea : nil)
+                            )
                             .padding(.horizontal)
                             .padding(.vertical, 8)
 
@@ -399,17 +415,19 @@ struct RoomBrowseView: View {
     }
 
     /// Blocking highlight overlay rendered above live Room browse content.
-    private var mushroomBrowseTutorialOverlay: some View {
+    /// - Parameter anchors: Live anchor map collected from browse descendants.
+    private func mushroomBrowseTutorialOverlay(
+        anchors: [TutorialHighlightTarget: [Anchor<CGRect>]]
+    ) -> some View {
         GeometryReader { proxy in
             let step = currentMushroomBrowseTutorialStep
-            let highlightFrame = step.normalizedRect.map { normalizedRect in
-                CGRect(
-                    x: proxy.size.width * normalizedRect.minX,
-                    y: proxy.size.height * normalizedRect.minY,
-                    width: proxy.size.width * normalizedRect.width,
-                    height: proxy.size.height * normalizedRect.height
-                )
-            }
+            let highlightFrame = TutorialHighlightFrameResolver.resolveFrame(
+                target: step.highlightTarget,
+                fallbackNormalizedRect: step.normalizedRect,
+                anchors: anchors,
+                proxy: proxy
+            )
+            let messageBoxY = max(0.12, min(step.messageBoxNormalizedY, 0.92)) * proxy.size.height
 
             ZStack {
                 Color.black.opacity(0.6)
@@ -457,9 +475,8 @@ struct RoomBrowseView: View {
                 }
                 .padding(16)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .padding(.horizontal, 16)
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 28)
+                .frame(width: max(0, proxy.size.width - 32), alignment: .leading)
+                .position(x: proxy.size.width * 0.5, y: messageBoxY)
             }
         }
         .ignoresSafeArea()

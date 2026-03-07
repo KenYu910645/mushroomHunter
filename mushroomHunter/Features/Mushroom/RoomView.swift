@@ -131,7 +131,12 @@ struct RoomView: View {
         }
         .overlay {
             if isRoomTutorialActive {
-                roomTutorialOverlay
+                Color.clear
+            }
+        }
+        .overlayPreferenceValue(TutorialHighlightAnchorPreferenceKey.self) { anchors in
+            if isRoomTutorialActive {
+                roomTutorialOverlay(anchors: anchors)
             }
         }
         .onDisappear {
@@ -488,6 +493,7 @@ struct RoomView: View {
                 }
             }
             .padding(.vertical, 4)
+            .tutorialHighlightAnchor(isRoomTutorialActive ? .roomHeaderSection : nil)
         }
     }
 
@@ -534,6 +540,7 @@ struct RoomView: View {
                 Text(LocalizedStringKey("room_attendees_header"))
             }
         }
+        .tutorialHighlightAnchor(isRoomTutorialActive ? .roomAttendeeSection : nil)
     }
 
     // MARK: - Toolbar
@@ -553,6 +560,7 @@ struct RoomView: View {
                     Image(systemName: "square.and.arrow.up")
                         .font(.headline)
                 }
+                .tutorialHighlightAnchor(isRoomTutorialActive ? .roomHostShareButton : nil)
                 .accessibilityLabel(LocalizedStringKey("room_share_accessibility"))
                 .disabled(vm.isLoading || vm.room == nil)
 
@@ -591,6 +599,7 @@ struct RoomView: View {
                 } label: {
                     raidConfirmationToolbarIcon
                 }
+                .tutorialHighlightAnchor(isRoomTutorialActive ? .roomAttendeeConfirmationButton : nil)
                 .accessibilityLabel(LocalizedStringKey("room_confirmation_queue_accessibility"))
                 .accessibilityIdentifier("room_confirmation_queue_button")
                 .disabled(vm.isLoading)
@@ -662,6 +671,7 @@ struct RoomView: View {
                             Text(LocalizedStringKey("room_claim_rewards_title"))
                                 .frame(maxWidth: .infinity)
                         }
+                        .tutorialHighlightAnchor(isRoomTutorialActive ? .roomHostClaimButton : nil)
                         .buttonStyle(.borderedProminent)
                         .disabled(vm.isLoading || vm.raidSettlementTargetAttendeeIds().isEmpty)
                     }
@@ -726,17 +736,18 @@ struct RoomView: View {
     }
 
     /// Blocking highlight overlay rendered above live room content.
-    private var roomTutorialOverlay: some View {
+    /// - Parameter anchors: Live anchor map collected from room descendants.
+    private func roomTutorialOverlay(
+        anchors: [TutorialHighlightTarget: [Anchor<CGRect>]]
+    ) -> some View {
         GeometryReader { proxy in
             if let step = currentRoomTutorialStep {
-                let highlightFrame = step.normalizedRect.map { normalizedRect in
-                    CGRect(
-                        x: proxy.size.width * normalizedRect.minX,
-                        y: proxy.size.height * normalizedRect.minY,
-                        width: proxy.size.width * normalizedRect.width,
-                        height: proxy.size.height * normalizedRect.height
-                    )
-                }
+                let highlightFrame = TutorialHighlightFrameResolver.resolveFrame(
+                    target: step.highlightTarget,
+                    fallbackNormalizedRect: step.normalizedRect,
+                    anchors: anchors,
+                    proxy: proxy
+                )
                 let messageBoxY = max(0.12, min(step.messageBoxNormalizedY, 0.92)) * proxy.size.height
 
                 ZStack {

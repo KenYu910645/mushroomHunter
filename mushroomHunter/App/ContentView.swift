@@ -94,11 +94,12 @@ struct MainTabView: View {
                 .tag(RootTab.profile)
                 .accessibilityIdentifier("tab_profile")
         }
-        .overlay(alignment: .bottom) {
-            TabBarTouchBlocker(
-                isActive: session.isFeatureTutorialActive
+        .background(
+            TabBarInteractionLockBridge(
+                isTabBarInteractionEnabled: !session.isFeatureTutorialActive
             )
-        }
+            .frame(width: 0, height: 0)
+        )
         .onReceive(NotificationCenter.default.publisher(for: .didOpenRoomFromPush)) { notif in
             guard let roomId = notif.object as? String else { return }
             selectedTab = .mushroom
@@ -230,30 +231,59 @@ struct MainTabView: View {
     }
 }
 
-/// Transparent overlay that blocks touches on the tab bar region while tutorials are active.
-private struct TabBarTouchBlocker: View {
-    /// Indicates whether tab-bar touches should be blocked.
-    let isActive: Bool
+/// UIKit bridge that toggles root tab-bar interaction while feature tutorials are active.
+private struct TabBarInteractionLockBridge: UIViewRepresentable {
+    /// Indicates whether tab-bar taps should be accepted.
+    let isTabBarInteractionEnabled: Bool
 
-    /// Renders an invisible hit-test layer over the bottom tab bar area only.
-    var body: some View {
-        GeometryReader { proxy in
-            Color.clear
-                .frame(height: tabBarOverlayHeight(for: proxy))
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .contentShape(Rectangle())
-                .allowsHitTesting(isActive)
-                .accessibilityHidden(true)
-        }
-        .ignoresSafeArea(edges: .bottom)
+    /// Creates a no-op carrier view used only to trigger update callbacks.
+    func makeUIView(context: Context) -> UIView {
+        UIView(frame: .zero)
     }
 
-    /// Computes overlay height using tab-bar base height plus device bottom inset.
-    /// - Parameter proxy: Geometry context used to read safe area insets.
-    /// - Returns: Bottom overlay height covering the tappable tab bar region.
-    private func tabBarOverlayHeight(for proxy: GeometryProxy) -> CGFloat {
-        let baseTabBarHeight: CGFloat = 49
-        return baseTabBarHeight + proxy.safeAreaInsets.bottom
+    /// Applies tab-bar interaction lock whenever tutorial state changes.
+    /// - Parameters:
+    ///   - uiView: Carrier view instance.
+    ///   - context: SwiftUI update context.
+    func updateUIView(_ uiView: UIView, context: Context) {
+        applyTabBarInteractionState()
+        DispatchQueue.main.async {
+            applyTabBarInteractionState()
+        }
+    }
+
+    /// Resolves root tab bar controller from key window and toggles interaction.
+    private func applyTabBarInteractionState() {
+        guard let tabBarController = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap({ $0.windows })
+            .first(where: { $0.isKeyWindow })?
+            .rootViewController?
+            .findTabBarController()
+        else {
+            return
+        }
+        tabBarController.tabBar.isUserInteractionEnabled = isTabBarInteractionEnabled
+    }
+}
+
+/// Shared helper to resolve a tab bar controller from any root view-controller tree.
+private extension UIViewController {
+    /// Returns first reachable tab bar controller in this subtree.
+    func findTabBarController() -> UITabBarController? {
+        if let tabBarController = self as? UITabBarController {
+            return tabBarController
+        }
+        for child in children {
+            if let tabBarController = child.findTabBarController() {
+                return tabBarController
+            }
+        }
+        if let presentedViewController,
+           let tabBarController = presentedViewController.findTabBarController() {
+            return tabBarController
+        }
+        return nil
     }
 }
 

@@ -230,6 +230,7 @@ struct PostcardView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .tutorialHighlightAnchor(isPostcardTutorialActive ? .postcardDetailInfoSection : nil)
 
                 if !isSeller {
                     Divider()
@@ -269,6 +270,7 @@ struct PostcardView: View {
                             }
                             .buttonStyle(.borderedProminent)
                             .disabled(isBuying)
+                            .tutorialHighlightAnchor(isPostcardTutorialActive ? .postcardBuyerBuyButton : nil)
                             .accessibilityIdentifier("postcard_buy_button")
                         }
                     }
@@ -296,6 +298,7 @@ struct PostcardView: View {
                     } label: {
                         shippingToolbarIcon
                     }
+                    .tutorialHighlightAnchor(isPostcardTutorialActive ? .postcardSellerShippingButton : nil)
                     .accessibilityLabel(LocalizedStringKey("postcard_shipping_accessibility"))
                     .accessibilityIdentifier("postcard_shipping_button")
 
@@ -369,7 +372,12 @@ struct PostcardView: View {
         }
         .overlay {
             if isPostcardTutorialActive {
-                postcardDetailTutorialOverlay
+                Color.clear
+            }
+        }
+        .overlayPreferenceValue(TutorialHighlightAnchorPreferenceKey.self) { anchors in
+            if isPostcardTutorialActive {
+                postcardDetailTutorialOverlay(anchors: anchors)
             }
         }
         .overlay {
@@ -715,17 +723,18 @@ struct PostcardView: View {
     }
 
     /// Blocking highlight overlay rendered above live postcard detail content.
-    private var postcardDetailTutorialOverlay: some View {
+    /// - Parameter anchors: Live anchor map collected from detail descendants.
+    private func postcardDetailTutorialOverlay(
+        anchors: [TutorialHighlightTarget: [Anchor<CGRect>]]
+    ) -> some View {
         GeometryReader { proxy in
             if let step = currentPostcardTutorialStep {
-                let highlightFrame = step.normalizedRect.map { normalizedRect in
-                    CGRect(
-                        x: proxy.size.width * normalizedRect.minX,
-                        y: proxy.size.height * normalizedRect.minY,
-                        width: proxy.size.width * normalizedRect.width,
-                        height: proxy.size.height * normalizedRect.height
-                    )
-                }
+                let highlightFrame = TutorialHighlightFrameResolver.resolveFrame(
+                    target: step.highlightTarget,
+                    fallbackNormalizedRect: step.normalizedRect,
+                    anchors: anchors,
+                    proxy: proxy
+                )
                 let messageBoxY = max(0.12, min(step.messageBoxNormalizedY, 0.92)) * proxy.size.height
 
                 ZStack {

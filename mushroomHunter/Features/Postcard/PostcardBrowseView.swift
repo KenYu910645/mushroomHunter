@@ -119,6 +119,7 @@ struct PostcardBrowseView: View {
 
                     LazyVGrid(columns: gridColumns, spacing: 12) {
                         ForEach(vm.filteredListings) { listing in
+                            let ownershipTag = vm.ownershipTag(for: listing.id)
                             NavigationLink {
                                 PostcardView(
                                     listing: listing,
@@ -127,9 +128,14 @@ struct PostcardBrowseView: View {
                             } label: {
                                 PostcardCardView(
                                     listing: listing,
-                                    ownershipTag: vm.ownershipTag(for: listing.id)
+                                    ownershipTag: ownershipTag
                                 )
                             }
+                            .tutorialHighlightAnchor(
+                                isPostcardBrowseTutorialActive && ownershipTag != nil
+                                    ? .postcardBrowsePinnedOwnershipArea
+                                    : nil
+                            )
                             .frame(maxWidth: .infinity, alignment: .topLeading)
                             .buttonStyle(.plain)
                             .contentShape(RoundedRectangle(cornerRadius: 12))
@@ -207,7 +213,12 @@ struct PostcardBrowseView: View {
             }
             .overlay {
                 if isPostcardBrowseTutorialActive {
-                    postcardBrowseTutorialOverlay
+                    Color.clear
+                }
+            }
+            .overlayPreferenceValue(TutorialHighlightAnchorPreferenceKey.self) { anchors in
+                if isPostcardBrowseTutorialActive {
+                    postcardBrowseTutorialOverlay(anchors: anchors)
                 }
             }
         }
@@ -295,7 +306,8 @@ struct PostcardBrowseView: View {
             createAccessibilityLabel: "postcard_register_accessibility",
             searchButtonIdentifier: "postcard_search_button",
             createButtonIdentifier: "postcard_create_button",
-            isStarsVisible: false
+            isStarsVisible: false,
+            tutorialBarTarget: isPostcardBrowseTutorialActive ? .postcardBrowseTopActionBar : nil
         )
         .padding(.horizontal)
     }
@@ -382,17 +394,18 @@ struct PostcardBrowseView: View {
     }
 
     /// Blocking highlight overlay rendered above live postcard browse content.
-    private var postcardBrowseTutorialOverlay: some View {
+    /// - Parameter anchors: Live anchor map collected from browse descendants.
+    private func postcardBrowseTutorialOverlay(
+        anchors: [TutorialHighlightTarget: [Anchor<CGRect>]]
+    ) -> some View {
         GeometryReader { proxy in
             let step = currentPostcardBrowseTutorialStep
-            let highlightFrame = step.normalizedRect.map { normalizedRect in
-                CGRect(
-                    x: proxy.size.width * normalizedRect.minX,
-                    y: proxy.size.height * normalizedRect.minY,
-                    width: proxy.size.width * normalizedRect.width,
-                    height: proxy.size.height * normalizedRect.height
-                )
-            }
+            let highlightFrame = TutorialHighlightFrameResolver.resolveFrame(
+                target: step.highlightTarget,
+                fallbackNormalizedRect: step.normalizedRect,
+                anchors: anchors,
+                proxy: proxy
+            )
             let messageBoxY = max(0.12, min(step.messageBoxNormalizedY, 0.92)) * proxy.size.height
 
             ZStack {

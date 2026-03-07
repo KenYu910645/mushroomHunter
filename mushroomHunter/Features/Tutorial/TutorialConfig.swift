@@ -54,8 +54,12 @@ enum TutorialConfig {
     enum MushroomBrowse {
         /// One message-card + highlight step in the tutorial flow.
         struct Step {
-            /// Optional highlight rectangle in normalized screen coordinates. Nil means full-screen highlight.
+            /// Optional live highlight target resolved from anchored UI elements.
+            let highlightTarget: TutorialHighlightTarget?
+            /// Optional fallback rectangle in normalized screen coordinates when live anchor is unavailable.
             let normalizedRect: CGRect?
+            /// Message card vertical position in normalized screen coordinates.
+            let messageBoxNormalizedY: CGFloat
             /// Step card title text.
             let title: String
             /// Step card description text.
@@ -100,8 +104,12 @@ enum TutorialConfig {
 
         /// Internal step template that keeps EN/zh-Hant text on the same line block.
         private struct StepTemplate {
-            /// Optional shared highlight rectangle for all languages. Nil means full-screen highlight.
+            /// Optional shared live highlight target for all languages.
+            let highlightTarget: TutorialHighlightTarget?
+            /// Optional shared fallback rectangle for all languages. Nil means full-screen highlight.
             let normalizedRect: CGRect?
+            /// Shared message card vertical position for all languages.
+            let messageBoxNormalizedY: CGFloat
             /// Bilingual title text.
             let title: BilingualText
             /// Bilingual message text.
@@ -138,7 +146,9 @@ enum TutorialConfig {
             return Scenario(
                 steps: stepTemplates.map { step in
                     Step(
+                        highlightTarget: step.highlightTarget,
                         normalizedRect: step.normalizedRect,
+                        messageBoxNormalizedY: step.messageBoxNormalizedY,
                         title: step.title.value(for: language),
                         message: step.message.value(for: language)
                     )
@@ -165,47 +175,81 @@ enum TutorialConfig {
         /// Shared step definitions with line-by-line bilingual text.
         private static let stepTemplates: [StepTemplate] = [
             StepTemplate(
+                highlightTarget: nil,
                 normalizedRect: nil,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
-                    en: "Mushroom Browse List",
-                    cn: "蘑菇列表"
+                    en: "Mushroom List Tutorial",
+                    cn: "蘑菇房列表教學"
                 ),
                 message: BilingualText(
-                    en: "This page helps you find raids quickly, check room status, and jump into your next run.",
-                    cn: "這個頁面可快速找團、查看房間狀態，並快速加入下一場蘑菇挑戰。"
+                    en: "1. Mushroom rooms are created by players who have extra mushrooms.\n2. Players who cannot find mushrooms can join a room and wait for the host to invite them with the megaphone.\n3. After receiving an invite, players pay honey to the host; hosting rooms and inviting players can earn honey.",
+                    cn: "玩家可以加入蘑菇房與其他玩家一起狩獵蘑菇。"
                 )
             ),
             StepTemplate(
-                normalizedRect: CGRect(x: 0.02, y: 0.20, width: 0.96, height: 0.09),
+                highlightTarget: .mushroomBrowseHoneyTag,
+                normalizedRect: CGRect(x: 0.02, y: 0.20, width: 0.1, height: 0.09),
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
-                    en: "This is your Mushroom browse list",
-                    cn: "這裡是蘑菇列表頁"
+                    en: "Your honey",
+                    cn: "你的蜂蜜"
                 ),
                 message: BilingualText(
-                    en: "You can quickly see your honey, search rooms, and open create-room from the top bar.",
-                    cn: "上方可查看蜂蜜、搜尋房間，並從右側建立新房間。"
+                    en: "You need to pay honey to join a room and join a mushroom battle. Hosting rooms and inviting other players can earn honey.",
+                    cn: "加入房間參加蘑菇戰需要支付蜂蜜，而主持房間並邀請其他玩家可以賺取蜂蜜"
                 )
             ),
             StepTemplate(
+                highlightTarget: .mushroomBrowseSearchButton,
                 normalizedRect: CGRect(x: 0.02, y: 0.32, width: 0.96, height: 0.30),
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
-                    en: "Owned rooms are pinned first",
-                    cn: "您的房間會固定在前面"
+                    en: "Search",
+                    cn: "搜尋功能"
                 ),
                 message: BilingualText(
-                    en: "Rows tagged Host or Joined are your own rooms so you can return to them quickly.",
-                    cn: "標示 Host 或 Joined 的列代表您的房間，方便快速回到常用房間。"
+                    en: "You can search by room title.",
+                    cn: "在這裡可以搜尋房間標題。"
                 )
             ),
             StepTemplate(
+                highlightTarget: .mushroomBrowseCreateButton,
                 normalizedRect: CGRect(x: 0.79, y: 0.20, width: 0.17, height: 0.09),
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Tap + to create your host room",
-                    cn: "點 + 建立主持房間"
+                    cn: "創造你的房間"
                 ),
                 message: BilingualText(
                     en: "Create room, set location and rules, then invite your Pikmin Bloom friends.",
-                    cn: "建立房間後設定地點與規則，再邀請 Pikmin Bloom 朋友一起參加。"
+                    cn: "創造房間後可以邀請其他玩家進入房間，並用Pikmin大聲公邀請房間內的玩家幫忙打蘑菇"
+                )
+            ),
+            StepTemplate(
+                highlightTarget: .mushroomBrowseJoinableRoomsArea,
+                normalizedRect: CGRect(x: 0.79, y: 0.20, width: 0.17, height: 0.09),
+                messageBoxNormalizedY: 0.6,
+                title: BilingualText(
+                    en: "Joinable rooms",
+                    cn: "房間資訊"
+                ),
+                message: BilingualText(
+                    en: "This list shows each mushroom's approximate location and attendee count.",
+                    cn: "包含主持人所在位置跟參加人數"
+                )
+            ),
+            StepTemplate(
+                highlightTarget: .mushroomBrowsePinnedRoomsArea,
+                normalizedRect: CGRect(x: 0.79, y: 0.20, width: 0.17, height: 0.09),
+                messageBoxNormalizedY: 0.6,
+                title: BilingualText(
+                    en: "Pinned rooms",
+                    cn: "置頂功能"
+                ),
+                message: BilingualText(
+                    en: "Rooms you host and rooms you have joined will be pinned to the top.",
+                    cn: "創造的房間跟已加入的房間會於列表上置頂以方便查看"
                 )
             )
         ]
@@ -272,7 +316,9 @@ enum TutorialConfig {
     enum RoomDetailTutorial {
         /// One message-card + highlight step in a room tutorial flow.
         struct Step {
-            /// Optional highlight rectangle in normalized screen coordinates. Nil means no highlight cutout.
+            /// Optional live highlight target resolved from anchored UI elements.
+            let highlightTarget: TutorialHighlightTarget?
+            /// Optional fallback rectangle in normalized screen coordinates. Nil means no highlight cutout.
             let normalizedRect: CGRect?
             /// Message card vertical position in normalized screen coordinates.
             let messageBoxNormalizedY: CGFloat
@@ -344,7 +390,9 @@ enum TutorialConfig {
 
         /// Internal step template with side-by-side bilingual text.
         struct StepTemplate {
-            /// Optional shared highlight rectangle for all languages. Nil means no highlight cutout.
+            /// Optional shared live highlight target for all languages.
+            let highlightTarget: TutorialHighlightTarget?
+            /// Optional shared fallback rectangle for all languages. Nil means no highlight cutout.
             let normalizedRect: CGRect?
             /// Shared message card vertical position for all languages.
             let messageBoxNormalizedY: CGFloat
@@ -366,6 +414,7 @@ enum TutorialConfig {
             return RoomDetailTutorial.Scenario(
                 steps: stepTemplates.map { step in
                     RoomDetailTutorial.Step(
+                        highlightTarget: step.highlightTarget,
                         normalizedRect: step.normalizedRect,
                         messageBoxNormalizedY: step.messageBoxNormalizedY,
                         title: step.title.value(for: language),
@@ -379,8 +428,9 @@ enum TutorialConfig {
         /// Shared step definitions with line-by-line bilingual text.
         private static let stepTemplates: [RoomDetailTutorial.StepTemplate] = [
             RoomDetailTutorial.StepTemplate(
+                highlightTarget: nil,
                 normalizedRect: nil,
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Welcome to Room View",
                     cn: "歡迎來到房間頁面"
@@ -391,8 +441,9 @@ enum TutorialConfig {
                 )
             ),
             RoomDetailTutorial.StepTemplate(
+                highlightTarget: .roomHeaderSection,
                 normalizedRect: CGRect(x: 0.04, y: 0.16, width: 0.92, height: 0.20),
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Room header shows key info",
                     cn: "房間標頭會顯示重點資訊"
@@ -403,8 +454,9 @@ enum TutorialConfig {
                 )
             ),
             RoomDetailTutorial.StepTemplate(
+                highlightTarget: .roomAttendeeSection,
                 normalizedRect: CGRect(x: 0.04, y: 0.33, width: 0.92, height: 0.46),
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Attendee list shows room status",
                     cn: "參加者列表可查看房間狀態"
@@ -415,8 +467,9 @@ enum TutorialConfig {
                 )
             ),
             RoomDetailTutorial.StepTemplate(
+                highlightTarget: .roomAttendeeConfirmationButton,
                 normalizedRect: CGRect(x: 0.70, y: 0.04, width: 0.26, height: 0.08),
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Top-right tools are for attendees",
                     cn: "右上工具是參加者常用功能"
@@ -501,6 +554,7 @@ enum TutorialConfig {
             return RoomDetailTutorial.Scenario(
                 steps: stepTemplates.map { step in
                     RoomDetailTutorial.Step(
+                        highlightTarget: step.highlightTarget,
                         normalizedRect: step.normalizedRect,
                         messageBoxNormalizedY: step.messageBoxNormalizedY,
                         title: step.title.value(for: language),
@@ -514,8 +568,9 @@ enum TutorialConfig {
         /// Shared step definitions with line-by-line bilingual text.
         private static let stepTemplates: [RoomDetailTutorial.StepTemplate] = [
             RoomDetailTutorial.StepTemplate(
+                highlightTarget: nil,
                 normalizedRect: nil,
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Welcome to Host Room View",
                     cn: "歡迎來到主持房間頁面"
@@ -526,8 +581,9 @@ enum TutorialConfig {
                 )
             ),
             RoomDetailTutorial.StepTemplate(
+                highlightTarget: .roomHostShareButton,
                 normalizedRect: CGRect(x: 0.66, y: 0.04, width: 0.30, height: 0.08),
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Host toolbar actions",
                     cn: "主持人工具列功能"
@@ -538,8 +594,9 @@ enum TutorialConfig {
                 )
             ),
             RoomDetailTutorial.StepTemplate(
+                highlightTarget: .roomAttendeeSection,
                 normalizedRect: CGRect(x: 0.04, y: 0.33, width: 0.92, height: 0.46),
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Review attendees and requests",
                     cn: "檢視參加者與申請狀態"
@@ -550,8 +607,9 @@ enum TutorialConfig {
                 )
             ),
             RoomDetailTutorial.StepTemplate(
+                highlightTarget: .roomHostClaimButton,
                 normalizedRect: CGRect(x: 0.04, y: 0.86, width: 0.92, height: 0.09),
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Finish raid to settle rewards",
                     cn: "完成蘑菇戰後可結算獎勵"
@@ -629,7 +687,9 @@ enum TutorialConfig {
     enum PostcardBrowse {
         /// One message-card + highlight step in postcard browse tutorial flow.
         struct Step {
-            /// Optional highlight rectangle in normalized screen coordinates. Nil means no highlight cutout.
+            /// Optional live highlight target resolved from anchored UI elements.
+            let highlightTarget: TutorialHighlightTarget?
+            /// Optional fallback rectangle in normalized screen coordinates. Nil means no highlight cutout.
             let normalizedRect: CGRect?
             /// Message card vertical position in normalized screen coordinates.
             let messageBoxNormalizedY: CGFloat
@@ -679,7 +739,9 @@ enum TutorialConfig {
 
         /// Internal step template with side-by-side bilingual text.
         private struct StepTemplate {
-            /// Optional shared highlight rectangle for all languages. Nil means no highlight cutout.
+            /// Optional shared live highlight target for all languages.
+            let highlightTarget: TutorialHighlightTarget?
+            /// Optional shared fallback rectangle for all languages. Nil means no highlight cutout.
             let normalizedRect: CGRect?
             /// Shared message card vertical position for all languages.
             let messageBoxNormalizedY: CGFloat
@@ -699,6 +761,7 @@ enum TutorialConfig {
             return Scenario(
                 steps: stepTemplates.map { step in
                     Step(
+                        highlightTarget: step.highlightTarget,
                         normalizedRect: step.normalizedRect,
                         messageBoxNormalizedY: step.messageBoxNormalizedY,
                         title: step.title.value(for: language),
@@ -732,8 +795,9 @@ enum TutorialConfig {
         /// Shared step definitions with line-by-line bilingual text.
         private static let stepTemplates: [StepTemplate] = [
             StepTemplate(
+                highlightTarget: nil,
                 normalizedRect: nil,
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Welcome to Postcard Browse",
                     cn: "歡迎來到明信片列表"
@@ -744,8 +808,9 @@ enum TutorialConfig {
                 )
             ),
             StepTemplate(
+                highlightTarget: .postcardBrowseTopActionBar,
                 normalizedRect: CGRect(x: 0.02, y: 0.20, width: 0.96, height: 0.09),
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Top bar actions",
                     cn: "上方列功能"
@@ -756,8 +821,9 @@ enum TutorialConfig {
                 )
             ),
             StepTemplate(
+                highlightTarget: .postcardBrowsePinnedOwnershipArea,
                 normalizedRect: CGRect(x: 0.02, y: 0.31, width: 0.96, height: 0.56),
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Pinned ownership cards",
                     cn: "固定顯示的擁有卡片"
@@ -835,7 +901,9 @@ enum TutorialConfig {
     enum PostcardDetailTutorial {
         /// One message-card + highlight step in postcard detail tutorial flow.
         struct Step {
-            /// Optional highlight rectangle in normalized screen coordinates. Nil means no highlight cutout.
+            /// Optional live highlight target resolved from anchored UI elements.
+            let highlightTarget: TutorialHighlightTarget?
+            /// Optional fallback rectangle in normalized screen coordinates. Nil means no highlight cutout.
             let normalizedRect: CGRect?
             /// Message card vertical position in normalized screen coordinates.
             let messageBoxNormalizedY: CGFloat
@@ -859,7 +927,9 @@ enum TutorialConfig {
 
         /// Internal step template with side-by-side bilingual text.
         struct StepTemplate {
-            /// Optional shared highlight rectangle for all languages.
+            /// Optional shared live highlight target for all languages.
+            let highlightTarget: TutorialHighlightTarget?
+            /// Optional shared fallback rectangle for all languages.
             let normalizedRect: CGRect?
             /// Shared message card vertical position for all languages.
             let messageBoxNormalizedY: CGFloat
@@ -881,6 +951,7 @@ enum TutorialConfig {
             return PostcardDetailTutorial.Scenario(
                 steps: stepTemplates.map { step in
                     PostcardDetailTutorial.Step(
+                        highlightTarget: step.highlightTarget,
                         normalizedRect: step.normalizedRect,
                         messageBoxNormalizedY: step.messageBoxNormalizedY,
                         title: step.title.value(for: language),
@@ -912,8 +983,9 @@ enum TutorialConfig {
         /// Shared step definitions with line-by-line bilingual text.
         private static let stepTemplates: [PostcardDetailTutorial.StepTemplate] = [
             PostcardDetailTutorial.StepTemplate(
+                highlightTarget: nil,
                 normalizedRect: nil,
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Welcome to Postcard Detail",
                     cn: "歡迎來到明信片詳情頁"
@@ -924,8 +996,9 @@ enum TutorialConfig {
                 )
             ),
             PostcardDetailTutorial.StepTemplate(
+                highlightTarget: .postcardDetailInfoSection,
                 normalizedRect: CGRect(x: 0.04, y: 0.30, width: 0.92, height: 0.26),
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Check title, price, and seller info",
                     cn: "先查看卡片名稱、價格與賣家資訊"
@@ -936,8 +1009,9 @@ enum TutorialConfig {
                 )
             ),
             PostcardDetailTutorial.StepTemplate(
+                highlightTarget: .postcardBuyerBuyButton,
                 normalizedRect: CGRect(x: 0.04, y: 0.76, width: 0.92, height: 0.08),
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Buy action starts order flow",
                     cn: "點擊購買可開始下單流程"
@@ -972,6 +1046,7 @@ enum TutorialConfig {
             return PostcardDetailTutorial.Scenario(
                 steps: stepTemplates.map { step in
                     PostcardDetailTutorial.Step(
+                        highlightTarget: step.highlightTarget,
                         normalizedRect: step.normalizedRect,
                         messageBoxNormalizedY: step.messageBoxNormalizedY,
                         title: step.title.value(for: language),
@@ -1003,8 +1078,9 @@ enum TutorialConfig {
         /// Shared step definitions with line-by-line bilingual text.
         private static let stepTemplates: [PostcardDetailTutorial.StepTemplate] = [
             PostcardDetailTutorial.StepTemplate(
+                highlightTarget: nil,
                 normalizedRect: nil,
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Welcome to Seller Postcard View",
                     cn: "歡迎來到賣家明信片頁"
@@ -1015,8 +1091,9 @@ enum TutorialConfig {
                 )
             ),
             PostcardDetailTutorial.StepTemplate(
+                highlightTarget: .postcardSellerShippingButton,
                 normalizedRect: CGRect(x: 0.60, y: 0.04, width: 0.36, height: 0.08),
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Seller toolbar actions",
                     cn: "賣家工具列功能"
@@ -1027,8 +1104,9 @@ enum TutorialConfig {
                 )
             ),
             PostcardDetailTutorial.StepTemplate(
+                highlightTarget: .postcardDetailInfoSection,
                 normalizedRect: CGRect(x: 0.04, y: 0.30, width: 0.92, height: 0.30),
-                messageBoxNormalizedY: 0.82,
+                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Keep listing info accurate",
                     cn: "維持卡片資訊正確"

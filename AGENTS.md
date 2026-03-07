@@ -161,6 +161,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Tutorial/TutorialCatalogView.swift`
 - `mushroomHunter/Features/Mushroom/RoomBrowseView.swift` (real browse UI reused for first-entry tutorial and replay; fake tutorial dataset + highlight overlay + real-data handoff)
 - `mushroomHunter/Features/Mushroom/RoomBrowseViewModel.swift` (Mushroom browse tutorial fake dataset seeding for reused browse UI)
+- `mushroomHunter/Features/Tutorial/TutorialHighlightAnchor.swift` (shared tutorial target-id anchor registry and live highlight-frame resolver with normalized fallback)
 - `mushroomHunter/Features/Profile/ProfileView.swift` (settings help route to tutorial scenario list)
 
 ## Backend

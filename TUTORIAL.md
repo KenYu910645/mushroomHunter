@@ -31,6 +31,7 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
 - Freeze interactive mutations during tutorial (no real create/join/order/close actions).
 - Render scripted fake data directly in the page so the user learns from a realistic UI.
 - Keep bottom tab bar visible during tutorial, but lock tab switching until tutorial completes.
+- Resolve highlight boxes from live UI anchors first (target-id based), with normalized rectangles only as fallback.
 - Show multi-step coach marks:
   - Dim background.
   - Highlight target component.
@@ -56,7 +57,9 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
 For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buyer + Postcard seller tutorials, tune these values in one place:
 - File: `mushroomHunter/Features/Tutorial/TutorialConfig.swift`
 - Tunable content:
-  - `steps`: controls page count, step card title/message copy, highlight rectangle geometry, and message-card Y position.
+  - `steps`: controls page count, step card title/message copy, highlight target id, fallback highlight rectangle geometry, and message-card Y position.
+  - `highlightTarget`: stable UI anchor id used for automatic highlight detection across devices/Dynamic Type.
+  - `normalizedRect`: fallback when a target is temporarily unavailable.
   - `normalizedRect: nil`: creates an intro step with no highlight cutout (full dim background).
   - `messageBoxNormalizedY`: per-step message card vertical position (`0.0` top to `1.0` bottom).
   - `fakeRooms` / `fakeRoom` / `fakeListing` / `fakeListings`: controls fake scene content (room/postcard names, attendees, location, status, etc.).

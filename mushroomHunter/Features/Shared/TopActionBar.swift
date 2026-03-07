@@ -11,16 +11,34 @@
 import SwiftUI
 
 struct TopActionBar: View {
+    /// Honey amount displayed in the left wallet area.
     let honey: Int
+    /// Star amount displayed when enabled.
     let stars: Int
+    /// Callback fired when search button is tapped.
     let onSearch: (() -> Void)?
+    /// Callback fired when create button is tapped.
     let onCreate: (() -> Void)?
+    /// Optional search accessibility label.
     let searchAccessibilityLabel: LocalizedStringKey?
+    /// Optional create accessibility label.
     let createAccessibilityLabel: LocalizedStringKey?
+    /// Optional search accessibility identifier.
     let searchButtonIdentifier: String?
+    /// Optional create accessibility identifier.
     let createButtonIdentifier: String?
+    /// Controls whether action buttons are shown.
     let showActions: Bool
+    /// Controls whether stars badge is shown next to honey badge.
     let isStarsVisible: Bool
+    /// Optional tutorial target for the full top action bar bounds.
+    let tutorialBarTarget: TutorialHighlightTarget?
+    /// Optional tutorial target for honey badge bounds.
+    let tutorialHoneyTarget: TutorialHighlightTarget?
+    /// Optional tutorial target for search button bounds.
+    let tutorialSearchButtonTarget: TutorialHighlightTarget?
+    /// Optional tutorial target for create button bounds.
+    let tutorialCreateButtonTarget: TutorialHighlightTarget?
 
     init(
         honey: Int,
@@ -32,7 +50,11 @@ struct TopActionBar: View {
         searchButtonIdentifier: String?,
         createButtonIdentifier: String?,
         showActions: Bool = true,
-        isStarsVisible: Bool = true
+        isStarsVisible: Bool = true,
+        tutorialBarTarget: TutorialHighlightTarget? = nil,
+        tutorialHoneyTarget: TutorialHighlightTarget? = nil,
+        tutorialSearchButtonTarget: TutorialHighlightTarget? = nil,
+        tutorialCreateButtonTarget: TutorialHighlightTarget? = nil
     ) {
         self.honey = honey
         self.stars = stars
@@ -44,6 +66,10 @@ struct TopActionBar: View {
         self.createButtonIdentifier = createButtonIdentifier
         self.showActions = showActions
         self.isStarsVisible = isStarsVisible
+        self.tutorialBarTarget = tutorialBarTarget
+        self.tutorialHoneyTarget = tutorialHoneyTarget
+        self.tutorialSearchButtonTarget = tutorialSearchButtonTarget
+        self.tutorialCreateButtonTarget = tutorialCreateButtonTarget
     }
 
     var body: some View {
@@ -59,6 +85,7 @@ struct TopActionBar: View {
                             .monospacedDigit()
                     }
                 }
+                .tutorialHighlightAnchor(tutorialHoneyTarget)
 
                 if isStarsVisible {
                     ColorfulTag(tone: .star, font: .subheadline.weight(.semibold)) {
@@ -80,6 +107,7 @@ struct TopActionBar: View {
                     } label: {
                         Image(systemName: "magnifyingglass")
                     }
+                    .tutorialHighlightAnchor(tutorialSearchButtonTarget)
                     .ifLet(searchAccessibilityLabel) { view, label in
                         view.accessibilityLabel(label)
                     }
@@ -92,6 +120,7 @@ struct TopActionBar: View {
                     } label: {
                         Image(systemName: "plus.circle.fill")
                     }
+                    .tutorialHighlightAnchor(tutorialCreateButtonTarget)
                     .ifLet(createAccessibilityLabel) { view, label in
                         view.accessibilityLabel(label)
                     }
@@ -101,6 +130,7 @@ struct TopActionBar: View {
                 }
             }
         }
+        .tutorialHighlightAnchor(tutorialBarTarget)
     }
 }
 
