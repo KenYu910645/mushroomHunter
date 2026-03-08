@@ -106,7 +106,7 @@ TODO: invite code?
 ### 9. Mushroom attendee leave flow
 - Test: `testMushroomAttendeeLeaveFlow`
 - Coverage:
-  - Open room detail, join as attendee, open edit-bid flow.
+  - Open room detail, join as attendee, open edit-deposit flow.
   - Execute leave action and confirm.
   - Verify attendee returns to join-capable state.
 

@@ -425,7 +425,7 @@ struct RoomCreateEditView: View {
                             step: 1
                         ) {
                             HStack {
-                                tokenizedHostMinBidLabel
+                                tokenizedHostFixedRaidCostLabel
                                 Spacer()
                                 Text("\(vm.fixedRaidCost)")
                                     .monospacedDigit()
@@ -433,9 +433,9 @@ struct RoomCreateEditView: View {
                             }
                         }
                     } header: {
-                        Text(LocalizedStringKey("host_min_bid_header"))
+                        Text(LocalizedStringKey("host_fixed_raid_cost_header"))
                     } footer: {
-                        Text(LocalizedStringKey("host_min_bid_footer"))
+                        Text(LocalizedStringKey("host_fixed_raid_cost_footer"))
                     }
                 }
 
@@ -566,9 +566,9 @@ struct RoomCreateEditView: View {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
-    /// Localized host min-bid label where `{honey_icon}` tokens render as inline icon.
-    private var tokenizedHostMinBidLabel: Text {
-        let rawLabel = NSLocalizedString("host_min_bid_label", comment: "")
+    /// Localized host fixed-raid-cost label where `{honey_icon}` tokens render as inline icon.
+    private var tokenizedHostFixedRaidCostLabel: Text {
+        let rawLabel = NSLocalizedString("host_fixed_raid_cost_label", comment: "")
         return tokenizedHoneyLabel(rawLabel)
     }
 

@@ -33,11 +33,11 @@ struct RoomBrowseView: View {
     @StateObject private var vm: RoomBrowseViewModel // Owns loading/filter/join state for this screen.
     @State private var showHostSheet: Bool = false // Controls host-room sheet presentation.
     @State private var pendingJoinListing: RoomListing? = nil // Selected listing for join prompt context.
-    @State private var bidText: String = "" // Join prompt text input (digits only).
+    @State private var depositText: String = "" // Join prompt text input (digits only).
     @State private var joinGreetingMessage: String = NSLocalizedString("browse_join_greeting_default", comment: "") // Greeting message submitted together with join deposit.
     @State private var isJoinGreetingFocused: Bool = false // Controls first-responder focus for join greeting editor.
     @State private var isSearchFieldVisible: Bool = false // Controls inline search field visibility.
-    @State private var bidFieldFocused: Bool = false // Controls first-responder focus for the bid entry field.
+    @State private var isDepositFieldFocused: Bool = false // Controls first-responder focus for the deposit entry field.
     @State private var isNotificationInboxPresented: Bool = false // Controls notification inbox sheet presentation.
     @State private var isMushroomBrowseTutorialActive: Bool = false // Controls in-place Mushroom browse interactive tutorial overlay visibility.
     @State private var mushroomBrowseTutorialStepIndex: Int = 0 // Current step index for Mushroom browse interactive tutorial.
@@ -141,9 +141,9 @@ struct RoomBrowseView: View {
                 Form {
                     Section {
                         SmartTextField(
-                            placeholderKey: "browse_join_bid_placeholder",
-                            text: $bidText,
-                            isFirstResponder: $bidFieldFocused,
+                            placeholderKey: "browse_join_deposit_placeholder",
+                            text: $depositText,
+                            isFirstResponder: $isDepositFieldFocused,
                             keyboardType: .numberPad,
                             textContentType: .none,
                             autocapitalization: .none,
@@ -151,7 +151,7 @@ struct RoomBrowseView: View {
                             textAlignment: .right
                         ) { newValue in
                             let filtered = newValue.filter { $0.isNumber }
-                            if filtered != newValue { bidText = filtered }
+                            if filtered != newValue { depositText = filtered }
                         }
                         .frame(height: 22)
                     } header: {
@@ -187,10 +187,10 @@ struct RoomBrowseView: View {
 
                     Section {
                         Button(LocalizedStringKey("common_join")) {
-                            let bid = parseBid(bidText)
+                            let depositAmount = parseDepositHoney(depositText)
                             pendingJoinListing = nil
                             isJoinGreetingFocused = false
-                            Task { await vm.join(listing, deposit: bid, greetingMessage: joinGreetingMessage) }
+                            Task { await vm.join(listing, deposit: depositAmount, greetingMessage: joinGreetingMessage) }
                         }
                         .disabled(joinGreetingMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
@@ -204,13 +204,13 @@ struct RoomBrowseView: View {
                     }
                 }
                 .onAppear {
-                    bidFieldFocused = true
+                    isDepositFieldFocused = true
                     if joinGreetingMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         joinGreetingMessage = NSLocalizedString("browse_join_greeting_default", comment: "")
                     }
                 }
                 .onDisappear {
-                    bidFieldFocused = false
+                    isDepositFieldFocused = false
                     isJoinGreetingFocused = false
                 }
             }
@@ -351,7 +351,7 @@ struct RoomBrowseView: View {
                                 if AppTesting.useMockRooms {
                                     Button {
                                         pendingJoinListing = listing
-                                        bidText = "\(max(AppConfig.Mushroom.minFixedRaidCost, listing.joinedPlayers > 0 ? AppConfig.Mushroom.defaultFixedRaidCost : AppConfig.Mushroom.minFixedRaidCost))"
+                                        depositText = "\(max(AppConfig.Mushroom.minFixedRaidCost, listing.joinedPlayers > 0 ? AppConfig.Mushroom.defaultFixedRaidCost : AppConfig.Mushroom.minFixedRaidCost))"
                                         joinGreetingMessage = NSLocalizedString("browse_join_greeting_default", comment: "")
                                     } label: {
                                         Text(LocalizedStringKey("common_join"))
@@ -427,7 +427,11 @@ struct RoomBrowseView: View {
                 anchors: anchors,
                 proxy: proxy
             )
-            let messageBoxY = max(0.12, min(step.messageBoxNormalizedY, 0.92)) * proxy.size.height
+            let messageBoxY = TutorialHighlightFrameResolver.resolveMessageBoxCenterY(
+                highlightFrame: highlightFrame,
+                configuredNormalizedY: step.messageBoxNormalizedY,
+                proxy: proxy
+            )
 
             ZStack {
                 Color.black.opacity(0.6)
@@ -436,10 +440,6 @@ struct RoomBrowseView: View {
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .frame(width: highlightFrame.width, height: highlightFrame.height)
                                 .position(x: highlightFrame.midX, y: highlightFrame.midY)
-                                .blendMode(.destinationOut)
-                        } else {
-                            Rectangle()
-                                .ignoresSafeArea()
                                 .blendMode(.destinationOut)
                         }
                     }
@@ -456,27 +456,42 @@ struct RoomBrowseView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(step.title)
                         .font(.headline)
-                    Text(step.message)
+                    TutorialMessageBodyView(message: step.message)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        Button(LocalizedStringKey("tutorial_back")) {
-                            showPreviousMushroomBrowseTutorialStep()
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(isMushroomBrowseTutorialFirstStep)
-
-                        Button(isMushroomBrowseTutorialLastStep ? String(localized: "common_done") : String(localized: "tutorial_next")) {
-                            advanceMushroomBrowseTutorialStep()
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
                 }
                 .padding(16)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .frame(width: max(0, proxy.size.width - 32), alignment: .leading)
                 .position(x: proxy.size.width * 0.5, y: messageBoxY)
+
+                VStack {
+                    Spacer()
+                    HStack {
+                        Button(LocalizedStringKey("tutorial_back")) {
+                            showPreviousMushroomBrowseTutorialStep()
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.black.opacity(isMushroomBrowseTutorialFirstStep ? 0.2 : 0.45), in: Capsule())
+                        .disabled(isMushroomBrowseTutorialFirstStep)
+
+                        Spacer(minLength: 0)
+
+                        Button(isMushroomBrowseTutorialLastStep ? String(localized: "common_done") : String(localized: "tutorial_next")) {
+                            advanceMushroomBrowseTutorialStep()
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(Color.accentColor.opacity(0.55), in: Capsule())
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, proxy.safeAreaInsets.bottom + 14)
+                }
             }
         }
         .ignoresSafeArea()
@@ -570,8 +585,8 @@ struct RoomBrowseView: View {
         }
     }
 
-    /// Parses numeric bid text into honey amount.
-    private func parseBid(_ text: String) -> Honey {
+    /// Parses numeric deposit text into honey amount.
+    private func parseDepositHoney(_ text: String) -> Honey {
         let digits = text.filter { $0.isNumber }
         return Int(digits) ?? 0
     }

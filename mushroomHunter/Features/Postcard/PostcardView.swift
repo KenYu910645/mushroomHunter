@@ -75,6 +75,8 @@ struct PostcardView: View {
     @State private var postcardTutorialStepIndex: Int = 0
     /// Active postcard detail tutorial scenario for step/content lookup.
     @State private var activePostcardTutorialScenario: TutorialScenario? = nil
+    /// Optional floating toolbar highlight frame rendered in a top window.
+    @State private var postcardTutorialFloatingHighlightFrame: CGRect? = nil
     /// Current color scheme used for themed background.
     @Environment(\.colorScheme) private var scheme
     /// Dismiss action for this detail screen.
@@ -167,6 +169,14 @@ struct PostcardView: View {
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
+                    } else if let tutorialAssetName = TutorialConfig.tutorialPostcardSnapshotAssetName(for: currentListing.id) {
+                        TutorialPostcardSnapshotImageView(
+                            assetName: tutorialAssetName,
+                            fallbackSystemImageName: "photo",
+                            fallbackIconFont: .largeTitle
+                        )
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
                     } else {
                         Image(systemName: "photo")
                             .font(.largeTitle)
@@ -280,6 +290,12 @@ struct PostcardView: View {
         }
         .background(Theme.backgroundGradient(for: scheme))
         .allowsHitTesting(!isPostcardTutorialActive)
+        .background(
+            TutorialFloatingHighlightWindowBridge(
+                frame: postcardTutorialFloatingHighlightFrame,
+                isVisible: isPostcardTutorialActive
+            )
+        )
         .toolbar {
             if isSeller {
                 ToolbarItemGroup(placement: .topBarTrailing) {
@@ -291,6 +307,7 @@ struct PostcardView: View {
                         }
                         .accessibilityLabel(LocalizedStringKey("postcard_share_accessibility"))
                         .accessibilityIdentifier("postcard_share_button")
+                        .disabled(isPostcardTutorialActive)
                     }
 
                     Button {
@@ -301,6 +318,7 @@ struct PostcardView: View {
                     .tutorialHighlightAnchor(isPostcardTutorialActive ? .postcardSellerShippingButton : nil)
                     .accessibilityLabel(LocalizedStringKey("postcard_shipping_accessibility"))
                     .accessibilityIdentifier("postcard_shipping_button")
+                    .disabled(isPostcardTutorialActive)
 
                     if !AppTesting.isUITesting {
                         Button {
@@ -310,6 +328,7 @@ struct PostcardView: View {
                         }
                         .accessibilityLabel(LocalizedStringKey("postcard_edit_accessibility"))
                         .accessibilityIdentifier("postcard_edit_button")
+                        .disabled(isPostcardTutorialActive)
                     }
                 }
             }
@@ -469,6 +488,7 @@ struct PostcardView: View {
                 isPostcardTutorialActive = false
                 session.endFeatureTutorialPresentation()
             }
+            postcardTutorialFloatingHighlightFrame = nil
         }
     }
 
@@ -735,9 +755,27 @@ struct PostcardView: View {
                     anchors: anchors,
                     proxy: proxy
                 )
-                let messageBoxY = max(0.12, min(step.messageBoxNormalizedY, 0.92)) * proxy.size.height
+                let messageBoxY = TutorialHighlightFrameResolver.resolveMessageBoxCenterY(
+                    highlightFrame: highlightFrame,
+                    configuredNormalizedY: step.messageBoxNormalizedY,
+                    proxy: proxy
+                )
+                let isToolbarTarget = step.highlightTarget?.isNavigationToolbarActionTarget == true
+                let floatingFrame = isToolbarTarget ? highlightFrame : nil
 
                 ZStack {
+                    Color.clear
+                        .onAppear {
+                            if postcardTutorialFloatingHighlightFrame != floatingFrame {
+                                postcardTutorialFloatingHighlightFrame = floatingFrame
+                            }
+                        }
+                        .onChange(of: floatingFrame) { _, newValue in
+                            if postcardTutorialFloatingHighlightFrame != newValue {
+                                postcardTutorialFloatingHighlightFrame = newValue
+                            }
+                        }
+
                     Color.black.opacity(0.6)
                         .overlay {
                             if let highlightFrame {
@@ -750,7 +788,7 @@ struct PostcardView: View {
                         .compositingGroup()
                         .ignoresSafeArea()
 
-                    if let highlightFrame {
+                    if let highlightFrame, !isToolbarTarget {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .stroke(Color.yellow, lineWidth: 2)
                             .frame(width: highlightFrame.width, height: highlightFrame.height)
@@ -760,27 +798,42 @@ struct PostcardView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(step.title)
                             .font(.headline)
-                        Text(step.message)
+                        TutorialMessageBodyView(message: step.message)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        HStack(spacing: 8) {
-                            Button(LocalizedStringKey("tutorial_back")) {
-                                showPreviousPostcardTutorialStep()
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(isPostcardTutorialFirstStep)
-
-                            Button(isPostcardTutorialLastStep ? String(localized: "common_done") : String(localized: "tutorial_next")) {
-                                advancePostcardTutorialStep()
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .center)
                     }
                     .padding(16)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .frame(width: max(0, proxy.size.width - 32), alignment: .leading)
                     .position(x: proxy.size.width * 0.5, y: messageBoxY)
+
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Button(LocalizedStringKey("tutorial_back")) {
+                                showPreviousPostcardTutorialStep()
+                            }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(Color.black.opacity(isPostcardTutorialFirstStep ? 0.2 : 0.45), in: Capsule())
+                            .disabled(isPostcardTutorialFirstStep)
+
+                            Spacer(minLength: 0)
+
+                            Button(isPostcardTutorialLastStep ? String(localized: "common_done") : String(localized: "tutorial_next")) {
+                                advancePostcardTutorialStep()
+                            }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .background(Color.accentColor.opacity(0.55), in: Capsule())
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, proxy.safeAreaInsets.bottom + 14)
+                    }
                 }
             }
         }
@@ -925,6 +978,7 @@ struct PostcardView: View {
     private func finishPostcardTutorial() {
         let finishedScenario = activePostcardTutorialScenario
         isPostcardTutorialActive = false
+        postcardTutorialFloatingHighlightFrame = nil
         session.endFeatureTutorialPresentation()
         activePostcardTutorialScenario = nil
 

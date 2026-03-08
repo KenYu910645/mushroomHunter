@@ -27,7 +27,7 @@
 
 "browse_title" = "Mushroom List";
 "browse_join_room_title" = "Join Room";
-"browse_join_bid_placeholder" = "Deposit (honey)";
+"browse_join_deposit_placeholder" = "Deposit (honey)";
 "browse_join_message" = "Enter deposit. You have %d {honey_icon}.";
 "browse_join_greeting_header" = "Greeting Message";
 "browse_join_greeting_placeholder" = "Hi host, I can join quickly and I will reply your invite.";
@@ -43,7 +43,7 @@
 "browse_expires_format" = "Expires: %dm";
 "browse_tag_joined" = "Joined";
 "browse_tag_host" = "Host";
-"browse_error_enter_bid" = "Please enter a deposit before joining.";
+"browse_error_enter_deposit" = "Please enter a deposit before joining.";
 "browse_error_enter_greeting" = "Please enter a greeting message before joining.";
 "browse_error_not_enough_honey" = "Not enough honey. You have %d {honey_icon}.";
 
@@ -74,9 +74,9 @@
 "host_words_label" = "Characters";
 "host_description_header" = "Other Description";
 "host_default_description" = "Welcome! Let's play!";
-"host_min_bid_label" = "{honey_icon}";
-"host_min_bid_header" = "Tips";
-"host_min_bid_footer" = "The amount of honey that attendees will pay after been invited and join the mushroom.";
+"host_fixed_raid_cost_label" = "{honey_icon}";
+"host_fixed_raid_cost_header" = "Tips";
+"host_fixed_raid_cost_footer" = "The amount of honey that attendees will pay after been invited and join the mushroom.";
 "host_close_room_button" = "Close Room";
 "host_close_room_footer" = "The room will be removed and cannot be recovery.";
 "host_room_default_name" = "Let's fight mushroom";
@@ -97,16 +97,16 @@
 
 "room_join_title" = "Join Room";
 "room_max_honey_format" = "Max %d";
-"room_bid_header" = "Deposit";
-"room_bid_footer" = "This deposit will held to this room. It is only spent after the host invite you to a mushroom. Leaving the room returns any unspent deposit.";
+"room_join_deposit_header" = "Deposit";
+"room_join_deposit_footer" = "This deposit will held to this room. It is only spent after the host invite you to a mushroom. Leaving the room returns any unspent deposit.";
 "room_join_greeting_header" = "Say Hi to the Host";
 "room_join_greeting_placeholder" = "Hi, I can join quickly and I will reply your invite.";
 "room_join_greeting_footer" = "Tell the host why you are joining. Required, up to 100 characters.";
 "room_join_greeting_default" = "Hi! Let's play together.";
-"room_update_bid_header" = "Deposit";
-"room_update_bid_footer" = "This deposit is held while you stay in the room. It is only spent after a mushroom raid done.";
-"room_edit_bid_title" = "Top-up Honey";
-"room_update_bid" = "Top-up";
+"room_update_deposit_header" = "Deposit";
+"room_update_deposit_footer" = "This deposit is held while you stay in the room. It is only spent after a mushroom raid done.";
+"room_edit_deposit_title" = "Top-up Honey";
+"room_update_deposit" = "Top-up";
 "room_leave_room" = "Leave Room";
 "room_leave_room_footer" = "Leave the room will return all of your unspent deposit";
 
@@ -118,7 +118,7 @@
 "room_attendees_header" = "Attendees";
 "room_no_attendees_title" = "No attendees";
 "room_no_attendees_description" = "There are no attendees to select.";
-"room_bid_honey_format" = "%d";
+"room_deposit_honey_format" = "%d";
 "room_claim_rewards_title" = "Mushroom Invited";
 "room_load_error_title" = "Unable to load room";
 "room_attendee_count_format" = "👤 %d/%d";
@@ -127,12 +127,12 @@
 "room_copy_host_code_accessibility" = "Copy host friend code";
 "room_attendees_empty_title" = "No attendees yet";
 "room_attendees_empty_description" = "Be the first to join this room.";
-"room_sort_bid" = "Deposit (High → Low)";
+"room_sort_deposit" = "Deposit (High → Low)";
 "room_sort_stars" = "Stars (High → Low)";
 "room_sort_joined" = "Joined (Old → New)";
 "room_edit_room_accessibility" = "Edit Room";
 "room_share_accessibility" = "Share room invite";
-"room_edit_bid_accessibility" = "Edit Deposit";
+"room_edit_deposit_accessibility" = "Edit Deposit";
 "room_confirmation_queue_accessibility" = "Open room confirmations";
 "room_raid_history_button" = "Raid History";
 "room_raid_history_accessibility" = "Open raid history";

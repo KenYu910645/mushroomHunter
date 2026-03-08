@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "duck.PNG",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

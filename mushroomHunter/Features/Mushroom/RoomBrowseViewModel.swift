@@ -162,7 +162,7 @@ final class RoomBrowseViewModel: ObservableObject {
         let trimmedGreetingMessage = greetingMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         if AppTesting.useMockRooms {
             guard deposit > 0 else {
-                let msg = NSLocalizedString("browse_error_enter_bid", comment: "")
+                let msg = NSLocalizedString("browse_error_enter_deposit", comment: "")
                 self.errorMessage = msg
                 return
             }
@@ -177,7 +177,7 @@ final class RoomBrowseViewModel: ObservableObject {
 
         let trimmedDeposit = max(0, deposit)
         guard trimmedDeposit > 0 else {
-            let msg = NSLocalizedString("browse_error_enter_bid", comment: "")
+            let msg = NSLocalizedString("browse_error_enter_deposit", comment: "")
             self.errorMessage = msg
             return
         }

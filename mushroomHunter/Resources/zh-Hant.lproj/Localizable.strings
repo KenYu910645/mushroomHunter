@@ -27,7 +27,7 @@
 
 "browse_title" = "蘑菇列表";
 "browse_join_room_title" = "加入房間";
-"browse_join_bid_placeholder" = "儲值（蜂蜜）";
+"browse_join_deposit_placeholder" = "儲值（蜂蜜）";
 "browse_join_message" = "請輸入儲值蜂蜜。您目前有 %d {honey_icon}。";
 "browse_join_greeting_header" = "打招呼";
 "browse_join_greeting_placeholder" = "嗨主持人，可以一起打蘑菇嗎？。";
@@ -44,7 +44,7 @@
 "browse_expires_format" = "剩餘：%d 分";
 "browse_tag_joined" = "已加入";
 "browse_tag_host" = "主持";
-"browse_error_enter_bid" = "加入前請輸入儲值金額。";
+"browse_error_enter_deposit" = "加入前請輸入儲值金額。";
 "browse_error_enter_greeting" = "加入前請填寫打招呼訊息。";
 "browse_error_not_enough_honey" = "蜂蜜不足。您目前有 %d {honey_icon}。";
 
@@ -75,9 +75,9 @@
 "host_words_label" = "字元";
 "host_description_header" = "描述";
 "host_default_description" = "歡迎！大家一起來玩吧！";
-"host_min_bid_label" = "{honey_icon}";
-"host_min_bid_header" = "小費";
-"host_min_bid_footer" = "參加者在受邀參加蘑菇戰後，提供給主持人的獎勵。";
+"host_fixed_raid_cost_label" = "{honey_icon}";
+"host_fixed_raid_cost_header" = "小費";
+"host_fixed_raid_cost_footer" = "參加者在受邀參加蘑菇戰後，提供給主持人的獎勵。";
 "host_close_room_button" = "刪除房間";
 "host_close_room_footer" = "即將刪除房間並且無法恢復。";
 "host_room_default_name" = "一起來打蘑菇吧";
@@ -98,16 +98,16 @@
 
 "room_join_title" = "加入房間";
 "room_max_honey_format" = "上限 %d";
-"room_bid_header" = "儲值";
-"room_bid_footer" = "儲值蜂蜜會暫時存放在房間內。只有在主持人邀請您參加蘑菇後才會扣除。離開房間會退還所有儲值蜂蜜。";
+"room_join_deposit_header" = "儲值";
+"room_join_deposit_footer" = "儲值蜂蜜會暫時存放在房間內。只有在主持人邀請您參加蘑菇後才會扣除。離開房間會退還所有儲值蜂蜜。";
 "room_join_greeting_header" = "跟主持人說聲Hi";
 "room_join_greeting_placeholder" = "嗨主持人，我可以快速加入，也會即時回覆您的邀請。";
 "room_join_greeting_footer" = "告訴主持人您要加入的原因。必填，最多 100 字。";
 "room_join_greeting_default" = "Hi 皮友們，一起來打蘑菇吧。";
-"room_update_bid_header" = "儲值";
-"room_update_bid_footer" = "儲值會在您待在房間期間保留。只有在蘑菇戰完成後才會扣除。";
-"room_edit_bid_title" = "更新儲值";
-"room_update_bid" = "更新儲值";
+"room_update_deposit_header" = "儲值";
+"room_update_deposit_footer" = "儲值會在您待在房間期間保留。只有在蘑菇戰完成後才會扣除。";
+"room_edit_deposit_title" = "更新儲值";
+"room_update_deposit" = "更新儲值";
 "room_leave_room" = "離開房間";
 "room_leave_room_footer" = "離開房間將退還任何未使用的儲值";
 
@@ -119,7 +119,7 @@
 "room_attendees_header" = "參加者";
 "room_no_attendees_title" = "沒有參加者";
 "room_no_attendees_description" = "目前沒有可選擇的參加者。";
-"room_bid_honey_format" = "%d";
+"room_deposit_honey_format" = "%d";
 "room_claim_rewards_title" = "蘑菇已邀請";
 "room_load_error_title" = "無法載入房間";
 "room_attendee_count_format" = "參加者：%d/%d";
@@ -128,12 +128,12 @@
 "room_copy_host_code_accessibility" = "複製主持人好友碼";
 "room_attendees_empty_title" = "尚無參加者";
 "room_attendees_empty_description" = "成為第一位加入此房間的人。";
-"room_sort_bid" = "儲值（高 → 低）";
+"room_sort_deposit" = "儲值（高 → 低）";
 "room_sort_stars" = "星數（高 → 低）";
 "room_sort_joined" = "加入時間（舊 → 新）";
 "room_edit_room_accessibility" = "編輯房間";
 "room_share_accessibility" = "分享房間邀請";
-"room_edit_bid_accessibility" = "編輯儲值";
+"room_edit_deposit_accessibility" = "編輯儲值";
 "room_confirmation_queue_accessibility" = "開啟房間確認";
 "room_raid_history_button" = "蘑菇邀請紀錄";
 "room_raid_history_accessibility" = "開啟蘑菇邀請紀錄";
@@ -642,15 +642,9 @@
 "tutorial_catalog_footer" = "已開放的教學可以隨時重新觀看。";
 "tutorial_catalog_coming_soon" = "即將推出";
 "tutorial_catalog_completed_chip" = "已完成";
-"tutorial_scenario_mushroom_browse_title" = "蘑菇列表基礎";
-"tutorial_scenario_mushroom_browse_subtitle" = "快速了解列表結構、擁有標籤與建立房間入口。";
-"tutorial_scenario_room_personal_title" = "房間頁（一般視角）";
-"tutorial_scenario_room_personal_subtitle" = "了解參加者操作與狀態意義。";
-"tutorial_scenario_room_host_title" = "房間頁（主持視角）";
-"tutorial_scenario_room_host_subtitle" = "了解主持人的審核、邀請與結算操作。";
-"tutorial_scenario_postcard_browse_title" = "明信片列表基礎";
-"tutorial_scenario_postcard_browse_subtitle" = "了解卡片列表、搜尋與上架入口。";
-"tutorial_scenario_postcard_buyer_title" = "明信片頁（買家視角）";
-"tutorial_scenario_postcard_buyer_subtitle" = "了解下單流程與收件確認。";
-"tutorial_scenario_postcard_seller_title" = "明信片頁（賣家視角）";
-"tutorial_scenario_postcard_seller_subtitle" = "了解出貨佇列與賣家操作。";
+"tutorial_scenario_mushroom_browse_title" = "蘑菇房瀏覽列表";
+"tutorial_scenario_room_personal_title" = "加入房間";
+"tutorial_scenario_room_host_title" = "主持房間";
+"tutorial_scenario_postcard_browse_title" = "明信片瀏覽列表";
+"tutorial_scenario_postcard_buyer_title" = "購買明信片";
+"tutorial_scenario_postcard_seller_title" = "販賣明信片";

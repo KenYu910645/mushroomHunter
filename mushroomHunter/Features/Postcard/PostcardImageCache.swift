@@ -312,3 +312,127 @@ struct CachedPostcardImageView: View {
         isImageLoading = false
     }
 }
+
+/// Shared cache service for tutorial postcard snapshot assets.
+final class TutorialPostcardSnapshotCache {
+    /// Singleton entry point used by tutorial snapshot views.
+    static let shared = TutorialPostcardSnapshotCache()
+
+    /// In-memory processed image cache keyed by asset name.
+    private let memoryCache = NSCache<NSString, UIImage>()
+    /// Reused uploader helper so tutorial preprocessing follows production crop logic.
+    private let imageUploader = PostcardImageUploader()
+
+    /// Initializes tutorial image cache defaults.
+    private init() {
+        memoryCache.countLimit = 16
+    }
+
+    /// Loads one tutorial snapshot image and applies postcard crop preprocessing.
+    /// - Parameter assetName: Asset catalog image name.
+    /// - Returns: Preprocessed postcard image, or nil when the asset cannot be loaded.
+    func loadImage(assetName: String) -> UIImage? {
+        let cacheKey = assetName as NSString
+        if let cachedImage = memoryCache.object(forKey: cacheKey) {
+            return cachedImage
+        }
+
+        guard let sourceImage = UIImage(named: assetName) else { return nil }
+
+        let processedImage: UIImage
+        if let croppedImage = try? imageUploader.cropSnapshotImage(sourceImage) {
+            processedImage = croppedImage
+        } else {
+            processedImage = fallbackCenterCroppedTutorialImage(from: sourceImage)
+        }
+
+        memoryCache.setObject(processedImage, forKey: cacheKey)
+        return processedImage
+    }
+
+    /// Applies a best-effort postcard-frame crop when source image is not exact Pikmin export size.
+    /// - Parameter sourceImage: Raw tutorial snapshot image from assets.
+    /// - Returns: Center-cropped postcard frame image matching tutorial display expectations.
+    private func fallbackCenterCroppedTutorialImage(from sourceImage: UIImage) -> UIImage {
+        let targetSize = CGSize(width: 645, height: 635)
+        let rendererFormat = UIGraphicsImageRendererFormat.default()
+        rendererFormat.scale = 1
+        rendererFormat.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: targetSize, format: rendererFormat)
+
+        return renderer.image { _ in
+            let sourceSize = sourceImage.size
+            guard sourceSize.width > 0, sourceSize.height > 0 else {
+                sourceImage.draw(in: CGRect(origin: .zero, size: targetSize))
+                return
+            }
+
+            let widthRatio = targetSize.width / sourceSize.width
+            let heightRatio = targetSize.height / sourceSize.height
+            let fillScale = max(widthRatio, heightRatio)
+            let drawSize = CGSize(
+                width: sourceSize.width * fillScale,
+                height: sourceSize.height * fillScale
+            )
+            let drawOrigin = CGPoint(
+                x: (targetSize.width - drawSize.width) * 0.5,
+                y: (targetSize.height - drawSize.height) * 0.5
+            )
+            sourceImage.draw(in: CGRect(origin: drawOrigin, size: drawSize))
+        }
+    }
+}
+
+/// View wrapper that renders tutorial postcard assets with production crop preprocessing.
+struct TutorialPostcardSnapshotImageView: View {
+    /// Asset catalog name that points to the tutorial postcard snapshot source image.
+    let assetName: String
+    /// SF Symbol shown when image load fails.
+    let fallbackSystemImageName: String
+    /// Font used by fallback icon.
+    let fallbackIconFont: Font
+
+    /// Decoded and preprocessed tutorial image currently shown in UI.
+    @State private var renderedImage: UIImage?
+    /// Indicates whether tutorial image preprocessing is currently running.
+    @State private var isImageLoading: Bool = false
+    /// Indicates whether the most recent load attempt failed.
+    @State private var isImageLoadFailed: Bool = false
+
+    /// Preprocessed tutorial postcard image rendering.
+    var body: some View {
+        Group {
+            if let renderedImage {
+                Image(uiImage: renderedImage)
+                    .resizable()
+                    .scaledToFill()
+            } else if isImageLoading {
+                ProgressView()
+            } else {
+                Image(systemName: fallbackSystemImageName)
+                    .font(fallbackIconFont)
+                    .foregroundStyle(.secondary)
+                    .opacity(isImageLoadFailed ? 1 : 0.75)
+            }
+        }
+        .task(id: assetName) {
+            await loadImage()
+        }
+    }
+
+    /// Loads and preprocesses the tutorial asset image off the main thread.
+    private func loadImage() async {
+        guard renderedImage == nil else { return }
+        isImageLoading = true
+        isImageLoadFailed = false
+
+        let selectedAssetName = assetName
+        let image = await Task.detached(priority: .utility) {
+            TutorialPostcardSnapshotCache.shared.loadImage(assetName: selectedAssetName)
+        }.value
+
+        renderedImage = image
+        isImageLoadFailed = image == nil
+        isImageLoading = false
+    }
+}

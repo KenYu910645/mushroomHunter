@@ -45,24 +45,6 @@ enum TutorialScenario: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Localized subtitle key shown in tutorial lists.
-    var subtitleKey: LocalizedStringKey {
-        switch self {
-        case .mushroomBrowseFirstVisit:
-            return LocalizedStringKey("tutorial_scenario_mushroom_browse_subtitle")
-        case .roomPersonalFirstVisit:
-            return LocalizedStringKey("tutorial_scenario_room_personal_subtitle")
-        case .roomHostFirstVisit:
-            return LocalizedStringKey("tutorial_scenario_room_host_subtitle")
-        case .postcardBrowseFirstVisit:
-            return LocalizedStringKey("tutorial_scenario_postcard_browse_subtitle")
-        case .postcardBuyerFirstVisit:
-            return LocalizedStringKey("tutorial_scenario_postcard_buyer_subtitle")
-        case .postcardSellerFirstVisit:
-            return LocalizedStringKey("tutorial_scenario_postcard_seller_subtitle")
-        }
-    }
-
     /// Indicates whether this scenario currently has an implemented interactive flow.
     var isImplemented: Bool {
         switch self {

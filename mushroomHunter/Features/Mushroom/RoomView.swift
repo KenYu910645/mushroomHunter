@@ -65,6 +65,7 @@ struct RoomView: View {
     @State private var isRoomTutorialActive: Bool = false // Controls in-place room interactive tutorial overlay visibility.
     @State private var roomTutorialStepIndex: Int = 0 // Current step index for room interactive tutorial.
     @State private var activeRoomTutorialScenario: TutorialScenario? = nil // Active room tutorial scenario for step/content lookup.
+    @State private var roomTutorialFloatingHighlightFrame: CGRect? = nil // Optional floating toolbar highlight frame rendered in a top window.
     /// ✅ New initializer: pass VM from caller (RoomBrowseView already does this)
     init(
         vm: RoomViewModel,
@@ -139,11 +140,18 @@ struct RoomView: View {
                 roomTutorialOverlay(anchors: anchors)
             }
         }
+        .background(
+            TutorialFloatingHighlightWindowBridge(
+                frame: roomTutorialFloatingHighlightFrame,
+                isVisible: isRoomTutorialActive
+            )
+        )
         .onDisappear {
             if isRoomTutorialActive {
                 isRoomTutorialActive = false
                 session.endFeatureTutorialPresentation()
             }
+            roomTutorialFloatingHighlightFrame = nil
         }
         .sheet(isPresented: $showJoinSheet) {
             NavigationStack {
@@ -162,21 +170,21 @@ struct RoomView: View {
                                 .foregroundStyle(.secondary)
                         }
 
-                        let minBid = vm.room?.fixedRaidCost ?? 0
-                        let maxBid = max(session.honey, 0)
-                        let lower = min(minBid, maxBid)
+                        let minimumRequiredDeposit = vm.room?.fixedRaidCost ?? 0
+                        let maximumAvailableDeposit = max(session.honey, 0)
+                        let lower = min(minimumRequiredDeposit, maximumAvailableDeposit)
                         Slider(
                             value: Binding(
                                 get: { Double(joinDepositAmount) },
                                 set: { joinDepositAmount = Int($0) }
                             ),
-                            in: Double(lower)...Double(maxBid),
+                            in: Double(lower)...Double(maximumAvailableDeposit),
                             step: 1
                         )
                     } header: {
-                        Text(LocalizedStringKey("room_bid_header"))
+                        Text(LocalizedStringKey("room_join_deposit_header"))
                     } footer: {
-                        Text(LocalizedStringKey("room_bid_footer"))
+                        Text(LocalizedStringKey("room_join_deposit_footer"))
                     }
 
                     Section {
@@ -249,28 +257,28 @@ struct RoomView: View {
                                 .scaledToFit()
                                 .frame(width: 20, height: 20)
                             Spacer()
-                            let currentBid = vm.currentUserDepositHoney() ?? 0
-                            let maxBid = max(session.honey + currentBid, 0)
-                            Text(String(format: NSLocalizedString("room_max_honey_format", comment: ""), maxBid))
+                            let currentDeposit = vm.currentUserDepositHoney() ?? 0
+                            let maximumAvailableDeposit = max(session.honey + currentDeposit, 0)
+                            Text(String(format: NSLocalizedString("room_max_honey_format", comment: ""), maximumAvailableDeposit))
                                 .foregroundStyle(.secondary)
                         }
 
-                        let minBid = vm.room?.fixedRaidCost ?? 0
-                        let currentBid = vm.currentUserDepositHoney() ?? 0
-                        let maxBid = max(session.honey + currentBid, 0)
-                        let lower = min(minBid, maxBid)
+                        let minimumRequiredDeposit = vm.room?.fixedRaidCost ?? 0
+                        let currentDeposit = vm.currentUserDepositHoney() ?? 0
+                        let maximumAvailableDeposit = max(session.honey + currentDeposit, 0)
+                        let lower = min(minimumRequiredDeposit, maximumAvailableDeposit)
                         Slider(
                             value: Binding(
                                 get: { Double(updateDepositAmount) },
                                 set: { updateDepositAmount = Int($0) }
                             ),
-                            in: Double(lower)...Double(maxBid),
+                            in: Double(lower)...Double(maximumAvailableDeposit),
                             step: 1
                         )
                     } header: {
-                        Text(LocalizedStringKey("room_update_bid_header"))
+                        Text(LocalizedStringKey("room_update_deposit_header"))
                     } footer: {
-                        Text(LocalizedStringKey("room_update_bid_footer"))
+                        Text(LocalizedStringKey("room_update_deposit_footer"))
                     }
 
                     Section {
@@ -295,7 +303,7 @@ struct RoomView: View {
                         Text(LocalizedStringKey("room_leave_room_footer"))
                     }
                 }
-                .navigationTitle(LocalizedStringKey("room_edit_bid_title"))
+                .navigationTitle(LocalizedStringKey("room_edit_deposit_title"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
@@ -350,7 +358,7 @@ struct RoomView: View {
                                         HStack {
                                             Text(attendee.name)
                                             Spacer()
-                                            Text(String(format: NSLocalizedString("room_bid_honey_format", comment: ""), attendee.depositHoney))
+                                            Text(String(format: NSLocalizedString("room_deposit_honey_format", comment: ""), attendee.depositHoney))
                                                 .foregroundStyle(.secondary)
                                         }
                                     }
@@ -436,111 +444,129 @@ struct RoomView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.backgroundGradient(for: scheme))
         } else {
-            Form {
-                if let err = vm.errorMessage {
-                    Section {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let err = vm.errorMessage {
                         Text(err)
                             .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
+                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+
+                    if let room = vm.room {
+                        headerSection(room)
+                        attendeesSection(room)
                     }
                 }
-
-                if let room = vm.room {
-                    headerSection(room)
-                    attendeesSection(room)
-                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
             }
             .refreshable {
                 guard !isRoomTutorialActive else { return }
                 await vm.load(forceRefresh: true)
             }
-            .scrollContentBackground(.hidden)
             .background(Theme.backgroundGradient(for: scheme))
             .allowsHitTesting(!isRoomTutorialActive)
         }
     }
 
     private func headerSection(_ room: RoomDetail) -> some View {
-        Section {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(room.title)
-                        .font(.title2.bold())
-                        .lineLimit(2)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(room.title)
+                    .font(.title2.bold())
+                    .lineLimit(2)
 
-                    Spacer()
+                Spacer()
 
-                    HStack(spacing: 4) {
-                        Image(systemName: "person.fill")
-                        Text(String(format: NSLocalizedString("room_attendee_count_number_format", comment: ""), room.attendees.count, room.maxPlayers))
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Image(systemName: "person.fill")
+                    Text(String(format: NSLocalizedString("room_attendee_count_number_format", comment: ""), room.attendees.count, room.maxPlayers))
                 }
-
-                if !room.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    HStack(spacing: 4) {
-                        Image(systemName: "mappin.and.ellipse")
-                        Text(RoomLocationLocalization.displayLabel(forStoredLocation: room.location))
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                }
-
-                if !room.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(room.description)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             }
-            .padding(.vertical, 4)
-            .tutorialHighlightAnchor(isRoomTutorialActive ? .roomHeaderSection : nil)
+
+            if !room.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "mappin.and.ellipse")
+                    Text(RoomLocationLocalization.displayLabel(forStoredLocation: room.location))
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+
+            if !room.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(room.description)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .tutorialHighlightAnchor(isRoomTutorialActive ? .roomHeaderSection : nil)
     }
 
     private func attendeesSection(_ room: RoomDetail) -> some View {
-        Section {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(LocalizedStringKey("room_attendees_header"))
+                .font(.headline)
+
             if room.attendees.isEmpty {
                 ContentUnavailableView(
                     LocalizedStringKey("room_attendees_empty_title"),
                     systemImage: "person.3",
                     description: Text(LocalizedStringKey("room_attendees_empty_description"))
                 )
-                .listRowBackground(Color.clear)
             } else {
-                ForEach(room.attendees) { attendee in
-                    AttendeeRow(
-                        attendee: attendee,
-                        isHostAttendee: attendee.status == .host,
-                        isHostViewing: (vm.role == .host),
-                        isAskingToJoin: vm.isAskingToJoin(attendeeId: attendee.id),
-                        isPendingConfirmation: vm.isWaitingConfirmation(attendeeId: attendee.id),
-                        onKick: {
-                            Task {
-                                await vm.kick(attendeeId: attendee.id)
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(room.attendees.enumerated()), id: \.element.id) { index, attendee in
+                        AttendeeRow(
+                            attendee: attendee,
+                            isHostAttendee: attendee.status == .host,
+                            isHostViewing: (vm.role == .host),
+                            isAskingToJoin: vm.isAskingToJoin(attendeeId: attendee.id),
+                            isPendingConfirmation: vm.isWaitingConfirmation(attendeeId: attendee.id),
+                            onKick: {
+                                Task {
+                                    await vm.kick(attendeeId: attendee.id)
+                                }
+                            },
+                            onApproveJoinApplication: {
+                                Task {
+                                    await vm.approveJoinApplication(attendeeId: attendee.id)
+                                }
+                            },
+                            onRejectJoinApplication: {
+                                Task {
+                                    await vm.rejectJoinApplication(attendeeId: attendee.id)
+                                }
+                            },
+                            onCopyFriendCode: { code in
+                                copyFriendCode(code)
                             }
-                        },
-                        onApproveJoinApplication: {
-                            Task {
-                                await vm.approveJoinApplication(attendeeId: attendee.id)
-                            }
-                        },
-                        onRejectJoinApplication: {
-                            Task {
-                                await vm.rejectJoinApplication(attendeeId: attendee.id)
-                            }
-                        },
-                        onCopyFriendCode: { code in
-                            copyFriendCode(code)
-                        }
-                    )
+                        )
+                        .tutorialHighlightAnchor(tutorialHighlightTargetForAttendeeRow(index: index))
+                    }
                 }
             }
-        } header: {
-            HStack {
-                Text(LocalizedStringKey("room_attendees_header"))
-            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .tutorialHighlightAnchor(isRoomTutorialActive ? .roomAttendeeSection : nil)
+    }
+
+    /// Resolves attendee-row tutorial highlight target from row index.
+    /// - Parameter index: Zero-based index of attendee in rendered list order.
+    /// - Returns: Stable attendee-row target when index is in supported range.
+    private func tutorialHighlightTargetForAttendeeRow(
+        index: Int
+    ) -> TutorialHighlightTarget? {
+        guard isRoomTutorialActive else { return nil }
+        return TutorialHighlightTarget.roomAttendeeRow(index)
     }
 
     // MARK: - Toolbar
@@ -562,7 +588,7 @@ struct RoomView: View {
                 }
                 .tutorialHighlightAnchor(isRoomTutorialActive ? .roomHostShareButton : nil)
                 .accessibilityLabel(LocalizedStringKey("room_share_accessibility"))
-                .disabled(vm.isLoading || vm.room == nil)
+                .disabled(isRoomTutorialActive || vm.isLoading || vm.room == nil)
 
             }
         }
@@ -574,9 +600,10 @@ struct RoomView: View {
                     Image(systemName: "list.clipboard")
                         .font(.headline)
                 }
+                .tutorialHighlightAnchor(isRoomTutorialActive ? .roomHostRaidHistoryButton : nil)
                 .accessibilityLabel(LocalizedStringKey("room_raid_history_accessibility"))
                 .accessibilityIdentifier("room_raid_history_button")
-                .disabled(vm.isLoading)
+                .disabled(isRoomTutorialActive || vm.isLoading)
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -588,8 +615,9 @@ struct RoomView: View {
                     Image(systemName: "pencil")
                         .font(.headline)
                 }
+                .tutorialHighlightAnchor(isRoomTutorialActive ? .roomHostEditRoomButton : nil)
                 .accessibilityLabel(LocalizedStringKey("room_edit_room_accessibility"))
-                .disabled(vm.isLoading || vm.room == nil)
+                .disabled(isRoomTutorialActive || vm.isLoading || vm.room == nil)
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -602,7 +630,7 @@ struct RoomView: View {
                 .tutorialHighlightAnchor(isRoomTutorialActive ? .roomAttendeeConfirmationButton : nil)
                 .accessibilityLabel(LocalizedStringKey("room_confirmation_queue_accessibility"))
                 .accessibilityIdentifier("room_confirmation_queue_button")
-                .disabled(vm.isLoading)
+                .disabled(isRoomTutorialActive || vm.isLoading)
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -610,16 +638,17 @@ struct RoomView: View {
                 Button {
                     let currentDeposit = vm.currentUserDepositHoney() ?? 0
                     let fixedCost = vm.room?.fixedRaidCost ?? 0
-                    let maxBid = max(session.honey + currentDeposit, 0)
-                    updateDepositAmount = min(maxBid, max(currentDeposit, fixedCost))
+                    let maximumAvailableDeposit = max(session.honey + currentDeposit, 0)
+                    updateDepositAmount = min(maximumAvailableDeposit, max(currentDeposit, fixedCost))
                     showDepositSheet = true
                 } label: {
                     Image(systemName: "pencil")
                         .font(.headline)
                 }
-                .accessibilityLabel(LocalizedStringKey("room_edit_bid_accessibility"))
-                .accessibilityIdentifier("room_edit_bid_button")
-                .disabled(vm.isLoading || vm.isCurrentUserAllowedToEditDeposit == false)
+                .tutorialHighlightAnchor(isRoomTutorialActive ? .roomAttendeeEditDepositButton : nil)
+                .accessibilityLabel(LocalizedStringKey("room_edit_deposit_accessibility"))
+                .accessibilityIdentifier("room_edit_deposit_button")
+                .disabled(isRoomTutorialActive || vm.isLoading || vm.isCurrentUserAllowedToEditDeposit == false)
             }
         }
     }
@@ -635,8 +664,8 @@ struct RoomView: View {
                 HStack(spacing: 10) {
                     if AppTesting.useMockRooms, vm.role != .attendee {
                         Button {
-                            let minBid = room.fixedRaidCost
-                            let clamped = max(joinDepositAmount, minBid)
+                            let minimumRequiredDeposit = room.fixedRaidCost
+                            let clamped = max(joinDepositAmount, minimumRequiredDeposit)
                             joinDepositAmount = min(clamped, session.honey)
                             joinGreetingMessage = NSLocalizedString("room_join_greeting_default", comment: "")
                             showJoinSheet = true
@@ -649,8 +678,8 @@ struct RoomView: View {
                         .disabled(vm.isLoading || session.honey < room.fixedRaidCost)
                     } else if vm.canJoin {
                         Button {
-                            let minBid = room.fixedRaidCost
-                            let clamped = max(joinDepositAmount, minBid)
+                            let minimumRequiredDeposit = room.fixedRaidCost
+                            let clamped = max(joinDepositAmount, minimumRequiredDeposit)
                             joinDepositAmount = min(clamped, session.honey)
                             joinGreetingMessage = NSLocalizedString("room_join_greeting_default", comment: "")
                             showJoinSheet = true
@@ -748,9 +777,27 @@ struct RoomView: View {
                     anchors: anchors,
                     proxy: proxy
                 )
-                let messageBoxY = max(0.12, min(step.messageBoxNormalizedY, 0.92)) * proxy.size.height
+                let messageBoxY = TutorialHighlightFrameResolver.resolveMessageBoxCenterY(
+                    highlightFrame: highlightFrame,
+                    configuredNormalizedY: step.messageBoxNormalizedY,
+                    proxy: proxy
+                )
+                let isToolbarTarget = step.highlightTarget?.isNavigationToolbarActionTarget == true
+                let floatingFrame = isToolbarTarget ? highlightFrame : nil
 
                 ZStack {
+                    Color.clear
+                        .onAppear {
+                            if roomTutorialFloatingHighlightFrame != floatingFrame {
+                                roomTutorialFloatingHighlightFrame = floatingFrame
+                            }
+                        }
+                        .onChange(of: floatingFrame) { _, newValue in
+                            if roomTutorialFloatingHighlightFrame != newValue {
+                                roomTutorialFloatingHighlightFrame = newValue
+                            }
+                        }
+
                     Color.black.opacity(0.6)
                         .overlay {
                             if let highlightFrame {
@@ -763,7 +810,7 @@ struct RoomView: View {
                         .compositingGroup()
                         .ignoresSafeArea()
 
-                    if let highlightFrame {
+                    if let highlightFrame, !isToolbarTarget {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .stroke(Color.yellow, lineWidth: 2)
                             .frame(width: highlightFrame.width, height: highlightFrame.height)
@@ -773,27 +820,42 @@ struct RoomView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(step.title)
                             .font(.headline)
-                        Text(step.message)
+                        TutorialMessageBodyView(message: step.message)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        HStack(spacing: 8) {
-                            Button(LocalizedStringKey("tutorial_back")) {
-                                showPreviousRoomTutorialStep()
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(isRoomTutorialFirstStep)
-
-                            Button(isRoomTutorialLastStep ? String(localized: "common_done") : String(localized: "tutorial_next")) {
-                                advanceRoomTutorialStep()
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .center)
                     }
                     .padding(16)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .frame(width: max(0, proxy.size.width - 32), alignment: .leading)
                     .position(x: proxy.size.width * 0.5, y: messageBoxY)
+
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Button(LocalizedStringKey("tutorial_back")) {
+                                showPreviousRoomTutorialStep()
+                            }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(Color.black.opacity(isRoomTutorialFirstStep ? 0.2 : 0.45), in: Capsule())
+                            .disabled(isRoomTutorialFirstStep)
+
+                            Spacer(minLength: 0)
+
+                            Button(isRoomTutorialLastStep ? String(localized: "common_done") : String(localized: "tutorial_next")) {
+                                advanceRoomTutorialStep()
+                            }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .background(Color.accentColor.opacity(0.55), in: Capsule())
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, proxy.safeAreaInsets.bottom + 14)
+                    }
                 }
             }
         }
@@ -889,6 +951,7 @@ struct RoomView: View {
     private func finishRoomTutorial() {
         let finishedScenario = activeRoomTutorialScenario
         isRoomTutorialActive = false
+        roomTutorialFloatingHighlightFrame = nil
         session.endFeatureTutorialPresentation()
         activeRoomTutorialScenario = nil
 
@@ -1046,8 +1109,8 @@ struct RoomView: View {
                 message: NSLocalizedString("room_msg_next_round_message", comment: ""),
                 buttons: [
                     MessageBoxButton(
-                        id: "room_next_round_update_bid",
-                        title: NSLocalizedString("room_update_bid", comment: "")
+                        id: "room_next_round_update_deposit",
+                        title: NSLocalizedString("room_update_deposit", comment: "")
                     ) {
                         showNextRoundAlert = false
                         showDepositSheet = true
@@ -1649,7 +1712,7 @@ private struct AttendeeRow: View {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 16, height: 16)
-                            Text(String(format: NSLocalizedString("room_bid_honey_format", comment: ""), attendee.depositHoney))
+                            Text(String(format: NSLocalizedString("room_deposit_honey_format", comment: ""), attendee.depositHoney))
                                 .monospacedDigit()
                         }
                     }

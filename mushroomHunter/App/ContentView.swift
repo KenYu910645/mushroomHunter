@@ -94,6 +94,7 @@ struct MainTabView: View {
                 .tag(RootTab.profile)
                 .accessibilityIdentifier("tab_profile")
         }
+        .toolbar(session.isFeatureTutorialActive ? .hidden : .visible, for: .tabBar)
         .background(
             TabBarInteractionLockBridge(
                 isTabBarInteractionEnabled: !session.isFeatureTutorialActive
@@ -252,7 +253,7 @@ private struct TabBarInteractionLockBridge: UIViewRepresentable {
         }
     }
 
-    /// Resolves root tab bar controller from key window and toggles interaction.
+    /// Resolves root tab bar controller from key window and toggles tutorial tab-bar state.
     private func applyTabBarInteractionState() {
         guard let tabBarController = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
@@ -263,6 +264,7 @@ private struct TabBarInteractionLockBridge: UIViewRepresentable {
         else {
             return
         }
+        tabBarController.tabBar.isHidden = !isTabBarInteractionEnabled
         tabBarController.tabBar.isUserInteractionEnabled = isTabBarInteractionEnabled
     }
 }

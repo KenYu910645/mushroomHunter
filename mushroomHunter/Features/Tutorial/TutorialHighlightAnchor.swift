@@ -23,14 +23,46 @@ enum TutorialHighlightTarget: String, Hashable {
     case roomHeaderSection
     /// Attendee section in room detail view.
     case roomAttendeeSection
+    /// Attendee row #0 in room detail attendee list.
+    case roomAttendeeRow0
+    /// Attendee row #1 in room detail attendee list.
+    case roomAttendeeRow1
+    /// Attendee row #2 in room detail attendee list.
+    case roomAttendeeRow2
+    /// Attendee row #3 in room detail attendee list.
+    case roomAttendeeRow3
+    /// Attendee row #4 in room detail attendee list.
+    case roomAttendeeRow4
+    /// Attendee row #5 in room detail attendee list.
+    case roomAttendeeRow5
+    /// Attendee row #6 in room detail attendee list.
+    case roomAttendeeRow6
+    /// Attendee row #7 in room detail attendee list.
+    case roomAttendeeRow7
+    /// Attendee row #8 in room detail attendee list.
+    case roomAttendeeRow8
+    /// Attendee row #9 in room detail attendee list.
+    case roomAttendeeRow9
     /// Attendee confirmation queue button in room detail toolbar.
     case roomAttendeeConfirmationButton
+    /// Attendee edit-deposit button in room detail toolbar.
+    case roomAttendeeEditDepositButton
     /// Host share button in room detail toolbar.
     case roomHostShareButton
+    /// Host raid-history button in room detail toolbar.
+    case roomHostRaidHistoryButton
+    /// Host edit-room button in room detail toolbar.
+    case roomHostEditRoomButton
     /// Host claim rewards button in room detail bottom dock.
     case roomHostClaimButton
     /// Postcard browse top action bar.
     case postcardBrowseTopActionBar
+    /// Honey amount tag in Postcard browse top action bar.
+    case postcardBrowseHoneyTag
+    /// Search button in Postcard browse top action bar.
+    case postcardBrowseSearchButton
+    /// Create button in Postcard browse top action bar.
+    case postcardBrowseCreateButton
     /// Pinned ownership cards area in postcard browse grid.
     case postcardBrowsePinnedOwnershipArea
     /// Listing information section in postcard detail view.
@@ -39,6 +71,74 @@ enum TutorialHighlightTarget: String, Hashable {
     case postcardBuyerBuyButton
     /// Seller shipping button in postcard detail toolbar.
     case postcardSellerShippingButton
+}
+
+extension TutorialHighlightTarget {
+    /// Resolves one stable attendee-row target for a zero-based row index.
+    /// - Parameter index: Row index shown in the attendee list.
+    /// - Returns: Matching row target when index is in supported range.
+    static func roomAttendeeRow(_ index: Int) -> TutorialHighlightTarget? {
+        switch index {
+        case 0:
+            return .roomAttendeeRow0
+        case 1:
+            return .roomAttendeeRow1
+        case 2:
+            return .roomAttendeeRow2
+        case 3:
+            return .roomAttendeeRow3
+        case 4:
+            return .roomAttendeeRow4
+        case 5:
+            return .roomAttendeeRow5
+        case 6:
+            return .roomAttendeeRow6
+        case 7:
+            return .roomAttendeeRow7
+        case 8:
+            return .roomAttendeeRow8
+        case 9:
+            return .roomAttendeeRow9
+        default:
+            return nil
+        }
+    }
+
+    /// Indicates this target belongs to top-right navigation toolbar actions.
+    /// Toolbar targets need a floating top-level stroke to avoid being occluded by UIKit toolbar rendering.
+    var isNavigationToolbarActionTarget: Bool {
+        switch self {
+        case .roomHostShareButton,
+             .roomHostRaidHistoryButton,
+             .roomHostEditRoomButton,
+             .roomAttendeeConfirmationButton,
+             .roomAttendeeEditDepositButton,
+             .postcardSellerShippingButton:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Indicates resolver should use only the first matched anchor instead of unioning all anchors.
+    /// This is used for per-row attendee targets so highlights stay tightly scoped to a single row.
+    var shouldResolveWithFirstAnchorOnly: Bool {
+        switch self {
+        case .roomAttendeeRow0,
+             .roomAttendeeRow1,
+             .roomAttendeeRow2,
+             .roomAttendeeRow3,
+             .roomAttendeeRow4,
+             .roomAttendeeRow5,
+             .roomAttendeeRow6,
+             .roomAttendeeRow7,
+             .roomAttendeeRow8,
+             .roomAttendeeRow9:
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 /// Preference payload that collects one or more anchors per tutorial target.
@@ -81,10 +181,10 @@ extension View {
 
 /// Utility namespace for converting tutorial target anchors into highlight rectangles.
 enum TutorialHighlightFrameResolver {
-    /// Resolves one highlight frame using target anchors first, then normalized fallback rect.
+    /// Resolves one highlight frame using target anchors only.
     /// - Parameters:
     ///   - target: Optional live target identifier from tutorial config.
-    ///   - fallbackNormalizedRect: Optional normalized fallback rectangle from tutorial config.
+    ///   - fallbackNormalizedRect: Legacy config field kept for compatibility; no longer used.
     ///   - anchors: Anchor map emitted by descendant views.
     ///   - proxy: Geometry proxy for converting anchor values.
     ///   - padding: Extra highlight padding applied around resolved frame.
@@ -96,9 +196,15 @@ enum TutorialHighlightFrameResolver {
         proxy: GeometryProxy,
         padding: CGFloat = 6
     ) -> CGRect? {
+        _ = fallbackNormalizedRect
+
         if let target,
            let targetAnchors = anchors[target],
            targetAnchors.isEmpty == false {
+            if target.shouldResolveWithFirstAnchorOnly {
+                let firstFrame = proxy[targetAnchors[0]]
+                return firstFrame.insetBy(dx: -padding, dy: -padding)
+            }
             let mergedFrame = targetAnchors
                 .map { proxy[$0] }
                 .reduce(into: CGRect.null) { partialResult, nextFrame in
@@ -108,14 +214,56 @@ enum TutorialHighlightFrameResolver {
                 return mergedFrame.insetBy(dx: -padding, dy: -padding)
             }
         }
+        return nil
+    }
 
-        guard let fallbackNormalizedRect else { return nil }
-        let fallbackFrame = CGRect(
-            x: proxy.size.width * fallbackNormalizedRect.minX,
-            y: proxy.size.height * fallbackNormalizedRect.minY,
-            width: proxy.size.width * fallbackNormalizedRect.width,
-            height: proxy.size.height * fallbackNormalizedRect.height
-        )
-        return fallbackFrame.insetBy(dx: -padding, dy: -padding)
+    /// Resolves tutorial message-box center Y with target-aware automatic placement.
+    /// Placement policy:
+    /// - Prefer below highlight when there is enough room.
+    /// - Otherwise place above highlight.
+    /// - If both sides are tight, choose the side with more remaining space.
+    /// - For intro/no-highlight steps, fall back to the configured normalized Y.
+    /// - Parameters:
+    ///   - highlightFrame: Resolved highlight frame for current step, if any.
+    ///   - configuredNormalizedY: Configured fallback normalized Y from tutorial config.
+    ///   - proxy: Geometry proxy of the tutorial overlay container.
+    /// - Returns: Message-box center Y in overlay coordinates.
+    static func resolveMessageBoxCenterY(
+        highlightFrame: CGRect?,
+        configuredNormalizedY: CGFloat,
+        proxy: GeometryProxy
+    ) -> CGFloat {
+        /// Estimated half-height of tutorial message card used for collision avoidance.
+        let estimatedMessageHalfHeight: CGFloat = 92
+        /// Vertical spacing between highlight border and message card.
+        let targetGap: CGFloat = 4
+        /// Top boundary where message card center can safely sit.
+        let topBoundary: CGFloat = estimatedMessageHalfHeight + 16
+        /// Bottom boundary where message card center can safely sit.
+        let bottomBoundary: CGFloat = proxy.size.height - estimatedMessageHalfHeight - 20
+
+        /// Fallback center Y from config used for non-highlight steps.
+        let configuredCenterY = max(topBoundary, min(configuredNormalizedY * proxy.size.height, bottomBoundary))
+        guard let highlightFrame else { return configuredCenterY }
+
+        /// Preferred center Y when card is placed below the highlight.
+        let preferredBelowCenterY = highlightFrame.maxY + targetGap + estimatedMessageHalfHeight
+        /// Preferred center Y when card is placed above the highlight.
+        let preferredAboveCenterY = highlightFrame.minY - targetGap - estimatedMessageHalfHeight
+
+        let isBelowPlacementValid = preferredBelowCenterY <= bottomBoundary
+        let isAbovePlacementValid = preferredAboveCenterY >= topBoundary
+        if isBelowPlacementValid { return preferredBelowCenterY }
+        if isAbovePlacementValid { return preferredAboveCenterY }
+
+        /// Available space below highlight after preserving boundaries.
+        let availableSpaceBelow = bottomBoundary - (highlightFrame.maxY + targetGap)
+        /// Available space above highlight after preserving boundaries.
+        let availableSpaceAbove = (highlightFrame.minY - targetGap) - topBoundary
+
+        if availableSpaceBelow >= availableSpaceAbove {
+            return min(preferredBelowCenterY, bottomBoundary)
+        }
+        return max(preferredAboveCenterY, topBoundary)
     }
 }

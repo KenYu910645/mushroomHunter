@@ -29,14 +29,22 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
 ## Core Tutorial Pattern
 - Load a predefined tutorial scene model for the target page.
 - Freeze interactive mutations during tutorial (no real create/join/order/close actions).
+- Disable room/postcard top-right action buttons during tutorial to prevent opening operational sheets.
 - Render scripted fake data directly in the page so the user learns from a realistic UI.
-- Keep bottom tab bar visible during tutorial, but lock tab switching until tutorial completes.
-- Resolve highlight boxes from live UI anchors first (target-id based), with normalized rectangles only as fallback.
+- Hide bottom tab bar during tutorial so users focus on guided flow only.
+- Resolve highlight boxes from live UI anchors only (target-id based). No fallback geometry is rendered.
+- For navigation-bar toolbar targets (top-right action buttons), keep original toolbar UI and render highlight stroke in a floating top-level overlay window so the rectangle always appears above nav-bar chrome.
+- Toolbar-target classification is centralized in `TutorialHighlightTarget.isNavigationToolbarActionTarget` to avoid per-screen duplicate target lists.
 - Show multi-step coach marks:
   - Dim background.
   - Highlight target component.
   - Show 1-2 short explanatory sentences.
-  - Provide `Next`, `Back`, and `Done`.
+  - Provide fixed-position `Next`, `Back`, and `Done` controls near bottom corners.
+  - Intro step rule: first step should use `highlightTarget: nil` and `normalizedRect: nil`; this renders as full-screen dim style without a cutout focus box.
+  - Navigation controls behavior:
+    - `Back` is pinned at bottom-left.
+    - `Next`/`Done` is pinned at bottom-right.
+    - Buttons are semi-transparent and stay in the bottom safe-area dock (tab-bar replacement zone).
 - After final step:
   - Mark scenario as completed.
   - Unfreeze the page.
@@ -59,13 +67,35 @@ For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buy
 - Tunable content:
   - `steps`: controls page count, step card title/message copy, highlight target id, fallback highlight rectangle geometry, and message-card Y position.
   - `highlightTarget`: stable UI anchor id used for automatic highlight detection across devices/Dynamic Type.
-  - `normalizedRect`: fallback when a target is temporarily unavailable.
-  - `normalizedRect: nil`: creates an intro step with no highlight cutout (full dim background).
-  - `messageBoxNormalizedY`: per-step message card vertical position (`0.0` top to `1.0` bottom).
+  - Room detail attendee steps can now target row-level anchors (`roomAttendeeRow0`...`roomAttendeeRow9`) instead of only section-level highlighting.
+  - Row-level attendee targets resolve using the first matched row anchor (not union of all matched rows) to keep highlight rectangles tight.
+  - `normalizedRect`: legacy field kept in config for compatibility; ignored by runtime highlight rendering.
+  - `normalizedRect: nil`: intro/no-highlight steps still render as full dim background.
+  - `messageBoxNormalizedY`: fallback message-card vertical position (`0.0` top to `1.0` bottom).
+  - Message-card Y auto-placement:
+    - When a highlight target exists, the message card is auto-placed near the target.
+    - Default is below the highlighted target.
+    - If the highlighted target is near the bottom, the message card auto-switches above it.
+    - `messageBoxNormalizedY` is used as fallback for intro/no-highlight steps.
   - `fakeRooms` / `fakeRoom` / `fakeListing` / `fakeListings`: controls fake scene content (room/postcard names, attendees, location, status, etc.).
+  - Room detail tutorial fake room payload no longer stores mushroom target color/attribute/size values; tutorial scenes use neutral target defaults in runtime mapping.
   - `hostRoomIds` / `joinedRoomIds` / `onShelfListingIds` / `orderedListingIds`: controls ownership tag rendering for fake browse scenes.
+  - Postcard tutorial snapshot assets:
+    - `mushroomHunter/Resources/Assets.xcassets/TutorialPostcardSnapshotBaby.imageset/baby.PNG`
+    - `mushroomHunter/Resources/Assets.xcassets/TutorialPostcardSnapshotHippo.imageset/hippo.PNG`
+    - `mushroomHunter/Resources/Assets.xcassets/TutorialPostcardSnapshotHugePikmin.imageset/huge_pikmin.PNG`
+    - `mushroomHunter/Resources/Assets.xcassets/TutorialPostcardSnapshotDuck.imageset/duck.PNG`
+    - Mapping:
+      - Postcard browse `tutorial-postcard-browse-main` -> `baby.PNG`
+      - Postcard browse `tutorial-postcard-ordered` -> `hippo.PNG`
+      - Postcard browse `tutorial-postcard-general-1` -> `huge_pikmin.PNG`
+      - Postcard browse `tutorial-postcard-general-2` -> `duck.PNG`
+      - Postcard detail buyer/seller tutorial -> `duck.PNG`
+    - Rendering behavior:
+      - Tutorial snapshots now reuse postcard production preprocessing (`cropSnapshotImage`) before showing in browse/detail tutorial views.
 - Language format:
   - EN/zh-Hant are defined side-by-side in each entry (`BilingualText`) so translators can edit line by line.
+  - Tutorial message copy supports inline bullet lines: prefix a line with `*` (or `＊`) in `TutorialConfig` and it will render as a bullet row in the message box.
 
 ## Tutorial Step Model (Recommended)
 - `sceneId`: unique tutorial scene id.

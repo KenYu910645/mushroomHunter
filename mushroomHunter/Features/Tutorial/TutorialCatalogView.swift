@@ -66,22 +66,16 @@ struct TutorialCatalogView: View {
     /// Shared row label for one tutorial scenario.
     /// - Parameter scenario: Target scenario represented by this row.
     private func tutorialRowLabel(for scenario: TutorialScenario) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Text(scenario.titleKey)
-                    .font(.body.weight(.semibold))
-                if session.isTutorialScenarioCompleted(scenario) {
-                    Text(LocalizedStringKey("tutorial_catalog_completed_chip"))
-                        .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(.green.opacity(0.2), in: Capsule())
-                }
+        HStack(spacing: 6) {
+            Text(scenario.titleKey)
+                .font(.body.weight(.semibold))
+            if session.isTutorialScenarioCompleted(scenario) {
+                Text(LocalizedStringKey("tutorial_catalog_completed_chip"))
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.green.opacity(0.2), in: Capsule())
             }
-
-            Text(scenario.subtitleKey)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
         }
     }
 

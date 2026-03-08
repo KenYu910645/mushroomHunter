@@ -307,7 +307,10 @@ struct PostcardBrowseView: View {
             searchButtonIdentifier: "postcard_search_button",
             createButtonIdentifier: "postcard_create_button",
             isStarsVisible: false,
-            tutorialBarTarget: isPostcardBrowseTutorialActive ? .postcardBrowseTopActionBar : nil
+            tutorialBarTarget: isPostcardBrowseTutorialActive ? .postcardBrowseTopActionBar : nil,
+            tutorialHoneyTarget: isPostcardBrowseTutorialActive ? .postcardBrowseHoneyTag : nil,
+            tutorialSearchButtonTarget: isPostcardBrowseTutorialActive ? .postcardBrowseSearchButton : nil,
+            tutorialCreateButtonTarget: isPostcardBrowseTutorialActive ? .postcardBrowseCreateButton : nil
         )
         .padding(.horizontal)
     }
@@ -406,7 +409,11 @@ struct PostcardBrowseView: View {
                 anchors: anchors,
                 proxy: proxy
             )
-            let messageBoxY = max(0.12, min(step.messageBoxNormalizedY, 0.92)) * proxy.size.height
+            let messageBoxY = TutorialHighlightFrameResolver.resolveMessageBoxCenterY(
+                highlightFrame: highlightFrame,
+                configuredNormalizedY: step.messageBoxNormalizedY,
+                proxy: proxy
+            )
 
             ZStack {
                 Color.black.opacity(0.6)
@@ -431,27 +438,42 @@ struct PostcardBrowseView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(step.title)
                         .font(.headline)
-                    Text(step.message)
+                    TutorialMessageBodyView(message: step.message)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        Button(LocalizedStringKey("tutorial_back")) {
-                            showPreviousPostcardBrowseTutorialStep()
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(isPostcardBrowseTutorialFirstStep)
-
-                        Button(isPostcardBrowseTutorialLastStep ? String(localized: "common_done") : String(localized: "tutorial_next")) {
-                            advancePostcardBrowseTutorialStep()
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
                 }
                 .padding(16)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .frame(width: max(0, proxy.size.width - 32), alignment: .leading)
                 .position(x: proxy.size.width * 0.5, y: messageBoxY)
+
+                VStack {
+                    Spacer()
+                    HStack {
+                        Button(LocalizedStringKey("tutorial_back")) {
+                            showPreviousPostcardBrowseTutorialStep()
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.black.opacity(isPostcardBrowseTutorialFirstStep ? 0.2 : 0.45), in: Capsule())
+                        .disabled(isPostcardBrowseTutorialFirstStep)
+
+                        Spacer(minLength: 0)
+
+                        Button(isPostcardBrowseTutorialLastStep ? String(localized: "common_done") : String(localized: "tutorial_next")) {
+                            advancePostcardBrowseTutorialStep()
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(Color.accentColor.opacity(0.55), in: Capsule())
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, proxy.safeAreaInsets.bottom + 14)
+                }
             }
         }
         .ignoresSafeArea()
@@ -594,6 +616,15 @@ private struct PostcardCardView: View {
                     .aspectRatio(imageAspectRatio, contentMode: .fill)
                     .frame(maxWidth: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                } else if let tutorialAssetName = TutorialConfig.tutorialPostcardSnapshotAssetName(for: listing.id) {
+                    TutorialPostcardSnapshotImageView(
+                        assetName: tutorialAssetName,
+                        fallbackSystemImageName: "photo",
+                        fallbackIconFont: .title
+                    )
+                        .aspectRatio(imageAspectRatio, contentMode: .fill)
+                        .frame(maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 } else {
                     Image(systemName: "photo")
                         .font(.title)

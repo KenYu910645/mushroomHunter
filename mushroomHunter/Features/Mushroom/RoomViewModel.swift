@@ -33,7 +33,7 @@ final class RoomViewModel: ObservableObject {
 
         var localizedKey: String {
             switch self {
-            case .depositHighToLow: return "room_sort_bid"
+            case .depositHighToLow: return "room_sort_deposit"
             case .starsHighToLow: return "room_sort_stars"
             case .joinedOldToNew: return "room_sort_joined"
             }
@@ -521,9 +521,9 @@ final class RoomViewModel: ObservableObject {
             location: tutorialConfig.fakeRoom.location.value(for: TutorialConfig.currentLanguage),
             description: tutorialConfig.fakeRoom.description.value(for: TutorialConfig.currentLanguage),
             targetMushroom: MushroomTarget(
-                color: tutorialConfig.fakeRoom.targetColor,
-                attribute: tutorialConfig.fakeRoom.targetAttribute,
-                size: tutorialConfig.fakeRoom.targetSize
+                color: .All,
+                attribute: .All,
+                size: .All
             ),
             fixedRaidCost: tutorialConfig.fakeRoom.fixedRaidCost,
             lastSuccessfulRaidAt: now.addingTimeInterval(tutorialConfig.fakeRoom.lastSuccessfulRaidAtOffsetSeconds),
