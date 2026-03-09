@@ -15,44 +15,6 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
 5. First time opening Postcard page in buyer view.
 6. First time opening Postcard page in seller view.
 
-## Current Implementation Status
-- Implemented:
-  - Mushroom browse first-entry tutorial (`mushroomBrowseFirstVisit`).
-  - Room detail personal first-entry tutorial (`roomPersonalFirstVisit`).
-  - Room detail host first-entry tutorial (`roomHostFirstVisit`).
-  - Postcard browse first-entry tutorial (`postcardBrowseFirstVisit`).
-  - Postcard detail buyer first-entry tutorial (`postcardBuyerFirstVisit`).
-  - Postcard detail seller first-entry tutorial (`postcardSellerFirstVisit`).
-  - Help entry now opens a tutorial scenario list so users can replay available tutorials.
-  - Single-file tuning support via `mushroomHunter/Features/Tutorial/TutorialConfig.swift`.
-  - Shared browse-tutorial infrastructure extracted:
-    - `TutorialStepController` for reusable step-state transitions.
-    - `TutorialCoachOverlay` for reusable browse coach-mark rendering.
-    - `RoomBrowseView` and `PostcardBrowseView` now use the shared components.
-  - Shared detail-tutorial infrastructure extracted:
-    - `FeatureTutorialCoordinator` centralizes room/postcard first-load tutorial start decisions.
-    - `RoomView` and `PostcardView` now reuse `TutorialCoachOverlay` (including floating toolbar highlight support).
-  - Structured tutorial event logging:
-    - `TutorialEventLogger` records start/back/next/finish/cancel events for room/postcard browse/detail tutorials.
-
-## Refactor Cleanup Tracker
-This tracker maps to the 1~7 cleanup plan and should be kept updated.
-
-1. Shared `FeatureTutorialController` state machine:
-   - `DONE`: browse + room detail + postcard detail now all use shared `TutorialStepController`.
-2. Reusable `TutorialOverlayView`:
-   - `DONE`: room/postcard browse/detail overlays now reuse `TutorialCoachOverlay` (with floating-toolbar support).
-3. Move scenario-start decision logic out of views:
-   - `DONE`: room/postcard first-load tutorial start decisions now use `FeatureTutorialCoordinator`.
-4. Replace multi-boolean view state with explicit tutorial phase enum:
-   - `DONE`: `RoomView` and `PostcardView` now use explicit tutorial phase enums (`inactive` / `firstVisit` / `replay`) instead of optional-scenario + replay-flag style state.
-5. Simplify highlight target modeling (remove fixed row0...row9 pattern):
-   - `DONE`: room attendee highlights now use semantic target ids (`roomHostInfoFriendCodeArea`, `roomFirstNonHostStatusStrip`, `roomPendingJoinActionButtons`) instead of fixed `roomAttendeeRow0...row9` cases.
-6. Add structured tutorial event logging:
-   - `DONE`: `TutorialEventLogger` now logs all room/postcard browse/detail tutorial actions.
-7. Separate/deprecate legacy static tutorial path (`Features/Profile/TutorialView.swift`):
-   - `DONE`: legacy static screenshot tutorial is deprecated; `TutorialView` is now a compatibility wrapper that routes to `TutorialCatalogView`.
-
 ## Core Tutorial Pattern
 - Load a predefined tutorial scene model for the target page.
 - Freeze interactive mutations during tutorial (no real create/join/order/close actions).
@@ -87,9 +49,16 @@ This tracker maps to the 1~7 cleanup plan and should be kept updated.
   - Postcard detail seller tutorial: order queue and seller actions explanation.
 - Scene data must be isolated from caches and never persisted as real content.
 
-## Single-File Tuning
-For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buyer + Postcard seller tutorials, tune these values in one place:
-- File: `mushroomHunter/Features/Tutorial/TutorialConfig.swift`
+## TutorialScene File Layout and Tuning
+For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buyer + Postcard seller tutorials, tune values in the dedicated `TutorialScene*` files:
+- Shared primitives/helpers: `mushroomHunter/Features/Tutorial/TutorialSceneCore.swift`
+- Scenario scene data:
+  - `mushroomHunter/Features/Tutorial/TutorialSceneMushroomBrowse.swift`
+  - `mushroomHunter/Features/Tutorial/TutorialSceneRoomPersonal.swift`
+  - `mushroomHunter/Features/Tutorial/TutorialSceneRoomHost.swift`
+  - `mushroomHunter/Features/Tutorial/TutorialScenePostcardBrowse.swift`
+  - `mushroomHunter/Features/Tutorial/TutorialScenePostcardBuyer.swift`
+  - `mushroomHunter/Features/Tutorial/TutorialScenePostcardSeller.swift`
 - Tunable content:
   - `steps`: controls page count, step card title/message copy, and highlight target id.
   - `highlightTarget`: stable UI anchor id used for automatic highlight detection across devices/Dynamic Type.
@@ -101,7 +70,7 @@ For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buy
   - Legacy row-index anchor (`roomAttendeeRow(index:)`) is still attached at row container level for compatibility/debug.
   - Room attendee semantic targets resolve using first-match only (no multi-anchor union), preventing accidental expansion to the whole attendee section.
   - Room detail tutorial mode renders attendee rows through fixed slot positions (host/member slot 0..N) while reusing the same attendee row view component as production mode; this keeps tutorial anchors deterministic without diverging UI styling.
-  - Room detail tutorial attendee rendering now reads from scenario-static attendee payload (`TutorialConfig` fake attendees) instead of runtime room attendee state, so slot-based anchors are always emitted even if runtime payload is empty/delayed.
+  - Room detail tutorial attendee rendering now reads from scenario-static attendee payload (`TutorialScene` fake attendees) instead of runtime room attendee state, so slot-based anchors are always emitted even if runtime payload is empty/delayed.
   - During room tutorial, attendee UI is no longer rendered as one combined attendee section container; attendee cards are rendered as top-level siblings parallel to room header.
   - Room production and tutorial now share the same attendee-card layout path; tutorial only swaps data source/anchor bindings.
   - Room detail tutorial attendee list is rendered as stacked single-attendee cards (one card per attendee slot) while preserving the same row view; this isolates row geometry so each slot can emit its own independent tutorial anchor.
@@ -137,7 +106,7 @@ For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buy
       - Tutorial snapshots now reuse postcard production preprocessing (`cropSnapshotImage`) before showing in browse/detail tutorial views.
 - Language format:
   - EN/zh-Hant are defined side-by-side in each entry (`BilingualText`) so translators can edit line by line.
-  - Tutorial message copy supports inline bullet lines: prefix a line with `*` (or `＊`) in `TutorialConfig` and it will render as a bullet row in the message box.
+  - Tutorial message copy supports inline bullet lines: prefix a line with `*` (or `＊`) in `TutorialScene` and it will render as a bullet row in the message box.
 
 ## Tutorial Step Model (Recommended)
 - `sceneId`: unique tutorial scene id.
@@ -168,17 +137,6 @@ For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buy
 - When a tutorial is opened from Settings -> Help -> Tutorial list, tapping `Done` should pop back to the tutorial list.
 - Tutorial list page no longer shows a top-left close (`X`) button and no longer displays the replay footer hint line.
 - If deep-link/push opens a page with pending critical action, defer tutorial until action is cleared.
-
-## Rollout Plan (Several Steps)
-1. Build shared tutorial engine:
-   - Overlay, anchor registry, step controller, completion persistence.
-2. Implement Mushroom browse tutorial with fake list scene and Firebase-load handoff.
-3. Implement Room personal tutorial.
-4. Implement Room host tutorial (triggered after host creates room and enters host view first time).
-5. Implement Postcard browse tutorial.
-6. Implement Postcard buyer and seller tutorials.
-7. Add Profile Settings entry to replay each tutorial manually.
-8. Add UI tests for first-run trigger, skip, completion, and post-tutorial real-data load.
 
 ## Success Criteria
 - Users can complete each tutorial in short, guided steps without leaving the page.

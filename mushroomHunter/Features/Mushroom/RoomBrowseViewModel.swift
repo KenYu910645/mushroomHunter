@@ -64,7 +64,7 @@ final class RoomBrowseViewModel: ObservableObject {
         errorMessage = nil
         showOnlyAvailable = true
         query = ""
-        let tutorialScenario = TutorialConfig.MushroomBrowse.scenario
+        let tutorialScenario = TutorialScene.MushroomBrowse.scenario
         hostRoomIds = tutorialScenario.hostRoomIds
         joinedRoomIds = tutorialScenario.joinedRoomIds
 

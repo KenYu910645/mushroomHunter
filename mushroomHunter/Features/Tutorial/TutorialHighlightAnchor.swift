@@ -21,8 +21,6 @@ enum TutorialHighlightTarget: Hashable {
     case mushroomBrowseJoinableRoomsArea
     /// Header section in room detail view.
     case roomHeaderSection
-    /// Attendee section in room detail view.
-    case roomAttendeeSection
     /// Top three attendee cards area in room detail tutorial view.
     case roomAttendeeTopThreeArea
     /// One attendee row in room detail attendee list, keyed by rendered row index.
@@ -45,8 +43,6 @@ enum TutorialHighlightTarget: Hashable {
     case roomHostEditRoomButton
     /// Host claim rewards button in room detail bottom dock.
     case roomHostClaimButton
-    /// Postcard browse top action bar.
-    case postcardBrowseTopActionBar
     /// Honey amount tag in Postcard browse top action bar.
     case postcardBrowseHoneyTag
     /// Search button in Postcard browse top action bar.

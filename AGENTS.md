@@ -155,7 +155,13 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile create flow)
 
 ### TUTORIAL (`TUTORIAL.md`)
-- `mushroomHunter/Features/Tutorial/TutorialConfig.swift` (single-source tuning for Mushroom browse tutorial step copy, highlight geometry, page count, and fake scene data in EN/zh-Hant)
+- `mushroomHunter/Features/Tutorial/TutorialSceneCore.swift` (shared tutorial-scene primitives and helpers: language resolution, bilingual text model, generic step model, snapshot asset mapping, room/postcard detail shared scene builders)
+- `mushroomHunter/Features/Tutorial/TutorialSceneMushroomBrowse.swift` (Mushroom browse tutorial scene copy, steps, and fake room list data)
+- `mushroomHunter/Features/Tutorial/TutorialSceneRoomPersonal.swift` (room personal-view tutorial scene copy, steps, and fake room payload)
+- `mushroomHunter/Features/Tutorial/TutorialSceneRoomHost.swift` (room host-view tutorial scene copy, steps, and fake room payload)
+- `mushroomHunter/Features/Tutorial/TutorialScenePostcardBrowse.swift` (Postcard browse tutorial scene copy, steps, and fake listing grid data)
+- `mushroomHunter/Features/Tutorial/TutorialScenePostcardBuyer.swift` (Postcard buyer-detail tutorial scene copy, steps, and fake listing payload)
+- `mushroomHunter/Features/Tutorial/TutorialScenePostcardSeller.swift` (Postcard seller-detail tutorial scene copy, steps, and fake listing payload)
 - `mushroomHunter/Features/Tutorial/TutorialScenario.swift`
 - `mushroomHunter/Features/Tutorial/TutorialProgress.swift`
 - `mushroomHunter/Features/Tutorial/TutorialCatalogView.swift`
@@ -168,7 +174,6 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Tutorial/TutorialHighlightAnchor.swift` (shared tutorial target-id anchor registry and live highlight-frame resolver with normalized fallback)
 - `mushroomHunter/Features/Tutorial/TutorialFloatingHighlightWindowBridge.swift` (shared top-window stroke renderer for navigation-toolbar tutorial targets)
 - `mushroomHunter/Features/Profile/ProfileView.swift` (settings help route to tutorial scenario list)
-- `mushroomHunter/Features/Profile/TutorialView.swift` (deprecated compatibility wrapper that forwards legacy static-tutorial entries to `TutorialCatalogView`)
 
 ## Backend
 - Auth: Firebase Authentication (Apple + Google)

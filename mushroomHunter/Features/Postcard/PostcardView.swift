@@ -180,7 +180,7 @@ struct PostcardView: View {
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
-                    } else if let tutorialAssetName = TutorialConfig.tutorialPostcardSnapshotAssetName(for: currentListing.id) {
+                    } else if let tutorialAssetName = TutorialScene.tutorialPostcardSnapshotAssetName(for: currentListing.id) {
                         TutorialPostcardSnapshotImageView(
                             assetName: tutorialAssetName,
                             fallbackSystemImageName: "photo",
@@ -505,7 +505,7 @@ struct PostcardView: View {
                     event: .cancel,
                     source: postcardTutorialSourceLabel,
                     stepIndex: postcardTutorialController.stepIndex,
-                    stepCount: currentPostcardTutorialConfig?.steps.count
+                    stepCount: currentPostcardTutorialScene?.steps.count
                 )
                 postcardTutorialController.end()
                 session.endFeatureTutorialPresentation()
@@ -733,12 +733,12 @@ struct PostcardView: View {
     }
 
     /// Current postcard detail tutorial scenario configuration.
-    private var currentPostcardTutorialConfig: TutorialConfig.PostcardDetailTutorial.Scenario? {
+    private var currentPostcardTutorialScene: TutorialScene.PostcardDetailTutorial.Scenario? {
         switch activePostcardTutorialScenario {
         case .postcardBuyerFirstVisit:
-            return TutorialConfig.PostcardBuyer.scenario
+            return TutorialScene.PostcardBuyer.scenario
         case .postcardSellerFirstVisit:
-            return TutorialConfig.PostcardSeller.scenario
+            return TutorialScene.PostcardSeller.scenario
         case .mushroomBrowseFirstVisit,
              .roomPersonalFirstVisit,
              .roomHostFirstVisit,
@@ -839,7 +839,7 @@ struct PostcardView: View {
     private func beginPostcardTutorial(scenario: TutorialScenario) {
         guard !isPostcardTutorialActive else { return }
         postcardTutorialPhase = tutorialScenarioOverride == nil ? .firstVisit(scenario) : .replay(scenario)
-        guard let tutorialConfig = currentPostcardTutorialConfig,
+        guard let tutorialConfig = currentPostcardTutorialScene,
               tutorialConfig.steps.isEmpty == false else {
             postcardTutorialPhase = .inactive
             return
@@ -863,7 +863,7 @@ struct PostcardView: View {
             event: .start,
             source: postcardTutorialSourceLabel,
             stepIndex: postcardTutorialController.stepIndex,
-            stepCount: currentPostcardTutorialConfig?.steps.count
+            stepCount: currentPostcardTutorialScene?.steps.count
         )
     }
 
@@ -872,7 +872,7 @@ struct PostcardView: View {
     ///   - tutorialConfig: Resolved tutorial scene data.
     ///   - scenario: Active postcard tutorial scenario.
     private func applyPostcardTutorialScene(
-        _ tutorialConfig: TutorialConfig.PostcardDetailTutorial.Scenario,
+        _ tutorialConfig: TutorialScene.PostcardDetailTutorial.Scenario,
         scenario: TutorialScenario
     ) {
         let sessionUserId = session.authUid?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -937,7 +937,7 @@ struct PostcardView: View {
             event: .back,
             source: postcardTutorialSourceLabel,
             stepIndex: postcardTutorialController.stepIndex,
-            stepCount: currentPostcardTutorialConfig?.steps.count
+            stepCount: currentPostcardTutorialScene?.steps.count
         )
     }
 
@@ -953,7 +953,7 @@ struct PostcardView: View {
             event: .next,
             source: postcardTutorialSourceLabel,
             stepIndex: postcardTutorialController.stepIndex,
-            stepCount: currentPostcardTutorialConfig?.steps.count
+            stepCount: currentPostcardTutorialScene?.steps.count
         )
     }
 
@@ -973,7 +973,7 @@ struct PostcardView: View {
             event: .finish,
             source: postcardTutorialSourceLabel,
             stepIndex: postcardTutorialController.stepIndex,
-            stepCount: currentPostcardTutorialConfig?.steps.count
+            stepCount: currentPostcardTutorialScene?.steps.count
         )
         postcardTutorialController.end()
         postcardTutorialFloatingHighlightFrame = nil

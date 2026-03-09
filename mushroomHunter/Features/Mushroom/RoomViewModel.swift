@@ -479,12 +479,12 @@ final class RoomViewModel: ObservableObject {
     /// Applies fake room scene for interactive room tutorial flows.
     /// - Parameter tutorialScenario: Tutorial scenario to present in room detail.
     func loadRoomTutorialScene(for tutorialScenario: TutorialScenario) {
-        let tutorialConfig: TutorialConfig.RoomDetailTutorial.Scenario
+        let tutorialConfig: TutorialScene.RoomDetailTutorial.Scenario
         switch tutorialScenario {
         case .roomPersonalFirstVisit:
-            tutorialConfig = TutorialConfig.RoomPersonal.scenario
+            tutorialConfig = TutorialScene.RoomPersonal.scenario
         case .roomHostFirstVisit:
-            tutorialConfig = TutorialConfig.RoomHost.scenario
+            tutorialConfig = TutorialScene.RoomHost.scenario
         case .mushroomBrowseFirstVisit,
              .postcardBrowseFirstVisit,
              .postcardBuyerFirstVisit,
@@ -503,11 +503,11 @@ final class RoomViewModel: ObservableObject {
             )
             return RoomAttendee(
                 id: attendeeId,
-                name: fakeAttendee.name.value(for: TutorialConfig.currentLanguage),
+                name: fakeAttendee.name.value(for: TutorialScene.currentLanguage),
                 friendCode: fakeAttendee.friendCode,
                 stars: fakeAttendee.stars,
                 depositHoney: fakeAttendee.depositHoney,
-                joinGreetingMessage: fakeAttendee.joinGreetingMessage.value(for: TutorialConfig.currentLanguage),
+                joinGreetingMessage: fakeAttendee.joinGreetingMessage.value(for: TutorialScene.currentLanguage),
                 joinedAt: now.addingTimeInterval(fakeAttendee.joinedAtOffsetSeconds),
                 status: fakeAttendee.status,
                 isHostRatingRequired: fakeAttendee.isHostRatingRequired,
@@ -517,9 +517,9 @@ final class RoomViewModel: ObservableObject {
 
         room = RoomDetail(
             id: tutorialConfig.fakeRoom.id,
-            title: tutorialConfig.fakeRoom.title.value(for: TutorialConfig.currentLanguage),
-            location: tutorialConfig.fakeRoom.location.value(for: TutorialConfig.currentLanguage),
-            description: tutorialConfig.fakeRoom.description.value(for: TutorialConfig.currentLanguage),
+            title: tutorialConfig.fakeRoom.title.value(for: TutorialScene.currentLanguage),
+            location: tutorialConfig.fakeRoom.location.value(for: TutorialScene.currentLanguage),
+            description: tutorialConfig.fakeRoom.description.value(for: TutorialScene.currentLanguage),
             targetMushroom: MushroomTarget(
                 color: .All,
                 attribute: .All,

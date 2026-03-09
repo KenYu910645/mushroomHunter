@@ -30,23 +30,12 @@ struct TutorialCatalogView: View {
     /// - Parameter scenario: Target scenario represented by this row.
     @ViewBuilder
     private func tutorialRow(for scenario: TutorialScenario) -> some View {
-        if scenario.isImplemented {
-            NavigationLink {
-                tutorialDestination(for: scenario)
-            } label: {
-                tutorialRowLabel(for: scenario)
-            }
-            .accessibilityIdentifier("tutorial_catalog_row_\(scenario.rawValue)")
-        } else {
-            HStack(spacing: 10) {
-                tutorialRowLabel(for: scenario)
-                Spacer(minLength: 0)
-                Text(LocalizedStringKey("tutorial_catalog_coming_soon"))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-            .accessibilityIdentifier("tutorial_catalog_row_\(scenario.rawValue)_coming_soon")
+        NavigationLink {
+            tutorialDestination(for: scenario)
+        } label: {
+            tutorialRowLabel(for: scenario)
         }
+        .accessibilityIdentifier("tutorial_catalog_row_\(scenario.rawValue)")
     }
 
     /// Shared row label for one tutorial scenario.
@@ -98,7 +87,7 @@ private struct TutorialReplayDestinationView: View {
         case .roomPersonalFirstVisit:
             RoomView(
                 vm: RoomViewModel(
-                    roomId: TutorialConfig.RoomPersonal.replayRoomId,
+                    roomId: TutorialScene.RoomPersonal.replayRoomId,
                     session: session,
                     seededRole: .attendee
                 ),
@@ -108,7 +97,7 @@ private struct TutorialReplayDestinationView: View {
         case .roomHostFirstVisit:
             RoomView(
                 vm: RoomViewModel(
-                    roomId: TutorialConfig.RoomHost.replayRoomId,
+                    roomId: TutorialScene.RoomHost.replayRoomId,
                     session: session,
                     seededRole: .host
                 ),
@@ -122,13 +111,13 @@ private struct TutorialReplayDestinationView: View {
             )
         case .postcardBuyerFirstVisit:
             PostcardView(
-                listing: TutorialConfig.PostcardBuyer.scenario.fakeListing,
+                listing: TutorialScene.PostcardBuyer.scenario.fakeListing,
                 tutorialScenarioOverride: .postcardBuyerFirstVisit,
                 onTutorialReplayFinished: { dismiss() }
             )
         case .postcardSellerFirstVisit:
             PostcardView(
-                listing: TutorialConfig.PostcardSeller.scenario.fakeListing,
+                listing: TutorialScene.PostcardSeller.scenario.fakeListing,
                 tutorialScenarioOverride: .postcardSellerFirstVisit,
                 onTutorialReplayFinished: { dismiss() }
             )

@@ -91,7 +91,7 @@ final class PostcardBrowseViewModel: ObservableObject {
         isHasMorePages = false
         activeSearchToken = nil
 
-        let tutorialScenario = TutorialConfig.PostcardBrowse.scenario
+        let tutorialScenario = TutorialScene.PostcardBrowse.scenario
         listings = tutorialScenario.fakeListings
         pinnedOnShelfListings = tutorialScenario.fakeListings.filter { listing in
             tutorialScenario.onShelfListingIds.contains(listing.id)

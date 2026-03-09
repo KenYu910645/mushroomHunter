@@ -45,16 +45,4 @@ enum TutorialScenario: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Indicates whether this scenario currently has an implemented interactive flow.
-    var isImplemented: Bool {
-        switch self {
-        case .mushroomBrowseFirstVisit,
-             .roomPersonalFirstVisit,
-             .roomHostFirstVisit,
-             .postcardBrowseFirstVisit,
-             .postcardBuyerFirstVisit,
-             .postcardSellerFirstVisit:
-            return true
-        }
-    }
 }

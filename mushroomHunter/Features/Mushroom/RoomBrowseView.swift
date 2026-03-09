@@ -402,8 +402,8 @@ struct RoomBrowseView: View {
     }
 
     /// Current step payload in Mushroom browse tutorial.
-    private var mushroomBrowseTutorialScenario: TutorialConfig.MushroomBrowse.Scenario {
-        TutorialConfig.MushroomBrowse.scenario
+    private var mushroomBrowseTutorialScenario: TutorialScene.MushroomBrowse.Scenario {
+        TutorialScene.MushroomBrowse.scenario
     }
 
     /// Shared overlay steps converted from Mushroom browse tutorial config.

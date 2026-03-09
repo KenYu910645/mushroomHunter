@@ -387,8 +387,8 @@ struct PostcardBrowseView: View {
     }
 
     /// Current postcard browse tutorial scenario.
-    private var postcardBrowseTutorialScenario: TutorialConfig.PostcardBrowse.Scenario {
-        TutorialConfig.PostcardBrowse.scenario
+    private var postcardBrowseTutorialScenario: TutorialScene.PostcardBrowse.Scenario {
+        TutorialScene.PostcardBrowse.scenario
     }
 
     /// Shared overlay steps converted from postcard browse tutorial config.
@@ -590,7 +590,7 @@ private struct PostcardCardView: View {
                     .aspectRatio(imageAspectRatio, contentMode: .fill)
                     .frame(maxWidth: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                } else if let tutorialAssetName = TutorialConfig.tutorialPostcardSnapshotAssetName(for: listing.id) {
+                } else if let tutorialAssetName = TutorialScene.tutorialPostcardSnapshotAssetName(for: listing.id) {
                     TutorialPostcardSnapshotImageView(
                         assetName: tutorialAssetName,
                         fallbackSystemImageName: "photo",

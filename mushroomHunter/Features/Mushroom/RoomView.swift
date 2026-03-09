@@ -163,7 +163,7 @@ struct RoomView: View {
                     event: .cancel,
                     source: roomTutorialSourceLabel,
                     stepIndex: roomTutorialController.stepIndex,
-                    stepCount: currentRoomTutorialConfig?.steps.count
+                    stepCount: currentRoomTutorialScene?.steps.count
                 )
                 roomTutorialController.end()
                 session.endFeatureTutorialPresentation()
@@ -575,7 +575,7 @@ struct RoomView: View {
     /// - Parameter fallbackAttendees: Runtime room attendees used outside tutorial mode and as fallback.
     /// - Returns: Attendees that should be displayed in the current render mode.
     private func tutorialRenderedAttendees(fallbackAttendees: [RoomAttendee]) -> [RoomAttendee] {
-        guard isRoomTutorialActive, let tutorialConfig = currentRoomTutorialConfig else {
+        guard isRoomTutorialActive, let tutorialConfig = currentRoomTutorialScene else {
             return fallbackAttendees
         }
         let now = Date()
@@ -589,11 +589,11 @@ struct RoomView: View {
             )
             return RoomAttendee(
                 id: attendeeId,
-                name: fakeAttendee.name.value(for: TutorialConfig.currentLanguage),
+                name: fakeAttendee.name.value(for: TutorialScene.currentLanguage),
                 friendCode: fakeAttendee.friendCode,
                 stars: fakeAttendee.stars,
                 depositHoney: fakeAttendee.depositHoney,
-                joinGreetingMessage: fakeAttendee.joinGreetingMessage.value(for: TutorialConfig.currentLanguage),
+                joinGreetingMessage: fakeAttendee.joinGreetingMessage.value(for: TutorialScene.currentLanguage),
                 joinedAt: now.addingTimeInterval(fakeAttendee.joinedAtOffsetSeconds),
                 status: fakeAttendee.status,
                 isHostRatingRequired: fakeAttendee.isHostRatingRequired,
@@ -892,12 +892,12 @@ struct RoomView: View {
     // MARK: - Helpers
 
     /// Current room tutorial scenario configuration.
-    private var currentRoomTutorialConfig: TutorialConfig.RoomDetailTutorial.Scenario? {
+    private var currentRoomTutorialScene: TutorialScene.RoomDetailTutorial.Scenario? {
         switch activeRoomTutorialScenario {
         case .roomPersonalFirstVisit:
-            return TutorialConfig.RoomPersonal.scenario
+            return TutorialScene.RoomPersonal.scenario
         case .roomHostFirstVisit:
-            return TutorialConfig.RoomHost.scenario
+            return TutorialScene.RoomHost.scenario
         case .mushroomBrowseFirstVisit,
              .postcardBrowseFirstVisit,
              .postcardBuyerFirstVisit,
@@ -998,7 +998,7 @@ struct RoomView: View {
     private func beginRoomTutorial(scenario: TutorialScenario) {
         guard !isRoomTutorialActive else { return }
         roomTutorialPhase = tutorialScenarioOverride == nil ? .firstVisit(scenario) : .replay(scenario)
-        guard let tutorialConfig = currentRoomTutorialConfig,
+        guard let tutorialConfig = currentRoomTutorialScene,
               tutorialConfig.steps.isEmpty == false else {
             roomTutorialPhase = .inactive
             return
@@ -1022,7 +1022,7 @@ struct RoomView: View {
             event: .start,
             source: roomTutorialSourceLabel,
             stepIndex: roomTutorialController.stepIndex,
-            stepCount: currentRoomTutorialConfig?.steps.count
+            stepCount: currentRoomTutorialScene?.steps.count
         )
     }
 
@@ -1035,7 +1035,7 @@ struct RoomView: View {
             event: .back,
             source: roomTutorialSourceLabel,
             stepIndex: roomTutorialController.stepIndex,
-            stepCount: currentRoomTutorialConfig?.steps.count
+            stepCount: currentRoomTutorialScene?.steps.count
         )
     }
 
@@ -1051,7 +1051,7 @@ struct RoomView: View {
             event: .next,
             source: roomTutorialSourceLabel,
             stepIndex: roomTutorialController.stepIndex,
-            stepCount: currentRoomTutorialConfig?.steps.count
+            stepCount: currentRoomTutorialScene?.steps.count
         )
     }
 
@@ -1071,7 +1071,7 @@ struct RoomView: View {
             event: .finish,
             source: roomTutorialSourceLabel,
             stepIndex: roomTutorialController.stepIndex,
-            stepCount: currentRoomTutorialConfig?.steps.count
+            stepCount: currentRoomTutorialScene?.steps.count
         )
         roomTutorialController.end()
         roomTutorialFloatingHighlightFrame = nil
