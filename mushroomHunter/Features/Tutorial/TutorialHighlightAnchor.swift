@@ -184,20 +184,16 @@ enum TutorialHighlightFrameResolver {
     /// Resolves one highlight frame using target anchors only.
     /// - Parameters:
     ///   - target: Optional live target identifier from tutorial config.
-    ///   - fallbackNormalizedRect: Legacy config field kept for compatibility; no longer used.
     ///   - anchors: Anchor map emitted by descendant views.
     ///   - proxy: Geometry proxy for converting anchor values.
     ///   - padding: Extra highlight padding applied around resolved frame.
     /// - Returns: Concrete frame in overlay coordinates, or nil when no highlight should be rendered.
     static func resolveFrame(
         target: TutorialHighlightTarget?,
-        fallbackNormalizedRect: CGRect?,
         anchors: [TutorialHighlightTarget: [Anchor<CGRect>]],
         proxy: GeometryProxy,
         padding: CGFloat = 6
     ) -> CGRect? {
-        _ = fallbackNormalizedRect
-
         if let target,
            let targetAnchors = anchors[target],
            targetAnchors.isEmpty == false {
@@ -222,15 +218,13 @@ enum TutorialHighlightFrameResolver {
     /// - Prefer below highlight when there is enough room.
     /// - Otherwise place above highlight.
     /// - If both sides are tight, choose the side with more remaining space.
-    /// - For intro/no-highlight steps, fall back to the configured normalized Y.
+    /// - For intro/no-highlight steps, use the shared default center position.
     /// - Parameters:
     ///   - highlightFrame: Resolved highlight frame for current step, if any.
-    ///   - configuredNormalizedY: Configured fallback normalized Y from tutorial config.
     ///   - proxy: Geometry proxy of the tutorial overlay container.
     /// - Returns: Message-box center Y in overlay coordinates.
     static func resolveMessageBoxCenterY(
         highlightFrame: CGRect?,
-        configuredNormalizedY: CGFloat,
         proxy: GeometryProxy
     ) -> CGFloat {
         /// Estimated half-height of tutorial message card used for collision avoidance.
@@ -242,9 +236,9 @@ enum TutorialHighlightFrameResolver {
         /// Bottom boundary where message card center can safely sit.
         let bottomBoundary: CGFloat = proxy.size.height - estimatedMessageHalfHeight - 20
 
-        /// Fallback center Y from config used for non-highlight steps.
-        let configuredCenterY = max(topBoundary, min(configuredNormalizedY * proxy.size.height, bottomBoundary))
-        guard let highlightFrame else { return configuredCenterY }
+        /// Shared center Y used by intro/no-highlight steps.
+        let defaultCenterY = max(topBoundary, min(0.6 * proxy.size.height, bottomBoundary))
+        guard let highlightFrame else { return defaultCenterY }
 
         /// Preferred center Y when card is placed below the highlight.
         let preferredBelowCenterY = highlightFrame.maxY + targetGap + estimatedMessageHalfHeight

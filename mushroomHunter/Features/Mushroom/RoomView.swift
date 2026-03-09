@@ -525,6 +525,7 @@ struct RoomView: View {
                     ForEach(Array(room.attendees.enumerated()), id: \.element.id) { index, attendee in
                         AttendeeRow(
                             attendee: attendee,
+                            tutorialHighlightTarget: tutorialHighlightTargetForAttendeeRow(index: index),
                             isHostAttendee: attendee.status == .host,
                             isHostViewing: (vm.role == .host),
                             isAskingToJoin: vm.isAskingToJoin(attendeeId: attendee.id),
@@ -548,7 +549,6 @@ struct RoomView: View {
                                 copyFriendCode(code)
                             }
                         )
-                        .tutorialHighlightAnchor(tutorialHighlightTargetForAttendeeRow(index: index))
                     }
                 }
             }
@@ -773,13 +773,11 @@ struct RoomView: View {
             if let step = currentRoomTutorialStep {
                 let highlightFrame = TutorialHighlightFrameResolver.resolveFrame(
                     target: step.highlightTarget,
-                    fallbackNormalizedRect: step.normalizedRect,
                     anchors: anchors,
                     proxy: proxy
                 )
                 let messageBoxY = TutorialHighlightFrameResolver.resolveMessageBoxCenterY(
                     highlightFrame: highlightFrame,
-                    configuredNormalizedY: step.messageBoxNormalizedY,
                     proxy: proxy
                 )
                 let isToolbarTarget = step.highlightTarget?.isNavigationToolbarActionTarget == true
@@ -1630,6 +1628,7 @@ extension RoomRaidConfirmationAttendeeStatus {
 
 private struct AttendeeRow: View {
     let attendee: RoomAttendee // Attendee model rendered by this row.
+    let tutorialHighlightTarget: TutorialHighlightTarget? // Optional tutorial row-highlight target attached to this row container.
     let isHostAttendee: Bool // True when this attendee is the room host.
     let isHostViewing: Bool // True when the current user viewing this screen is host.
     let isAskingToJoin: Bool // True when this attendee is pending host join approval.
@@ -1776,6 +1775,7 @@ private struct AttendeeRow: View {
             }
         }
         .padding(.vertical, 4)
+        .tutorialHighlightAnchor(tutorialHighlightTarget)
     }
 }
 

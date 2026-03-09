@@ -40,7 +40,7 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
   - Highlight target component.
   - Show 1-2 short explanatory sentences.
   - Provide fixed-position `Next`, `Back`, and `Done` controls near bottom corners.
-  - Intro step rule: first step should use `highlightTarget: nil` and `normalizedRect: nil`; this renders as full-screen dim style without a cutout focus box.
+  - Intro step rule: first step should use `highlightTarget: nil`; this renders as full-screen dim style without a cutout focus box.
   - Navigation controls behavior:
     - `Back` is pinned at bottom-left.
     - `Next`/`Done` is pinned at bottom-right.
@@ -54,8 +54,7 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
 - Tutorial scene uses local, deterministic payloads only (no Firestore read/write).
 - Data should mirror production UI structures:
   - Mushroom browse tutorial: one host-owned room, one joined room, several normal rooms.
-  - Room tutorial (personal): host + other attendees, actionable status examples.
-  - Room tutorial (host): join requests, share/raid/edit action examples.
+  - Room tutorial (personal + host): both scenarios now reuse one shared attendee list; only "which row is the current user" changes by role.
   - Postcard browse tutorial: mixed listings, ownership tags, queue badges.
   - Postcard detail buyer tutorial: order action and status explanation.
   - Postcard detail seller tutorial: order queue and seller actions explanation.
@@ -65,18 +64,15 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
 For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buyer + Postcard seller tutorials, tune these values in one place:
 - File: `mushroomHunter/Features/Tutorial/TutorialConfig.swift`
 - Tunable content:
-  - `steps`: controls page count, step card title/message copy, highlight target id, fallback highlight rectangle geometry, and message-card Y position.
+  - `steps`: controls page count, step card title/message copy, and highlight target id.
   - `highlightTarget`: stable UI anchor id used for automatic highlight detection across devices/Dynamic Type.
   - Room detail attendee steps can now target row-level anchors (`roomAttendeeRow0`...`roomAttendeeRow9`) instead of only section-level highlighting.
   - Row-level attendee targets resolve using the first matched row anchor (not union of all matched rows) to keep highlight rectangles tight.
-  - `normalizedRect`: legacy field kept in config for compatibility; ignored by runtime highlight rendering.
-  - `normalizedRect: nil`: intro/no-highlight steps still render as full dim background.
-  - `messageBoxNormalizedY`: fallback message-card vertical position (`0.0` top to `1.0` bottom).
   - Message-card Y auto-placement:
     - When a highlight target exists, the message card is auto-placed near the target.
     - Default is below the highlighted target.
     - If the highlighted target is near the bottom, the message card auto-switches above it.
-    - `messageBoxNormalizedY` is used as fallback for intro/no-highlight steps.
+    - Intro/no-highlight steps use a shared default center position.
   - `fakeRooms` / `fakeRoom` / `fakeListing` / `fakeListings`: controls fake scene content (room/postcard names, attendees, location, status, etc.).
   - Room detail tutorial fake room payload no longer stores mushroom target color/attribute/size values; tutorial scenes use neutral target defaults in runtime mapping.
   - `hostRoomIds` / `joinedRoomIds` / `onShelfListingIds` / `orderedListingIds`: controls ownership tag rendering for fake browse scenes.

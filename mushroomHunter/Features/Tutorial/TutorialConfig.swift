@@ -42,32 +42,22 @@ enum TutorialConfig {
     struct Step {
         /// Optional live highlight target resolved from anchored UI elements.
         let highlightTarget: TutorialHighlightTarget?
-        /// Optional fallback rectangle in normalized screen coordinates when live anchor is unavailable.
-        let normalizedRect: CGRect?
-        /// Message card vertical position in normalized screen coordinates.
-        let messageBoxNormalizedY: CGFloat
         /// Bilingual step title.
         private let titleText: BilingualText
         /// Bilingual step description.
         private let messageText: BilingualText
 
-        /// Creates one step from bilingual content plus shared geometry metadata.
+        /// Creates one step from bilingual content plus optional live highlight target.
         /// - Parameters:
         ///   - highlightTarget: Optional live highlight target.
-        ///   - normalizedRect: Optional fallback highlight rectangle.
-        ///   - messageBoxNormalizedY: Message card Y-position ratio.
         ///   - title: Bilingual step title.
         ///   - message: Bilingual step description.
         init(
             highlightTarget: TutorialHighlightTarget?,
-            normalizedRect: CGRect?,
-            messageBoxNormalizedY: CGFloat,
             title: BilingualText,
             message: BilingualText
         ) {
             self.highlightTarget = highlightTarget
-            self.normalizedRect = normalizedRect
-            self.messageBoxNormalizedY = messageBoxNormalizedY
             self.titleText = title
             self.messageText = message
         }
@@ -268,11 +258,9 @@ enum TutorialConfig {
         private static let stepTemplates: [Step] = [
             Step(
                 highlightTarget: nil,
-                normalizedRect: nil,
-                messageBoxNormalizedY: 0.7,
                 title: BilingualText(
                     en: "Mushroom List Tutorial",
-                    cn: "蘑菇房列表教學"
+                    cn: "組團打蘑菇教學"
                 ),
                 message: BilingualText(
                     en: "You can search and join mushroom rooms from this list to hunt mushrooms with other players.",
@@ -281,21 +269,17 @@ enum TutorialConfig {
             ),
             Step(
                 highlightTarget: .mushroomBrowseHoneyTag,
-                normalizedRect: CGRect(x: 0.02, y: 0.20, width: 0.1, height: 0.09),
-                messageBoxNormalizedY: 0.7,
                 title: BilingualText(
                     en: "Honey",
                     cn: "蜂蜜"
                 ),
                 message: BilingualText(
                     en: "* You need to pay honey to join a room and join mushroom battles.\n* Hosting a room and inviting other players can earn honey.",
-                    cn: "* 接受蘑菇邀請後需要支付蜂蜜\n* 主持房間並邀請其他玩家可以獲得蜂蜜"
+                    cn: "* HoneyHub的貨幣\n* 接受蘑菇邀請後需要支付蜂蜜\n* 主持房間並邀請其他玩家可以獲得蜂蜜"
                 )
             ),
             Step(
                 highlightTarget: .mushroomBrowseSearchButton,
-                normalizedRect: CGRect(x: 0.02, y: 0.32, width: 0.96, height: 0.30),
-                messageBoxNormalizedY: 0.7,
                 title: BilingualText(
                     en: "Search",
                     cn: "搜尋功能"
@@ -307,21 +291,17 @@ enum TutorialConfig {
             ),
             Step(
                 highlightTarget: .mushroomBrowseCreateButton,
-                normalizedRect: CGRect(x: 0.79, y: 0.20, width: 0.17, height: 0.09),
-                messageBoxNormalizedY: 0.7,
                 title: BilingualText(
                     en: "Tap + to create your host room",
                     cn: "主持房間"
                 ),
                 message: BilingualText(
                     en: "* After creating a room, you can invite other players.\n* You need Pikmin megaphones to invite room members to help fight mushrooms.",
-                    cn: "* 創造房間後可以邀請其他玩家\n* 需消耗Pikmin大聲公來邀請房間內的玩家幫忙打蘑菇\n* 完成邀請後會獲得蜂蜜"
+                    cn: "* 創造房間後可以邀請其他玩家打蘑菇\n* 需消耗Pikmin大聲公來邀請\n* 完成蘑菇邀請後會獲得蜂蜜"
                 )
             ),
             Step(
                 highlightTarget: .mushroomBrowsePinnedRoomsArea,
-                normalizedRect: CGRect(x: 0.79, y: 0.20, width: 0.17, height: 0.09),
-                messageBoxNormalizedY: 0.7,
                 title: BilingualText(
                     en: "Pinned rooms",
                     cn: "置頂功能"
@@ -333,15 +313,13 @@ enum TutorialConfig {
             ),
             Step(
                 highlightTarget: .mushroomBrowseJoinableRoomsArea,
-                normalizedRect: CGRect(x: 0.79, y: 0.20, width: 0.17, height: 0.09),
-                messageBoxNormalizedY: 0.7,
                 title: BilingualText(
                     en: "Joinable rooms",
                     cn: "房間資訊"
                 ),
                 message: BilingualText(
                     en: "Tap a room to view detailed room information.",
-                    cn: "* 主持人所在區域\n *當前參加人數"
+                    cn: "* 房間標題\n* 主持人所在區域\n* 當前參加人數\n"
                 )
             )
         ]
@@ -465,6 +443,12 @@ enum TutorialConfig {
 
         /// Shared empty greeting text reused by attendee rows without join-request messages.
         static let emptyGreetingText = BilingualText(en: "", cn: "")
+        /// Shared host attendee id reused across room-detail tutorial scenes.
+        static let sharedHostAttendeeId: String = "tutorial-shared-host"
+        /// Shared ready attendee id reused across room-detail tutorial scenes.
+        static let sharedReadyAttendeeId: String = "tutorial-shared-ready"
+        /// Shared join-request attendee id reused across room-detail tutorial scenes.
+        static let sharedJoinRequestAttendeeId: String = "tutorial-shared-join-request"
 
         /// Builds one resolved room-detail tutorial scenario.
         /// - Parameters:
@@ -553,6 +537,49 @@ enum TutorialConfig {
             )
         }
 
+        /// Builds one shared attendee list reused by both personal and host room-detail tutorials.
+        /// - Parameter currentUserAttendeeId: Attendee id that should map to current signed-in uid.
+        /// - Returns: Ordered attendee rows for tutorial room scenes.
+        static func makeSharedAttendees(currentUserAttendeeId: String) -> [FakeAttendee] {
+            [
+                makeFakeAttendee(
+                    id: sharedHostAttendeeId,
+                    isCurrentUser: currentUserAttendeeId == sharedHostAttendeeId,
+                    name: BilingualText(en: "John", cn: "桃園彭于晏"),
+                    friendCode: "123456789012",
+                    stars: 3,
+                    depositHoney: 0,
+                    status: .host,
+                    joinedAtOffsetSeconds: -7200
+                ),
+                makeFakeAttendee(
+                    id: sharedJoinRequestAttendeeId,
+                    isCurrentUser: currentUserAttendeeId == sharedJoinRequestAttendeeId,
+                    name: BilingualText(en: "Eric", cn: "小宣"),
+                    friendCode: "555566667777",
+                    stars: 1,
+                    depositHoney: 90,
+                    status: .askingToJoin,
+                    joinedAtOffsetSeconds: -2600,
+                    joinGreetingMessage: BilingualText(
+                        en: "Hi host, I cannot find mushrooms. Please invite me.",
+                        cn: "嗨主持人，我都找不到蘑菇QQ，求邀。"
+                    )
+                ),
+                makeFakeAttendee(
+                    id: sharedReadyAttendeeId,
+                    isCurrentUser: currentUserAttendeeId == sharedReadyAttendeeId,
+                    name: BilingualText(en: "Mei", cn: "小美"),
+                    friendCode: "222233334444",
+                    stars: 2,
+                    depositHoney: 130,
+                    status: .ready,
+                    joinedAtOffsetSeconds: -3500,
+                    pendingConfirmationRequestOffsets: [-1200]
+                )
+            ]
+        }
+
     }
 
     /// Room detail tutorial in personal (non-host) view.
@@ -572,8 +599,6 @@ enum TutorialConfig {
         private static let stepTemplates: [RoomDetailTutorial.Step] = [
             RoomDetailTutorial.Step(
                 highlightTarget: nil,
-                normalizedRect: nil,
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Mushroom Room Tutorial",
                     cn: "房間頁面教學"
@@ -585,21 +610,17 @@ enum TutorialConfig {
             ),
             RoomDetailTutorial.Step(
                 highlightTarget: .roomHeaderSection,
-                normalizedRect: CGRect(x: 0.04, y: 0.16, width: 0.92, height: 0.20),
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Room header shows key info",
                     cn: "房間資訊"
                 ),
                 message: BilingualText(
                     en: "Room title, current attendee count, host location, and room description.",
-                    cn: "* 房間標題\n* 目前參加人數\n* 主持人所在地點與房間描述。"
+                    cn: "* 房間標題\n* 目前參加人數\n* 主持人所在地點\n* 房間描述"
                 )
             ),
             RoomDetailTutorial.Step(
                 highlightTarget: .roomAttendeeSection,
-                normalizedRect: CGRect(x: 0.04, y: 0.33, width: 0.92, height: 0.46),
-                messageBoxNormalizedY: 0.2,
                 title: BilingualText(
                     en: "Attendee list",
                     cn: "成員列表"
@@ -611,8 +632,6 @@ enum TutorialConfig {
             ),
             RoomDetailTutorial.Step(
                 highlightTarget: .roomAttendeeRow0,
-                normalizedRect: CGRect(x: 0.04, y: 0.33, width: 0.92, height: 0.46),
-                messageBoxNormalizedY: 0.2,
                 title: BilingualText(
                     en: "Host information",
                     cn: "主持人資訊"
@@ -624,8 +643,6 @@ enum TutorialConfig {
             ),
             RoomDetailTutorial.Step(
                 highlightTarget: .roomAttendeeRow1,
-                normalizedRect: CGRect(x: 0.04, y: 0.33, width: 0.92, height: 0.46),
-                messageBoxNormalizedY: 0.2,
                 title: BilingualText(
                     en: "Other attendee information",
                     cn: "其他成員資訊"
@@ -637,28 +654,24 @@ enum TutorialConfig {
             ),
             RoomDetailTutorial.Step(
                 highlightTarget: .roomAttendeeConfirmationButton,
-                normalizedRect: CGRect(x: 0.70, y: 0.04, width: 0.26, height: 0.08),
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Invite confirmation queue",
                     cn: "邀請確認管理清單"
                 ),
                 message: BilingualText(
                     en: "Tap here to open the mushroom invite confirmation list and respond to host invites.",
-                    cn: "* 點擊此處可以打開蘑菇邀請確認清單\n* 收到蘑菇邀請後需要儘速回覆主持人的邀請確認"
+                    cn: "* 主持人的蘑菇邀請確認會記錄在這\n* 收到蘑菇邀請後請在此處儘速回覆主持人的邀請確認"
                 )
             ),
             RoomDetailTutorial.Step(
                 highlightTarget: .roomAttendeeEditDepositButton,
-                normalizedRect: CGRect(x: 0.70, y: 0.04, width: 0.26, height: 0.08),
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Change settings",
                     cn: "變更設定"
                 ),
                 message: BilingualText(
                     en: "You can update your deposited honey amount or leave the room.",
-                    cn: "* 更改儲值的蜂蜜數量\n* 或是離開房間"
+                    cn: "* 更改儲值的蜂蜜數量\n* 離開房間並返還所有未使用的蜂蜜"
                 )
             )
         ]
@@ -675,43 +688,9 @@ enum TutorialConfig {
             fixedRaidCost: 80,
             maxPlayers: 10,
             lastSuccessfulRaidAtOffsetSeconds: -3600,
-            attendees: [
-                RoomDetailTutorial.makeFakeAttendee(
-                    id: "tutorial-host-attendee",
-                    isCurrentUser: false,
-                    name: BilingualText(en: "Taipei Idol", cn: "信義吳彥祖"),
-                    friendCode: "123456789012",
-                    stars: 3,
-                    depositHoney: 0,
-                    status: .host,
-                    joinedAtOffsetSeconds: -7200
-                ),
-                RoomDetailTutorial.makeFakeAttendee(
-                    id: "tutorial-self-attendee",
-                    isCurrentUser: true,
-                    name: BilingualText(en: "Mei", cn: "小美"),
-                    friendCode: "222233334444",
-                    stars: 2,
-                    depositHoney: 130,
-                    status: .ready,
-                    joinedAtOffsetSeconds: -3500,
-                    joinGreetingMessage: BilingualText(
-                        en: "Hi host, I can join quickly.",
-                        cn: "嗨主持人，我都找不到蘑菇QQ，求邀。"
-                    ),
-                    pendingConfirmationRequestOffsets: [-1200]
-                ),
-                RoomDetailTutorial.makeFakeAttendee(
-                    id: "tutorial-other-attendee",
-                    isCurrentUser: false,
-                    name: BilingualText(en: "Ming", cn: "小明"),
-                    friendCode: "555566667777",
-                    stars: 1,
-                    depositHoney: 90,
-                    status: .ready,
-                    joinedAtOffsetSeconds: -2600
-                )
-            ]
+            attendees: RoomDetailTutorial.makeSharedAttendees(
+                currentUserAttendeeId: RoomDetailTutorial.sharedReadyAttendeeId
+            )
         )
     }
 
@@ -732,47 +711,39 @@ enum TutorialConfig {
         private static let stepTemplates: [RoomDetailTutorial.Step] = [
             RoomDetailTutorial.Step(
                 highlightTarget: nil,
-                normalizedRect: nil,
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Room Management Tutorial",
                     cn: "主持房間教學"
                 ),
                 message: BilingualText(
                     en: "As a host, you can manage attendees here and request invite confirmations from room members.",
-                    cn: "* 身為主持人，您可以批准或拒絕其他玩家進來\n* 需要用Pikmin的大聲公邀請房間內所有玩家打蘑菇\n* 邀請確認後可獲得蜂蜜作為報酬"
+                    cn: "* 身為主持人，您可以批准或拒絕其他玩家進入房間\n* 需要消耗Pikmin大聲公邀請房間內所有玩家打蘑菇\n* 邀請完成後可獲得蜂蜜作為報酬"
                 )
             ),
             RoomDetailTutorial.Step(
                 highlightTarget: .roomHeaderSection,
-                normalizedRect: CGRect(x: 0.04, y: 0.16, width: 0.92, height: 0.20),
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Room header shows key info",
                     cn: "房間資訊"
                 ),
                 message: BilingualText(
                     en: "Room title, current attendee count, host location, and room description.",
-                    cn: "* 房間標題\n* 目前參加人數\n* 主持人所在地點與房間描述。"
+                    cn: "* 房間標題\n* 目前參加人數\n* 主持人所在地點與房間描述"
                 )
             ),
             RoomDetailTutorial.Step(
                 highlightTarget: .roomAttendeeSection,
-                normalizedRect: CGRect(x: 0.04, y: 0.33, width: 0.92, height: 0.46),
-                messageBoxNormalizedY: 0.2,
                 title: BilingualText(
                     en: "Attendee list",
-                    cn: "參加者列表"
+                    cn: "成員列表"
                 ),
                 message: BilingualText(
                     en: "All attendee information is listed here.",
-                    cn: "所有參加者的資訊列在此處。"
+                    cn: "* 所有房間成員的資訊"
                 )
             ),
             RoomDetailTutorial.Step(
                 highlightTarget: .roomAttendeeRow2,
-                normalizedRect: CGRect(x: 0.04, y: 0.33, width: 0.92, height: 0.46),
-                messageBoxNormalizedY: 0.2,
                 title: BilingualText(
                     en: "Handle join requests",
                     cn: "批准加入申請"
@@ -784,8 +755,6 @@ enum TutorialConfig {
             ),
             RoomDetailTutorial.Step(
                 highlightTarget: .roomHostClaimButton,
-                normalizedRect: CGRect(x: 0.04, y: 0.86, width: 0.92, height: 0.09),
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Send mushroom invite confirmations",
                     cn: "發送蘑菇邀請確認"
@@ -797,8 +766,6 @@ enum TutorialConfig {
             ),
             RoomDetailTutorial.Step(
                 highlightTarget: .roomHostShareButton,
-                normalizedRect: CGRect(x: 0.66, y: 0.04, width: 0.30, height: 0.08),
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Share",
                     cn: "分享房間"
@@ -810,8 +777,6 @@ enum TutorialConfig {
             ),
             RoomDetailTutorial.Step(
                 highlightTarget: .roomHostRaidHistoryButton,
-                normalizedRect: CGRect(x: 0.66, y: 0.04, width: 0.30, height: 0.08),
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Confirmation list",
                     cn: "邀請確認清單"
@@ -823,8 +788,6 @@ enum TutorialConfig {
             ),
             RoomDetailTutorial.Step(
                 highlightTarget: .roomHostEditRoomButton,
-                normalizedRect: CGRect(x: 0.66, y: 0.04, width: 0.30, height: 0.08),
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Edit room settings",
                     cn: "變更房間設定"
@@ -848,42 +811,9 @@ enum TutorialConfig {
             fixedRaidCost: 80,
             maxPlayers: 10,
             lastSuccessfulRaidAtOffsetSeconds: -3600,
-            attendees: [
-                RoomDetailTutorial.makeFakeAttendee(
-                    id: "tutorial-self-host",
-                    isCurrentUser: true,
-                    name: BilingualText(en: "Jony", cn: "小明"),
-                    friendCode: "222233334444",
-                    stars: 3,
-                    depositHoney: 0,
-                    status: .host,
-                    joinedAtOffsetSeconds: -7200
-                ),
-                RoomDetailTutorial.makeFakeAttendee(
-                    id: "tutorial-join-request",
-                    isCurrentUser: false,
-                    name: BilingualText(en: "Eric", cn: "小宣"),
-                    friendCode: "555566667777",
-                    stars: 1,
-                    depositHoney: 90,
-                    status: .askingToJoin,
-                    joinedAtOffsetSeconds: -2600,
-                    joinGreetingMessage: BilingualText(
-                        en: "Hi host, I cannot find mushrooms. Please invite me.",
-                        cn: "嗨主持人，我都找不到蘑菇QQ，求邀。"
-                    )
-                ),
-                RoomDetailTutorial.makeFakeAttendee(
-                    id: "tutorial-ready-attendee",
-                    isCurrentUser: false,
-                    name: BilingualText(en: "Amy", cn: "小美"),
-                    friendCode: "123456789012",
-                    stars: 2,
-                    depositHoney: 130,
-                    status: .ready,
-                    joinedAtOffsetSeconds: -3500
-                )
-            ]
+            attendees: RoomDetailTutorial.makeSharedAttendees(
+                currentUserAttendeeId: RoomDetailTutorial.sharedHostAttendeeId
+            )
         )
     }
 
@@ -985,21 +915,17 @@ enum TutorialConfig {
         private static let stepTemplates: [Step] = [
             Step(
                 highlightTarget: nil,
-                normalizedRect: nil,
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Welcome to Postcard Browse",
-                    cn: "明信片瀏覽列表說明"
+                    cn: "明信片買賣說明"
                 ),
                 message: BilingualText(
                     en: "This page helps you browse listings, check prices, and register your own postcards.",
-                    cn: "這個頁面可瀏覽明信片、查看價格，並快速上架自己的明信片。"
+                    cn: "* 玩家可以在這個頁面用蜂蜜買賣Pikmin 明信片"
                 )
             ),
             Step(
                 highlightTarget: .postcardBrowseHoneyTag,
-                normalizedRect: CGRect(x: 0.02, y: 0.20, width: 0.1, height: 0.09),
-                messageBoxNormalizedY: 0.7,
                 title: BilingualText(
                     en: "Honey",
                     cn: "蜂蜜"
@@ -1011,8 +937,6 @@ enum TutorialConfig {
             ),
             Step(
                 highlightTarget: .postcardBrowseSearchButton,
-                normalizedRect: CGRect(x: 0.02, y: 0.32, width: 0.96, height: 0.30),
-                messageBoxNormalizedY: 0.7,
                 title: BilingualText(
                     en: "Search",
                     cn: "搜尋功能"
@@ -1024,21 +948,17 @@ enum TutorialConfig {
             ),
             Step(
                 highlightTarget: .postcardBrowseCreateButton,
-                normalizedRect: CGRect(x: 0.79, y: 0.20, width: 0.17, height: 0.09),
-                messageBoxNormalizedY: 0.7,
                 title: BilingualText(
                     en: "Tap + to create your host room",
                     cn: "上架明信片"
                 ),
                 message: BilingualText(
                     en: "* After creating a room, you can invite other players.\n* You need Pikmin megaphones to invite room members to help fight mushrooms.",
-                    cn: "* 上傳明信片預覽圖片\n* 加好友之後即可送出明信片。"
+                    cn: "* 上傳明信片預覽圖片\n* 加買家好友之後即可送出明信片。"
                 )
             ),
             Step(
                 highlightTarget: .postcardBrowsePinnedOwnershipArea,
-                normalizedRect: CGRect(x: 0.02, y: 0.31, width: 0.96, height: 0.56),
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Pinned ownership cards",
                     cn: "明信片資訊"
@@ -1050,8 +970,6 @@ enum TutorialConfig {
             ),
             Step(
                 highlightTarget: .postcardBrowsePinnedOwnershipArea,
-                normalizedRect: CGRect(x: 0.02, y: 0.31, width: 0.96, height: 0.56),
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Pinned ownership cards",
                     cn: "置頂明信片"
@@ -1175,21 +1093,28 @@ enum TutorialConfig {
         private static let stepTemplates: [PostcardDetailTutorial.Step] = [
             PostcardDetailTutorial.Step(
                 highlightTarget: nil,
-                normalizedRect: nil,
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Welcome to Postcard Detail",
-                    cn: "歡迎來到明信片詳情頁"
+                    cn: "明信片購買教學"
                 ),
                 message: BilingualText(
                     en: "This page shows postcard details and buyer actions for placing or confirming an order.",
-                    cn: "這裡會顯示明信片資訊，以及買家下單與收件確認的操作。"
+                    cn: "* 用蜂蜜向其他玩家購買明信片\n* 在Pikmin中加好友後賣家即可寄送明信片"
+                )
+            ),
+            PostcardDetailTutorial.Step(
+                highlightTarget: .postcardDetailInfoSection, //// TODO: the target needs to be the postcard snapshot
+                title: BilingualText(
+                    en: "Check title, price, and seller info",
+                    cn: "先查看卡片名稱、價格與賣家資訊"
+                ),
+                message: BilingualText(
+                    en: "Confirm postcard info and friend code before placing your order.",
+                    cn: "下單前先確認卡片資訊與好友碼。"
                 )
             ),
             PostcardDetailTutorial.Step(
                 highlightTarget: .postcardDetailInfoSection,
-                normalizedRect: CGRect(x: 0.04, y: 0.30, width: 0.92, height: 0.26),
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Check title, price, and seller info",
                     cn: "先查看卡片名稱、價格與賣家資訊"
@@ -1201,8 +1126,6 @@ enum TutorialConfig {
             ),
             PostcardDetailTutorial.Step(
                 highlightTarget: .postcardBuyerBuyButton,
-                normalizedRect: CGRect(x: 0.04, y: 0.76, width: 0.92, height: 0.08),
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Buy action starts order flow",
                     cn: "點擊購買可開始下單流程"
@@ -1257,8 +1180,6 @@ enum TutorialConfig {
         private static let stepTemplates: [PostcardDetailTutorial.Step] = [
             PostcardDetailTutorial.Step(
                 highlightTarget: nil,
-                normalizedRect: nil,
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Welcome to Seller Postcard View",
                     cn: "歡迎來到賣家明信片頁"
@@ -1270,8 +1191,6 @@ enum TutorialConfig {
             ),
             PostcardDetailTutorial.Step(
                 highlightTarget: .postcardSellerShippingButton,
-                normalizedRect: CGRect(x: 0.60, y: 0.04, width: 0.36, height: 0.08),
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Seller toolbar actions",
                     cn: "賣家工具列功能"
@@ -1283,8 +1202,6 @@ enum TutorialConfig {
             ),
             PostcardDetailTutorial.Step(
                 highlightTarget: .postcardDetailInfoSection,
-                normalizedRect: CGRect(x: 0.04, y: 0.30, width: 0.92, height: 0.30),
-                messageBoxNormalizedY: 0.6,
                 title: BilingualText(
                     en: "Keep listing info accurate",
                     cn: "維持卡片資訊正確"

@@ -751,13 +751,11 @@ struct PostcardView: View {
             if let step = currentPostcardTutorialStep {
                 let highlightFrame = TutorialHighlightFrameResolver.resolveFrame(
                     target: step.highlightTarget,
-                    fallbackNormalizedRect: step.normalizedRect,
                     anchors: anchors,
                     proxy: proxy
                 )
                 let messageBoxY = TutorialHighlightFrameResolver.resolveMessageBoxCenterY(
                     highlightFrame: highlightFrame,
-                    configuredNormalizedY: step.messageBoxNormalizedY,
                     proxy: proxy
                 )
                 let isToolbarTarget = step.highlightTarget?.isNavigationToolbarActionTarget == true

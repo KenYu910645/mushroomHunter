@@ -116,11 +116,11 @@
 /***************************************/
 
 "room_finish_hint" = "請選擇實際參加蘑菇戰鬥的玩家。";
-"room_attendees_header" = "參加者";
+"room_attendees_header" = "成員清單";
 "room_no_attendees_title" = "沒有參加者";
 "room_no_attendees_description" = "目前沒有可選擇的參加者。";
 "room_deposit_honey_format" = "%d";
-"room_claim_rewards_title" = "蘑菇已邀請";
+"room_claim_rewards_title" = "發送蘑菇邀請確認";
 "room_load_error_title" = "無法載入房間";
 "room_attendee_count_format" = "參加者：%d/%d";
 "room_attendee_count_number_format" = "%d/%d";
