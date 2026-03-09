@@ -921,7 +921,7 @@ enum TutorialConfig {
                 ),
                 message: BilingualText(
                     en: "This page helps you browse listings, check prices, and register your own postcards.",
-                    cn: "* 玩家可以在這個頁面用蜂蜜買賣Pikmin 明信片"
+                    cn: "* 用蜂蜜買賣Pikmin 明信片"
                 )
             ),
             Step(
@@ -943,7 +943,7 @@ enum TutorialConfig {
                 ),
                 message: BilingualText(
                     en: "You can search by room title.",
-                    cn: "在列表中搜尋明信片標題。"
+                    cn: "* 搜尋明信片標題"
                 )
             ),
             Step(
@@ -961,22 +961,22 @@ enum TutorialConfig {
                 highlightTarget: .postcardBrowsePinnedOwnershipArea,
                 title: BilingualText(
                     en: "Pinned ownership cards",
-                    cn: "明信片資訊"
-                ),
-                message: BilingualText(
-                    en: "On-shelf and Ordered cards are pinned first so you can track your own trading state.",
-                    cn: "販賣價格(蜂蜜)與明信片地點。"
-                )
-            ),
-            Step(
-                highlightTarget: .postcardBrowsePinnedOwnershipArea,
-                title: BilingualText(
-                    en: "Pinned ownership cards",
                     cn: "置頂明信片"
                 ),
                 message: BilingualText(
                     en: "On-shelf and Ordered cards are pinned first so you can track your own trading state.",
-                    cn: "已上架與已下單的明信片會在瀏覽列表上置頂，方便查看。"
+                    cn: "* 已上架與已下單的明信片會置頂以方便查看"
+                )
+            ),
+            Step(
+                highlightTarget: .postcardBrowseGeneralListingsArea,
+                title: BilingualText(
+                    en: "Pinned ownership cards",
+                    cn: "明信片資訊"
+                ),
+                message: BilingualText(
+                    en: "On-shelf and Ordered cards are pinned first so you can track your own trading state.",
+                    cn: "* 販賣價格在右上角"
                 )
             )
         ]
@@ -985,36 +985,36 @@ enum TutorialConfig {
         private static let listingTemplates: [FakeListing] = [
             FakeListing(
                 id: replayPostcardId,
-                title: BilingualText(en: "Central Park Pikmin Card", cn: "中央公園皮克敏卡"),
-                priceHoney: 60,
-                country: BilingualText(en: "US", cn: "US"),
-                province: BilingualText(en: "New York", cn: "紐約"),
-                detail: BilingualText(en: "Near lake area", cn: "湖邊附近"),
+                title: BilingualText(en: "Central Park Pikmin Card", cn: "頂天立地小嬰兒"),
+                priceHoney: 5,
+                country: BilingualText(en: "US", cn: "台灣"),
+                province: BilingualText(en: "New York", cn: "沙鹿"),
+                detail: BilingualText(en: "Near lake area", cn: "鄉下地方"),
                 sellerId: "tutorial-postcard-self-seller",
-                sellerName: BilingualText(en: "You", cn: "你"),
+                sellerName: BilingualText(en: "You", cn: "小美"),
                 sellerFriendCode: "222233334444",
                 stock: 2,
                 createdAtOffsetSeconds: -1200
             ),
             FakeListing(
                 id: "tutorial-postcard-ordered",
-                title: BilingualText(en: "Downtown Night Event Card", cn: "市中心夜間活動卡"),
-                priceHoney: 80,
-                country: BilingualText(en: "US", cn: "US"),
-                province: BilingualText(en: "Seattle", cn: "西雅圖"),
+                title: BilingualText(en: "Downtown Night Event Card", cn: "可愛河馬"),
+                priceHoney: 10,
+                country: BilingualText(en: "US", cn: "台灣"),
+                province: BilingualText(en: "Seattle", cn: "桃園八德"),
                 detail: BilingualText(en: "Space Needle", cn: "太空針塔"),
                 sellerId: "tutorial-postcard-seller-2",
-                sellerName: BilingualText(en: "Nina", cn: "Nina"),
+                sellerName: BilingualText(en: "Nina", cn: "小紫"),
                 sellerFriendCode: "111122223333",
                 stock: 1,
                 createdAtOffsetSeconds: -2800
             ),
             FakeListing(
                 id: "tutorial-postcard-general-1",
-                title: BilingualText(en: "Harbor Sunrise Card", cn: "港口日出卡"),
+                title: BilingualText(en: "Harbor Sunrise Card", cn: "巨大皮克敏"),
                 priceHoney: 50,
-                country: BilingualText(en: "US", cn: "US"),
-                province: BilingualText(en: "Boston", cn: "波士頓"),
+                country: BilingualText(en: "US", cn: "台灣"),
+                province: BilingualText(en: "Boston", cn: "大安區"),
                 detail: BilingualText(en: "", cn: ""),
                 sellerId: "tutorial-postcard-seller-3",
                 sellerName: BilingualText(en: "Ming", cn: "小明"),
@@ -1024,13 +1024,13 @@ enum TutorialConfig {
             ),
             FakeListing(
                 id: "tutorial-postcard-general-2",
-                title: BilingualText(en: "Rainy Day Station Card", cn: "雨天車站卡"),
-                priceHoney: 70,
-                country: BilingualText(en: "US", cn: "US"),
-                province: BilingualText(en: "Chicago", cn: "芝加哥"),
+                title: BilingualText(en: "Rainy Day Station Card", cn: "養鴨人家"),
+                priceHoney: 5,
+                country: BilingualText(en: "US", cn: "台灣"),
+                province: BilingualText(en: "Chicago", cn: "桃園"),
                 detail: BilingualText(en: "", cn: ""),
                 sellerId: "tutorial-postcard-seller-4",
-                sellerName: BilingualText(en: "Alex", cn: "Alex"),
+                sellerName: BilingualText(en: "Alex", cn: "小安"),
                 sellerFriendCode: "888899990000",
                 stock: 1,
                 createdAtOffsetSeconds: -7200
@@ -1099,40 +1099,29 @@ enum TutorialConfig {
                 ),
                 message: BilingualText(
                     en: "This page shows postcard details and buyer actions for placing or confirming an order.",
-                    cn: "* 用蜂蜜向其他玩家購買明信片\n* 在Pikmin中加好友後賣家即可寄送明信片"
-                )
-            ),
-            PostcardDetailTutorial.Step(
-                highlightTarget: .postcardDetailInfoSection, //// TODO: the target needs to be the postcard snapshot
-                title: BilingualText(
-                    en: "Check title, price, and seller info",
-                    cn: "先查看卡片名稱、價格與賣家資訊"
-                ),
-                message: BilingualText(
-                    en: "Confirm postcard info and friend code before placing your order.",
-                    cn: "下單前先確認卡片資訊與好友碼。"
+                    cn: "* 購買明信片需要支付蜂蜜\n* 在Pikmin中加賣家好友後即可請賣家寄送明信片"
                 )
             ),
             PostcardDetailTutorial.Step(
                 highlightTarget: .postcardDetailInfoSection,
                 title: BilingualText(
                     en: "Check title, price, and seller info",
-                    cn: "先查看卡片名稱、價格與賣家資訊"
+                    cn: "明信片資訊"
                 ),
                 message: BilingualText(
                     en: "Confirm postcard info and friend code before placing your order.",
-                    cn: "下單前先確認卡片資訊與好友碼。"
+                    cn: "* 下單後請特別注意Pikmin中的賣家好友邀請"
                 )
             ),
             PostcardDetailTutorial.Step(
                 highlightTarget: .postcardBuyerBuyButton,
                 title: BilingualText(
-                    en: "Buy action starts order flow",
-                    cn: "點擊購買可開始下單流程"
+                    en: "Check title, price, and seller info",
+                    cn: "購買明信片"
                 ),
                 message: BilingualText(
-                    en: "Use this button to place an order. Shipping and receive status will update here later.",
-                    cn: "點此可送出訂單，後續寄送與收件狀態也會在此更新。"
+                    en: "Confirm postcard info and friend code before placing your order.",
+                    cn: "* 下單後會直接扣除蜂蜜\n* 買家出貨後約12hr後明信片會送達"
                 )
             )
         ]
@@ -1182,46 +1171,68 @@ enum TutorialConfig {
                 highlightTarget: nil,
                 title: BilingualText(
                     en: "Welcome to Seller Postcard View",
-                    cn: "歡迎來到賣家明信片頁"
+                    cn: "上架明信片教學"
                 ),
                 message: BilingualText(
                     en: "As a seller, you can manage shipping, share invite links, and edit listing info here.",
-                    cn: "身為賣家，您可在此管理出貨、分享邀請連結並編輯卡片資訊。"
-                )
-            ),
-            PostcardDetailTutorial.Step(
-                highlightTarget: .postcardSellerShippingButton,
-                title: BilingualText(
-                    en: "Seller toolbar actions",
-                    cn: "賣家工具列功能"
-                ),
-                message: BilingualText(
-                    en: "Share invite, open shipping queue, and edit listing from top-right actions.",
-                    cn: "可從右上角快速分享邀請、查看出貨佇列與編輯卡片。"
+                    cn: "* 身為賣家，您可在此管理訂單、分享邀請連結並編輯卡片資訊"
                 )
             ),
             PostcardDetailTutorial.Step(
                 highlightTarget: .postcardDetailInfoSection,
                 title: BilingualText(
                     en: "Keep listing info accurate",
-                    cn: "維持卡片資訊正確"
+                    cn: "明信片資訊"
                 ),
                 message: BilingualText(
                     en: "Buyers rely on title, location, and stock shown in this section.",
-                    cn: "買家會依據這裡的名稱、地點與庫存資訊決定是否下單。"
+                    cn: "* 請確認ID跟好友碼與Pikmin一致"
+                )
+            ),
+            PostcardDetailTutorial.Step(
+                highlightTarget: .postcardSellerShareButton,
+                title: BilingualText(
+                    en: "Seller toolbar actions",
+                    cn: "分享明信片"
+                ),
+                message: BilingualText(
+                    en: "Share invite, open shipping queue, and edit listing from top-right actions.",
+                    cn: "* 可以用二維碼將此上架明信片分享給親朋好友"
+                )
+            ),
+            PostcardDetailTutorial.Step(
+                highlightTarget: .postcardSellerShippingButton,
+                title: BilingualText(
+                    en: "Seller toolbar actions",
+                    cn: "訂單管理"
+                ),
+                message: BilingualText(
+                    en: "Share invite, open shipping queue, and edit listing from top-right actions.",
+                    cn: "* 接受或拒絕訂單\n* 通知買家已出貨"
+                )
+            ),
+            PostcardDetailTutorial.Step(
+                highlightTarget: .postcardSellerEditButton,
+                title: BilingualText(
+                    en: "Seller toolbar actions",
+                    cn: "變更明信片設定"
+                ),
+                message: BilingualText(
+                    en: "Share invite, open shipping queue, and edit listing from top-right actions.",
+                    cn: "* 更改明信片價格或資訊\n* 下架明信片"
                 )
             )
         ]
 
-        /// Seller tutorial fake listing title.
-        private static let listingTitle = BilingualText(en: "City Hall Event Card", cn: "市政廳活動卡")
-        /// Seller tutorial fake listing country.
-        private static let listingCountry = BilingualText(en: "US", cn: "US")
-        /// Seller tutorial fake listing province.
-        private static let listingProvince = BilingualText(en: "Los Angeles", cn: "洛杉磯")
-        /// Seller tutorial fake listing detail.
-        private static let listingDetail = BilingualText(en: "Downtown Plaza", cn: "市中心廣場")
-        /// Seller tutorial fake seller name.
-        private static let listingSellerName = BilingualText(en: "You", cn: "你")
+        /// Buyer tutorial fake listing title.
+        private static let listingTitle = BilingualText(en: "Riverside Lantern Card", cn: "養鴨人家")
+        /// Buyer tutorial fake listing country.
+        private static let listingCountry = BilingualText(en: "Taiwan", cn: "台灣")
+        /// Buyer tutorial fake listing province.
+        private static let listingProvince = BilingualText(en: "Taoyuan", cn: "桃園")
+        /// Buyer tutorial fake listing detail.
+        private static let listingDetail = BilingualText(en: "Come and buy it!", cn: "大家快來買！")
+        /// Buyer tutorial fake seller name.
+        private static let listingSellerName = BilingualText(en: "Lily", cn: "小明")
     }
 }

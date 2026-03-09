@@ -55,12 +55,20 @@ enum TutorialHighlightTarget: Hashable {
     case postcardBrowseCreateButton
     /// Pinned ownership cards area in postcard browse grid.
     case postcardBrowsePinnedOwnershipArea
+    /// Non-owned postcard cards area in postcard browse grid.
+    case postcardBrowseGeneralListingsArea
+    /// Postcard snapshot hero image in postcard detail view.
+    case postcardDetailSnapshot
     /// Listing information section in postcard detail view.
     case postcardDetailInfoSection
     /// Buyer "Buy" button in postcard detail view.
     case postcardBuyerBuyButton
+    /// Seller share button in postcard detail toolbar.
+    case postcardSellerShareButton
     /// Seller shipping button in postcard detail toolbar.
     case postcardSellerShippingButton
+    /// Seller edit button in postcard detail toolbar.
+    case postcardSellerEditButton
 }
 
 extension TutorialHighlightTarget {
@@ -81,7 +89,9 @@ extension TutorialHighlightTarget {
              .roomHostEditRoomButton,
              .roomAttendeeConfirmationButton,
              .roomAttendeeEditDepositButton,
-             .postcardSellerShippingButton:
+             .postcardSellerShareButton,
+             .postcardSellerShippingButton,
+             .postcardSellerEditButton:
             return true
         default:
             return false

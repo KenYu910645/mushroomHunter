@@ -54,6 +54,8 @@
 - Postcard location country labels are rendered in the current user locale when possible (including legacy listings that stored English country names).
 - First time entering Postcard browse runs tutorial mode on the real browse page (same layout/styles as production), seeds local fake listings, blocks interactions with highlight steps, then loads real Firebase listings after completion.
 - First time entering Postcard detail in buyer/seller view runs in-place tutorial mode on the real postcard page, loads fake detail scene from `TutorialConfig`, blocks interactions, then restores real Firebase postcard payload after completion.
+- Postcard browse tutorial completion always triggers a backend refresh (instead of `loadOnAppear` shortcut) so fake tutorial cards cannot remain on screen after tapping `Done`.
+- Postcard detail tutorial completion now refreshes using the original postcard id that opened the page (not tutorial fake ids), so users stay on the intended postcard detail after tapping `Done`.
 - Postcard detail view hides the navigation title so the postcard snapshot is the first visible content at the top.
 - Postcard detail view renders title and price on the same first line; price uses a right-aligned honey `ColorfulTag` (HoneyIcon + value).
 - Postcard detail view metadata is shown as left-aligned stacked rows: `Seller: {name}` then `Friend Code: {code}` with inline copy action icon.

@@ -23,6 +23,7 @@
   - Top-right bell entry opens the shared event inbox sheet.
   - Top-right settings icon was removed.
   - `Settings` button now appears in the form section above `Sign Out`, opens the same settings sheet as before, and uses localized text (`settings_title`).
+  - Settings sheet top-left dismiss control now uses back chevron icon (`chevron.left`) instead of close `X`.
   - Settings routes now include `Edit Profile`, `Feedback`, `Help`, and `About`.
   - `Help` now dismisses settings and pushes tutorial scenario list inside the Profile tab navigation stack so replay pages stay in the root `TabView` context.
   - During feature tutorials, bottom tab bar stays visible but tab switching is locked until tutorial completes.

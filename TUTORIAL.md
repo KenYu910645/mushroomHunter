@@ -110,6 +110,10 @@ For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buy
   - Legacy row-index target (`roomAttendeeRow(index:)`) remains available for compatibility and still resolves using the first matched row anchor (not union of all matched rows) to keep highlight rectangles tight.
   - Postcard browse tutorial startup now follows Mushroom browse timing: tutorial starts immediately on appear, while profile refresh runs in parallel (non-blocking) to keep early-step top-bar targets stable.
   - Postcard browse tutorial now disables top-bar container anchor emission during tutorial so child top-bar targets (`Honey`, `Search`, `+`) resolve independently for steps 2~4.
+  - Postcard browse tutorial `Done` now forces one backend refresh handoff, so the fake tutorial scene is always replaced by real Firebase browse data immediately.
+  - Postcard browse tutorial now splits card highlights into `postcardBrowsePinnedOwnershipArea` (owned rows) and `postcardBrowseGeneralListingsArea` (non-owned lower rows) so step-level card targeting stays deterministic.
+  - Postcard detail tutorial now exposes dedicated targets for the hero snapshot (`postcardDetailSnapshot`) and seller top-right toolbar actions (`postcardSellerShareButton`, `postcardSellerShippingButton`, `postcardSellerEditButton`).
+  - Postcard detail tutorial `Done` now restores data using the original postcard id that opened the page, preventing fallback to browse caused by refreshing tutorial fake ids.
   - Message-card Y auto-placement:
     - When a highlight target exists, the message card is auto-placed near the target.
     - Default is below the highlighted target.
@@ -162,6 +166,7 @@ For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buy
 - Do not show multiple tutorials at the same time.
 - Help replay should stay in root tab navigation context (not a modal sheet) so tutorial pages match real tab-based layout.
 - When a tutorial is opened from Settings -> Help -> Tutorial list, tapping `Done` should pop back to the tutorial list.
+- Tutorial list page no longer shows a top-left close (`X`) button and no longer displays the replay footer hint line.
 - If deep-link/push opens a page with pending critical action, defer tutorial until action is cleared.
 
 ## Rollout Plan (Several Steps)

@@ -11,8 +11,6 @@ import SwiftUI
 struct TutorialCatalogView: View {
     /// Shared user session used for completion-state chips.
     @EnvironmentObject private var session: UserSessionStore
-    /// Dismiss action for sheet presentation.
-    @Environment(\.dismiss) private var dismiss
 
     /// Main tutorial list layout.
     var body: some View {
@@ -22,21 +20,9 @@ struct TutorialCatalogView: View {
                     ForEach(TutorialScenario.allCases) { scenario in
                         tutorialRow(for: scenario)
                     }
-                } footer: {
-                    Text(LocalizedStringKey("tutorial_catalog_footer"))
                 }
             }
             .navigationTitle(LocalizedStringKey("tutorial_catalog_title"))
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .accessibilityIdentifier("tutorial_catalog_close_button")
-                }
-            }
         }
     }
 

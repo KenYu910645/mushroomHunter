@@ -43,6 +43,8 @@ struct PostcardView: View {
     private let isOpeningOrderPageOnAppear: Bool
     /// Indicates first load should force latest backend state.
     private let isForceRefreshOnAppear: Bool
+    /// Original listing id passed from browse/push route before tutorial scene overrides.
+    private let initialListingId: String
     /// Controls buy confirmation dialog visibility.
     @State private var isBuyConfirmDialogPresented: Bool = false
     /// Controls seller edit sheet visibility.
@@ -120,6 +122,7 @@ struct PostcardView: View {
         self.onTutorialReplayFinished = onTutorialReplayFinished
         self.isOpeningOrderPageOnAppear = isOpeningOrderPageOnAppear
         self.isForceRefreshOnAppear = isForceRefreshOnAppear
+        self.initialListingId = listing.id
         _currentListing = State(initialValue: listing)
         _sellerFriendCode = State(initialValue: listing.sellerFriendCode)
         _isPendingOpenOrderPageOnAppear = State(initialValue: isOpeningOrderPageOnAppear)
@@ -194,6 +197,7 @@ struct PostcardView: View {
                 .frame(maxWidth: detailImageMaxWidth)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .aspectRatio(imageAspectRatio, contentMode: .fit)
+                .tutorialHighlightAnchor(isPostcardTutorialActive ? .postcardDetailSnapshot : nil)
 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -313,6 +317,7 @@ struct PostcardView: View {
                         } label: {
                             Image(systemName: "square.and.arrow.up")
                         }
+                        .tutorialHighlightAnchor(isPostcardTutorialActive ? .postcardSellerShareButton : nil)
                         .accessibilityLabel(LocalizedStringKey("postcard_share_accessibility"))
                         .accessibilityIdentifier("postcard_share_button")
                         .disabled(isPostcardTutorialActive)
@@ -334,6 +339,7 @@ struct PostcardView: View {
                         } label: {
                             Image(systemName: "pencil")
                         }
+                        .tutorialHighlightAnchor(isPostcardTutorialActive ? .postcardSellerEditButton : nil)
                         .accessibilityLabel(LocalizedStringKey("postcard_edit_accessibility"))
                         .accessibilityIdentifier("postcard_edit_button")
                         .disabled(isPostcardTutorialActive)
@@ -510,8 +516,9 @@ struct PostcardView: View {
     }
 
     /// Refreshes listing data, seller friend code, and buyer order state.
-    private func refreshListing(isForceRefresh: Bool = false) async {
-        let isListingDirty = await dirtyBits.isPostcardDetailDirty(postcardId: currentListing.id)
+    private func refreshListing(postcardId: String? = nil, isForceRefresh: Bool = false) async {
+        let resolvedPostcardId = postcardId ?? currentListing.id
+        let isListingDirty = await dirtyBits.isPostcardDetailDirty(postcardId: resolvedPostcardId)
         let isShouldForceRefresh = isForceRefresh || isListingDirty
         if !isShouldForceRefresh, await loadDetailFromCache() {
             return
@@ -529,7 +536,7 @@ struct PostcardView: View {
             if isShouldForceRefresh {
                 await session.refreshProfileFromBackend()
             }
-            if let refreshed = try await repo.fetchPostcard(postcardId: currentListing.id) {
+            if let refreshed = try await repo.fetchPostcard(postcardId: resolvedPostcardId) {
                 currentListing = refreshed
                 let cachedFriendCode = refreshed.sellerFriendCode.trimmingCharacters(in: .whitespacesAndNewlines)
                 sellerFriendCode = cachedFriendCode
@@ -543,7 +550,7 @@ struct PostcardView: View {
                 }
                 await saveDetailToCache()
             } else {
-                onListingDeleted?(currentListing.id)
+                onListingDeleted?(resolvedPostcardId)
                 dismiss()
             }
         } catch {
@@ -982,7 +989,7 @@ struct PostcardView: View {
             session.markTutorialScenarioCompleted(finishedScenario)
         }
         Task {
-            await refreshListing(isForceRefresh: true)
+            await refreshListing(postcardId: initialListingId, isForceRefresh: true)
             finalizePendingOrderPageAutoOpen()
         }
     }

@@ -290,7 +290,7 @@ struct ProfileView: View {
                         Button {
                             activeSheet = nil
                         } label: {
-                            Image(systemName: "xmark")
+                            Image(systemName: "chevron.left")
                         }
                         .accessibilityIdentifier("settings_close_button")
                 }

@@ -118,6 +118,8 @@ struct PostcardBrowseView: View {
                     LazyVGrid(columns: gridColumns, spacing: 12) {
                         ForEach(vm.filteredListings) { listing in
                             let ownershipTag = vm.ownershipTag(for: listing.id)
+                            let isPinnedTutorialListing = postcardBrowseTutorial.isActive && ownershipTag != nil
+                            let isGeneralTutorialListing = postcardBrowseTutorial.isActive && ownershipTag == nil
                             NavigationLink {
                                 PostcardView(
                                     listing: listing,
@@ -130,9 +132,9 @@ struct PostcardBrowseView: View {
                                 )
                             }
                             .tutorialHighlightAnchor(
-                                postcardBrowseTutorial.isActive && ownershipTag != nil
+                                isPinnedTutorialListing
                                     ? .postcardBrowsePinnedOwnershipArea
-                                    : nil
+                                    : (isGeneralTutorialListing ? .postcardBrowseGeneralListingsArea : nil)
                             )
                             .frame(maxWidth: .infinity, alignment: .topLeading)
                             .buttonStyle(.plain)
@@ -497,7 +499,7 @@ struct PostcardBrowseView: View {
         }
 
         session.markTutorialScenarioCompleted(.postcardBrowseFirstVisit)
-        Task { await vm.loadOnAppear(session: session) }
+        Task { await vm.refresh(session: session) }
     }
 
     /// Stable tutorial source label used for structured logging.
