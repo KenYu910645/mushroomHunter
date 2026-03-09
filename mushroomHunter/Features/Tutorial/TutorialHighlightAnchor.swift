@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// Stable anchor IDs used by tutorial steps to resolve live highlight frames from real UI elements.
-enum TutorialHighlightTarget: String, Hashable {
+enum TutorialHighlightTarget: Hashable {
     /// Honey amount tag in Mushroom browse top action bar.
     case mushroomBrowseHoneyTag
     /// Search button in Mushroom browse top action bar.
@@ -23,26 +23,8 @@ enum TutorialHighlightTarget: String, Hashable {
     case roomHeaderSection
     /// Attendee section in room detail view.
     case roomAttendeeSection
-    /// Attendee row #0 in room detail attendee list.
-    case roomAttendeeRow0
-    /// Attendee row #1 in room detail attendee list.
-    case roomAttendeeRow1
-    /// Attendee row #2 in room detail attendee list.
-    case roomAttendeeRow2
-    /// Attendee row #3 in room detail attendee list.
-    case roomAttendeeRow3
-    /// Attendee row #4 in room detail attendee list.
-    case roomAttendeeRow4
-    /// Attendee row #5 in room detail attendee list.
-    case roomAttendeeRow5
-    /// Attendee row #6 in room detail attendee list.
-    case roomAttendeeRow6
-    /// Attendee row #7 in room detail attendee list.
-    case roomAttendeeRow7
-    /// Attendee row #8 in room detail attendee list.
-    case roomAttendeeRow8
-    /// Attendee row #9 in room detail attendee list.
-    case roomAttendeeRow9
+    /// One attendee row in room detail attendee list, keyed by rendered row index.
+    case roomAttendeeRow(index: Int)
     /// Attendee confirmation queue button in room detail toolbar.
     case roomAttendeeConfirmationButton
     /// Attendee edit-deposit button in room detail toolbar.
@@ -76,32 +58,10 @@ enum TutorialHighlightTarget: String, Hashable {
 extension TutorialHighlightTarget {
     /// Resolves one stable attendee-row target for a zero-based row index.
     /// - Parameter index: Row index shown in the attendee list.
-    /// - Returns: Matching row target when index is in supported range.
+    /// - Returns: Matching row target when index is non-negative.
     static func roomAttendeeRow(_ index: Int) -> TutorialHighlightTarget? {
-        switch index {
-        case 0:
-            return .roomAttendeeRow0
-        case 1:
-            return .roomAttendeeRow1
-        case 2:
-            return .roomAttendeeRow2
-        case 3:
-            return .roomAttendeeRow3
-        case 4:
-            return .roomAttendeeRow4
-        case 5:
-            return .roomAttendeeRow5
-        case 6:
-            return .roomAttendeeRow6
-        case 7:
-            return .roomAttendeeRow7
-        case 8:
-            return .roomAttendeeRow8
-        case 9:
-            return .roomAttendeeRow9
-        default:
-            return nil
-        }
+        guard index >= 0 else { return nil }
+        return .roomAttendeeRow(index: index)
     }
 
     /// Indicates this target belongs to top-right navigation toolbar actions.
@@ -124,16 +84,7 @@ extension TutorialHighlightTarget {
     /// This is used for per-row attendee targets so highlights stay tightly scoped to a single row.
     var shouldResolveWithFirstAnchorOnly: Bool {
         switch self {
-        case .roomAttendeeRow0,
-             .roomAttendeeRow1,
-             .roomAttendeeRow2,
-             .roomAttendeeRow3,
-             .roomAttendeeRow4,
-             .roomAttendeeRow5,
-             .roomAttendeeRow6,
-             .roomAttendeeRow7,
-             .roomAttendeeRow8,
-             .roomAttendeeRow9:
+        case .roomAttendeeRow:
             return true
         default:
             return false

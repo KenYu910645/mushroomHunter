@@ -23,6 +23,16 @@ struct PostcardDetailCachePayload: Codable {
 
 /// Postcard detail screen with buyer/seller actions for one listing.
 struct PostcardView: View {
+    /// Explicit tutorial presentation phase used by postcard detail flow.
+    private enum PostcardTutorialPhase {
+        /// Tutorial is not currently presented.
+        case inactive
+        /// Tutorial started from first-visit auto trigger.
+        case firstVisit(TutorialScenario)
+        /// Tutorial started from replay entry point.
+        case replay(TutorialScenario)
+    }
+
     /// Callback fired when this listing is deleted, used by browse to remove stale rows immediately.
     private let onListingDeleted: ((String) -> Void)?
     /// Optional postcard detail tutorial override used by replay entry points.
@@ -69,12 +79,10 @@ struct PostcardView: View {
     @State private var isDidRunInitialRefresh: Bool = false
     /// Tracks whether order-context jump is still pending after first refresh.
     @State private var isPendingOpenOrderPageOnAppear: Bool
-    /// Controls in-place postcard detail interactive tutorial overlay visibility.
-    @State private var isPostcardTutorialActive: Bool = false
-    /// Current step index for postcard detail interactive tutorial.
-    @State private var postcardTutorialStepIndex: Int = 0
-    /// Active postcard detail tutorial scenario for step/content lookup.
-    @State private var activePostcardTutorialScenario: TutorialScenario? = nil
+    /// Shared tutorial step-state controller for postcard detail coach marks.
+    @StateObject private var postcardTutorialController = TutorialStepController()
+    /// Explicit postcard tutorial phase for first-visit/replay/inactive states.
+    @State private var postcardTutorialPhase: PostcardTutorialPhase = .inactive
     /// Optional floating toolbar highlight frame rendered in a top window.
     @State private var postcardTutorialFloatingHighlightFrame: CGRect? = nil
     /// Current color scheme used for themed background.
@@ -485,8 +493,17 @@ struct PostcardView: View {
         }
         .onDisappear {
             if isPostcardTutorialActive {
-                isPostcardTutorialActive = false
+                TutorialEventLogger.log(
+                    screen: "postcard_detail",
+                    scenario: activePostcardTutorialScenario,
+                    event: .cancel,
+                    source: postcardTutorialSourceLabel,
+                    stepIndex: postcardTutorialController.stepIndex,
+                    stepCount: currentPostcardTutorialConfig?.steps.count
+                )
+                postcardTutorialController.end()
                 session.endFeatureTutorialPresentation()
+                postcardTutorialPhase = .inactive
             }
             postcardTutorialFloatingHighlightFrame = nil
         }
@@ -724,148 +741,78 @@ struct PostcardView: View {
         }
     }
 
-    /// Current postcard detail tutorial step payload.
-    private var currentPostcardTutorialStep: TutorialConfig.PostcardDetailTutorial.Step? {
-        guard let tutorialConfig = currentPostcardTutorialConfig else { return nil }
-        guard tutorialConfig.steps.isEmpty == false else { return nil }
-        return tutorialConfig.steps[postcardTutorialStepIndex]
+    /// Current postcard step converted into shared overlay step shape.
+    private var currentPostcardOverlayStep: TutorialOverlayStep? {
+        postcardTutorialController.currentStep
     }
 
     /// Indicates current postcard tutorial step is first.
     private var isPostcardTutorialFirstStep: Bool {
-        postcardTutorialStepIndex == 0
+        postcardTutorialController.isFirstStep
     }
 
     /// Indicates current postcard tutorial step is last.
     private var isPostcardTutorialLastStep: Bool {
-        guard let tutorialConfig = currentPostcardTutorialConfig else { return true }
-        return postcardTutorialStepIndex >= tutorialConfig.steps.count - 1
+        postcardTutorialController.isLastStep
+    }
+
+    /// Indicates postcard detail tutorial overlay is currently active.
+    private var isPostcardTutorialActive: Bool {
+        switch postcardTutorialPhase {
+        case .inactive:
+            return false
+        case .firstVisit, .replay:
+            return postcardTutorialController.isActive
+        }
     }
 
     /// Blocking highlight overlay rendered above live postcard detail content.
     /// - Parameter anchors: Live anchor map collected from detail descendants.
+    @ViewBuilder
     private func postcardDetailTutorialOverlay(
         anchors: [TutorialHighlightTarget: [Anchor<CGRect>]]
     ) -> some View {
-        GeometryReader { proxy in
-            if let step = currentPostcardTutorialStep {
-                let highlightFrame = TutorialHighlightFrameResolver.resolveFrame(
-                    target: step.highlightTarget,
-                    anchors: anchors,
-                    proxy: proxy
-                )
-                let messageBoxY = TutorialHighlightFrameResolver.resolveMessageBoxCenterY(
-                    highlightFrame: highlightFrame,
-                    proxy: proxy
-                )
-                let isToolbarTarget = step.highlightTarget?.isNavigationToolbarActionTarget == true
-                let floatingFrame = isToolbarTarget ? highlightFrame : nil
-
-                ZStack {
-                    Color.clear
-                        .onAppear {
-                            if postcardTutorialFloatingHighlightFrame != floatingFrame {
-                                postcardTutorialFloatingHighlightFrame = floatingFrame
-                            }
-                        }
-                        .onChange(of: floatingFrame) { _, newValue in
-                            if postcardTutorialFloatingHighlightFrame != newValue {
-                                postcardTutorialFloatingHighlightFrame = newValue
-                            }
-                        }
-
-                    Color.black.opacity(0.6)
-                        .overlay {
-                            if let highlightFrame {
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .frame(width: highlightFrame.width, height: highlightFrame.height)
-                                    .position(x: highlightFrame.midX, y: highlightFrame.midY)
-                                    .blendMode(.destinationOut)
-                            }
-                        }
-                        .compositingGroup()
-                        .ignoresSafeArea()
-
-                    if let highlightFrame, !isToolbarTarget {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(Color.yellow, lineWidth: 2)
-                            .frame(width: highlightFrame.width, height: highlightFrame.height)
-                            .position(x: highlightFrame.midX, y: highlightFrame.midY)
-                    }
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(step.title)
-                            .font(.headline)
-                        TutorialMessageBodyView(message: step.message)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(16)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .frame(width: max(0, proxy.size.width - 32), alignment: .leading)
-                    .position(x: proxy.size.width * 0.5, y: messageBoxY)
-
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Button(LocalizedStringKey("tutorial_back")) {
-                                showPreviousPostcardTutorialStep()
-                            }
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(Color.black.opacity(isPostcardTutorialFirstStep ? 0.2 : 0.45), in: Capsule())
-                            .disabled(isPostcardTutorialFirstStep)
-
-                            Spacer(minLength: 0)
-
-                            Button(isPostcardTutorialLastStep ? String(localized: "common_done") : String(localized: "tutorial_next")) {
-                                advancePostcardTutorialStep()
-                            }
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 10)
-                            .background(Color.accentColor.opacity(0.55), in: Capsule())
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, proxy.safeAreaInsets.bottom + 14)
-                    }
-                }
-            }
+        if let overlayStep = currentPostcardOverlayStep {
+            TutorialCoachOverlay(
+                step: overlayStep,
+                isFirstStep: isPostcardTutorialFirstStep,
+                isLastStep: isPostcardTutorialLastStep,
+                anchors: anchors,
+                floatingToolbarHighlightFrame: $postcardTutorialFloatingHighlightFrame,
+                onBack: showPreviousPostcardTutorialStep,
+                onNext: advancePostcardTutorialStep
+            )
         }
-        .ignoresSafeArea()
     }
 
     /// Handles initial detail load with tutorial-first flow for first entry scenarios.
     private func handleInitialPostcardLoadFlow() async {
-        if tutorialScenarioOverride == .postcardBuyerFirstVisit {
-            beginPostcardTutorial(scenario: .postcardBuyerFirstVisit)
+        let postcardPreloadDecision = FeatureTutorialCoordinator.resolvePostcardPreloadDecision(
+            overrideScenario: tutorialScenarioOverride,
+            isUITesting: AppTesting.isUITesting,
+            isSeller: isSeller,
+            isPostcardSellerScenarioCompleted: session.isTutorialScenarioCompleted(.postcardSellerFirstVisit),
+            isPostcardBuyerScenarioCompleted: session.isTutorialScenarioCompleted(.postcardBuyerFirstVisit)
+        )
+        if case .start(let preloadScenario) = postcardPreloadDecision {
+            beginPostcardTutorial(scenario: preloadScenario)
             return
         }
-        if tutorialScenarioOverride == .postcardSellerFirstVisit {
-            beginPostcardTutorial(scenario: .postcardSellerFirstVisit)
-            return
-        }
-
         if AppTesting.isUITesting {
             await refreshListing(isForceRefresh: isForceRefreshOnAppear)
             finalizePendingOrderPageAutoOpen()
             return
         }
 
-        let firstScenario = isSeller ? TutorialScenario.postcardSellerFirstVisit : .postcardBuyerFirstVisit
-        if !session.isTutorialScenarioCompleted(firstScenario) {
-            beginPostcardTutorial(scenario: firstScenario)
-            return
-        }
-
         await refreshListing(isForceRefresh: isForceRefreshOnAppear)
 
-        let refreshedScenario = isSeller ? TutorialScenario.postcardSellerFirstVisit : .postcardBuyerFirstVisit
-        if !session.isTutorialScenarioCompleted(refreshedScenario) {
-            beginPostcardTutorial(scenario: refreshedScenario)
+        let postcardPostloadDecision = FeatureTutorialCoordinator.resolvePostcardPostloadDecision(
+            isSeller: isSeller,
+            isPostcardSellerScenarioCompleted: session.isTutorialScenarioCompleted(.postcardSellerFirstVisit),
+            isPostcardBuyerScenarioCompleted: session.isTutorialScenarioCompleted(.postcardBuyerFirstVisit)
+        )
+        if case .start(let postloadScenario) = postcardPostloadDecision {
+            beginPostcardTutorial(scenario: postloadScenario)
             return
         }
 
@@ -884,16 +831,33 @@ struct PostcardView: View {
     /// - Parameter scenario: Target postcard tutorial scenario.
     private func beginPostcardTutorial(scenario: TutorialScenario) {
         guard !isPostcardTutorialActive else { return }
-        activePostcardTutorialScenario = scenario
+        postcardTutorialPhase = tutorialScenarioOverride == nil ? .firstVisit(scenario) : .replay(scenario)
         guard let tutorialConfig = currentPostcardTutorialConfig,
               tutorialConfig.steps.isEmpty == false else {
-            activePostcardTutorialScenario = nil
+            postcardTutorialPhase = .inactive
             return
         }
-        postcardTutorialStepIndex = 0
+        let overlaySteps = tutorialConfig.steps.map { tutorialStep in
+            TutorialOverlayStep(
+                highlightTarget: tutorialStep.highlightTarget,
+                title: tutorialStep.title,
+                message: tutorialStep.message
+            )
+        }
+        guard postcardTutorialController.begin(steps: overlaySteps) else {
+            postcardTutorialPhase = .inactive
+            return
+        }
         applyPostcardTutorialScene(tutorialConfig, scenario: scenario)
-        isPostcardTutorialActive = true
         session.beginFeatureTutorialPresentation()
+        TutorialEventLogger.log(
+            screen: "postcard_detail",
+            scenario: scenario,
+            event: .start,
+            source: postcardTutorialSourceLabel,
+            stepIndex: postcardTutorialController.stepIndex,
+            stepCount: currentPostcardTutorialConfig?.steps.count
+        )
     }
 
     /// Applies fake postcard detail scene for the active tutorial.
@@ -959,29 +923,57 @@ struct PostcardView: View {
 
     /// Moves postcard tutorial to previous step when available.
     private func showPreviousPostcardTutorialStep() {
-        guard postcardTutorialStepIndex > 0 else { return }
-        postcardTutorialStepIndex -= 1
+        postcardTutorialController.moveToPreviousStep()
+        TutorialEventLogger.log(
+            screen: "postcard_detail",
+            scenario: activePostcardTutorialScenario,
+            event: .back,
+            source: postcardTutorialSourceLabel,
+            stepIndex: postcardTutorialController.stepIndex,
+            stepCount: currentPostcardTutorialConfig?.steps.count
+        )
     }
 
     /// Advances postcard tutorial to next step or completes when on final step.
     private func advancePostcardTutorialStep() {
-        if isPostcardTutorialLastStep {
+        if postcardTutorialController.moveToNextStepOrFinish() {
             finishPostcardTutorial()
             return
         }
-        postcardTutorialStepIndex += 1
+        TutorialEventLogger.log(
+            screen: "postcard_detail",
+            scenario: activePostcardTutorialScenario,
+            event: .next,
+            source: postcardTutorialSourceLabel,
+            stepIndex: postcardTutorialController.stepIndex,
+            stepCount: currentPostcardTutorialConfig?.steps.count
+        )
     }
 
     /// Completes postcard tutorial and restores normal detail data flow.
     private func finishPostcardTutorial() {
         let finishedScenario = activePostcardTutorialScenario
-        isPostcardTutorialActive = false
+        let isReplayFlow: Bool
+        switch postcardTutorialPhase {
+        case .replay:
+            isReplayFlow = true
+        case .inactive, .firstVisit:
+            isReplayFlow = false
+        }
+        TutorialEventLogger.log(
+            screen: "postcard_detail",
+            scenario: finishedScenario,
+            event: .finish,
+            source: postcardTutorialSourceLabel,
+            stepIndex: postcardTutorialController.stepIndex,
+            stepCount: currentPostcardTutorialConfig?.steps.count
+        )
+        postcardTutorialController.end()
         postcardTutorialFloatingHighlightFrame = nil
         session.endFeatureTutorialPresentation()
-        activePostcardTutorialScenario = nil
+        postcardTutorialPhase = .inactive
 
-        if tutorialScenarioOverride == .postcardBuyerFirstVisit
-            || tutorialScenarioOverride == .postcardSellerFirstVisit {
+        if isReplayFlow {
             onTutorialReplayFinished?()
             return
         }
@@ -992,6 +984,26 @@ struct PostcardView: View {
         Task {
             await refreshListing(isForceRefresh: true)
             finalizePendingOrderPageAutoOpen()
+        }
+    }
+
+    /// Active postcard tutorial scenario resolved from explicit phase.
+    private var activePostcardTutorialScenario: TutorialScenario? {
+        switch postcardTutorialPhase {
+        case .inactive:
+            return nil
+        case .firstVisit(let scenario), .replay(let scenario):
+            return scenario
+        }
+    }
+
+    /// Stable postcard tutorial source label used for structured logging.
+    private var postcardTutorialSourceLabel: String {
+        switch postcardTutorialPhase {
+        case .replay:
+            return "replay"
+        case .inactive, .firstVisit:
+            return "first_visit"
         }
     }
 

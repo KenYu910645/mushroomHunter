@@ -47,10 +47,8 @@ struct PostcardBrowseView: View {
     @FocusState private var isSearchFieldFocused: Bool
     /// Debounce task used to delay backend search until typing pauses.
     @State private var querySearchDebounceTask: Task<Void, Never>? = nil
-    /// Controls in-place postcard browse interactive tutorial overlay visibility.
-    @State private var isPostcardBrowseTutorialActive: Bool = false
-    /// Current step index for postcard browse interactive tutorial.
-    @State private var postcardBrowseTutorialStepIndex: Int = 0
+    /// Shared tutorial step controller for postcard browse coach marks.
+    @StateObject private var postcardBrowseTutorial = TutorialStepController()
     /// Pending push route provided by app-level notification router.
     @Binding private var pendingPushRoute: PostcardBrowsePushRoute?
     /// Active push route currently pushed in postcard navigation stack.
@@ -132,7 +130,7 @@ struct PostcardBrowseView: View {
                                 )
                             }
                             .tutorialHighlightAnchor(
-                                isPostcardBrowseTutorialActive && ownershipTag != nil
+                                postcardBrowseTutorial.isActive && ownershipTag != nil
                                     ? .postcardBrowsePinnedOwnershipArea
                                     : nil
                             )
@@ -174,7 +172,7 @@ struct PostcardBrowseView: View {
                 .padding(.vertical, 8)
             }
             .refreshable {
-                guard !isPostcardBrowseTutorialActive else { return }
+                guard !postcardBrowseTutorial.isActive else { return }
                 await vm.refresh(session: session)
             }
             .navigationTitle(LocalizedStringKey("postcard_title"))
@@ -184,7 +182,7 @@ struct PostcardBrowseView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
-                        guard !isPostcardBrowseTutorialActive else { return }
+                        guard !postcardBrowseTutorial.isActive else { return }
                         Task { @MainActor in
                             await notificationInbox.refreshFromServer()
                             isNotificationInboxPresented = true
@@ -205,19 +203,19 @@ struct PostcardBrowseView: View {
                 }
             }
             .background(Theme.backgroundGradient(for: scheme))
-            .allowsHitTesting(!isPostcardBrowseTutorialActive)
+            .allowsHitTesting(!postcardBrowseTutorial.isActive)
             .overlay {
                 if vm.isLoading && vm.filteredListings.isEmpty {
                     ProgressView("Loading postcards…")
                 }
             }
             .overlay {
-                if isPostcardBrowseTutorialActive {
+                if postcardBrowseTutorial.isActive {
                     Color.clear
                 }
             }
             .overlayPreferenceValue(TutorialHighlightAnchorPreferenceKey.self) { anchors in
-                if isPostcardBrowseTutorialActive {
+                if postcardBrowseTutorial.isActive {
                     postcardBrowseTutorialOverlay(anchors: anchors)
                 }
             }
@@ -267,15 +265,23 @@ struct PostcardBrowseView: View {
             schedulePostcardSearch(for: latestQuery)
         }
         .onDisappear {
-            if isPostcardBrowseTutorialActive {
-                isPostcardBrowseTutorialActive = false
+            if postcardBrowseTutorial.isActive {
+                TutorialEventLogger.log(
+                    screen: "postcard_browse",
+                    scenario: .postcardBrowseFirstVisit,
+                    event: .cancel,
+                    source: tutorialSourceLabel,
+                    stepIndex: postcardBrowseTutorial.stepIndex,
+                    stepCount: postcardBrowseOverlaySteps.count
+                )
+                postcardBrowseTutorial.end()
                 session.endFeatureTutorialPresentation()
             }
             querySearchDebounceTask?.cancel()
             querySearchDebounceTask = nil
         }
         .task(id: browseDataRefreshToken) {
-            guard !isPostcardBrowseTutorialActive else { return }
+            guard !postcardBrowseTutorial.isActive else { return }
             await vm.refresh(session: session)
         }
     }
@@ -307,10 +313,10 @@ struct PostcardBrowseView: View {
             searchButtonIdentifier: "postcard_search_button",
             createButtonIdentifier: "postcard_create_button",
             isStarsVisible: false,
-            tutorialBarTarget: isPostcardBrowseTutorialActive ? .postcardBrowseTopActionBar : nil,
-            tutorialHoneyTarget: isPostcardBrowseTutorialActive ? .postcardBrowseHoneyTag : nil,
-            tutorialSearchButtonTarget: isPostcardBrowseTutorialActive ? .postcardBrowseSearchButton : nil,
-            tutorialCreateButtonTarget: isPostcardBrowseTutorialActive ? .postcardBrowseCreateButton : nil
+            tutorialBarTarget: postcardBrowseTutorial.isActive ? .postcardBrowseTopActionBar : nil,
+            tutorialHoneyTarget: postcardBrowseTutorial.isActive ? .postcardBrowseHoneyTag : nil,
+            tutorialSearchButtonTarget: postcardBrowseTutorial.isActive ? .postcardBrowseSearchButton : nil,
+            tutorialCreateButtonTarget: postcardBrowseTutorial.isActive ? .postcardBrowseCreateButton : nil
         )
         .padding(.horizontal)
     }
@@ -318,7 +324,7 @@ struct PostcardBrowseView: View {
     /// Triggers debounced backend search while user types in postcard search field.
     /// - Parameter latestQuery: Latest raw query text from inline search field.
     private func schedulePostcardSearch(for latestQuery: String) {
-        guard !isPostcardBrowseTutorialActive else { return }
+        guard !postcardBrowseTutorial.isActive else { return }
         querySearchDebounceTask?.cancel()
 
         let trimmedQuery = latestQuery.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -381,100 +387,33 @@ struct PostcardBrowseView: View {
         TutorialConfig.PostcardBrowse.scenario
     }
 
-    /// Current step payload in postcard browse tutorial.
-    private var currentPostcardBrowseTutorialStep: TutorialConfig.PostcardBrowse.Step {
-        postcardBrowseTutorialScenario.steps[postcardBrowseTutorialStepIndex]
-    }
-
-    /// Indicates current tutorial step is the final one.
-    private var isPostcardBrowseTutorialLastStep: Bool {
-        postcardBrowseTutorialStepIndex >= postcardBrowseTutorialScenario.steps.count - 1
-    }
-
-    /// Indicates current tutorial step is the first one.
-    private var isPostcardBrowseTutorialFirstStep: Bool {
-        postcardBrowseTutorialStepIndex == 0
+    /// Shared overlay steps converted from postcard browse tutorial config.
+    private var postcardBrowseOverlaySteps: [TutorialOverlayStep] {
+        postcardBrowseTutorialScenario.steps.map { step in
+            TutorialOverlayStep(
+                highlightTarget: step.highlightTarget,
+                title: step.title,
+                message: step.message
+            )
+        }
     }
 
     /// Blocking highlight overlay rendered above live postcard browse content.
     /// - Parameter anchors: Live anchor map collected from browse descendants.
+    @ViewBuilder
     private func postcardBrowseTutorialOverlay(
         anchors: [TutorialHighlightTarget: [Anchor<CGRect>]]
     ) -> some View {
-        GeometryReader { proxy in
-            let step = currentPostcardBrowseTutorialStep
-            let highlightFrame = TutorialHighlightFrameResolver.resolveFrame(
-                target: step.highlightTarget,
+        if let currentStep = postcardBrowseTutorial.currentStep {
+            TutorialCoachOverlay(
+                step: currentStep,
+                isFirstStep: postcardBrowseTutorial.isFirstStep,
+                isLastStep: postcardBrowseTutorial.isLastStep,
                 anchors: anchors,
-                proxy: proxy
+                onBack: showPreviousPostcardBrowseTutorialStep,
+                onNext: advancePostcardBrowseTutorialStep
             )
-            let messageBoxY = TutorialHighlightFrameResolver.resolveMessageBoxCenterY(
-                highlightFrame: highlightFrame,
-                proxy: proxy
-            )
-
-            ZStack {
-                Color.black.opacity(0.6)
-                    .overlay {
-                        if let highlightFrame {
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .frame(width: highlightFrame.width, height: highlightFrame.height)
-                                .position(x: highlightFrame.midX, y: highlightFrame.midY)
-                                .blendMode(.destinationOut)
-                        }
-                    }
-                    .compositingGroup()
-                    .ignoresSafeArea()
-
-                if let highlightFrame {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.yellow, lineWidth: 2)
-                        .frame(width: highlightFrame.width, height: highlightFrame.height)
-                        .position(x: highlightFrame.midX, y: highlightFrame.midY)
-                }
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(step.title)
-                        .font(.headline)
-                    TutorialMessageBodyView(message: step.message)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(16)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .frame(width: max(0, proxy.size.width - 32), alignment: .leading)
-                .position(x: proxy.size.width * 0.5, y: messageBoxY)
-
-                VStack {
-                    Spacer()
-                    HStack {
-                        Button(LocalizedStringKey("tutorial_back")) {
-                            showPreviousPostcardBrowseTutorialStep()
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color.black.opacity(isPostcardBrowseTutorialFirstStep ? 0.2 : 0.45), in: Capsule())
-                        .disabled(isPostcardBrowseTutorialFirstStep)
-
-                        Spacer(minLength: 0)
-
-                        Button(isPostcardBrowseTutorialLastStep ? String(localized: "common_done") : String(localized: "tutorial_next")) {
-                            advancePostcardBrowseTutorialStep()
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 10)
-                        .background(Color.accentColor.opacity(0.55), in: Capsule())
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, proxy.safeAreaInsets.bottom + 14)
-                }
-            }
         }
-        .ignoresSafeArea()
     }
 
     /// Starts postcard browse tutorial when needed, otherwise loads normal backend data.
@@ -494,32 +433,60 @@ struct PostcardBrowseView: View {
 
     /// Begins postcard browse tutorial mode and seeds fake local listings.
     private func beginPostcardBrowseTutorial() {
-        guard !isPostcardBrowseTutorialActive else { return }
-        guard !postcardBrowseTutorialScenario.steps.isEmpty else { return }
-        postcardBrowseTutorialStepIndex = 0
+        guard postcardBrowseTutorial.begin(steps: postcardBrowseOverlaySteps) else { return }
         vm.loadPostcardBrowseTutorialScene()
-        isPostcardBrowseTutorialActive = true
         session.beginFeatureTutorialPresentation()
+        TutorialEventLogger.log(
+            screen: "postcard_browse",
+            scenario: .postcardBrowseFirstVisit,
+            event: .start,
+            source: tutorialSourceLabel,
+            stepIndex: postcardBrowseTutorial.stepIndex,
+            stepCount: postcardBrowseOverlaySteps.count
+        )
     }
 
     /// Shows previous tutorial step when current step is not first.
     private func showPreviousPostcardBrowseTutorialStep() {
-        guard postcardBrowseTutorialStepIndex > 0 else { return }
-        postcardBrowseTutorialStepIndex -= 1
+        postcardBrowseTutorial.moveToPreviousStep()
+        TutorialEventLogger.log(
+            screen: "postcard_browse",
+            scenario: .postcardBrowseFirstVisit,
+            event: .back,
+            source: tutorialSourceLabel,
+            stepIndex: postcardBrowseTutorial.stepIndex,
+            stepCount: postcardBrowseOverlaySteps.count
+        )
     }
 
     /// Advances to next tutorial step or exits tutorial when final step is completed.
     private func advancePostcardBrowseTutorialStep() {
-        if isPostcardBrowseTutorialLastStep {
+        let isFinishing = postcardBrowseTutorial.moveToNextStepOrFinish()
+        if isFinishing {
             finishPostcardBrowseTutorial()
-            return
+        } else {
+            TutorialEventLogger.log(
+                screen: "postcard_browse",
+                scenario: .postcardBrowseFirstVisit,
+                event: .next,
+                source: tutorialSourceLabel,
+                stepIndex: postcardBrowseTutorial.stepIndex,
+                stepCount: postcardBrowseOverlaySteps.count
+            )
         }
-        postcardBrowseTutorialStepIndex += 1
     }
 
     /// Completes tutorial and restores normal postcard browse data flow.
     private func finishPostcardBrowseTutorial() {
-        isPostcardBrowseTutorialActive = false
+        TutorialEventLogger.log(
+            screen: "postcard_browse",
+            scenario: .postcardBrowseFirstVisit,
+            event: .finish,
+            source: tutorialSourceLabel,
+            stepIndex: postcardBrowseTutorial.stepIndex,
+            stepCount: postcardBrowseOverlaySteps.count
+        )
+        postcardBrowseTutorial.end()
         session.endFeatureTutorialPresentation()
 
         if tutorialScenarioOverride == .postcardBrowseFirstVisit {
@@ -529,6 +496,11 @@ struct PostcardBrowseView: View {
 
         session.markTutorialScenarioCompleted(.postcardBrowseFirstVisit)
         Task { await vm.loadOnAppear(session: session) }
+    }
+
+    /// Stable tutorial source label used for structured logging.
+    private var tutorialSourceLabel: String {
+        tutorialScenarioOverride == nil ? "first_visit" : "replay"
     }
 
 }

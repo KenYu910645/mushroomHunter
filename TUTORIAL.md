@@ -25,6 +25,33 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
   - Postcard detail seller first-entry tutorial (`postcardSellerFirstVisit`).
   - Help entry now opens a tutorial scenario list so users can replay available tutorials.
   - Single-file tuning support via `mushroomHunter/Features/Tutorial/TutorialConfig.swift`.
+  - Shared browse-tutorial infrastructure extracted:
+    - `TutorialStepController` for reusable step-state transitions.
+    - `TutorialCoachOverlay` for reusable browse coach-mark rendering.
+    - `RoomBrowseView` and `PostcardBrowseView` now use the shared components.
+  - Shared detail-tutorial infrastructure extracted:
+    - `FeatureTutorialCoordinator` centralizes room/postcard first-load tutorial start decisions.
+    - `RoomView` and `PostcardView` now reuse `TutorialCoachOverlay` (including floating toolbar highlight support).
+  - Structured tutorial event logging:
+    - `TutorialEventLogger` records start/back/next/finish/cancel events for room/postcard browse/detail tutorials.
+
+## Refactor Cleanup Tracker
+This tracker maps to the 1~7 cleanup plan and should be kept updated.
+
+1. Shared `FeatureTutorialController` state machine:
+   - `DONE`: browse + room detail + postcard detail now all use shared `TutorialStepController`.
+2. Reusable `TutorialOverlayView`:
+   - `DONE`: room/postcard browse/detail overlays now reuse `TutorialCoachOverlay` (with floating-toolbar support).
+3. Move scenario-start decision logic out of views:
+   - `DONE`: room/postcard first-load tutorial start decisions now use `FeatureTutorialCoordinator`.
+4. Replace multi-boolean view state with explicit tutorial phase enum:
+   - `DONE`: `RoomView` and `PostcardView` now use explicit tutorial phase enums (`inactive` / `firstVisit` / `replay`) instead of optional-scenario + replay-flag style state.
+5. Simplify highlight target modeling (remove fixed row0...row9 pattern):
+   - `DONE`: room attendee highlights now use dynamic target ids (`roomAttendeeRow(index:)`) instead of fixed `roomAttendeeRow0...row9` cases.
+6. Add structured tutorial event logging:
+   - `DONE`: `TutorialEventLogger` now logs all room/postcard browse/detail tutorial actions.
+7. Separate/deprecate legacy static tutorial path (`Features/Profile/TutorialView.swift`):
+   - `DONE`: legacy static screenshot tutorial is deprecated; `TutorialView` is now a compatibility wrapper that routes to `TutorialCatalogView`.
 
 ## Core Tutorial Pattern
 - Load a predefined tutorial scene model for the target page.
@@ -66,7 +93,7 @@ For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buy
 - Tunable content:
   - `steps`: controls page count, step card title/message copy, and highlight target id.
   - `highlightTarget`: stable UI anchor id used for automatic highlight detection across devices/Dynamic Type.
-  - Room detail attendee steps can now target row-level anchors (`roomAttendeeRow0`...`roomAttendeeRow9`) instead of only section-level highlighting.
+  - Room detail attendee steps now target dynamic row-level anchors (`roomAttendeeRow(index:)`) instead of fixed `roomAttendeeRow0...row9` ids.
   - Row-level attendee targets resolve using the first matched row anchor (not union of all matched rows) to keep highlight rectangles tight.
   - Message-card Y auto-placement:
     - When a highlight target exists, the message card is auto-placed near the target.

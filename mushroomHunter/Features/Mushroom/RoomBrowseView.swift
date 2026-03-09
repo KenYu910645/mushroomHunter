@@ -39,8 +39,7 @@ struct RoomBrowseView: View {
     @State private var isSearchFieldVisible: Bool = false // Controls inline search field visibility.
     @State private var isDepositFieldFocused: Bool = false // Controls first-responder focus for the deposit entry field.
     @State private var isNotificationInboxPresented: Bool = false // Controls notification inbox sheet presentation.
-    @State private var isMushroomBrowseTutorialActive: Bool = false // Controls in-place Mushroom browse interactive tutorial overlay visibility.
-    @State private var mushroomBrowseTutorialStepIndex: Int = 0 // Current step index for Mushroom browse interactive tutorial.
+    @StateObject private var mushroomBrowseTutorial = TutorialStepController() // Shared tutorial step controller for Mushroom browse coach marks.
     @FocusState private var isSearchFieldFocused: Bool // Controls keyboard focus for inline search field.
     @Environment(\.colorScheme) private var scheme // Used for themed background.
     @State private var activePushRoute: RoomBrowsePushRoute? = nil // Active push route currently being pushed in navigation stack.
@@ -86,8 +85,16 @@ struct RoomBrowseView: View {
                     startMushroomBrowseTutorialIfNeeded()
                 }
                 .onDisappear {
-                    if isMushroomBrowseTutorialActive {
-                        isMushroomBrowseTutorialActive = false
+                    if mushroomBrowseTutorial.isActive {
+                        TutorialEventLogger.log(
+                            screen: "room_browse",
+                            scenario: .mushroomBrowseFirstVisit,
+                            event: .cancel,
+                            source: tutorialSourceLabel,
+                            stepIndex: mushroomBrowseTutorial.stepIndex,
+                            stepCount: mushroomBrowseOverlaySteps.count
+                        )
+                        mushroomBrowseTutorial.end()
                         session.endFeatureTutorialPresentation()
                     }
                 }
@@ -99,7 +106,7 @@ struct RoomBrowseView: View {
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button {
-                            guard !isMushroomBrowseTutorialActive else { return }
+                            guard !mushroomBrowseTutorial.isActive else { return }
                             Task { @MainActor in
                                 await notificationInbox.refreshFromServer()
                                 isNotificationInboxPresented = true
@@ -232,12 +239,12 @@ struct RoomBrowseView: View {
             }
         }
         .overlay {
-            if isMushroomBrowseTutorialActive {
+            if mushroomBrowseTutorial.isActive {
                 Color.clear
             }
         }
         .overlayPreferenceValue(TutorialHighlightAnchorPreferenceKey.self) { anchors in
-            if isMushroomBrowseTutorialActive {
+            if mushroomBrowseTutorial.isActive {
                 mushroomBrowseTutorialOverlay(anchors: anchors)
             }
         }
@@ -280,9 +287,9 @@ struct RoomBrowseView: View {
                         searchButtonIdentifier: "browse_search_button",
                         createButtonIdentifier: "browse_create_button",
                         isStarsVisible: false,
-                        tutorialHoneyTarget: isMushroomBrowseTutorialActive ? .mushroomBrowseHoneyTag : nil,
-                        tutorialSearchButtonTarget: isMushroomBrowseTutorialActive ? .mushroomBrowseSearchButton : nil,
-                        tutorialCreateButtonTarget: isMushroomBrowseTutorialActive ? .mushroomBrowseCreateButton : nil
+                        tutorialHoneyTarget: mushroomBrowseTutorial.isActive ? .mushroomBrowseHoneyTag : nil,
+                        tutorialSearchButtonTarget: mushroomBrowseTutorial.isActive ? .mushroomBrowseSearchButton : nil,
+                        tutorialCreateButtonTarget: mushroomBrowseTutorial.isActive ? .mushroomBrowseCreateButton : nil
                     )
                     .padding(.horizontal)
 
@@ -326,8 +333,8 @@ struct RoomBrowseView: View {
                     LazyVStack(spacing: 0) {
                         ForEach(vm.filteredListings) { listing in
                             let ownershipTag = vm.ownershipTag(for: listing.id)
-                            let isPinnedTutorialListing = isMushroomBrowseTutorialActive && ownershipTag != nil
-                            let isJoinableTutorialListing = isMushroomBrowseTutorialActive && ownershipTag == nil
+                            let isPinnedTutorialListing = mushroomBrowseTutorial.isActive && ownershipTag != nil
+                            let isJoinableTutorialListing = mushroomBrowseTutorial.isActive && ownershipTag == nil
                             HStack(alignment: .top, spacing: 12) {
                                 NavigationLink {
                                     RoomView(
@@ -386,11 +393,11 @@ struct RoomBrowseView: View {
                 .padding(.vertical, 8)
             }
             .refreshable {
-                guard !isMushroomBrowseTutorialActive else { return }
+                guard !mushroomBrowseTutorial.isActive else { return }
                 await vm.fetchListings(forceRefresh: true)
             }
             .background(Theme.backgroundGradient(for: scheme))
-            .allowsHitTesting(!isMushroomBrowseTutorialActive)
+            .allowsHitTesting(!mushroomBrowseTutorial.isActive)
         }
     }
 
@@ -399,100 +406,33 @@ struct RoomBrowseView: View {
         TutorialConfig.MushroomBrowse.scenario
     }
 
-    /// Current step payload in Mushroom browse tutorial.
-    private var currentMushroomBrowseTutorialStep: TutorialConfig.MushroomBrowse.Step {
-        mushroomBrowseTutorialScenario.steps[mushroomBrowseTutorialStepIndex]
-    }
-
-    /// Indicates current tutorial step is the final one.
-    private var isMushroomBrowseTutorialLastStep: Bool {
-        mushroomBrowseTutorialStepIndex >= mushroomBrowseTutorialScenario.steps.count - 1
-    }
-
-    /// Indicates current tutorial step is the first one.
-    private var isMushroomBrowseTutorialFirstStep: Bool {
-        mushroomBrowseTutorialStepIndex == 0
+    /// Shared overlay steps converted from Mushroom browse tutorial config.
+    private var mushroomBrowseOverlaySteps: [TutorialOverlayStep] {
+        mushroomBrowseTutorialScenario.steps.map { step in
+            TutorialOverlayStep(
+                highlightTarget: step.highlightTarget,
+                title: step.title,
+                message: step.message
+            )
+        }
     }
 
     /// Blocking highlight overlay rendered above live Room browse content.
     /// - Parameter anchors: Live anchor map collected from browse descendants.
+    @ViewBuilder
     private func mushroomBrowseTutorialOverlay(
         anchors: [TutorialHighlightTarget: [Anchor<CGRect>]]
     ) -> some View {
-        GeometryReader { proxy in
-            let step = currentMushroomBrowseTutorialStep
-            let highlightFrame = TutorialHighlightFrameResolver.resolveFrame(
-                target: step.highlightTarget,
+        if let currentStep = mushroomBrowseTutorial.currentStep {
+            TutorialCoachOverlay(
+                step: currentStep,
+                isFirstStep: mushroomBrowseTutorial.isFirstStep,
+                isLastStep: mushroomBrowseTutorial.isLastStep,
                 anchors: anchors,
-                proxy: proxy
+                onBack: showPreviousMushroomBrowseTutorialStep,
+                onNext: advanceMushroomBrowseTutorialStep
             )
-            let messageBoxY = TutorialHighlightFrameResolver.resolveMessageBoxCenterY(
-                highlightFrame: highlightFrame,
-                proxy: proxy
-            )
-
-            ZStack {
-                Color.black.opacity(0.6)
-                    .overlay {
-                        if let highlightFrame {
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .frame(width: highlightFrame.width, height: highlightFrame.height)
-                                .position(x: highlightFrame.midX, y: highlightFrame.midY)
-                                .blendMode(.destinationOut)
-                        }
-                    }
-                    .compositingGroup()
-                    .ignoresSafeArea()
-
-                if let highlightFrame {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.yellow, lineWidth: 2)
-                        .frame(width: highlightFrame.width, height: highlightFrame.height)
-                        .position(x: highlightFrame.midX, y: highlightFrame.midY)
-                }
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(step.title)
-                        .font(.headline)
-                    TutorialMessageBodyView(message: step.message)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(16)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .frame(width: max(0, proxy.size.width - 32), alignment: .leading)
-                .position(x: proxy.size.width * 0.5, y: messageBoxY)
-
-                VStack {
-                    Spacer()
-                    HStack {
-                        Button(LocalizedStringKey("tutorial_back")) {
-                            showPreviousMushroomBrowseTutorialStep()
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color.black.opacity(isMushroomBrowseTutorialFirstStep ? 0.2 : 0.45), in: Capsule())
-                        .disabled(isMushroomBrowseTutorialFirstStep)
-
-                        Spacer(minLength: 0)
-
-                        Button(isMushroomBrowseTutorialLastStep ? String(localized: "common_done") : String(localized: "tutorial_next")) {
-                            advanceMushroomBrowseTutorialStep()
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 10)
-                        .background(Color.accentColor.opacity(0.55), in: Capsule())
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, proxy.safeAreaInsets.bottom + 14)
-                }
-            }
         }
-        .ignoresSafeArea()
     }
     
     // MARK: - Row UI
@@ -606,32 +546,60 @@ struct RoomBrowseView: View {
 
     /// Begins Mushroom browse tutorial mode and seeds fake local listings.
     private func beginMushroomBrowseTutorial() {
-        guard !isMushroomBrowseTutorialActive else { return }
-        guard !mushroomBrowseTutorialScenario.steps.isEmpty else { return }
-        mushroomBrowseTutorialStepIndex = 0
+        guard mushroomBrowseTutorial.begin(steps: mushroomBrowseOverlaySteps) else { return }
         vm.loadMushroomBrowseTutorialScene()
-        isMushroomBrowseTutorialActive = true
         session.beginFeatureTutorialPresentation()
+        TutorialEventLogger.log(
+            screen: "room_browse",
+            scenario: .mushroomBrowseFirstVisit,
+            event: .start,
+            source: tutorialSourceLabel,
+            stepIndex: mushroomBrowseTutorial.stepIndex,
+            stepCount: mushroomBrowseOverlaySteps.count
+        )
     }
 
     /// Shows previous tutorial step when current step is not first.
     private func showPreviousMushroomBrowseTutorialStep() {
-        guard mushroomBrowseTutorialStepIndex > 0 else { return }
-        mushroomBrowseTutorialStepIndex -= 1
+        mushroomBrowseTutorial.moveToPreviousStep()
+        TutorialEventLogger.log(
+            screen: "room_browse",
+            scenario: .mushroomBrowseFirstVisit,
+            event: .back,
+            source: tutorialSourceLabel,
+            stepIndex: mushroomBrowseTutorial.stepIndex,
+            stepCount: mushroomBrowseOverlaySteps.count
+        )
     }
 
     /// Advances to next tutorial step or exits tutorial when final step is completed.
     private func advanceMushroomBrowseTutorialStep() {
-        if isMushroomBrowseTutorialLastStep {
+        let isFinishing = mushroomBrowseTutorial.moveToNextStepOrFinish()
+        if isFinishing {
             finishMushroomBrowseTutorial()
-            return
+        } else {
+            TutorialEventLogger.log(
+                screen: "room_browse",
+                scenario: .mushroomBrowseFirstVisit,
+                event: .next,
+                source: tutorialSourceLabel,
+                stepIndex: mushroomBrowseTutorial.stepIndex,
+                stepCount: mushroomBrowseOverlaySteps.count
+            )
         }
-        mushroomBrowseTutorialStepIndex += 1
     }
 
     /// Completes tutorial and restores normal browse data flow.
     private func finishMushroomBrowseTutorial() {
-        isMushroomBrowseTutorialActive = false
+        TutorialEventLogger.log(
+            screen: "room_browse",
+            scenario: .mushroomBrowseFirstVisit,
+            event: .finish,
+            source: tutorialSourceLabel,
+            stepIndex: mushroomBrowseTutorial.stepIndex,
+            stepCount: mushroomBrowseOverlaySteps.count
+        )
+        mushroomBrowseTutorial.end()
         session.endFeatureTutorialPresentation()
 
         if tutorialScenarioOverride == .mushroomBrowseFirstVisit {
@@ -641,6 +609,11 @@ struct RoomBrowseView: View {
 
         session.markTutorialScenarioCompleted(.mushroomBrowseFirstVisit)
         Task { await vm.loadListingsOnAppear() }
+    }
+
+    /// Stable tutorial source label used for structured logging.
+    private var tutorialSourceLabel: String {
+        tutorialScenarioOverride == nil ? "first_visit" : "replay"
     }
 
     /// Routes a tapped notification inbox row into existing app-level deep-link channels.

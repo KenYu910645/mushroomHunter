@@ -160,10 +160,15 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Tutorial/TutorialProgress.swift`
 - `mushroomHunter/Features/Tutorial/TutorialCatalogView.swift`
 - `mushroomHunter/Features/Tutorial/TutorialMessageBodyView.swift` (shared tutorial message renderer; supports `*`/`＊` prefixed bullet lines in step copy)
+- `mushroomHunter/Features/Tutorial/TutorialOverlaySupport.swift` (shared tutorial step controller + reusable browse coach-mark overlay)
+- `mushroomHunter/Features/Tutorial/FeatureTutorialCoordinator.swift` (shared start-decision coordinator for first-load tutorial routing)
+- `mushroomHunter/Features/Tutorial/TutorialEventLogger.swift` (structured tutorial event logger used by browse/detail flows)
 - `mushroomHunter/Features/Mushroom/RoomBrowseView.swift` (real browse UI reused for first-entry tutorial and replay; fake tutorial dataset + highlight overlay + real-data handoff)
 - `mushroomHunter/Features/Mushroom/RoomBrowseViewModel.swift` (Mushroom browse tutorial fake dataset seeding for reused browse UI)
 - `mushroomHunter/Features/Tutorial/TutorialHighlightAnchor.swift` (shared tutorial target-id anchor registry and live highlight-frame resolver with normalized fallback)
+- `mushroomHunter/Features/Tutorial/TutorialFloatingHighlightWindowBridge.swift` (shared top-window stroke renderer for navigation-toolbar tutorial targets)
 - `mushroomHunter/Features/Profile/ProfileView.swift` (settings help route to tutorial scenario list)
+- `mushroomHunter/Features/Profile/TutorialView.swift` (deprecated compatibility wrapper that forwards legacy static-tutorial entries to `TutorialCatalogView`)
 
 ## Backend
 - Auth: Firebase Authentication (Apple + Google)
