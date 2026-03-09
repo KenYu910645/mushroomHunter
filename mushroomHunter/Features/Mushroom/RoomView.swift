@@ -474,7 +474,7 @@ struct RoomView: View {
 
                     if let room = vm.room {
                         headerSection(room)
-                        attendeesSection(room)
+                        attendeeCardsContent(room)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -527,54 +527,197 @@ struct RoomView: View {
         .tutorialHighlightAnchor(isRoomTutorialActive ? .roomHeaderSection : nil)
     }
 
-    private func attendeesSection(_ room: RoomDetail) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(LocalizedStringKey("room_attendees_header"))
-                .font(.headline)
-
-            if room.attendees.isEmpty {
-                ContentUnavailableView(
-                    LocalizedStringKey("room_attendees_empty_title"),
-                    systemImage: "person.3",
-                    description: Text(LocalizedStringKey("room_attendees_empty_description"))
-                )
+    /// Renders attendee cards as top-level siblings in room content.
+    /// This keeps each attendee card parallel to header section in the view hierarchy.
+    private func attendeeCardsContent(_ room: RoomDetail) -> some View {
+        let renderedAttendees = tutorialRenderedAttendees(fallbackAttendees: room.attendees)
+        return Group {
+            if renderedAttendees.isEmpty {
+                emptyAttendeeCard
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(Array(room.attendees.enumerated()), id: \.element.id) { index, attendee in
-                        AttendeeRow(
+                if isRoomTutorialActive {
+                    tutorialStaticAttendeeCard(attendees: renderedAttendees, index: 0)
+                    tutorialStaticAttendeeCard(attendees: renderedAttendees, index: 1)
+                    tutorialStaticAttendeeCard(attendees: renderedAttendees, index: 2)
+                    tutorialStaticAttendeeCard(attendees: renderedAttendees, index: 3)
+                    tutorialStaticAttendeeCard(attendees: renderedAttendees, index: 4)
+                    tutorialStaticAttendeeCard(attendees: renderedAttendees, index: 5)
+                } else {
+                    ForEach(Array(renderedAttendees.enumerated()), id: \.element.id) { index, attendee in
+                        attendeeRow(
                             attendee: attendee,
-                            tutorialHighlightTarget: tutorialHighlightTargetForAttendeeRow(index: index),
-                            isHostAttendee: attendee.status == .host,
-                            isHostViewing: (vm.role == .host),
-                            isAskingToJoin: vm.isAskingToJoin(attendeeId: attendee.id),
-                            isPendingConfirmation: vm.isWaitingConfirmation(attendeeId: attendee.id),
-                            onKick: {
-                                Task {
-                                    await vm.kick(attendeeId: attendee.id)
-                                }
-                            },
-                            onApproveJoinApplication: {
-                                Task {
-                                    await vm.approveJoinApplication(attendeeId: attendee.id)
-                                }
-                            },
-                            onRejectJoinApplication: {
-                                Task {
-                                    await vm.rejectJoinApplication(attendeeId: attendee.id)
-                                }
-                            },
-                            onCopyFriendCode: { code in
-                                copyFriendCode(code)
-                            }
+                            index: index
                         )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                 }
             }
         }
+    }
+
+    /// Shared empty attendee card shown when room has no attendees.
+    private var emptyAttendeeCard: some View {
+        ContentUnavailableView(
+            LocalizedStringKey("room_attendees_empty_title"),
+            systemImage: "person.3",
+            description: Text(LocalizedStringKey("room_attendees_empty_description"))
+        )
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .tutorialHighlightAnchor(isRoomTutorialActive ? .roomAttendeeSection : nil)
+    }
+
+    /// Returns attendee rows that should be rendered in the attendee section.
+    /// Tutorial mode uses scenario-static rows instead of runtime room payload so tutorial anchors remain stable.
+    /// - Parameter fallbackAttendees: Runtime room attendees used outside tutorial mode and as fallback.
+    /// - Returns: Attendees that should be displayed in the current render mode.
+    private func tutorialRenderedAttendees(fallbackAttendees: [RoomAttendee]) -> [RoomAttendee] {
+        guard isRoomTutorialActive, let tutorialConfig = currentRoomTutorialConfig else {
+            return fallbackAttendees
+        }
+        let now = Date()
+        let currentUid = vm.currentUserId ?? "tutorial-current-user"
+        return tutorialConfig.fakeRoom.attendees.map { fakeAttendee in
+            let attendeeId = fakeAttendee.isCurrentUser ? currentUid : fakeAttendee.id
+            let pendingConfirmationRequests = Dictionary(
+                uniqueKeysWithValues: fakeAttendee.pendingConfirmationRequestOffsets.enumerated().map { offsetIndex, offsetSeconds in
+                    ("tutorial-render-confirm-\(attendeeId)-\(offsetIndex)", now.addingTimeInterval(offsetSeconds))
+                }
+            )
+            return RoomAttendee(
+                id: attendeeId,
+                name: fakeAttendee.name.value(for: TutorialConfig.currentLanguage),
+                friendCode: fakeAttendee.friendCode,
+                stars: fakeAttendee.stars,
+                depositHoney: fakeAttendee.depositHoney,
+                joinGreetingMessage: fakeAttendee.joinGreetingMessage.value(for: TutorialConfig.currentLanguage),
+                joinedAt: now.addingTimeInterval(fakeAttendee.joinedAtOffsetSeconds),
+                status: fakeAttendee.status,
+                isHostRatingRequired: fakeAttendee.isHostRatingRequired,
+                pendingConfirmationRequests: pendingConfirmationRequests
+            )
+        }
+    }
+
+    /// Renders one attendee row with shared interaction handlers and tutorial target wiring.
+    /// - Parameters:
+    ///   - attendee: Attendee model to render.
+    ///   - index: Stable display index used by tutorial row-index target.
+    @ViewBuilder
+    private func attendeeRow(
+        attendee: RoomAttendee,
+        index: Int,
+        rowHighlightTargetOverride: TutorialHighlightTarget? = nil
+    ) -> some View {
+        /// Row index target used by legacy/tutorial compatibility steps.
+        let rowHighlightTarget = rowHighlightTargetOverride ?? tutorialHighlightTargetForAttendeeRow(index: index)
+        AttendeeRow(
+            attendee: attendee,
+            tutorialHighlightTarget: rowHighlightTarget,
+            isHostAttendee: attendee.status == .host,
+            isHostViewing: (vm.role == .host),
+            isAskingToJoin: vm.isAskingToJoin(attendeeId: attendee.id),
+            isPendingConfirmation: vm.isWaitingConfirmation(attendeeId: attendee.id),
+            onKick: {
+                Task {
+                    await vm.kick(attendeeId: attendee.id)
+                }
+            },
+            onApproveJoinApplication: {
+                Task {
+                    await vm.approveJoinApplication(attendeeId: attendee.id)
+                }
+            },
+            onRejectJoinApplication: {
+                Task {
+                    await vm.rejectJoinApplication(attendeeId: attendee.id)
+                }
+            },
+            onCopyFriendCode: { code in
+                copyFriendCode(code)
+            }
+        )
+    }
+
+    /// Renders a fixed tutorial attendee slot by index.
+    /// This keeps tutorial row anchors stable while still reusing the production attendee row view.
+    /// - Parameters:
+    ///   - attendees: Source attendee list.
+    ///   - index: Slot index to render.
+    @ViewBuilder
+    private func tutorialStaticAttendeeCard(
+        attendees: [RoomAttendee],
+        index: Int
+    ) -> some View {
+        if attendees.indices.contains(index) {
+            let attendee = attendees[index]
+            let rowHighlightTarget = TutorialHighlightTarget.roomAttendeeRow(index: index)
+            let semanticHighlightTarget = tutorialStaticSemanticTargetForSlot(
+                index: index,
+                attendee: attendee
+            )
+            /// Aggregated list target used by "Attendee list" tutorial step to cover top three attendee cards together.
+            let topThreeAggregateTarget: TutorialHighlightTarget? = index < 3 ? .roomAttendeeTopThreeArea : nil
+            AttendeeRow(
+                attendee: attendee,
+                tutorialHighlightTarget: nil,
+                isHostAttendee: attendee.status == .host,
+                isHostViewing: (vm.role == .host),
+                isAskingToJoin: vm.isAskingToJoin(attendeeId: attendee.id),
+                isPendingConfirmation: vm.isWaitingConfirmation(attendeeId: attendee.id),
+                onKick: {
+                    Task {
+                        await vm.kick(attendeeId: attendee.id)
+                    }
+                },
+                onApproveJoinApplication: {
+                    Task {
+                        await vm.approveJoinApplication(attendeeId: attendee.id)
+                    }
+                },
+                onRejectJoinApplication: {
+                    Task {
+                        await vm.rejectJoinApplication(attendeeId: attendee.id)
+                    }
+                },
+                onCopyFriendCode: { code in
+                    copyFriendCode(code)
+                }
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .tutorialHighlightAnchors(
+                [semanticHighlightTarget, rowHighlightTarget, topThreeAggregateTarget].compactMap { $0 }
+            )
+        }
+    }
+
+    /// Resolves deterministic semantic target for tutorial static attendee slots.
+    /// This bypasses runtime ordering/state drift so key tutorial anchors are always present.
+    /// - Parameters:
+    ///   - index: Static slot index in tutorial-mode attendee list.
+    ///   - attendee: Attendee model rendered in this slot.
+    /// - Returns: Semantic tutorial target bound to this static slot.
+    private func tutorialStaticSemanticTargetForSlot(
+        index: Int,
+        attendee: RoomAttendee
+    ) -> TutorialHighlightTarget? {
+        guard isRoomTutorialActive else { return nil }
+        if index == 0 {
+            return .roomHostInfoFriendCodeArea
+        }
+        if index == 1 {
+            return .roomFirstNonHostStatusStrip
+        }
+        if attendee.status == .askingToJoin {
+            return .roomPendingJoinActionButtons
+        }
+        return nil
     }
 
     /// Resolves attendee-row tutorial highlight target from row index.

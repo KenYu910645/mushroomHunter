@@ -23,8 +23,16 @@ enum TutorialHighlightTarget: Hashable {
     case roomHeaderSection
     /// Attendee section in room detail view.
     case roomAttendeeSection
+    /// Top three attendee cards area in room detail tutorial view.
+    case roomAttendeeTopThreeArea
     /// One attendee row in room detail attendee list, keyed by rendered row index.
     case roomAttendeeRow(index: Int)
+    /// Host friend-code area inside the attendee list.
+    case roomHostInfoFriendCodeArea
+    /// First non-host attendee stats strip (status/honey/stars) inside attendee list.
+    case roomFirstNonHostStatusStrip
+    /// Pending join-request action buttons (approve/reject) for host flow.
+    case roomPendingJoinActionButtons
     /// Attendee confirmation queue button in room detail toolbar.
     case roomAttendeeConfirmationButton
     /// Attendee edit-deposit button in room detail toolbar.
@@ -84,12 +92,16 @@ extension TutorialHighlightTarget {
     /// This is used for per-row attendee targets so highlights stay tightly scoped to a single row.
     var shouldResolveWithFirstAnchorOnly: Bool {
         switch self {
-        case .roomAttendeeRow:
+        case .roomAttendeeRow,
+             .roomHostInfoFriendCodeArea,
+             .roomFirstNonHostStatusStrip,
+             .roomPendingJoinActionButtons:
             return true
         default:
             return false
         }
     }
+
 }
 
 /// Preference payload that collects one or more anchors per tutorial target.
@@ -126,6 +138,27 @@ extension View {
             }
         } else {
             self
+        }
+    }
+
+    /// Registers this view's bounds for multiple tutorial targets in one preference emission.
+    /// Use this when one UI element should be targetable by more than one tutorial step id.
+    /// - Parameter targets: Target identifiers that share the same bounds anchor.
+    /// - Returns: View decorated with one merged anchor-preference payload.
+    @ViewBuilder
+    func tutorialHighlightAnchors(_ targets: [TutorialHighlightTarget]) -> some View {
+        let validTargets = Array(Set(targets))
+        if validTargets.isEmpty {
+            self
+        } else {
+            self.anchorPreference(
+                key: TutorialHighlightAnchorPreferenceKey.self,
+                value: .bounds
+            ) { anchor in
+                Dictionary(uniqueKeysWithValues: validTargets.map { target in
+                    (target, [anchor])
+                })
+            }
         }
     }
 }

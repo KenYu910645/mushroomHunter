@@ -620,7 +620,7 @@ enum TutorialConfig {
                 )
             ),
             RoomDetailTutorial.Step(
-                highlightTarget: .roomAttendeeSection,
+                highlightTarget: .roomAttendeeTopThreeArea,
                 title: BilingualText(
                     en: "Attendee list",
                     cn: "成員列表"
@@ -631,7 +631,7 @@ enum TutorialConfig {
                 )
             ),
             RoomDetailTutorial.Step(
-                highlightTarget: .roomAttendeeRow(index: 0),
+                highlightTarget: .roomHostInfoFriendCodeArea,
                 title: BilingualText(
                     en: "Host information",
                     cn: "主持人資訊"
@@ -642,7 +642,7 @@ enum TutorialConfig {
                 )
             ),
             RoomDetailTutorial.Step(
-                highlightTarget: .roomAttendeeRow(index: 1),
+                highlightTarget: .roomFirstNonHostStatusStrip,
                 title: BilingualText(
                     en: "Other attendee information",
                     cn: "其他成員資訊"
@@ -732,7 +732,7 @@ enum TutorialConfig {
                 )
             ),
             RoomDetailTutorial.Step(
-                highlightTarget: .roomAttendeeSection,
+                highlightTarget: .roomAttendeeTopThreeArea,
                 title: BilingualText(
                     en: "Attendee list",
                     cn: "成員列表"
@@ -743,7 +743,7 @@ enum TutorialConfig {
                 )
             ),
             RoomDetailTutorial.Step(
-                highlightTarget: .roomAttendeeRow(index: 2),
+                highlightTarget: .roomPendingJoinActionButtons,
                 title: BilingualText(
                     en: "Handle join requests",
                     cn: "批准加入申請"

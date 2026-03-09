@@ -99,6 +99,8 @@
 - Host-visible `AskingToJoin` attendee name includes small red dot marker.
 - Attendee status tags use shared colorful mapping: `Host` blue, `Asking/Waiting` yellow, `Ready` green.
 - Star and deposit badges use rounded visual styles (yellow star badge, orange honey badge).
+- Room detail attendee area now uses stacked per-attendee cards (no standalone attendee-title block), and this same card structure is reused by tutorial mode.
+- Room detail no longer renders a standalone `成員清單`/attendee-list title row; each attendee card is rendered as a peer section under room header.
 - Detail page hides navigation title so content starts directly with room snapshot.
 
 ### 7) Notification Inbox Behavior

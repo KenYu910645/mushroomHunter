@@ -47,7 +47,7 @@ This tracker maps to the 1~7 cleanup plan and should be kept updated.
 4. Replace multi-boolean view state with explicit tutorial phase enum:
    - `DONE`: `RoomView` and `PostcardView` now use explicit tutorial phase enums (`inactive` / `firstVisit` / `replay`) instead of optional-scenario + replay-flag style state.
 5. Simplify highlight target modeling (remove fixed row0...row9 pattern):
-   - `DONE`: room attendee highlights now use dynamic target ids (`roomAttendeeRow(index:)`) instead of fixed `roomAttendeeRow0...row9` cases.
+   - `DONE`: room attendee highlights now use semantic target ids (`roomHostInfoFriendCodeArea`, `roomFirstNonHostStatusStrip`, `roomPendingJoinActionButtons`) instead of fixed `roomAttendeeRow0...row9` cases.
 6. Add structured tutorial event logging:
    - `DONE`: `TutorialEventLogger` now logs all room/postcard browse/detail tutorial actions.
 7. Separate/deprecate legacy static tutorial path (`Features/Profile/TutorialView.swift`):
@@ -59,7 +59,7 @@ This tracker maps to the 1~7 cleanup plan and should be kept updated.
 - Disable room/postcard top-right action buttons during tutorial to prevent opening operational sheets.
 - Render scripted fake data directly in the page so the user learns from a realistic UI.
 - Hide bottom tab bar during tutorial so users focus on guided flow only.
-- Resolve highlight boxes from live UI anchors only (target-id based). No fallback geometry is rendered.
+- Resolve highlight boxes from live UI anchors only (target-id based). Room attendee semantic steps do not section-fallback; if a row-level anchor is missing, no cutout is rendered so wrong-area highlighting cannot occur.
 - For navigation-bar toolbar targets (top-right action buttons), keep original toolbar UI and render highlight stroke in a floating top-level overlay window so the rectangle always appears above nav-bar chrome.
 - Toolbar-target classification is centralized in `TutorialHighlightTarget.isNavigationToolbarActionTarget` to avoid per-screen duplicate target lists.
 - Show multi-step coach marks:
@@ -93,8 +93,21 @@ For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buy
 - Tunable content:
   - `steps`: controls page count, step card title/message copy, and highlight target id.
   - `highlightTarget`: stable UI anchor id used for automatic highlight detection across devices/Dynamic Type.
-  - Room detail attendee steps now target dynamic row-level anchors (`roomAttendeeRow(index:)`) instead of fixed `roomAttendeeRow0...row9` ids.
-  - Row-level attendee targets resolve using the first matched row anchor (not union of all matched rows) to keep highlight rectangles tight.
+  - Room detail attendee steps now target semantic attendee cards:
+    - `roomAttendeeTopThreeArea`: aggregate highlight over attendee cards 0~2 (used by "Attendee list/成員列表" step).
+    - `roomHostInfoFriendCodeArea`: host attendee card.
+    - `roomFirstNonHostStatusStrip`: first non-host attendee card.
+    - `roomPendingJoinActionButtons`: asking-to-join attendee card.
+  - Legacy row-index anchor (`roomAttendeeRow(index:)`) is still attached at row container level for compatibility/debug.
+  - Room attendee semantic targets resolve using first-match only (no multi-anchor union), preventing accidental expansion to the whole attendee section.
+  - Room detail tutorial mode renders attendee rows through fixed slot positions (host/member slot 0..N) while reusing the same attendee row view component as production mode; this keeps tutorial anchors deterministic without diverging UI styling.
+  - Room detail tutorial attendee rendering now reads from scenario-static attendee payload (`TutorialConfig` fake attendees) instead of runtime room attendee state, so slot-based anchors are always emitted even if runtime payload is empty/delayed.
+  - During room tutorial, attendee UI is no longer rendered as one combined attendee section container; attendee cards are rendered as top-level siblings parallel to room header.
+  - Room production and tutorial now share the same attendee-card layout path; tutorial only swaps data source/anchor bindings.
+  - Room detail tutorial attendee list is rendered as stacked single-attendee cards (one card per attendee slot) while preserving the same row view; this isolates row geometry so each slot can emit its own independent tutorial anchor.
+  - Tutorial attendee cards use compact vertical stack spacing so slot-to-slot gaps stay small and keep highlights visually tight.
+  - Room detail tutorial mode now hard-binds key semantic targets to static attendee slots (`index 0 -> host info`, `index 1 -> member info`) so those anchors are always emitted even if runtime attendee state ordering shifts.
+  - Legacy row-index target (`roomAttendeeRow(index:)`) remains available for compatibility and still resolves using the first matched row anchor (not union of all matched rows) to keep highlight rectangles tight.
   - Message-card Y auto-placement:
     - When a highlight target exists, the message card is auto-placed near the target.
     - Default is below the highlighted target.
