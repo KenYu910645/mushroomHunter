@@ -743,7 +743,7 @@ enum TutorialConfig {
                 )
             ),
             RoomDetailTutorial.Step(
-                highlightTarget: .roomPendingJoinActionButtons,
+                highlightTarget: .roomAttendeeRow(index: 1),
                 title: BilingualText(
                     en: "Handle join requests",
                     cn: "批准加入申請"

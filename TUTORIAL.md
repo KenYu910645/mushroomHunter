@@ -108,6 +108,8 @@ For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buy
   - Tutorial attendee cards use compact vertical stack spacing so slot-to-slot gaps stay small and keep highlights visually tight.
   - Room detail tutorial mode now hard-binds key semantic targets to static attendee slots (`index 0 -> host info`, `index 1 -> member info`) so those anchors are always emitted even if runtime attendee state ordering shifts.
   - Legacy row-index target (`roomAttendeeRow(index:)`) remains available for compatibility and still resolves using the first matched row anchor (not union of all matched rows) to keep highlight rectangles tight.
+  - Postcard browse tutorial startup now follows Mushroom browse timing: tutorial starts immediately on appear, while profile refresh runs in parallel (non-blocking) to keep early-step top-bar targets stable.
+  - Postcard browse tutorial now disables top-bar container anchor emission during tutorial so child top-bar targets (`Honey`, `Search`, `+`) resolve independently for steps 2~4.
   - Message-card Y auto-placement:
     - When a highlight target exists, the message card is auto-placed near the target.
     - Default is below the highlighted target.

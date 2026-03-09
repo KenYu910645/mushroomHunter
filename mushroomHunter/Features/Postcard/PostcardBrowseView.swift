@@ -251,9 +251,11 @@ struct PostcardBrowseView: View {
             vm.normalizeProvinceSelection()
         }
         .onAppear {
-            Task {
-                await session.refreshProfileFromBackend()
-                startPostcardBrowseTutorialIfNeeded()
+            /// Start tutorial flow immediately so step anchors are available from the first rendered tutorial frame.
+            startPostcardBrowseTutorialIfNeeded()
+            if !AppTesting.isUITesting {
+                /// Refresh profile/honey in parallel without blocking tutorial startup.
+                Task { await session.refreshProfileFromBackend() }
             }
         }
         .onChange(of: pendingPushRoute) { _, route in
@@ -313,7 +315,7 @@ struct PostcardBrowseView: View {
             searchButtonIdentifier: "postcard_search_button",
             createButtonIdentifier: "postcard_create_button",
             isStarsVisible: false,
-            tutorialBarTarget: postcardBrowseTutorial.isActive ? .postcardBrowseTopActionBar : nil,
+            tutorialBarTarget: nil,
             tutorialHoneyTarget: postcardBrowseTutorial.isActive ? .postcardBrowseHoneyTag : nil,
             tutorialSearchButtonTarget: postcardBrowseTutorial.isActive ? .postcardBrowseSearchButton : nil,
             tutorialCreateButtonTarget: postcardBrowseTutorial.isActive ? .postcardBrowseCreateButton : nil
