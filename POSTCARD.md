@@ -208,7 +208,7 @@ Notes:
 - Browse/search list fetch is paginated by `AppConfig.Postcard.browseListFetchLimit` (`20`) and uses cursor-based "Load more".
 - Profile ordered-postcards view uses one server-side query: `buyerId + status in [AwaitingShipping, Shipped]` (plus legacy aliases), ordered by `createdAt desc`, limited by profile fetch cap.
 - Buyer latest-order lookup uses a server-side query with `buyerId + postcardId + status in [AwaitingShipping, Shipped]` (plus legacy aliases), ordered by `createdAt desc`, limited to `1`.
-- Buyer pending-rating lookup uses a server-side query with `buyerId + postcardId + isBuyerRatingRequired == true`, ordered by `completedAt desc`, limited to `1`.
-- Seller pending-rating lookup uses a server-side query with `sellerId + postcardId + isSellerRatingRequired == true`, ordered by `completedAt desc`, limited to `1`.
+- Buyer pending-rating lookup uses a server-side query with `buyerId + postcardId + isBuyerRatingRequired == true`, limited to `10`; the app then picks the latest `completedAt` client-side.
+- Seller pending-rating lookup uses a server-side query with `sellerId + postcardId + isSellerRatingRequired == true`, limited to `10`; the app then picks the latest `completedAt` client-side.
 - Shipping recipients are fetched with server-side filters on `postcardId`, `sellerId`, and `status in [AwaitingShipping]` (plus legacy aliases); buyer friend codes are read from order snapshots with users lookup fallback for legacy orders.
 - Register/edit upload flow performs best-effort cleanup of newly uploaded image blobs if subsequent Firestore write fails.

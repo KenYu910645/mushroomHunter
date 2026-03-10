@@ -737,10 +737,9 @@ final class FbPostcardRepo {
             .whereField("buyerId", isEqualTo: buyerId)
             .whereField("postcardId", isEqualTo: postcardId)
             .whereField("isBuyerRatingRequired", isEqualTo: true)
-            .order(by: "completedAt", descending: true)
-            .limit(to: 1)
+            .limit(to: 10)
         let docs = try await fetchDocuments(query: query)
-        guard let latestDoc = docs.first else { return nil }
+        guard let latestDoc = latestCompletedRatingDocument(in: docs) else { return nil }
         return decodeBuyerRatingContext(latestDoc)
     }
 
@@ -756,10 +755,9 @@ final class FbPostcardRepo {
             .whereField("sellerId", isEqualTo: sellerId)
             .whereField("postcardId", isEqualTo: postcardId)
             .whereField("isSellerRatingRequired", isEqualTo: true)
-            .order(by: "completedAt", descending: true)
-            .limit(to: 1)
+            .limit(to: 10)
         let docs = try await fetchDocuments(query: query)
-        guard let latestDoc = docs.first else { return nil }
+        guard let latestDoc = latestCompletedRatingDocument(in: docs) else { return nil }
         return decodeSellerRatingContext(latestDoc)
     }
 
@@ -1176,6 +1174,19 @@ final class FbPostcardRepo {
             code: 400,
             userInfo: [NSLocalizedDescriptionKey: error.errorDescription ?? "Postcard error."]
         )
+    }
+
+    /// Selects the newest completed postcard rating document from a small filtered result set.
+    /// - Parameter documents: Candidate order documents that still require rating for one postcard.
+    /// - Returns: The document with the latest `completedAt` timestamp, or `nil` when empty.
+    private func latestCompletedRatingDocument(
+        in documents: [QueryDocumentSnapshot]
+    ) -> QueryDocumentSnapshot? {
+        documents.max { lhs, rhs in
+            let lhsCompletedAt = (lhs.data()["completedAt"] as? Timestamp)?.dateValue() ?? .distantPast
+            let rhsCompletedAt = (rhs.data()["completedAt"] as? Timestamp)?.dateValue() ?? .distantPast
+            return lhsCompletedAt < rhsCompletedAt
+        }
     }
 
     /// Fetches Firestore query documents with optional cache fallback.
