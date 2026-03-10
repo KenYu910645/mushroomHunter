@@ -144,11 +144,30 @@ enum AttendeeStatus: String, CaseIterable, Codable {
     case host = "Host"
     case askingToJoin = "AskingToJoin"
     case ready = "Ready"
+    case notEnoughHoney = "NotEnoughHoney"
     case waitingConfirmation = "WaitingConfirmation"
 
     /// Status values treated as active room participation for join-limit counting.
     static var activeStatusRawValues: [String] {
-        [host.rawValue, askingToJoin.rawValue, ready.rawValue, waitingConfirmation.rawValue]
+        [host.rawValue, askingToJoin.rawValue, ready.rawValue, notEnoughHoney.rawValue, waitingConfirmation.rawValue]
+    }
+
+    /// Returns whether the attendee can still top up deposit and participate in room flows.
+    var isActiveParticipant: Bool {
+        switch self {
+        case .host, .askingToJoin, .ready, .notEnoughHoney, .waitingConfirmation:
+            return true
+        }
+    }
+
+    /// Returns whether post-confirmation rating remains available for this attendee state.
+    var isRatingEligibleAfterSettlement: Bool {
+        switch self {
+        case .ready, .notEnoughHoney:
+            return true
+        case .host, .askingToJoin, .waitingConfirmation:
+            return false
+        }
     }
 }
 

@@ -1798,6 +1798,9 @@ private struct AttendeeRow: View {
         if isPendingConfirmation {
             return LocalizedStringKey("room_status_waiting_confirm")
         }
+        if attendee.status == .notEnoughHoney {
+            return LocalizedStringKey("room_status_not_enough_honey")
+        }
         return LocalizedStringKey("room_status_ready")
     }
 
@@ -1808,6 +1811,9 @@ private struct AttendeeRow: View {
         }
         if isAskingToJoin || isPendingConfirmation {
             return .waiting
+        }
+        if attendee.status == .notEnoughHoney {
+            return .rejected
         }
         return .ready
     }

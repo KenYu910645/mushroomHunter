@@ -7,7 +7,7 @@
 //
 //  Related flow:
 //  - Room detail actions: join, leave, deposit update, kick, close, finish raid,
-//    attendee confirmation response, host resend/give-up, host/attendee rating.
+//    attendee confirmation response, repeated confirmation requests, host/attendee rating.
 //
 //  Field access legend:
 //  [R] Represent Read
@@ -92,6 +92,21 @@ final class FbRoomActionsRepo {
     private let db = Firestore.firestore()
     private let defaultMaxHostRooms = AppConfig.Mushroom.defaultHostRoomLimit
     private let defaultMaxJoinRooms = AppConfig.Mushroom.defaultJoinRoomLimit
+
+    /// Returns the attendee status that should be stored after a confirmation settles.
+    private func resolvedPostSettlementStatus(
+        remainingDepositHoney: Int,
+        fixedRaidCost: Int,
+        hasPendingConfirmation: Bool
+    ) -> AttendeeStatus {
+        if hasPendingConfirmation {
+            return .waitingConfirmation
+        }
+        if remainingDepositHoney < fixedRaidCost {
+            return .notEnoughHoney
+        }
+        return .ready
+    }
 
     private func fetchMaxJoinRooms(uid: String) async throws -> Int {
         let userSnap = try await db.collection("users").document(uid).getDocument()
@@ -778,9 +793,6 @@ final class FbRoomActionsRepo {
             }
 
             let hasPendingConfirmation = pendingConfirmationRequests.isEmpty == false
-            let nextStatusRaw = hasPendingConfirmation
-                ? AttendeeStatus.waitingConfirmation.rawValue
-                : AttendeeStatus.ready.rawValue
 
             let historyStatus: RoomRaidConfirmationAttendeeStatus
             switch settlementOutcome {
@@ -796,9 +808,15 @@ final class FbRoomActionsRepo {
                     "updatedAt": now
                 ], forDocument: hostRef)
 
+                let remainingDepositHoney = max(0, attendeeDeposit - settlementHoney)
+                let nextStatus = resolvedPostSettlementStatus(
+                    remainingDepositHoney: remainingDepositHoney,
+                    fixedRaidCost: hostContext.raidCostHoney,
+                    hasPendingConfirmation: hasPendingConfirmation
+                )
                 tx.updateData([
                     "depositHoney": max(0, attendeeDeposit - settlementHoney),
-                    "status": nextStatusRaw,
+                    "status": nextStatus.rawValue,
                     "isHostRatingRequired": true,
                     "needsHostRating": true,
                     "pendingConfirmationRequests": pendingConfirmationRequests,
@@ -815,9 +833,15 @@ final class FbRoomActionsRepo {
                     "updatedAt": now
                 ], forDocument: hostRef)
 
+                let remainingDepositHoney = max(0, attendeeDeposit - settlementHoney)
+                let nextStatus = resolvedPostSettlementStatus(
+                    remainingDepositHoney: remainingDepositHoney,
+                    fixedRaidCost: hostContext.raidCostHoney,
+                    hasPendingConfirmation: hasPendingConfirmation
+                )
                 tx.updateData([
                     "depositHoney": max(0, attendeeDeposit - settlementHoney),
-                    "status": nextStatusRaw,
+                    "status": nextStatus.rawValue,
                     "isHostRatingRequired": false,
                     "needsHostRating": false,
                     "pendingConfirmationRequests": pendingConfirmationRequests,
@@ -827,8 +851,13 @@ final class FbRoomActionsRepo {
                 ], forDocument: attendeeRef)
             case .missedInvitation:
                 historyStatus = .noInvite
+                let nextStatus = resolvedPostSettlementStatus(
+                    remainingDepositHoney: attendeeDeposit,
+                    fixedRaidCost: hostContext.raidCostHoney,
+                    hasPendingConfirmation: hasPendingConfirmation
+                )
                 tx.updateData([
-                    "status": nextStatusRaw,
+                    "status": nextStatus.rawValue,
                     "isHostRatingRequired": false,
                     "needsHostRating": false,
                     "pendingConfirmationRequests": pendingConfirmationRequests,
@@ -891,7 +920,8 @@ final class FbRoomActionsRepo {
             }
             let attendeeData = attendeeSnap.data() ?? [:]
             let attendeeStatus = attendeeData["status"] as? String ?? ""
-            if attendeeStatus != AttendeeStatus.ready.rawValue {
+            let isRatingEligibleStatus = AttendeeStatus(rawValue: attendeeStatus)?.isRatingEligibleAfterSettlement ?? false
+            if !isRatingEligibleStatus {
                 errPtr?.pointee = RoomActionError.ratingNotAvailable as NSError
                 return nil
             }
@@ -958,7 +988,8 @@ final class FbRoomActionsRepo {
             }
             let attendeeData = attendeeSnap.data() ?? [:]
             let attendeeStatus = attendeeData["status"] as? String ?? ""
-            if attendeeStatus != AttendeeStatus.ready.rawValue {
+            let isRatingEligibleStatus = AttendeeStatus(rawValue: attendeeStatus)?.isRatingEligibleAfterSettlement ?? false
+            if !isRatingEligibleStatus {
                 errPtr?.pointee = RoomActionError.ratingNotAvailable as NSError
                 return nil
             }

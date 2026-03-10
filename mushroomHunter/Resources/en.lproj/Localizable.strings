@@ -38,7 +38,6 @@
 "browse_search_accessibility" = "Search rooms";
 "browse_create_accessibility" = "Create host room";
 "browse_empty_title" = "No rooms found";
-"browse_attendee_format" = "👤 %d/%d";
 "browse_attendee_count_number_format" = "%d/%d";
 "browse_expires_format" = "Expires: %dm";
 "browse_tag_joined" = "Joined";
@@ -101,7 +100,6 @@
 "room_join_deposit_footer" = "This deposit will held to this room. It is only spent after the host invite you to a mushroom. Leaving the room returns any unspent deposit.";
 "room_join_greeting_header" = "Say Hi to the Host";
 "room_join_greeting_placeholder" = "Hi, I can join quickly and I will reply your invite.";
-"room_join_greeting_footer" = "Tell the host why you are joining. Required, up to 100 characters.";
 "room_join_greeting_default" = "Hi! Let's play together.";
 "room_update_deposit_header" = "Deposit";
 "room_update_deposit_footer" = "This deposit is held while you stay in the room. It is only spent after a mushroom raid done.";
@@ -121,9 +119,7 @@
 "room_deposit_honey_format" = "%d";
 "room_claim_rewards_title" = "Mushroom Invited";
 "room_load_error_title" = "Unable to load room";
-"room_attendee_count_format" = "👤 %d/%d";
 "room_attendee_count_number_format" = "%d/%d";
-"room_last_successful_raid_format" = "Last Successful Raid: %@";
 "room_copy_host_code_accessibility" = "Copy host friend code";
 "room_attendees_empty_title" = "No attendees yet";
 "room_attendees_empty_description" = "Be the first to join this room.";
@@ -139,14 +135,13 @@
 "room_kick" = "Kick";
 "room_copy_attendee_code_accessibility" = "Copy attendee friend code";
 "room_status_waiting_confirm" = "Confirming";
-"room_status_rejected" = "Reject confirmation";
 "room_status_ready" = "Ready";
+"room_status_not_enough_honey" = "Not Enough Honey";
 "room_status_asking_to_join" = "Asking to join";
 "room_status_host" = "Host";
 "room_join_application_accept" = "Accept";
 "room_join_application_reject" = "Reject";
 "room_join_greeting_label" = "Message:";
-"room_reject_resolve" = "Resend";
 
 /***************************************/
 /**** Room Sheet: Invite Share ****/
@@ -170,9 +165,6 @@
 /***************************************/
 /**** Room Message Box: Raid Settlement ****/
 /***************************************/
-
-"room_msg_raid_confirm_title" = "Mushroom Invited";
-"room_msg_raid_confirm_message" = "%@ has invited you to a mushroom. Did you see the invitation?";
 "room_msg_raid_confirm_joined_success_button" = "Yes, I joined the mushroom";
 "room_msg_raid_confirm_seat_full_button" = "Yes, but the mushroom is full";
 "room_msg_raid_confirm_missed_invite_button" = "No, I didn't see invitation";
@@ -198,11 +190,6 @@
 /***************************************/
 /**** Room Message Box: Rejected Confirmation ****/
 /***************************************/
-
-"room_msg_reject_alert_title" = "Confirmation Rejected";
-"room_msg_reject_alert_message" = "%@ rejected the confirmation. Please double confirm that %@ was invited and joined the mushroom raid. Resend confirmation or give up?";
-"room_msg_reject_resend_button" = "Resend";
-"room_msg_reject_giveup_button" = "Give up";
 
 /***************************************/
 /**** Room Message Box: Join Confirmation ****/
@@ -259,7 +246,6 @@
 "postcard_share_accessibility" = "Share postcard invite";
 "postcard_sort_newest" = "Newest";
 "postcard_sort_lowest_price" = "Lowest Price";
-"postcard_stock_format" = "x%d";
 "postcard_seller_format" = "Seller: %@";
 "postcard_tag_on_shelf" = "On-shelf";
 "postcard_tag_ordered" = "Ordered";
@@ -282,39 +268,16 @@
 /**** Tutorial ****/
 /***************************************/
 
-"tutorial_navigation_title" = "Welcome to HoneyHub";
-"tutorial_skip" = "Skip";
 "tutorial_next" = "Next";
-"tutorial_get_started" = "Get Started";
-"tutorial_mushroom_description" = "Use this screen to browse raids, open room details, and join with honey deposit.";
-"tutorial_mushroom_callout_host" = "Host mushroom raid to earn honey";
-"tutorial_mushroom_callout_honey" = "Your honey";
-"tutorial_mushroom_callout_join" = "Join mushroom raids require honey";
-"tutorial_mushroom_callout_list" = "Mushroom raid list";
-"tutorial_postcard_description" = "Browse listings, open details, and buy/sell with shipping status updates.";
-"tutorial_postcard_callout_buy" = "Buy postcards require honey";
-"tutorial_postcard_callout_sell" = "Sell your postcard to earn honey";
-"tutorial_postcard_callout_list" = "Postcard list";
-"tutorial_profile_description" = "Manage your account, review your activity, and update display name or friend code.";
-"tutorial_profile_callout_manage" = "Manage your mushroom raids and postcards in profile";
-"tutorial_profile_callout_profile" = "Your profile";
 "tutorial_back" = "Back";
 "tutorial_catalog_title" = "Tutorial";
-"tutorial_catalog_footer" = "You can replay any available tutorial at any time.";
-"tutorial_catalog_coming_soon" = "Coming soon";
 "tutorial_catalog_completed_chip" = "Completed";
 "tutorial_scenario_mushroom_browse_title" = "Mushroom Browse Basics";
-"tutorial_scenario_mushroom_browse_subtitle" = "Understand list layout, ownership tags, and create action.";
 "tutorial_scenario_room_personal_title" = "Room Page (Personal View)";
-"tutorial_scenario_room_personal_subtitle" = "Learn attendee controls and status meanings.";
 "tutorial_scenario_room_host_title" = "Room Page (Host View)";
-"tutorial_scenario_room_host_subtitle" = "Learn host actions such as approve, invite, and finish.";
 "tutorial_scenario_postcard_browse_title" = "Postcard Browse Basics";
-"tutorial_scenario_postcard_browse_subtitle" = "Understand listing cards, search, and register action.";
 "tutorial_scenario_postcard_buyer_title" = "Postcard Page (Buyer View)";
-"tutorial_scenario_postcard_buyer_subtitle" = "Learn order flow and receive confirmation.";
 "tutorial_scenario_postcard_seller_title" = "Postcard Page (Seller View)";
-"tutorial_scenario_postcard_seller_subtitle" = "Learn shipping queue and seller actions.";
 "postcard_status_waiting_seller_ship" = "Waiting for seller to ship the postcard";
 "postcard_status_shipped_on_way" = "Seller shipped; postcard on the way!";
 
@@ -346,39 +309,11 @@
 /**** Notification: Mushroom ****/
 /***************************************/
 
-"push_mushroom_raid_confirmation_title" = "Mushroom Invite";
-"push_mushroom_raid_confirmation_body" = "%@ invited you to a mushroom raid. Tap to respond.";
-"push_mushroom_join_request_title" = "New Join Request";
-"push_mushroom_join_request_body" = "%@ requested to join %@. Tap to respond";
-"push_mushroom_join_request_body_with_message" = "%@ requested to join %@: %@";
-"push_mushroom_join_request_accepted_title" = "Join Request Accepted";
-"push_mushroom_join_request_accepted_body" = "Host accepted your request to join %@.";
-"push_mushroom_join_request_rejected_title" = "Join Request Rejected";
-"push_mushroom_join_request_rejected_body" = "Host rejected your request to join %@.";
-"push_mushroom_raid_result_accepted_title" = "Attendee Confirmed";
-"push_mushroom_raid_result_accepted_body" = "%@ confirmed raid join. You earned %@ honey.";
-"push_mushroom_raid_result_seat_full_title" = "Attendee Confirmed";
-"push_mushroom_raid_result_seat_full_body" = "%@ reported invited but seat full. You earned %@ honey.";
-"push_mushroom_raid_result_missed_invite_title" = "Attendee Missed Invite";
-"push_mushroom_raid_result_missed_invite_body" = "%@ reported no invitation was seen.";
-"push_mushroom_raid_result_rejected_title" = "Invitation Rejected";
-"push_mushroom_raid_result_rejected_body" = "%@ rejected the invitation.";
-"push_mushroom_star_received_title" = "Stars Received";
-"push_mushroom_star_received_body" = "%@ gave you %@ stars.";
 
 /***************************************/
 /**** Notification: Postcard ****/
 /***************************************/
 
-"push_postcard_order_created_title" = "New Postcard Order";
-"push_postcard_order_created_body" = "You got one new order on \"%@\". Go to order page to process it.";
-"push_postcard_shipped_title" = "Postcard Sent";
-"push_postcard_shipped_body" = "%@ has sent \"%@\" to you. Please check delivery after 12 hours and mark received in HoneyHub.";
-"push_postcard_rejected_title" = "Order Rejected";
-"push_postcard_rejected_body" = "Your order for \"%@\" was rejected and canceled. %@ honey has been fully refunded to your account.";
-"push_postcard_completed_title" = "Order Completed";
-"push_postcard_completed_body" = "%@ confirmed receipt. %@ honey has been transferred to you.";
-"push_postcard_completed_auto_body" = "%@ postcard received timed out. %@ honey has been transferred to you.";
 "postcard_msg_sent_confirm_title" = "Postcard Sent Confirm";
 "postcard_msg_sent_confirm_message_format" = "Are you sure you have already sent postcard %@ to player %@?";
 "postcard_msg_sent_confirm_yes_button" = "Yes";
@@ -494,50 +429,21 @@
 "profile_friend_code" = "Friend Code";
 "profile_friend_code_placeholder" = "12 digits";
 "profile_friend_code_hint" = "Copy and paste friend code in Pikmin Bloom";
-"profile_id_section" = "Your ID";
-"profile_stars" = "Stars";
 
 /***************************************/
 /**** Profile Section: Community ****/
 /***************************************/
 
-"profile_community_section" = "Community";
-"profile_community_footer" = "Stars are reputation points that players award to each other after mushroom raids";
 
 /***************************************/
 /**** Profile Section: Mushroom Lists ****/
 /***************************************/
 
-"profile_loading_joined" = "Loading joined rooms…";
-"profile_joined_empty_title" = "No Joined Room";
-"profile_players_format" = "👤 %d/%d";
-"profile_room_status_host" = "Host";
-"profile_room_status_asking_to_join" = "Asking to join";
-"profile_room_status_ready" = "Ready";
-"profile_room_status_waiting_for_players" = "Waiting for players";
-"profile_room_status_waiting_confirmation" = "Waiting confirmation";
-"profile_room_status_rejected" = "Rejected";
-"profile_mushroom_section" = "Mushrooms";
-"profile_mushroom_joined_section" = "Joined Room";
-"profile_loading_hosted" = "Loading hosted rooms…";
-"profile_mushroom_hosted_section" = "Hosted Room";
-"profile_hosted_empty_title" = "No Hosted Room";
 
 /***************************************/
 /**** Profile Section: Postcard Lists ****/
 /***************************************/
 
-"profile_postcard_section" = "Postcards";
-"profile_postcard_onshelf_section" = "On-shelf Postcard";
-"profile_loading_onshelf_postcards" = "Loading on-shelf postcards…";
-"profile_onshelf_empty_title" = "No On-shelf Postcard";
-"profile_postcard_ordered_section" = "Ordered Postcard";
-"profile_loading_ordered_postcards" = "Loading ordered postcards…";
-"profile_ordered_empty_title" = "No Ordered Postcard";
-"profile_postcard_status_on_shelf" = "On-shelf";
-"profile_postcard_status_order_received" = "Order Received";
-"profile_postcard_status_wait_for_shipping" = "Ordered";
-"profile_postcard_status_on_the_way" = "Shipped, on-the-way";
 
 /***************************************/
 /**** Profile Section: Sign Out / Validation ****/
@@ -575,35 +481,7 @@
 "notification_inbox_title" = "Events";
 "notification_inbox_empty_title" = "No Events";
 "notification_inbox_empty_message" = "New events will show up here.";
-"notification_mark_all_read" = "Read All";
 
-"event_room_created_title" = "Mushroom Room Created";
-"event_room_created_message" = "You created mushroom room: %@.";
-"event_raid_invited_title" = "Mushroom Raid Invited";
-"event_raid_invited_message" = "You invited participants to confirm raid result for: %@.";
-"event_postcard_registered_title" = "Postcard Registered";
-"event_postcard_registered_message" = "%@ is now on-shelf.";
-"event_wallet_honey_changed_title" = "Honey Balance Updated";
-"event_wallet_honey_increased_message" = "Your honey increased by %@. Current balance: %@.";
-"event_wallet_honey_decreased_message" = "Your honey decreased by %@. Current balance: %@.";
-"event_profile_name_updated_title" = "Display Name Updated";
-"event_profile_name_updated_message" = "Display name updated to %@.";
-"event_profile_friend_code_updated_title" = "Friend Code Updated";
-"event_profile_friend_code_updated_message" = "Friend code updated to %@.";
-"event_raid_confirmation_title" = "Mushroom Invitation";
-"event_raid_confirmation_message" = "%@ ask you confirm mushroom raid invitation.";
-"event_room_join_request_submitted_title" = "Sent Join Request";
-"event_room_join_request_submitted_message" = "You sent a join request to room: %@.";
-"event_room_join_request_received_title" = "Join Request Received";
-"event_room_join_request_received_message" = "%@ want to join your room: %@. Tap here to accept or refuse their request.";
-"event_room_join_request_accepted_title" = "Join Room Success";
-"event_room_join_request_accepted_message" = "You joined room: %@. Please check the in-coming friend invitation in Pikmin";
-"event_room_joiner_accepted_title" = "New Joiner Accepted";
-"event_room_joiner_accepted_message" = "%@ joined in your room: %@.";
-"event_room_join_request_rejected_title" = "Join Request Rejected";
-"event_room_join_request_rejected_message" = "Your request to join %@ was rejected.";
-"event_room_joiner_rejected_title" = "Joiner Rejected";
-"event_room_joiner_rejected_message" = "You rejected %@ to join your room: %@.";
 
 "event_type_room_created_title" = "Mushroom Room Created";
 "event_type_room_created_message" = "You created a mushroom room.";

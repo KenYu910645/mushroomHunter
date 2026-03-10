@@ -31,7 +31,6 @@
 "browse_join_message" = "請輸入儲值蜂蜜。您目前有 %d {honey_icon}。";
 "browse_join_greeting_header" = "打招呼";
 "browse_join_greeting_placeholder" = "嗨主持人，可以一起打蘑菇嗎？。";
-"browse_join_greeting_footer" = "告訴主持人您要加入的原因。必填，最多 100 字。";
 "browse_join_greeting_default" = "嗨主持人，我準備好參加您下一場蘑菇戰。";
 "browse_search_placeholder" = "搜尋標題／地點";
 "browse_search_clear_accessibility" = "清除搜尋";
@@ -39,7 +38,6 @@
 "browse_search_accessibility" = "搜尋房間";
 "browse_create_accessibility" = "建立房間";
 "browse_empty_title" = "找不到房間";
-"browse_attendee_format" = "參加者：%d/%d";
 "browse_attendee_count_number_format" = "%d/%d";
 "browse_expires_format" = "剩餘：%d 分";
 "browse_tag_joined" = "已加入";
@@ -76,8 +74,8 @@
 "host_description_header" = "描述";
 "host_default_description" = "歡迎！大家一起來玩吧！";
 "host_fixed_raid_cost_label" = "{honey_icon}";
-"host_fixed_raid_cost_header" = "小費";
-"host_fixed_raid_cost_footer" = "參加者在受邀參加蘑菇戰後，提供給主持人的獎勵。";
+"host_fixed_raid_cost_header" = "報酬";
+"host_fixed_raid_cost_footer" = "每次成功邀請玩家打蘑菇後獲得的報酬。";
 "host_close_room_button" = "刪除房間";
 "host_close_room_footer" = "即將刪除房間並且無法恢復。";
 "host_room_default_name" = "一起來打蘑菇吧";
@@ -102,7 +100,6 @@
 "room_join_deposit_footer" = "儲值蜂蜜會暫時存放在房間內。只有在主持人邀請您參加蘑菇後才會扣除。離開房間會退還所有儲值蜂蜜。";
 "room_join_greeting_header" = "跟主持人說聲Hi";
 "room_join_greeting_placeholder" = "嗨主持人，我可以快速加入，也會即時回覆您的邀請。";
-"room_join_greeting_footer" = "告訴主持人您要加入的原因。必填，最多 100 字。";
 "room_join_greeting_default" = "Hi 皮友們，一起來打蘑菇吧。";
 "room_update_deposit_header" = "儲值";
 "room_update_deposit_footer" = "儲值會在您待在房間期間保留。只有在蘑菇戰完成後才會扣除。";
@@ -122,9 +119,7 @@
 "room_deposit_honey_format" = "%d";
 "room_claim_rewards_title" = "發送蘑菇邀請確認";
 "room_load_error_title" = "無法載入房間";
-"room_attendee_count_format" = "參加者：%d/%d";
 "room_attendee_count_number_format" = "%d/%d";
-"room_last_successful_raid_format" = "上次成功戰鬥：%@";
 "room_copy_host_code_accessibility" = "複製主持人好友碼";
 "room_attendees_empty_title" = "尚無參加者";
 "room_attendees_empty_description" = "成為第一位加入此房間的人。";
@@ -140,14 +135,13 @@
 "room_kick" = "踢除";
 "room_copy_attendee_code_accessibility" = "複製參加者好友碼";
 "room_status_waiting_confirm" = "等待確認";
-"room_status_rejected" = "已拒絕確認";
-"room_status_ready" = "可出戰";
+"room_status_ready" = "準備好了";
+"room_status_not_enough_honey" = "蜂蜜不足";
 "room_status_asking_to_join" = "申請加入中";
 "room_status_host" = "主持人";
 "room_join_application_accept" = "接受";
 "room_join_application_reject" = "拒絕";
 "room_join_greeting_label" = "訊息：";
-"room_reject_resolve" = "重新送出";
 
 /***************************************/
 /**** Room Sheet: Invite Share ****/
@@ -172,13 +166,11 @@
 /**** Room Message Box: Raid Settlement ****/
 /***************************************/
 
-"room_msg_raid_confirm_title" = "蘑菇已邀請";
-"room_msg_raid_confirm_message" = "%@ 已邀請您參加蘑菇戰。您有看到邀請嗎？";
 "room_msg_raid_confirm_joined_success_button" = "有，我已加入蘑菇戰";
 "room_msg_raid_confirm_seat_full_button" = "有，但蘑菇已滿位";
 "room_msg_raid_confirm_missed_invite_button" = "沒有，我沒看到邀請";
-"room_msg_settlement_no_fault_title" = "感謝您的更新！";
-"room_msg_settlement_no_fault_message" = "轉給主持人 2 {honey_icon} 作為小費。沒關係！主持人下次會再邀請您。";
+"room_msg_settlement_no_fault_title" = "感謝您的更新";
+"room_msg_settlement_no_fault_message" = "將給主持人 2 {honey_icon} 作為邀請獎勵。沒關係！主持人下次會再邀請您。";
 "room_confirmation_queue_title" = "確認佇列";
 "room_confirmation_queue_empty" = "此房間目前沒有待處理確認。";
 "room_confirmation_queue_item_title_format" = "%@ 已邀請您參加蘑菇戰。";
@@ -200,17 +192,13 @@
 /**** Room Message Box: Rejected Confirmation ****/
 /***************************************/
 
-"room_msg_reject_alert_title" = "確認被拒絕";
-"room_msg_reject_alert_message" = "%@ 已拒絕確認。請再次確認 %@ 是否已受邀並加入此菇戰。要重新送出或放棄？";
-"room_msg_reject_resend_button" = "重新送出";
-"room_msg_reject_giveup_button" = "放棄";
 
 /***************************************/
 /**** Room Message Box: Join Confirmation ****/
 /***************************************/
 
 "room_msg_join_confirm_title" = "確認加入";
-"room_msg_join_confirm_message" = "您將存入 %1$d {honey_icon}，是否確定？";
+"room_msg_join_confirm_message" = "您將存入 %1$d {honey_icon}是否確定？\n(退出房間後會返還未使用的蜂蜜)";
 "room_msg_join_confirm_confirm_button" = "確定";
 "room_msg_join_limit_title" = "房間上限";
 "room_msg_not_enough_honey_title" = "蜂蜜不足";
@@ -226,10 +214,10 @@
 
 "room_msg_leave_confirm_title" = "離開房間";
 "room_msg_leave_confirm_message" = "確定要離開 %@ 嗎？";
-"room_msg_claim_confirm_title" = "確認邀請";
-"room_msg_claim_confirm_message" = "請確認您已邀請所有參加者參加蘑菇戰。\n點擊「是」後，所有參加者都需要確認您的邀請。";
-"room_msg_claim_sent_title" = "已通知參加者";
-"room_msg_claim_sent_message" = "他們回覆後您會收到付款。";
+"room_msg_claim_confirm_title" = "即將發送確認";
+"room_msg_claim_confirm_message" = "請確認您已邀請所有成員打蘑菇。\n點擊「是」後，將發送確認通知給所有成員。";
+"room_msg_claim_sent_title" = "已通知房間內成員";
+"room_msg_claim_sent_message" = "可以點選右上角確認清單查看結果。";
 
 /***************************************/
 /**** Room Message Box: Thanks/Rating ****/
@@ -260,7 +248,6 @@
 "postcard_share_accessibility" = "分享明信片邀請";
 "postcard_sort_newest" = "最新";
 "postcard_sort_lowest_price" = "最低價格";
-"postcard_stock_format" = "x%d";
 "postcard_seller_format" = "賣家：%@";
 "postcard_tag_on_shelf" = "已上架";
 "postcard_tag_ordered" = "已下單";
@@ -309,39 +296,11 @@
 /**** Notification: Mushroom ****/
 /***************************************/
 
-"push_mushroom_raid_confirmation_title" = "蘑菇邀請";
-"push_mushroom_raid_confirmation_body" = "%@ 邀請您參加蘑菇戰。點擊以回覆。";
-"push_mushroom_join_request_title" = "申請加入";
-"push_mushroom_join_request_body" = "%@ 申請加入 %@。";
-"push_mushroom_join_request_body_with_message" = "%@ 申請加入 %@。訊息：%@";
-"push_mushroom_join_request_accepted_title" = "加入申請已接受";
-"push_mushroom_join_request_accepted_body" = "主持人已接受您加入 %@ 的申請。";
-"push_mushroom_join_request_rejected_title" = "加入申請已拒絕";
-"push_mushroom_join_request_rejected_body" = "主持人已拒絕您加入 %@ 的申請。";
-"push_mushroom_raid_result_accepted_title" = "參加者已確認";
-"push_mushroom_raid_result_accepted_body" = "%@ 已確認參加戰鬥。您獲得 %@ 蜂蜜。";
-"push_mushroom_raid_result_seat_full_title" = "參加者已確認";
-"push_mushroom_raid_result_seat_full_body" = "%@ 回報滿位。您獲得 %@ 蜂蜜辛苦費。";
-"push_mushroom_raid_result_missed_invite_title" = "參加者未看到邀請";
-"push_mushroom_raid_result_missed_invite_body" = "%@ 回報未看到邀請。";
-"push_mushroom_raid_result_rejected_title" = "邀請被拒絕";
-"push_mushroom_raid_result_rejected_body" = "%@ 已拒絕邀請。";
-"push_mushroom_star_received_title" = "收到星星";
-"push_mushroom_star_received_body" = "%@ 給了您 %@ 顆星。";
 
 /***************************************/
 /**** Notification: Postcard ****/
 /***************************************/
 
-"push_postcard_order_created_title" = "新明信片訂單";
-"push_postcard_order_created_body" = "您收到一筆「%@」的新訂單。請前往訂單頁處理。";
-"push_postcard_shipped_title" = "明信片已寄出";
-"push_postcard_shipped_body" = "%@ 已將「%@」寄給您。請在 12 小時後確認是否送達，並在 HoneyHub 標記已收件。";
-"push_postcard_rejected_title" = "訂單已拒絕";
-"push_postcard_rejected_body" = "您購買「%@」的訂單已被拒絕並取消，%@ 蜂蜜已全額退回。";
-"push_postcard_completed_title" = "訂單完成";
-"push_postcard_completed_body" = "%@ 已確認收件，%@ 蜂蜜已轉給您。";
-"push_postcard_completed_auto_body" = "「%@」收件確認逾時，%@ 蜂蜜已轉給您。";
 "postcard_msg_sent_confirm_title" = "確認已寄出";
 "postcard_msg_sent_confirm_message_format" = "您確定已將「%@」寄給玩家 %@ 嗎？";
 "postcard_msg_sent_confirm_yes_button" = "是";
@@ -457,50 +416,21 @@
 "profile_friend_code" = "好友碼";
 "profile_friend_code_placeholder" = "12 位數字";
 "profile_friend_code_hint" = "請輸入Pikmin Bloom中的好友碼";
-"profile_id_section" = "ID";
-"profile_stars" = "星數";
 
 /***************************************/
 /**** Profile Section: Community ****/
 /***************************************/
 
-"profile_community_section" = "社群";
-"profile_community_footer" = "星數是玩家在蘑菇戰後互相給予的聲譽點數。";
 
 /***************************************/
 /**** Profile Section: Mushroom Lists ****/
 /***************************************/
 
-"profile_loading_joined" = "載入已加入的房間…";
-"profile_joined_empty_title" = "無";
-"profile_players_format" = "👤 %d/%d";
-"profile_room_status_host" = "主持人";
-"profile_room_status_asking_to_join" = "申請加入中";
-"profile_room_status_ready" = "可出戰";
-"profile_room_status_waiting_for_players" = "等待玩家";
-"profile_room_status_waiting_confirmation" = "等待確認";
-"profile_room_status_rejected" = "已拒絕";
-"profile_mushroom_section" = "蘑菇";
-"profile_mushroom_joined_section" = "已加入的房間";
-"profile_loading_hosted" = "載入主持的房間…";
-"profile_mushroom_hosted_section" = "已主持的房間";
-"profile_hosted_empty_title" = "無";
 
 /***************************************/
 /**** Profile Section: Postcard Lists ****/
 /***************************************/
 
-"profile_postcard_section" = "明信片";
-"profile_postcard_onshelf_section" = "已上架的明信片";
-"profile_loading_onshelf_postcards" = "載入上架中的明信片…";
-"profile_onshelf_empty_title" = "無";
-"profile_postcard_ordered_section" = "已下單的明信片";
-"profile_loading_ordered_postcards" = "載入已下單的明信片…";
-"profile_ordered_empty_title" = "無";
-"profile_postcard_status_on_shelf" = "已上架";
-"profile_postcard_status_order_received" = "已收到訂單";
-"profile_postcard_status_wait_for_shipping" = "等待出貨";
-"profile_postcard_status_on_the_way" = "已出貨，運送中";
 
 /***************************************/
 /**** Profile Section: Sign Out / Validation ****/
@@ -538,46 +468,18 @@
 "notification_inbox_title" = "事件";
 "notification_inbox_empty_title" = "目前沒有事件";
 "notification_inbox_empty_message" = "新的事件會顯示在這裡。";
-"notification_mark_all_read" = "全部已讀";
 
-"event_room_created_title" = "已建立蘑菇房間";
-"event_room_created_message" = "您已建立蘑菇房間：%@。";
-"event_raid_invited_title" = "已發送蘑菇戰邀請";
-"event_raid_invited_message" = "您已邀請成員確認蘑菇戰結果：%@。";
-"event_postcard_registered_title" = "已上架明信片";
-"event_postcard_registered_message" = "您已上架明信片：%@。";
-"event_wallet_honey_changed_title" = "蜂蜜餘額已更新";
-"event_wallet_honey_increased_message" = "您的蜂蜜增加了 %@。目前餘額：%@。";
-"event_wallet_honey_decreased_message" = "您的蜂蜜減少了 %@。目前餘額：%@。";
-"event_profile_name_updated_title" = "名稱已更新";
-"event_profile_name_updated_message" = "您的顯示名稱已更新為 %@。";
-"event_profile_friend_code_updated_title" = "好友碼已更新";
-"event_profile_friend_code_updated_message" = "您的好友碼已更新為 %@。";
-"event_raid_confirmation_title" = "蘑菇戰確認";
-"event_raid_confirmation_message" = "%@ 邀請您確認蘑菇戰結果。";
-"event_room_join_request_submitted_title" = "已送出加入申請";
-"event_room_join_request_submitted_message" = "您已送出加入房間申請：%@。";
-"event_room_join_request_received_title" = "收到加入申請";
-"event_room_join_request_received_message" = "%@ 申請加入您的房間：%@。";
-"event_room_join_request_accepted_title" = "加入申請已通過";
-"event_room_join_request_accepted_message" = "您加入房間的申請已通過：%@。";
-"event_room_joiner_accepted_title" = "已通過加入申請";
-"event_room_joiner_accepted_message" = "您已允許 %@ 加入房間：%@。";
-"event_room_join_request_rejected_title" = "加入申請已拒絕";
-"event_room_join_request_rejected_message" = "您加入房間的申請已被拒絕：%@。";
-"event_room_joiner_rejected_title" = "已拒絕加入申請";
-"event_room_joiner_rejected_message" = "您已拒絕 %@ 加入房間：%@。";
 
 "event_type_room_created_title" = "已建立蘑菇房間";
 "event_type_room_created_message" = "您已建立蘑菇房間。";
 "event_type_raid_invited_title" = "已發送蘑菇戰邀請";
 "event_type_raid_invited_message" = "您已發送蘑菇戰確認邀請。";
 "event_type_raid_confirmation_title" = "蘑菇戰確認";
-"event_type_raid_confirmation_message" = "需要處理：請確認您的蘑菇戰結果。";
+"event_type_raid_confirmation_message" = "需要馬上處理：請確認您的蘑菇戰結果。";
 "event_type_room_join_request_submitted_title" = "已送出加入申請";
 "event_type_room_join_request_submitted_message" = "您已送出加入申請。";
 "event_type_room_join_request_received_title" = "收到加入申請";
-"event_type_room_join_request_received_message" = "需要處理：請審核新的加入申請。";
+"event_type_room_join_request_received_message" = "需要馬上處理：請審核新的加入申請。";
 "event_type_room_join_request_accepted_title" = "加入申請已通過";
 "event_type_room_join_request_accepted_message" = "您的加入申請已通過。";
 "event_type_room_joiner_accepted_title" = "已通過加入申請";
@@ -595,11 +497,11 @@
 "event_type_postcard_registered_title" = "已上架明信片";
 "event_type_postcard_registered_message" = "您已上架明信片。";
 "event_type_postcard_order_created_title" = "收到新訂單";
-"event_type_postcard_order_created_message" = "需要處理：請處理新的明信片訂單。";
+"event_type_postcard_order_created_message" = "需要馬上處理：請處理新的明信片訂單。";
 "event_type_postcard_order_sent_title" = "訂單已送出";
 "event_type_postcard_order_sent_message" = "您已送出明信片訂單。";
 "event_type_postcard_shipped_title" = "明信片已寄出";
-"event_type_postcard_shipped_message" = "需要處理：請確認已收到明信片。";
+"event_type_postcard_shipped_message" = "需要馬上處理：請確認已收到明信片。";
 "event_type_postcard_sent_title" = "明信片已寄出";
 "event_type_postcard_sent_message" = "您已將訂單標記為已寄出。";
 "event_type_postcard_order_completed_title" = "訂單已完成";
@@ -621,26 +523,9 @@
 /**** Tutorial ****/
 /***************************************/
 
-"tutorial_navigation_title" = "歡迎使用 HoneyHub";
-"tutorial_skip" = "略過";
 "tutorial_next" = "下一步";
-"tutorial_get_started" = "開始使用";
-"tutorial_mushroom_description" = "在這個頁面可以瀏覽蘑菇房間、開啟房間細節，並用蜂蜜儲值加入。";
-"tutorial_mushroom_callout_host" = "主持蘑菇戰可獲得蜂蜜";
-"tutorial_mushroom_callout_honey" = "您的蜂蜜";
-"tutorial_mushroom_callout_join" = "加入蘑菇戰需要蜂蜜";
-"tutorial_mushroom_callout_list" = "蘑菇戰列表";
-"tutorial_postcard_description" = "瀏覽上架、查看細節，並可買賣明信片且追蹤寄送狀態。";
-"tutorial_postcard_callout_buy" = "購買明信片需要蜂蜜";
-"tutorial_postcard_callout_sell" = "賣出明信片可獲得蜂蜜";
-"tutorial_postcard_callout_list" = "明信片列表";
-"tutorial_profile_description" = "在這裡管理帳號、檢視活動紀錄，並更新顯示名稱或好友碼。";
-"tutorial_profile_callout_manage" = "在個人資料管理您的蘑菇戰與明信片";
-"tutorial_profile_callout_profile" = "您的個人資料";
 "tutorial_back" = "上一步";
 "tutorial_catalog_title" = "教學";
-"tutorial_catalog_footer" = "已開放的教學可以隨時重新觀看。";
-"tutorial_catalog_coming_soon" = "即將推出";
 "tutorial_catalog_completed_chip" = "已完成";
 "tutorial_scenario_mushroom_browse_title" = "蘑菇房瀏覽列表";
 "tutorial_scenario_room_personal_title" = "加入房間";

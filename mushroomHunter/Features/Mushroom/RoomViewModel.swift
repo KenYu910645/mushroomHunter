@@ -539,7 +539,8 @@ final class RoomViewModel: ObservableObject {
     }
 
     var isCurrentUserAllowedToEditDeposit: Bool {
-        currentUserAttendeeStatus == .ready
+        guard let currentUserAttendeeStatus else { return false }
+        return currentUserAttendeeStatus == .ready || currentUserAttendeeStatus == .notEnoughHoney
     }
 
     private var currentUserAttendeeStatus: AttendeeStatus? {

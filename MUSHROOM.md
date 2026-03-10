@@ -43,6 +43,7 @@
 - Local filtering matches room `title` and `location` (stored + localized country label).
 - Backend room fetch refreshes only on explicit `Search`, pull-to-refresh, or forced refresh.
 - Room list fetch is server-first with `.default` fallback.
+- Each browse room row uses the full visible row area as the navigation hit target instead of limiting taps to text/icon subviews.
 - Browse priority score:
 - Reward: `hostStars * AppConfig.Mushroom.browsePriorityHostStarWeight`.
 - Penalty: `dormantHoursBeyondThreshold * AppConfig.Mushroom.browsePriorityDormantHourPenalty`.
@@ -52,7 +53,7 @@
 - Browse attendee count always renders SF Symbol `person.fill` with localized numeric count text (`%d/%d`) so locale translation does not replace the icon.
 
 ### 3) Host Room Form (Create/Edit)
-- Host form manages room `title`, `location`, `description`, and fixed raid cost only (no target mushroom selectors).
+- Host form manages room `title`, `location`, `description`, and fixed raid cost only (no target mushroom selectors). Fixed raid cost can be set to `0` for free raids.
 - Description defaults to localized `host_default_description` when empty.
 - Raid payment adjustment is controlled by `AppConfig.Mushroom.isRaidPaymentAdjustmentEnabled`.
 - When disabled, fixed value uses `AppConfig.Mushroom.disabledRaidPaymentHoney`.
@@ -82,7 +83,7 @@
 - `Yes, I joined the mushroom`
 - `Yes, but the mushroom is full`
 - `No, I didn't see invitation`
-- Host can resolve pending confirmations with `Resend` (append request, keep waiting) or `Give Up` (back to ready).
+- Host can resend by running `Mushroom Raid Done` again for the same attendee(s); each resend appends a new pending confirmation request and sends a fresh attendee action push/event even if the attendee is already in `WaitingConfirmation`.
 - Host has read-only raid history page (`list.clipboard`) showing latest-first confirmation records.
 - Host history attendee status pills: `Confirming` (yellow), `Joined` (green), `Seat full` (yellow), `No invite` (red).
 - Tapping raid-confirmation push opens room and auto-presents confirmation queue.
@@ -97,7 +98,7 @@
 - Role-seeded toolbar supports early host/attendee action slot rendering before room payload finishes loading.
 - Action buttons that depend on room payload stay disabled until detail data is ready.
 - Host-visible `AskingToJoin` attendee name includes small red dot marker.
-- Attendee status tags use shared colorful mapping: `Host` blue, `Asking/Waiting` yellow, `Ready` green.
+- Attendee status tags use shared colorful mapping: `Host` blue, `Asking/Waiting` yellow, `Ready` green, `Not Enough Honey` red.
 - Star and deposit badges use rounded visual styles (yellow star badge, orange honey badge).
 - Room detail attendee area now uses stacked per-attendee cards (no standalone attendee-title block), and this same card structure is reused by tutorial mode.
 - Room detail no longer renders a standalone `成員清單`/attendee-list title row; each attendee card is rendered as a peer section under room header.
@@ -138,6 +139,7 @@
 - Star-selection buttons in rating message boxes use neutral bordered style (non-prominent) to reduce visual glare.
 - Attendee rating is available only for `joined success` settlement.
 - Host flow: when attendee accepts confirmation, attendee doc is marked `isHostRatingRequired = true`; host can then give that attendee `1`, `2`, or `3` stars.
+- After a confirmation settles and the attendee no longer has any pending confirmation requests, attendee `status` becomes `NotEnoughHoney` when remaining `depositHoney` is below `fixedRaidCost`; otherwise it returns to `Ready`.
 - Stars updates write to `users/{uid}.stars` and also refresh room attendee stars in the active room so Room Details reflects new totals immediately.
 - Firestore transaction rule reminder: in room raid settlement transactions, read all attendee docs before applying any writes to avoid "all reads must occur before writes" transaction failures.
 
@@ -166,7 +168,7 @@ Fields:
 - `hostFcmToken` (String, optional): cached host push token used by backend push flows before user lookup fallback.
 - `location` (String): short location label. Set on create/update. Typically, consist of country, city
 - `description` (String): description. Set on create/update.
-- `fixedRaidCost` (Int): minimum honey deposit for joining. Set on create/update.
+- `fixedRaidCost` (Int): minimum honey deposit for joining. Set on create/update and may be `0` for free raids.
 - `maxPlayers` (Int): max attendees (default 10). Set on create.
 - `joinedCount` (Int): number of active attendees. Incremented on join, decremented on leave/kick/close. Host is counted as an attendee.
 - `createdAt` (Timestamp): set on create.
@@ -199,7 +201,7 @@ Fields:
 - `joinGreetingMessage` (String): attendee greeting captured when joining. Required by join flow.
 - `joinedAt` (Timestamp): set on join.
 - `updatedAt` (Timestamp): updated on deposit changes and raid settlement.
-- `status` (String): attendee state. Current values are `Host`, `AskingToJoin`, `Ready`, `WaitingConfirmation`.
+- `status` (String): attendee state. Current values are `Host`, `AskingToJoin`, `Ready`, `NotEnoughHoney`, `WaitingConfirmation`.
 - `pendingConfirmationRequests` (Map<String, Timestamp>, optional): pending confirmation queue keyed by confirmation id. Each key/value pair is one unprocessed confirmation request timestamp for joiner queue rendering and response.
 - `lastSettlementOutcome` (String, optional): latest escrow settlement result (`JoinedSuccess`, `SeatFullNoFault`, `MissedInvitation`).
 - `lastSettlementHoney` (Int, optional): latest settled honey amount moved from attendee escrow to host for that settlement.

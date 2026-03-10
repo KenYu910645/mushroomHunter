@@ -156,13 +156,14 @@ Current event document fields:
 - `RAID_CONFIRM_ATTENDEE`
   - Class: Action Event.
   - Producer: `handleRoomAttendeeUpdatedEvents`.
-  - Trigger: attendee status transitions into `WaitingConfirmation`.
+  - Trigger: attendee status transitions into `WaitingConfirmation`, or host appends a new key into `pendingConfirmationRequests` for that attendee while they are already in `WaitingConfirmation`.
   - Target: attendee
   - Push: `handleRoomAttendeeUpdatedEvents`.
   - Title(Eng): `Mushroom Invitation`
   - Title(Chinese): `蘑菇邀請確認`
-  - Message(Eng): `Action required: confirm your mushroom raid result.`
-  - Message(Chinese): `需要處理：請確認您是否收到蘑菇邀請。`
+  - Message(Eng): `Action required: confirm whether you received the mushroom raid invitation from %@.`
+  - Message(Chinese): `需要處理：請確認您是否收到來自 %@ 的蘑菇邀請。`
+  - Message args: host display name resolved from room host snapshot/user profile fallback.
 
 - `REPLY_HOST`
   - Class: Record Event.

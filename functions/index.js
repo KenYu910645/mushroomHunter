@@ -263,8 +263,8 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
       zh: ["好友碼已更新", "您的好友碼已更新為 %@。"],
     },
     RAID_CONFIRM_ATTENDEE: {
-      en: ["Mushroom Invitation", "Action required: confirm your mushroom raid result."],
-      zh: ["蘑菇邀請確認", "需要處理：請確認您是否收到蘑菇邀請。"],
+      en: ["Mushroom Invitation", "Action required: confirm whether you received the mushroom raid invitation from %@."],
+      zh: ["蘑菇邀請確認", "需要處理：請確認您是否收到來自 %@ 的蘑菇邀請。"],
     },
     JOIN_REQUESTED_ATTENDEE: {
       en: ["Sent Join Request", "You sent a request to join %@."],
@@ -926,7 +926,8 @@ exports.recordUserProfileAndWalletEvents = onDocumentUpdated(
     },
 );
 
-// Routed attendee-update branch: attendee enters WaitingConfirmation -> write action event + push attendee.
+// Routed attendee-update branch: attendee enters WaitingConfirmation or receives a new pending
+// confirmation request -> write action event + push attendee.
 // Event: RAID_CONFIRM_ATTENDEE
 async function processRaidConfirmationEvent(event) {
       const beforeData = event.data?.before?.data();
@@ -935,7 +936,15 @@ async function processRaidConfirmationEvent(event) {
 
       const oldStatus = beforeData?.status ?? null;
       const newStatus = afterData.status ?? null;
-      if (oldStatus === "WaitingConfirmation" || newStatus !== "WaitingConfirmation") {
+      const beforePendingRequests = beforeData?.pendingConfirmationRequests || {};
+      const afterPendingRequests = afterData.pendingConfirmationRequests || {};
+      const addedConfirmationIds = Object.keys(afterPendingRequests).filter(
+          (confirmationId) => !Object.prototype.hasOwnProperty.call(beforePendingRequests, confirmationId),
+      );
+      const isEnteringWaitingConfirmation =
+        oldStatus !== "WaitingConfirmation" && newStatus === "WaitingConfirmation";
+      const isReceivingNewConfirmationRequest = addedConfirmationIds.length > 0;
+      if (!isEnteringWaitingConfirmation && !isReceivingNewConfirmationRequest) {
         return;
       }
 
@@ -944,6 +953,7 @@ async function processRaidConfirmationEvent(event) {
       const roomSnap = await db.collection("rooms").doc(roomId).get();
 
       const roomData = roomSnap.data() || {};
+      const hostName = await resolveHostDisplayName(roomId, roomData, "");
       const attendeeEventId = resolveEventDocumentId(event.id, attendeeUid);
 
       await recordUserEvent({
@@ -951,10 +961,12 @@ async function processRaidConfirmationEvent(event) {
         cloudEventId: event.id,
         type: "RAID_CONFIRM_ATTENDEE",
         roomId,
+        messageArgs: [hostName],
       });
       const attendeeSnapshot = await resolveEventSnapshot(
           attendeeUid,
           "RAID_CONFIRM_ATTENDEE",
+          [hostName],
       );
 
       try {
