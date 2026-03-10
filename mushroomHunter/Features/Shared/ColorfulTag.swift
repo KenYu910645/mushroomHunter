@@ -7,6 +7,9 @@
 //
 import SwiftUI
 
+/// Shared salmon accent used by star/reputation tags.
+private let starSalmonColor = Color(red: 0.93, green: 0.47, blue: 0.43)
+
 /// Palette used by the shared colorful tag surface.
 enum ColorfulTagTone {
     /// Attendee/flow state indicating a ready or successful state.
@@ -44,7 +47,7 @@ enum ColorfulTagTone {
         case .honey:
             return .orange
         case .star:
-            return .yellow
+            return starSalmonColor
         case .ownership:
             return .white
         }
@@ -62,7 +65,7 @@ enum ColorfulTagTone {
         case .rejected:
             return .red
         case .star:
-            return .yellow
+            return starSalmonColor
         }
     }
 
@@ -80,7 +83,7 @@ enum ColorfulTagTone {
         case .honey:
             return Color.orange.opacity(0.14)
         case .star:
-            return Color.yellow.opacity(0.14)
+            return starSalmonColor.opacity(0.14)
         case .ownership:
             return Color.blue
         }
@@ -100,7 +103,7 @@ enum ColorfulTagTone {
         case .honey:
             return .orange
         case .star:
-            return .yellow
+            return starSalmonColor
         }
     }
 
@@ -118,7 +121,7 @@ enum ColorfulTagTone {
         case .honey:
             return Color.orange.opacity(0.35)
         case .star:
-            return Color.yellow.opacity(0.35)
+            return starSalmonColor.opacity(0.35)
         case .ownership:
             return Color.blue
         }
