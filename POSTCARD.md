@@ -41,6 +41,7 @@
   - Pinned rows still follow the same stock/location/search filters, so unmatched rows are hidden while typing a query.
 - Browse search is opened from the top action bar as an inline search field above the listing grid (no dedicated sheet/alert).
 - Postcard browse includes a screen-level top-right bell icon that opens the shared notification inbox list.
+- Browse tab re-entry and pull-to-refresh now use the same canonical full-refresh flow.
 - Notification inbox loads the latest 10 events first from `users/{uid}/events` and loads older pages while scrolling.
 - Notification inbox rows now separate Action vs Record semantics:
   - Action events render with red dot + bold text while unresolved.
@@ -58,7 +59,7 @@
 - Postcard detail tutorial completion now refreshes using the original postcard id that opened the page (not tutorial fake ids), so users stay on the intended postcard detail after tapping `Done`.
 - Postcard detail view hides the navigation title so the postcard snapshot is the first visible content at the top.
 - Postcard detail view renders title and price on the same first line; price uses a right-aligned honey `ColorfulTag` (HoneyIcon + value).
-- Postcard detail view metadata is shown as left-aligned stacked rows: `Seller: {name}` then `Friend Code: {code}` with inline copy action icon.
+- Postcard detail view metadata is shown as left-aligned stacked rows: `Seller: {name}` with a right-aligned star `ColorfulTag`, then `Friend Code: {code}` with inline copy action icon.
 - Postcard detail view stock visibility is role-based: buyers do not see stock; sellers see a left-aligned `Stock: {count}` row.
 - Seller/friend-code/stock metadata rows share the same gray `subheadline` text style for visual consistency.
 - Cache behavior and refresh/invalidation rules are documented only in `CACHE.md`.
@@ -66,7 +67,8 @@
 - Register flow uploads full image + thumbnail to Firebase Storage, then creates Firestore listing.
 - Register success dismisses the sheet and refreshes browse list.
 - Pull-to-refresh is supported in postcard browse, detail, and shipping flows.
-- Postcard browse pull-to-refresh is bound directly to the browse `ScrollView` and refreshes both pinned owner sections (`On-shelf`/`Ordered`) and paged browse listings from Firebase.
+- Postcard browse pull-to-refresh is bound directly to the browse `ScrollView` and shares the same server-authoritative full-refresh path used by browse tab re-entry, covering both pinned owner sections (`On-shelf`/`Ordered`) and paged browse listings.
+- The Postcard browse pull-to-refresh closure now hands the actual reload to an app-owned async task so SwiftUI `.refreshable` cancellation cannot abort the backend refresh mid-gesture.
 - Seller can open shipping sheet in postcard detail to see waiting buyers and mark each order as sent.
 - Seller shipping toolbar button in postcard detail shows a tiny red dot when there are pending orders that need seller processing.
 - Seller shipping queue rows show `Buyer ordered Postcard` title text plus a friend-request instruction line with inline copy icon for buyer friend code.
@@ -84,7 +86,14 @@
   - Seller can decline -> order enters `Rejected` with buyer refund and stock restore.
   - Seller marks shipped (`Shipped`) -> buyer receives push and can confirm receipt.
   - Buyer confirms receipt -> order enters `Completed` and transfers held honey to seller.
+  - Manual `Completed` orders create two postcard rating tasks:
+    - buyer rates seller
+    - seller rates buyer
+    - both flows reuse the mushroom room `MessageBox` 1/2/3-star selector
+  - Buyer sees the rating dialog immediately after the completion success dialog.
+  - Seller sees the rating dialog when opening the refreshed completed postcard detail.
   - Buyer inactivity after shipped deadline -> Cloud Function auto-settles order as `CompletedAuto`.
+  - `CompletedAuto` does not open postcard rating tasks.
   - Buyer cannot place another order for the same postcard while an active order exists (`AwaitingShipping`, `Shipped`).
   - In postcard detail buyer action area:
     - Shows explicit status (`Waiting, seller to ship`, `Shipped, on-the-way`).
@@ -93,6 +102,7 @@
     - Inline HoneyIcon size used in tokenized message text is owner-tunable via `AppConfig.SharedUI.honeyMessageIconSize`.
     - Shows `Confirm received, complete transaction` when order is `Shipped` (replaces buy action).
 - Postcard create/edit/delete confirmations, shipping confirmations, buyer receive confirmations, success notices, and error notices all use shared `MessageBox` (no system alerts/confirmation dialogs).
+- Shared `MessageBox` centers its message text content.
 - Register/edit forms use left-label and right-input rows.
 - Register/edit selling price row renders a trailing honey icon and keeps that icon right-aligned to the row edge.
 - Register/edit forms start with pre-filled defaults for title, price, province, stock, and description (instead of gray placeholder hints).
@@ -175,6 +185,12 @@ Fields:
 - `buyerConfirmDeadlineAt` (Timestamp, optional): buyer confirmation deadline after shipment.
 - `sentAt` (Timestamp, optional): set when seller marks postcard sent.
 - `completedAt` (Timestamp, optional): set when buyer confirms receipt and transaction completes.
+- `isBuyerRatingRequired` (Bool, optional): true after manual completion until buyer rates seller.
+- `isSellerRatingRequired` (Bool, optional): true after manual completion until seller rates buyer.
+- `isBuyerRatedSeller` (Bool, optional): true after buyer submits seller stars.
+- `isSellerRatedBuyer` (Bool, optional): true after seller submits buyer stars.
+- `buyerRatedSellerStars` (Int, optional): buyer -> seller star count.
+- `sellerRatedBuyerStars` (Int, optional): seller -> buyer star count.
 - `timeouts` (Map): hour-based parameters written to each order:
   - `sellerShippingDeadlineHours`
   - `buyerReceiveReminderHours`
@@ -186,10 +202,13 @@ Notes:
 - Seller decline action also sends buyer push notification that order was rejected/canceled and honey was fully refunded.
 - Seller shipping action transitions status from `AwaitingShipping` -> `Shipped` and updates `sentAt`, `buyerReminderAt`, and `buyerConfirmDeadlineAt`.
 - Buyer confirmation transitions status to `Completed` and transfers `holdHoney` to seller `users/{sellerId}.honey`.
+- Buyer confirmation also initializes both postcard rating-required flags.
 - Timeout sweep can transition into `FailedSellerNoShip` and `CompletedAuto`.
 - Postcard push notification copy is localized through APNs localization keys backed by app `Localizable.strings` entries.
 - Browse/search list fetch is paginated by `AppConfig.Postcard.browseListFetchLimit` (`20`) and uses cursor-based "Load more".
 - Profile ordered-postcards view uses one server-side query: `buyerId + status in [AwaitingShipping, Shipped]` (plus legacy aliases), ordered by `createdAt desc`, limited by profile fetch cap.
 - Buyer latest-order lookup uses a server-side query with `buyerId + postcardId + status in [AwaitingShipping, Shipped]` (plus legacy aliases), ordered by `createdAt desc`, limited to `1`.
+- Buyer pending-rating lookup uses a server-side query with `buyerId + postcardId + isBuyerRatingRequired == true`, ordered by `completedAt desc`, limited to `1`.
+- Seller pending-rating lookup uses a server-side query with `sellerId + postcardId + isSellerRatingRequired == true`, ordered by `completedAt desc`, limited to `1`.
 - Shipping recipients are fetched with server-side filters on `postcardId`, `sellerId`, and `status in [AwaitingShipping]` (plus legacy aliases); buyer friend codes are read from order snapshots with users lookup fallback for legacy orders.
 - Register/edit upload flow performs best-effort cleanup of newly uploaded image blobs if subsequent Firestore write fails.

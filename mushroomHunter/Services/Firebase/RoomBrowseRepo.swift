@@ -62,26 +62,30 @@ struct RoomListing: Identifiable, Hashable, Codable {
 
 final class FbRoomBrowseRepo {
     private let db = Firestore.firestore()
-    func fetchOpenListings(limit: Int = AppConfig.Mushroom.browseListFetchLimit) async throws -> [RoomListing] { // Handles fetchOpenListings flow.
+    func fetchOpenListings(
+        limit: Int = AppConfig.Mushroom.browseListFetchLimit,
+        isForcingServer: Bool = false
+    ) async throws -> [RoomListing] { // Handles fetchOpenListings flow.
         // ✅ Must match your createRoom(): collection is "rooms"
         let q = db.collection("rooms")
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
 
-        let snap: QuerySnapshot
-        do {
-            snap = try await q.getDocuments(source: .server)
-        } catch {
-            snap = try await q.getDocuments(source: .default)
-        }
+        let snap = try await fetchSnapshot(query: q, isForcingServer: isForcingServer)
 
-        return try await hydrateHostStars(snap.documents.map(decodeListing))
+        return try await hydrateHostStars(
+            snap.documents.map(decodeListing),
+            isForcingServer: isForcingServer
+        )
     }
 
     /// Loads room listings by ids for pinned "joined/hosted" browse slots.
     /// - Parameter roomIds: Target room ids that should be resolved into listing rows.
     /// - Returns: Decoded room listings for ids that still exist.
-    func fetchListings(roomIds: [String]) async throws -> [RoomListing] {
+    func fetchListings(
+        roomIds: [String],
+        isForcingServer: Bool = false
+    ) async throws -> [RoomListing] {
         let uniqueRoomIds = Array(Set(roomIds.filter { !$0.isEmpty }))
         guard uniqueRoomIds.isEmpty == false else { return [] }
 
@@ -89,15 +93,10 @@ final class FbRoomBrowseRepo {
         for roomIdChunk in uniqueRoomIds.chunked(into: 10) {
             let query = db.collection("rooms")
                 .whereField(FieldPath.documentID(), in: roomIdChunk)
-            let snapshot: QuerySnapshot
-            do {
-                snapshot = try await query.getDocuments(source: .server)
-            } catch {
-                snapshot = try await query.getDocuments(source: .default)
-            }
+            let snapshot = try await fetchSnapshot(query: query, isForcingServer: isForcingServer)
             listings.append(contentsOf: snapshot.documents.map(decodeListing))
         }
-        return try await hydrateHostStars(listings)
+        return try await hydrateHostStars(listings, isForcingServer: isForcingServer)
     }
 
     /// Decodes Firestore room document into browse listing payload.
@@ -132,7 +131,10 @@ final class FbRoomBrowseRepo {
     /// Resolves latest host stars from user profiles, keeping room-level stars as a legacy fallback.
     /// - Parameter listings: Decoded room listings awaiting host-star hydration.
     /// - Returns: Listings with `hostStars` overridden by `users/{uid}.stars` when available.
-    private func hydrateHostStars(_ listings: [RoomListing]) async throws -> [RoomListing] {
+    private func hydrateHostStars(
+        _ listings: [RoomListing],
+        isForcingServer: Bool
+    ) async throws -> [RoomListing] {
         let hostUids = Array(Set(listings.map(\.hostUid).filter { !$0.isEmpty }))
         guard hostUids.isEmpty == false else { return listings }
 
@@ -140,12 +142,7 @@ final class FbRoomBrowseRepo {
         for hostUidChunk in hostUids.chunked(into: 10) {
             let query = db.collection("users")
                 .whereField(FieldPath.documentID(), in: hostUidChunk)
-            let snapshot: QuerySnapshot
-            do {
-                snapshot = try await query.getDocuments(source: .server)
-            } catch {
-                snapshot = try await query.getDocuments(source: .default)
-            }
+            let snapshot = try await fetchSnapshot(query: query, isForcingServer: isForcingServer)
             for document in snapshot.documents {
                 let starsValue = document.data()["stars"] as? Int ?? 0
                 starsByUid[document.documentID] = max(0, starsValue)
@@ -158,6 +155,22 @@ final class FbRoomBrowseRepo {
                 hydratedListing.hostStars = stars
             }
             return hydratedListing
+        }
+    }
+
+    /// Resolves a Firestore query snapshot with optional cache fallback.
+    /// - Parameters:
+    ///   - query: Firestore query used by browse and pinned-room refresh flows.
+    ///   - isForcingServer: True when the caller requires a server-authoritative refresh.
+    /// - Returns: Snapshot from the requested source policy.
+    private func fetchSnapshot(query: Query, isForcingServer: Bool) async throws -> QuerySnapshot {
+        if isForcingServer {
+            return try await query.getDocuments(source: .server)
+        }
+        do {
+            return try await query.getDocuments(source: .server)
+        } catch {
+            return try await query.getDocuments(source: .default)
         }
     }
 }

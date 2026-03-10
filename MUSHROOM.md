@@ -42,7 +42,9 @@
 - Search UI is inline (not sheet/alert), with toggle, clear `x`, keyboard `Search`, and hide-to-clear behavior.
 - Local filtering matches room `title` and `location` (stored + localized country label).
 - Backend room fetch refreshes only on explicit `Search`, pull-to-refresh, or forced refresh.
-- Room list fetch is server-first with `.default` fallback.
+- Browse tab re-entry and pull-to-refresh now use the same canonical full-refresh flow.
+- Explicit browse refresh is server-authoritative for both the main open-room list and pinned hosted/joined rows; cache is only used as an empty-state bootstrap before that refresh runs.
+- The Mushroom browse pull-to-refresh closure now hands the actual reload to an app-owned async task so SwiftUI `.refreshable` cancellation cannot abort the backend refresh mid-gesture.
 - Each browse room row uses the full visible row area as the navigation hit target instead of limiting taps to text/icon subviews.
 - Browse priority score:
 - Reward: `hostStars * AppConfig.Mushroom.browsePriorityHostStarWeight`.
@@ -107,7 +109,7 @@
 ### 7) Notification Inbox Behavior
 - Inbox fetches `users/{uid}/events` newest-first, first page size 10, and paginates on scroll.
 - Rows separate Action vs Record semantics:
-- Action rows: unresolved red dot + bold text, tappable route.
+- Action rows: unresolved-and-unread rows show red dot + bold text, tapping the row marks it as read and removes the emphasis even before the action is fully resolved.
 - Record rows: normal text, no route action.
 - Room-related action routing:
 - Raid confirmation route opens room + queue.
@@ -117,6 +119,7 @@
 - Host room detail includes invite tools: QR sheet and share/copy deep link `honeyhub://room/{roomId}`.
 - Copy toast style/timing matches postcard behavior.
 - Shared `MessageBox` supports inline `{honey_icon}` token rendering with natural text wrapping.
+- Shared `MessageBox` centers its message text content.
 - Inline message-box honey icon size is configurable via `AppConfig.SharedUI.honeyMessageIconSize`.
 - Host minimum-payment row also token-renders `{honey_icon}` as inline icon.
 

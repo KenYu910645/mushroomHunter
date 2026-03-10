@@ -114,24 +114,18 @@ final class PostcardBrowseViewModel: ObservableObject {
     /// - Parameter session: Current signed-in session.
     func loadOnAppear(session: UserSessionStore) async {
         let isBrowseDirty = await dirtyBits.isPostcardBrowseDirty()
-        if isBrowseDirty {
-            await refresh(session: session)
-            return
+        let isHasVisibleListings = listings.isEmpty == false
+            || pinnedOnShelfListings.isEmpty == false
+            || pinnedOrderedListings.isEmpty == false
+        if !isBrowseDirty && !isHasVisibleListings && confirmedQuery.isEmpty {
+            _ = await loadBrowseListingsFromCache()
         }
-        if listings.isEmpty, confirmedQuery.isEmpty, await loadBrowseListingsFromCache() {
-            await refreshPinnedListings(session: session)
-            return
-        }
-        if listings.isEmpty {
-            await refresh(session: session)
-            return
-        }
-        await refreshPinnedListings(session: session)
+        await reloadBrowse(session: session, isExplicitRefresh: false)
     }
 
     /// Refreshes browse data for the current query value.
     func refresh(session: UserSessionStore) async {
-        _ = await fetchForQuery(confirmedQuery, session: session)
+        await reloadBrowse(session: session, isExplicitRefresh: true)
     }
 
     /// Executes backend search using the current query text.
@@ -147,16 +141,35 @@ final class PostcardBrowseViewModel: ObservableObject {
         _ = await fetchForQuery(confirmedQuery, session: session)
     }
 
+    /// Reloads the entire postcard browse composition with a consistent refresh contract.
+    /// - Parameters:
+    ///   - session: Current signed-in session.
+    ///   - isExplicitRefresh: True when triggered by pull-to-refresh or another user-initiated refresh action.
+    private func reloadBrowse(session: UserSessionStore, isExplicitRefresh: Bool) async {
+        if isExplicitRefresh {
+            await dirtyBits.markPostcardBrowseDirty()
+        }
+        _ = await fetchForQuery(
+            confirmedQuery,
+            session: session,
+            isForcingServer: true
+        )
+    }
+
     /// Fetches listings from backend using the provided raw query text.
     /// - Parameter rawQuery: User-entered search text before tokenization.
     @discardableResult
-    func fetchForQuery(_ rawQuery: String, session: UserSessionStore) async -> Bool {
+    func fetchForQuery(
+        _ rawQuery: String,
+        session: UserSessionStore,
+        isForcingServer: Bool = false
+    ) async -> Bool {
         errorMessage = nil
         nextPageCursor = nil
         let tokens = SearchTokenBuilder.queryTokens(from: rawQuery)
         activeSearchToken = tokens.first
-        let isLoadSuccess = await loadNextPage(isReset: true)
-        await refreshPinnedListings(session: session)
+        let isLoadSuccess = await loadNextPage(isReset: true, isForcingServer: isForcingServer)
+        await refreshPinnedListings(session: session, isForcingServer: isForcingServer)
         if isLoadSuccess && activeSearchToken == nil {
             await cache.save(listings, key: browseCacheKey)
         }
@@ -168,7 +181,7 @@ final class PostcardBrowseViewModel: ObservableObject {
 
     /// Loads the next browse page using current confirmed search context.
     @discardableResult
-    func loadNextPage(isReset: Bool = false) async -> Bool {
+    func loadNextPage(isReset: Bool = false, isForcingServer: Bool = false) async -> Bool {
         if isReset {
             isLoading = true
             errorMessage = nil
@@ -200,12 +213,14 @@ final class PostcardBrowseViewModel: ObservableObject {
                     return try await self.repo.searchByTokenPage(
                         searchToken,
                         limit: AppConfig.Postcard.browseListFetchLimit,
-                        cursor: isReset ? nil : self.nextPageCursor
+                        cursor: isReset ? nil : self.nextPageCursor,
+                        isForcingServer: isForcingServer
                     )
                 }
                 return try await self.repo.fetchRecentPage(
                     limit: AppConfig.Postcard.browseListFetchLimit,
-                    cursor: isReset ? nil : self.nextPageCursor
+                    cursor: isReset ? nil : self.nextPageCursor,
+                    isForcingServer: isForcingServer
                 )
             }
 
@@ -342,7 +357,7 @@ final class PostcardBrowseViewModel: ObservableObject {
 
     /// Refreshes user-owned on-shelf and ordered postcard slots for pinned browse display.
     /// - Parameter session: Current signed-in session.
-    private func refreshPinnedListings(session: UserSessionStore) async {
+    private func refreshPinnedListings(session: UserSessionStore, isForcingServer: Bool) async {
         guard AppTesting.useMockPostcards == false else {
             pinnedOnShelfListings = []
             pinnedOrderedListings = []
@@ -359,8 +374,16 @@ final class PostcardBrowseViewModel: ObservableObject {
         }
 
         do {
-            async let onShelfLoad = repo.fetchMyListings(userId: userId, limit: AppConfig.Postcard.profileListFetchLimit)
-            async let orderedLoad = repo.fetchMyOrderedPostcards(userId: userId, limit: AppConfig.Postcard.profileListFetchLimit)
+            async let onShelfLoad = repo.fetchMyListings(
+                userId: userId,
+                limit: AppConfig.Postcard.profileListFetchLimit,
+                isForcingServer: isForcingServer
+            )
+            async let orderedLoad = repo.fetchMyOrderedPostcards(
+                userId: userId,
+                limit: AppConfig.Postcard.profileListFetchLimit,
+                isForcingServer: isForcingServer
+            )
             let onShelfListings = try await onShelfLoad
             let orderedSummaries = try await orderedLoad
             let visibleOnShelfListings = onShelfListings.filter { listing in

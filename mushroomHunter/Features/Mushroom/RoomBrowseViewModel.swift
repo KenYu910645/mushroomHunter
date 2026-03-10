@@ -91,31 +91,43 @@ final class RoomBrowseViewModel: ObservableObject {
     }
 
     /// Loads browse listings with stale-first strategy.
-    /// Uses cache on enter and always follows with a server refresh.
+    /// Uses cache for empty-state bootstrap and then runs a server-authoritative refresh.
     func loadListingsOnAppear() async { // Handles loadListingsOnAppear flow.
         let isBrowseDirty = await dirtyBits.isMushroomBrowseDirty()
-        if isBrowseDirty {
-            await fetchListings(forceRefresh: true)
-            return
+        let isHasVisibleListings = listings.isEmpty == false || pinnedListings.isEmpty == false
+        if !isBrowseDirty && !isHasVisibleListings {
+            _ = await loadListingsFromCache()
         }
-        let isCacheLoaded = await loadListingsFromCache()
-        if isCacheLoaded {
-            await fetchListings(forceRefresh: true)
-            return
-        }
-        await fetchListings(forceRefresh: true)
+        await reloadBrowseListings(isExplicitRefresh: false)
+    }
+
+    /// Runs a user-triggered browse refresh that follows the same canonical reload path as tab re-entry.
+    func refreshListings() async {
+        await reloadBrowseListings(isExplicitRefresh: true)
     }
 
     /// Fetches latest open room listings from backend (or fixture in UI-test mode).
     /// - Parameter isForceRefresh: `true` to always query Firestore and overwrite cache.
     func fetchListings(forceRefresh isForceRefresh: Bool = false) async { // Handles fetchListings flow.
-        let isBrowseDirty = await dirtyBits.isMushroomBrowseDirty()
-        let isShouldForceRefresh = isForceRefresh || isBrowseDirty
-        if !isShouldForceRefresh, await loadListingsFromCache() {
-            await refreshPinnedListings()
+        if isForceRefresh {
+            await refreshListings()
             return
         }
+        let isBrowseDirty = await dirtyBits.isMushroomBrowseDirty()
+        let isShouldForceRefresh = isBrowseDirty
+        if !isShouldForceRefresh, await loadListingsFromCache() {
+            await refreshPinnedListings(isForcingServer: false)
+            return
+        }
+        await reloadBrowseListings(isExplicitRefresh: false)
+    }
 
+    /// Reloads all browse-visible room data with consistent refresh semantics.
+    /// - Parameter isExplicitRefresh: True when triggered by pull-to-refresh or another user-initiated refresh action.
+    private func reloadBrowseListings(isExplicitRefresh: Bool) async {
+        if isExplicitRefresh {
+            await dirtyBits.markMushroomBrowseDirty()
+        }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -126,20 +138,23 @@ final class RoomBrowseViewModel: ObservableObject {
         }
 
         do {
-            let docs = try await withTimeout(seconds: AppConfig.Network.requestTimeoutSeconds) {
-                try await self.repo.fetchOpenListings(limit: AppConfig.Mushroom.browseListFetchLimit)
+            let docs: [RoomListing] = try await withTimeout(seconds: AppConfig.Network.requestTimeoutSeconds) {
+                return try await self.repo.fetchOpenListings(
+                    limit: AppConfig.Mushroom.browseListFetchLimit,
+                    isForcingServer: true
+                )
             }
             self.listings = docs
             await cache.save(docs, key: browseCacheKey)
             await dirtyBits.clearMushroomBrowseDirty()
-            await refreshPinnedListings()
+            await refreshPinnedListings(isForcingServer: true)
         } catch is CancellationError {
             // Normal: user pulled to refresh, view reloaded, or task replaced.
             return
         } catch {
             print("❌ fetchListings error:", error)
             self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            await refreshPinnedListings()
+            await refreshPinnedListings(isForcingServer: true)
         }
     }
 
@@ -336,7 +351,7 @@ final class RoomBrowseViewModel: ObservableObject {
     }
 
     /// Loads current user's joined/hosted rooms and keeps them pinned at browse top.
-    private func refreshPinnedListings() async {
+    private func refreshPinnedListings(isForcingServer: Bool) async {
         guard AppTesting.isUITesting == false else {
             pinnedListings = []
             hostRoomIds = []
@@ -351,8 +366,14 @@ final class RoomBrowseViewModel: ObservableObject {
         }
 
         do {
-            async let hostedRoomSummariesLoad = profileRepo.fetchMyHostedRooms(limit: AppConfig.Mushroom.profileListFetchLimit)
-            async let joinedRoomSummariesLoad = profileRepo.fetchMyJoinedRooms(limit: AppConfig.Mushroom.profileListFetchLimit)
+            async let hostedRoomSummariesLoad = profileRepo.fetchMyHostedRooms(
+                limit: AppConfig.Mushroom.profileListFetchLimit,
+                isForcingServer: isForcingServer
+            )
+            async let joinedRoomSummariesLoad = profileRepo.fetchMyJoinedRooms(
+                limit: AppConfig.Mushroom.profileListFetchLimit,
+                isForcingServer: isForcingServer
+            )
             let hostedRoomSummaries = try await hostedRoomSummariesLoad
             let joinedRoomSummaries = try await joinedRoomSummariesLoad
 
@@ -364,7 +385,10 @@ final class RoomBrowseViewModel: ObservableObject {
             let baseListingById = Dictionary(uniqueKeysWithValues: listings.map { ($0.id, $0) })
             let requestedPinnedIds = Array(Set(hostedIds + joinedIds))
             let missingPinnedIds = requestedPinnedIds.filter { baseListingById[$0] == nil }
-            let extraPinnedListings = try await repo.fetchListings(roomIds: missingPinnedIds)
+            let extraPinnedListings = try await repo.fetchListings(
+                roomIds: missingPinnedIds,
+                isForcingServer: isForcingServer
+            )
             let mergedListingById = baseListingById.merging(
                 Dictionary(uniqueKeysWithValues: extraPinnedListings.map { ($0.id, $0) })
             ) { current, _ in

@@ -50,6 +50,12 @@
 //  [W] - `buyerReminderAt`: Writes buyer reminder deadline.
 //  [W] - `buyerConfirmDeadlineAt`: Writes buyer auto-complete deadline.
 //  [W] - `trackingCode`: Writes shipment tracking code on seller ship flow.
+//  [W] - `isBuyerRatingRequired`: Writes true after buyer-confirmed completion until buyer rates seller.
+//  [W] - `isSellerRatingRequired`: Writes true after buyer-confirmed completion until seller rates buyer.
+//  [W] - `isBuyerRatedSeller`: Writes true after buyer rates seller.
+//  [W] - `isSellerRatedBuyer`: Writes true after seller rates buyer.
+//  [W] - `buyerRatedSellerStars`: Writes buyer -> seller star value.
+//  [W] - `sellerRatedBuyerStars`: Writes seller -> buyer star value.
 //  [W] - `createdAt`: Writes order creation timestamp and reads for profile ordering.
 //  [W] - `updatedAt`: Writes update timestamp on every order mutation.
 //
@@ -57,6 +63,7 @@
 //  [R] - `friendCode`: Reads for order buyer snapshot and shipping legacy fallback.
 //  [W] - `honey`: Reads/writes wallet balance during buy/settlement flows.
 //  [R] - `displayName`: Reads buyer/seller display snapshots for orders.
+//  [R] - `stars`: Reads seller/buyer profile stars for postcard detail tag display.
 //  [W] - `updatedAt`: Writes timestamp when wallet is mutated by order transactions.
 //
 import Foundation
@@ -74,6 +81,9 @@ enum PostcardRepoError: LocalizedError {
     case activeOrderExists
     case forbidden
     case invalidOrderState
+    case ratingNotAvailable
+    case alreadyRated
+    case invalidStars
 
     var errorDescription: String? {
         switch self {
@@ -86,6 +96,9 @@ enum PostcardRepoError: LocalizedError {
         case .activeOrderExists: return "You already have an active order for this postcard."
         case .forbidden: return "You don't have access to this action."
         case .invalidOrderState: return "Order is not in a shippable state."
+        case .ratingNotAvailable: return "Rating is not available for this order."
+        case .alreadyRated: return "You already submitted stars for this order."
+        case .invalidStars: return "Stars must be between 1 and 3."
         }
     }
 }
@@ -117,17 +130,25 @@ final class FbPostcardRepo {
         return page.listings
     }
 
-    func fetchMyListings(userId: String, limit: Int = AppConfig.Postcard.profileListFetchLimit) async throws -> [PostcardListing] { // Handles fetchMyListings flow.
+    func fetchMyListings(
+        userId: String,
+        limit: Int = AppConfig.Postcard.profileListFetchLimit,
+        isForcingServer: Bool = false
+    ) async throws -> [PostcardListing] { // Handles fetchMyListings flow.
         let q = db.collection("postcards")
             .whereField("sellerId", isEqualTo: userId)
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
 
         let snap: QuerySnapshot
-        do {
+        if isForcingServer {
             snap = try await q.getDocuments(source: .server)
-        } catch {
-            snap = try await q.getDocuments(source: .default)
+        } else {
+            do {
+                snap = try await q.getDocuments(source: .server)
+            } catch {
+                snap = try await q.getDocuments(source: .default)
+            }
         }
         return snap.documents.map(decodeListing)
     }
@@ -197,7 +218,11 @@ final class FbPostcardRepo {
         return try await fetchDocuments(query: query).count
     }
 
-    func fetchMyOrderedPostcards(userId: String, limit: Int = AppConfig.Postcard.profileListFetchLimit) async throws -> [OrderedPostcardSummary] { // Handles fetchMyOrderedPostcards flow.
+    func fetchMyOrderedPostcards(
+        userId: String,
+        limit: Int = AppConfig.Postcard.profileListFetchLimit,
+        isForcingServer: Bool = false
+    ) async throws -> [OrderedPostcardSummary] { // Handles fetchMyOrderedPostcards flow.
         let activeStatuses = [
             PostcardOrderStatus.awaitingShipping.rawValue,
             PostcardOrderStatus.shipped.rawValue,
@@ -211,7 +236,7 @@ final class FbPostcardRepo {
             .whereField("status", in: activeStatuses)
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
-        let orderDocs = try await fetchDocuments(query: query)
+        let orderDocs = try await fetchDocuments(query: query, isForcingServer: isForcingServer)
 
         let orderedPostcardInfos = orderDocs
             .compactMap { doc -> (postcardId: String, status: PostcardOrderStatus)? in
@@ -229,10 +254,14 @@ final class FbPostcardRepo {
         for chunk in uniqueIds.chunked(into: 10) {
             let listingSnap: QuerySnapshot
             let query = db.collection("postcards").whereField(FieldPath.documentID(), in: chunk)
-            do {
+            if isForcingServer {
                 listingSnap = try await query.getDocuments(source: .server)
-            } catch {
-                listingSnap = try await query.getDocuments(source: .default)
+            } else {
+                do {
+                    listingSnap = try await query.getDocuments(source: .server)
+                } catch {
+                    listingSnap = try await query.getDocuments(source: .default)
+                }
             }
             for doc in listingSnap.documents {
                 listingById[doc.documentID] = decodeListing(doc)
@@ -252,7 +281,8 @@ final class FbPostcardRepo {
 
     func fetchRecentPage(
         limit: Int = AppConfig.Postcard.browseListFetchLimit,
-        cursor: ListingPageCursor? = nil
+        cursor: ListingPageCursor? = nil,
+        isForcingServer: Bool = false
     ) async throws -> ListingPage { // Handles paged recent fetch flow.
         var q: Query = db.collection("postcards")
             .order(by: "createdAt", descending: true)
@@ -262,7 +292,7 @@ final class FbPostcardRepo {
             q = q.start(afterDocument: cursor.snapshot)
         }
 
-        let docs = try await fetchDocuments(query: q)
+        let docs = try await fetchDocuments(query: q, isForcingServer: isForcingServer)
         let nextCursor = docs.last.map { ListingPageCursor(snapshot: $0) }
         let isHasMore = docs.count >= limit
         return ListingPage(
@@ -275,7 +305,8 @@ final class FbPostcardRepo {
     func searchByTokenPage(
         _ token: String,
         limit: Int = AppConfig.Postcard.browseListFetchLimit,
-        cursor: ListingPageCursor? = nil
+        cursor: ListingPageCursor? = nil,
+        isForcingServer: Bool = false
     ) async throws -> ListingPage { // Handles paged token search flow.
         let q = db.collection("postcards")
             .whereField("searchTokens", arrayContains: token)
@@ -284,7 +315,7 @@ final class FbPostcardRepo {
         if let cursor {
             pagedQuery = pagedQuery.start(afterDocument: cursor.snapshot)
         }
-        let docs = try await fetchDocuments(query: pagedQuery)
+        let docs = try await fetchDocuments(query: pagedQuery, isForcingServer: isForcingServer)
         let nextCursor = docs.last.map { ListingPageCursor(snapshot: $0) }
         let isHasMore = docs.count >= limit
         return ListingPage(
@@ -305,6 +336,25 @@ final class FbPostcardRepo {
 
         guard let data = snap.data() else { return nil }
         return decodeListing(id: snap.documentID, data: data)
+    }
+
+    /// Loads one user's current profile stars for postcard detail display.
+    /// - Parameter userId: Target user uid.
+    /// - Returns: Non-negative star count from `users/{uid}.stars`, or `0` when missing.
+    func fetchUserStars(userId: String) async throws -> Int {
+        let cleanUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard cleanUserId.isEmpty == false else { return 0 }
+
+        let ref = db.collection("users").document(cleanUserId)
+        let snap: DocumentSnapshot
+        do {
+            snap = try await ref.getDocument(source: .server)
+        } catch {
+            snap = try await ref.getDocument(source: .default)
+        }
+
+        let starsValue = snap.data()?["stars"] as? Int ?? 0
+        return max(0, starsValue)
     }
 
     func createPostcard(
@@ -675,6 +725,44 @@ final class FbPostcardRepo {
         return decodeBuyerOrder(latestDoc)
     }
 
+    /// Loads the latest completed order for this postcard where the buyer still needs to rate the seller.
+    /// - Parameter postcardId: Listing id currently open in postcard detail.
+    /// - Returns: Pending buyer-side rating context, or `nil` when there is no outstanding rating.
+    func fetchLatestBuyerRatingContext(postcardId: String) async throws -> PostcardOrderRatingContext? {
+        guard let buyerId = Auth.auth().currentUser?.uid else {
+            throw PostcardRepoError.notSignedIn
+        }
+
+        let query = db.collection("postcardOrders")
+            .whereField("buyerId", isEqualTo: buyerId)
+            .whereField("postcardId", isEqualTo: postcardId)
+            .whereField("isBuyerRatingRequired", isEqualTo: true)
+            .order(by: "completedAt", descending: true)
+            .limit(to: 1)
+        let docs = try await fetchDocuments(query: query)
+        guard let latestDoc = docs.first else { return nil }
+        return decodeBuyerRatingContext(latestDoc)
+    }
+
+    /// Loads the latest completed order for this postcard where the seller still needs to rate the buyer.
+    /// - Parameter postcardId: Listing id currently open in postcard detail.
+    /// - Returns: Pending seller-side rating context, or `nil` when there is no outstanding rating.
+    func fetchLatestSellerRatingContext(postcardId: String) async throws -> PostcardOrderRatingContext? {
+        guard let sellerId = Auth.auth().currentUser?.uid else {
+            throw PostcardRepoError.notSignedIn
+        }
+
+        let query = db.collection("postcardOrders")
+            .whereField("sellerId", isEqualTo: sellerId)
+            .whereField("postcardId", isEqualTo: postcardId)
+            .whereField("isSellerRatingRequired", isEqualTo: true)
+            .order(by: "completedAt", descending: true)
+            .limit(to: 1)
+        let docs = try await fetchDocuments(query: query)
+        guard let latestDoc = docs.first else { return nil }
+        return decodeSellerRatingContext(latestDoc)
+    }
+
     func confirmPostcardReceived(orderId: String) async throws { // Handles confirmPostcardReceived flow.
         guard let buyerId = Auth.auth().currentUser?.uid else {
             throw PostcardRepoError.notSignedIn
@@ -736,6 +824,10 @@ final class FbPostcardRepo {
 
             tx.updateData([
                 "status": PostcardOrderStatus.completed.rawValue,
+                "isBuyerRatingRequired": true,
+                "isSellerRatingRequired": true,
+                "isBuyerRatedSeller": false,
+                "isSellerRatedBuyer": false,
                 "updatedAt": now,
                 "completedAt": now,
             ], forDocument: orderRef)
@@ -743,6 +835,142 @@ final class FbPostcardRepo {
             tx.setData([
                 "updatedAt": now,
             ], forDocument: buyerRef, merge: true)
+
+            return nil
+        }
+    }
+
+    /// Persists buyer -> seller stars for one completed postcard order.
+    /// - Parameters:
+    ///   - orderId: Completed order document id.
+    ///   - stars: Number of stars between 1 and 3.
+    func rateSellerAfterCompletion(orderId: String, stars: Int) async throws {
+        guard (1...3).contains(stars) else { throw PostcardRepoError.invalidStars }
+        guard let buyerId = Auth.auth().currentUser?.uid else {
+            throw PostcardRepoError.notSignedIn
+        }
+
+        let orderRef = db.collection("postcardOrders").document(orderId)
+        let now = Timestamp(date: Date())
+
+        _ = try await db.runTransaction { tx, errorPointer in
+            let orderSnap: DocumentSnapshot
+            do {
+                orderSnap = try tx.getDocument(orderRef)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+
+            guard let order = orderSnap.data() else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.listingNotFound)
+                return nil
+            }
+
+            let orderBuyerId = order["buyerId"] as? String ?? ""
+            guard orderBuyerId == buyerId else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.forbidden)
+                return nil
+            }
+
+            let isRatingRequired = order["isBuyerRatingRequired"] as? Bool ?? false
+            guard isRatingRequired else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.ratingNotAvailable)
+                return nil
+            }
+
+            let isAlreadyRated = order["isBuyerRatedSeller"] as? Bool ?? false
+            guard !isAlreadyRated else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.alreadyRated)
+                return nil
+            }
+
+            let sellerId = order["sellerId"] as? String ?? ""
+            guard sellerId.isEmpty == false else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.invalidListing)
+                return nil
+            }
+
+            let sellerUserRef = self.db.collection("users").document(sellerId)
+            tx.setData([
+                "stars": FieldValue.increment(Int64(stars)),
+                "updatedAt": now,
+            ], forDocument: sellerUserRef, merge: true)
+
+            tx.updateData([
+                "isBuyerRatedSeller": true,
+                "isBuyerRatingRequired": false,
+                "buyerRatedSellerStars": stars,
+                "updatedAt": now,
+            ], forDocument: orderRef)
+
+            return nil
+        }
+    }
+
+    /// Persists seller -> buyer stars for one completed postcard order.
+    /// - Parameters:
+    ///   - orderId: Completed order document id.
+    ///   - stars: Number of stars between 1 and 3.
+    func rateBuyerAfterCompletion(orderId: String, stars: Int) async throws {
+        guard (1...3).contains(stars) else { throw PostcardRepoError.invalidStars }
+        guard let sellerId = Auth.auth().currentUser?.uid else {
+            throw PostcardRepoError.notSignedIn
+        }
+
+        let orderRef = db.collection("postcardOrders").document(orderId)
+        let now = Timestamp(date: Date())
+
+        _ = try await db.runTransaction { tx, errorPointer in
+            let orderSnap: DocumentSnapshot
+            do {
+                orderSnap = try tx.getDocument(orderRef)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+
+            guard let order = orderSnap.data() else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.listingNotFound)
+                return nil
+            }
+
+            let orderSellerId = order["sellerId"] as? String ?? ""
+            guard orderSellerId == sellerId else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.forbidden)
+                return nil
+            }
+
+            let isRatingRequired = order["isSellerRatingRequired"] as? Bool ?? false
+            guard isRatingRequired else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.ratingNotAvailable)
+                return nil
+            }
+
+            let isAlreadyRated = order["isSellerRatedBuyer"] as? Bool ?? false
+            guard !isAlreadyRated else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.alreadyRated)
+                return nil
+            }
+
+            let buyerId = order["buyerId"] as? String ?? ""
+            guard buyerId.isEmpty == false else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.invalidListing)
+                return nil
+            }
+
+            let buyerUserRef = self.db.collection("users").document(buyerId)
+            tx.setData([
+                "stars": FieldValue.increment(Int64(stars)),
+                "updatedAt": now,
+            ], forDocument: buyerUserRef, merge: true)
+
+            tx.updateData([
+                "isSellerRatedBuyer": true,
+                "isSellerRatingRequired": false,
+                "sellerRatedBuyerStars": stars,
+                "updatedAt": now,
+            ], forDocument: orderRef)
 
             return nil
         }
@@ -846,6 +1074,58 @@ final class FbPostcardRepo {
         )
     }
 
+    /// Decodes buyer-side rating context from one completed postcard order document.
+    /// - Parameter doc: Firestore order document snapshot.
+    /// - Returns: Buyer rating context when the order has a valid completion status.
+    private func decodeBuyerRatingContext(_ doc: QueryDocumentSnapshot) -> PostcardOrderRatingContext? {
+        let data = doc.data()
+        let postcardId = data["postcardId"] as? String ?? ""
+        let statusRaw = data["status"] as? String ?? ""
+        guard let status = PostcardOrderStatus.from(rawValue: statusRaw),
+              status == .completed || status == .completedAuto else {
+            return nil
+        }
+
+        let completedAt = (data["completedAt"] as? Timestamp)?.dateValue() ?? Date.distantPast
+        let counterpartName = (data["sellerName"] as? String ?? "Seller")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return PostcardOrderRatingContext(
+            id: doc.documentID,
+            postcardId: postcardId,
+            status: status,
+            counterpartName: counterpartName.isEmpty ? "Seller" : counterpartName,
+            isBuyerRatingRequired: data["isBuyerRatingRequired"] as? Bool ?? false,
+            isSellerRatingRequired: data["isSellerRatingRequired"] as? Bool ?? false,
+            completedAt: completedAt
+        )
+    }
+
+    /// Decodes seller-side rating context from one completed postcard order document.
+    /// - Parameter doc: Firestore order document snapshot.
+    /// - Returns: Seller rating context when the order has a valid completion status.
+    private func decodeSellerRatingContext(_ doc: QueryDocumentSnapshot) -> PostcardOrderRatingContext? {
+        let data = doc.data()
+        let postcardId = data["postcardId"] as? String ?? ""
+        let statusRaw = data["status"] as? String ?? ""
+        guard let status = PostcardOrderStatus.from(rawValue: statusRaw),
+              status == .completed || status == .completedAuto else {
+            return nil
+        }
+
+        let completedAt = (data["completedAt"] as? Timestamp)?.dateValue() ?? Date.distantPast
+        let counterpartName = (data["buyerName"] as? String ?? "Buyer")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return PostcardOrderRatingContext(
+            id: doc.documentID,
+            postcardId: postcardId,
+            status: status,
+            counterpartName: counterpartName.isEmpty ? "Buyer" : counterpartName,
+            isBuyerRatingRequired: data["isBuyerRatingRequired"] as? Bool ?? false,
+            isSellerRatingRequired: data["isSellerRatingRequired"] as? Bool ?? false,
+            completedAt: completedAt
+        )
+    }
+
     private func decodeListing(id: String, data: [String: Any]) -> PostcardListing {
         let title = data["title"] as? String ?? "Untitled"
         let priceHoney = data["priceHoney"] as? Int ?? 0
@@ -898,7 +1178,18 @@ final class FbPostcardRepo {
         )
     }
 
-    private func fetchDocuments(query: Query) async throws -> [QueryDocumentSnapshot] {
+    /// Fetches Firestore query documents with optional cache fallback.
+    /// - Parameters:
+    ///   - query: Firestore query to execute.
+    ///   - isForcingServer: True when the caller requires a server-backed refresh and should not accept local-cache fallback.
+    /// - Returns: Query documents from the requested source policy.
+    private func fetchDocuments(
+        query: Query,
+        isForcingServer: Bool = false
+    ) async throws -> [QueryDocumentSnapshot] {
+        if isForcingServer {
+            return try await query.getDocuments(source: .server).documents
+        }
         do {
             return try await query.getDocuments(source: .server).documents
         } catch {

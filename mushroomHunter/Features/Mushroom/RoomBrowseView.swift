@@ -56,7 +56,7 @@ struct RoomBrowseView: View {
         _pendingPushRoute = pendingPushRoute
         _vm = StateObject(wrappedValue: RoomBrowseViewModel(session: session))
     }
-    
+
     /// Main browse screen composition:
     /// - list/skeleton content
     /// - host-room sheet
@@ -130,7 +130,7 @@ struct RoomBrowseView: View {
         .sheet(
             isPresented: $showHostSheet,
             onDismiss: {
-                Task { await vm.fetchListings(forceRefresh: true) }
+                Task { await vm.refreshListings() }
             }
         ) {
             // Opens room creation flow from browse header.
@@ -350,6 +350,8 @@ struct RoomBrowseView: View {
                                         ownershipTag: ownershipTag
                                     )
                                 }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                                 .buttonStyle(.plain)
                                 .accessibilityIdentifier("browse_room_link_\(listing.id)")
 
@@ -394,7 +396,10 @@ struct RoomBrowseView: View {
             }
             .refreshable {
                 guard !mushroomBrowseTutorial.isActive else { return }
-                await vm.fetchListings(forceRefresh: true)
+                let refreshTask = Task { @MainActor in
+                    await vm.refreshListings()
+                }
+                await refreshTask.value
             }
             .background(Theme.backgroundGradient(for: scheme))
             .allowsHitTesting(!mushroomBrowseTutorial.isActive)
@@ -502,6 +507,8 @@ struct RoomBrowseView: View {
                     Spacer()
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
 
     }

@@ -64,6 +64,8 @@
 ## Dirty-Bit Core Rules
 - If dirty bit is `ON`, force backend fetch even if cache/local state exists.
 - Pull-to-refresh always forces backend fetch regardless of dirty bit.
+- Browse pull-to-refresh launches an app-owned refresh task so the real backend reload can survive SwiftUI `.refreshable` task cancellation.
+- Browse tab re-entry uses the same canonical forced-refresh flow as pull-to-refresh.
 - Successful backend fetch clears corresponding dirty bit.
 - Failed fetch keeps dirty bit `ON` (retry on next load).
 
@@ -71,7 +73,10 @@
 ### Mushroom browse list
 - Dirty bit `ON`.
 - Pull-to-refresh.
+- Browse tab re-entry after the page has already been rendered once.
 - Search submit (`performConfirmedSearch`).
+- When the list has no visible rows and browse dirty is `OFF`, disk cache can still bootstrap the first frame before the forced refresh runs.
+- Canonical forced refresh is server-authoritative for both the main open-room query and pinned hosted/joined room queries.
 
 ### Mushroom room detail
 - Dirty bit `ON` for this room.
@@ -81,8 +86,10 @@
 ### Postcard browse
 - Dirty bit `ON` for postcard browse.
 - Pull-to-refresh.
+- Browse tab re-entry after the page has already been rendered once.
 - Search/clear-search backend fetch flow.
 - Dirty bit `OFF` and in-memory list empty: apply postcard browse disk cache first when available.
+- Canonical forced refresh is server-authoritative for the main browse query and the pinned on-shelf/ordered queries; these forced refreshes do not silently fall back to Firestore local cache when the server query fails.
 
 ### Postcard detail
 - Dirty bit `ON` for this postcard.

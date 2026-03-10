@@ -175,7 +175,10 @@ struct PostcardBrowseView: View {
             }
             .refreshable {
                 guard !postcardBrowseTutorial.isActive else { return }
-                await vm.refresh(session: session)
+                let refreshTask = Task { @MainActor in
+                    await vm.refresh(session: session)
+                }
+                await refreshTask.value
             }
             .navigationTitle(LocalizedStringKey("postcard_title"))
             .navigationDestination(item: $activePushRoute) { route in

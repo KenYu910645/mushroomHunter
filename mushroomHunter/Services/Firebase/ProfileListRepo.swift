@@ -71,14 +71,17 @@ struct JoinedRoomSummary: Identifiable, Hashable, Codable {
 final class FbProfileListRepo {
     private let db = Firestore.firestore()
 
-    func fetchMyHostedRooms(limit: Int = AppConfig.Mushroom.profileListFetchLimit) async throws -> [HostedRoomSummary] { // Handles fetchMyHostedRooms flow.
+    func fetchMyHostedRooms(
+        limit: Int = AppConfig.Mushroom.profileListFetchLimit,
+        isForcingServer: Bool = false
+    ) async throws -> [HostedRoomSummary] { // Handles fetchMyHostedRooms flow.
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }
 
         let hostRoomQuery = db.collection("rooms")
             .whereField("hostUid", isEqualTo: uid)
-        let hostRoomDocs = try await fetchDocuments(query: hostRoomQuery)
+        let hostRoomDocs = try await fetchDocuments(query: hostRoomQuery, isForcingServer: isForcingServer)
         var roomMap: [String: [String: Any]] = [:]
         roomMap.reserveCapacity(hostRoomDocs.count)
         for doc in hostRoomDocs {
@@ -89,12 +92,16 @@ final class FbProfileListRepo {
             let attendeeDocs = try await fetchAttendeeDocs(
                 uid: uid,
                 statusFilter: .equal(AttendeeStatus.host.rawValue),
-                desiredCount: limit
+                desiredCount: limit,
+                isForcingServer: isForcingServer
             )
             let attendeeRoomIds = attendeeDocs.compactMap { $0.reference.parent.parent?.documentID }
             let missingRoomIds = attendeeRoomIds.filter { roomMap[$0] == nil }
             if !missingRoomIds.isEmpty {
-                let legacyRoomMap = try await fetchRoomDataMap(roomIds: missingRoomIds)
+                let legacyRoomMap = try await fetchRoomDataMap(
+                    roomIds: missingRoomIds,
+                    isForcingServer: isForcingServer
+                )
                 for (roomId, roomData) in legacyRoomMap {
                     roomMap[roomId] = roomData
                 }
@@ -124,7 +131,10 @@ final class FbProfileListRepo {
         var finalResults: [HostedRoomSummary] = []
         finalResults.reserveCapacity(sortedBaseResults.count)
         for room in sortedBaseResults {
-            let roomStatus = try await fetchHostedRoomStatus(roomId: room.id)
+            let roomStatus = try await fetchHostedRoomStatus(
+                roomId: room.id,
+                isForcingServer: isForcingServer
+            )
             finalResults.append(
                 HostedRoomSummary(
                     id: room.id,
@@ -140,7 +150,10 @@ final class FbProfileListRepo {
         return finalResults
     }
 
-    func fetchMyJoinedRooms(limit: Int = AppConfig.Mushroom.profileListFetchLimit) async throws -> [JoinedRoomSummary] { // Handles fetchMyJoinedRooms flow.
+    func fetchMyJoinedRooms(
+        limit: Int = AppConfig.Mushroom.profileListFetchLimit,
+        isForcingServer: Bool = false
+    ) async throws -> [JoinedRoomSummary] { // Handles fetchMyJoinedRooms flow.
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }
@@ -153,9 +166,13 @@ final class FbProfileListRepo {
                 AttendeeStatus.notEnoughHoney.rawValue,
                 AttendeeStatus.waitingConfirmation.rawValue
             ]),
-            desiredCount: limit
+            desiredCount: limit,
+            isForcingServer: isForcingServer
         )
-        let roomMap = try await fetchRoomDataMap(roomIds: attendeeDocs.compactMap { $0.reference.parent.parent?.documentID })
+        let roomMap = try await fetchRoomDataMap(
+            roomIds: attendeeDocs.compactMap { $0.reference.parent.parent?.documentID },
+            isForcingServer: isForcingServer
+        )
 
         var results: [JoinedRoomSummary] = []
         results.reserveCapacity(attendeeDocs.count)
@@ -189,7 +206,10 @@ final class FbProfileListRepo {
     /// Loads pending join-request counts for each hosted room id.
     /// - Parameter roomIds: Hosted room document ids owned by current host.
     /// - Returns: Dictionary keyed by room id with attendee counts in `AskingToJoin`.
-    func fetchHostPendingJoinRequestCounts(roomIds: [String]) async throws -> [String: Int] {
+    func fetchHostPendingJoinRequestCounts(
+        roomIds: [String],
+        isForcingServer: Bool = false
+    ) async throws -> [String: Int] {
         let uniqueRoomIds = Array(Set(roomIds.filter { !$0.isEmpty }))
         guard uniqueRoomIds.isEmpty == false else { return [:] }
 
@@ -201,7 +221,7 @@ final class FbProfileListRepo {
                 .document(roomId)
                 .collection("attendees")
                 .whereField("status", isEqualTo: AttendeeStatus.askingToJoin.rawValue)
-            let documentCount = try await fetchDocuments(query: query).count
+            let documentCount = try await fetchDocuments(query: query, isForcingServer: isForcingServer).count
             pendingCountByRoomId[roomId] = documentCount
         }
         return pendingCountByRoomId
@@ -215,7 +235,8 @@ final class FbProfileListRepo {
     private func fetchAttendeeDocs(
         uid: String,
         statusFilter: StatusFilter,
-        desiredCount: Int
+        desiredCount: Int,
+        isForcingServer: Bool
     ) async throws -> [QueryDocumentSnapshot] {
         _ = desiredCount
         let attendeeGroup = db.collectionGroup("attendees")
@@ -223,7 +244,7 @@ final class FbProfileListRepo {
             to: attendeeGroup.whereField("uid", isEqualTo: uid),
             statusFilter: statusFilter
         )
-        return try await fetchDocuments(query: byUidQuery)
+        return try await fetchDocuments(query: byUidQuery, isForcingServer: isForcingServer)
     }
 
     private func applyStatusFilter(to query: Query, statusFilter: StatusFilter) -> Query {
@@ -235,14 +256,17 @@ final class FbProfileListRepo {
         }
     }
 
-    private func fetchRoomDataMap(roomIds: [String]) async throws -> [String: [String: Any]] {
+    private func fetchRoomDataMap(
+        roomIds: [String],
+        isForcingServer: Bool
+    ) async throws -> [String: [String: Any]] {
         let uniqueRoomIds = Array(Set(roomIds.filter { !$0.isEmpty }))
         guard !uniqueRoomIds.isEmpty else { return [:] }
 
         var roomDataMap: [String: [String: Any]] = [:]
         for chunk in uniqueRoomIds.chunked(into: 10) {
             let query = db.collection("rooms").whereField(FieldPath.documentID(), in: chunk)
-            let snap = try await fetchDocuments(query: query)
+            let snap = try await fetchDocuments(query: query, isForcingServer: isForcingServer)
             for doc in snap {
                 roomDataMap[doc.documentID] = doc.data()
             }
@@ -250,7 +274,13 @@ final class FbProfileListRepo {
         return roomDataMap
     }
 
-    private func fetchDocuments(query: Query) async throws -> [QueryDocumentSnapshot] {
+    private func fetchDocuments(
+        query: Query,
+        isForcingServer: Bool = false
+    ) async throws -> [QueryDocumentSnapshot] {
+        if isForcingServer {
+            return try await query.getDocuments(source: .server).documents
+        }
         do {
             return try await query.getDocuments(source: .server).documents
         } catch {
@@ -258,13 +288,20 @@ final class FbProfileListRepo {
         }
     }
 
-    private func fetchHostedRoomStatus(roomId: String) async throws -> HostedRoomStatus {
+    private func fetchHostedRoomStatus(
+        roomId: String,
+        isForcingServer: Bool
+    ) async throws -> HostedRoomStatus {
         let attendeeRef = db.collection("rooms").document(roomId).collection("attendees")
         let attendeeDocuments: [QueryDocumentSnapshot]
-        do {
+        if isForcingServer {
             attendeeDocuments = try await attendeeRef.getDocuments(source: .server).documents
-        } catch {
-            attendeeDocuments = try await attendeeRef.getDocuments(source: .default).documents
+        } else {
+            do {
+                attendeeDocuments = try await attendeeRef.getDocuments(source: .server).documents
+            } catch {
+                attendeeDocuments = try await attendeeRef.getDocuments(source: .default).documents
+            }
         }
 
         let nonHostAttendeeStatuses: [AttendeeStatus] = attendeeDocuments.compactMap { document in
