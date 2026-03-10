@@ -150,7 +150,7 @@ struct RoomView: View {
             }
         }
         .background(
-            TutorialFloatingHighlightWindowBridge(
+            TutorialHightlighAnchorUI(
                 frame: roomTutorialFloatingHighlightFrame,
                 isVisible: isRoomTutorialActive
             )
@@ -895,7 +895,7 @@ struct RoomView: View {
     private var currentRoomTutorialScene: TutorialScene.RoomDetailTutorial.Scenario? {
         switch activeRoomTutorialScenario {
         case .roomPersonalFirstVisit:
-            return TutorialScene.RoomPersonal.scenario
+            return TutorialScene.RoomJoiner.scenario
         case .roomHostFirstVisit:
             return TutorialScene.RoomHost.scenario
         case .mushroomBrowseFirstVisit,
@@ -953,12 +953,12 @@ struct RoomView: View {
 
     /// Handles initial room load with tutorial-first flow for first entry scenarios.
     private func handleInitialRoomLoadFlow() async {
-        let roomPreloadDecision = FeatureTutorialCoordinator.resolveRoomPreloadDecision(
+        let roomPreloadDecision = TurorialTrigger.resolveRoomPreloadDecision(
             overrideScenario: tutorialScenarioOverride,
             isUITesting: AppTesting.isUITesting,
             initialRoleSeed: vm.initialRoleSeed,
             isRoomHostScenarioCompleted: session.isTutorialScenarioCompleted(.roomHostFirstVisit),
-            isRoomPersonalScenarioCompleted: session.isTutorialScenarioCompleted(.roomPersonalFirstVisit)
+            isRoomJoinerScenarioCompleted: session.isTutorialScenarioCompleted(.roomPersonalFirstVisit)
         )
         if case .start(let preloadScenario) = roomPreloadDecision {
             beginRoomTutorial(scenario: preloadScenario)
@@ -972,10 +972,10 @@ struct RoomView: View {
 
         await vm.load(forceRefresh: isForceRefreshOnAppear)
 
-        let roomPostloadDecision = FeatureTutorialCoordinator.resolveRoomPostloadDecision(
+        let roomPostloadDecision = TurorialTrigger.resolveRoomPostloadDecision(
             role: vm.role,
             isRoomHostScenarioCompleted: session.isTutorialScenarioCompleted(.roomHostFirstVisit),
-            isRoomPersonalScenarioCompleted: session.isTutorialScenarioCompleted(.roomPersonalFirstVisit)
+            isRoomJoinerScenarioCompleted: session.isTutorialScenarioCompleted(.roomPersonalFirstVisit)
         )
         if case .start(let postloadScenario) = roomPostloadDecision {
             beginRoomTutorial(scenario: postloadScenario)

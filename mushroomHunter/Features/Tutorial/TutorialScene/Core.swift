@@ -1,5 +1,5 @@
 //
-//  TutorialSceneCore.swift
+//  Core.swift
 //  mushroomHunter
 //
 //  Purpose:

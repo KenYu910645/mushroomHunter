@@ -1,5 +1,5 @@
 //
-//  TutorialScenePostcardBuyer.swift
+//  PostcardBuyer.swift
 //  mushroomHunter
 //
 //  Purpose:

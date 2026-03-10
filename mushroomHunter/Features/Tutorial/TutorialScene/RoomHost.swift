@@ -1,5 +1,5 @@
 //
-//  TutorialSceneRoomHost.swift
+//  RoomHost.swift
 //  mushroomHunter
 //
 //  Purpose:

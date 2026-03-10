@@ -1,12 +1,84 @@
 //
-//  TutorialOverlaySupport.swift
+//  TutorialCore.swift
 //  mushroomHunter
 //
 //  Purpose:
-//  - Provides shared tutorial-step state control and a reusable coach-mark overlay.
+//  - Defines core tutorial domain, persistence helpers, and shared overlay runtime.
 //
+import Foundation
 import SwiftUI
 import Combine
+
+/// One tutorial scenario that can be auto-triggered or replayed from Help.
+enum TutorialScenario: String, CaseIterable, Identifiable {
+    /// Mushroom browse first-entry tutorial.
+    case mushroomBrowseFirstVisit
+    /// Room detail tutorial for personal (non-host) role.
+    case roomPersonalFirstVisit
+    /// Room detail tutorial for host role.
+    case roomHostFirstVisit
+    /// Postcard browse first-entry tutorial.
+    case postcardBrowseFirstVisit
+    /// Postcard detail tutorial for buyer role.
+    case postcardBuyerFirstVisit
+    /// Postcard detail tutorial for seller role.
+    case postcardSellerFirstVisit
+
+    /// Stable identity used by SwiftUI lists.
+    var id: String {
+        rawValue
+    }
+
+    /// Localized title key shown in tutorial lists.
+    var titleKey: LocalizedStringKey {
+        switch self {
+        case .mushroomBrowseFirstVisit:
+            return LocalizedStringKey("tutorial_scenario_mushroom_browse_title")
+        case .roomPersonalFirstVisit:
+            return LocalizedStringKey("tutorial_scenario_room_personal_title")
+        case .roomHostFirstVisit:
+            return LocalizedStringKey("tutorial_scenario_room_host_title")
+        case .postcardBrowseFirstVisit:
+            return LocalizedStringKey("tutorial_scenario_postcard_browse_title")
+        case .postcardBuyerFirstVisit:
+            return LocalizedStringKey("tutorial_scenario_postcard_buyer_title")
+        case .postcardSellerFirstVisit:
+            return LocalizedStringKey("tutorial_scenario_postcard_seller_title")
+        }
+    }
+
+}
+
+extension UserSessionStore {
+    /// Prefix for scenario-specific tutorial completion keys.
+    private var tutorialCompletionKeyPrefix: String {
+        "mh.tutorial"
+    }
+
+    /// Builds one user-scoped key for a tutorial scenario completion flag.
+    /// - Parameter scenario: Tutorial scenario to scope.
+    /// - Returns: Persisted key segment before uid scoping.
+    private func tutorialCompletionKey(for scenario: TutorialScenario) -> String {
+        "\(tutorialCompletionKeyPrefix).\(scenario.rawValue).completed"
+    }
+
+    /// Returns whether the signed-in user already completed a scenario tutorial.
+    /// - Parameter scenario: Target tutorial scenario.
+    /// - Returns: `true` when completion was already persisted for current uid.
+    func isTutorialScenarioCompleted(_ scenario: TutorialScenario) -> Bool {
+        guard let uid = authUid else { return false }
+        let key = scopedKey(tutorialCompletionKey(for: scenario), uid: uid)
+        return UserDefaults.standard.bool(forKey: key)
+    }
+
+    /// Persists a tutorial scenario as completed for current signed-in user.
+    /// - Parameter scenario: Target tutorial scenario.
+    func markTutorialScenarioCompleted(_ scenario: TutorialScenario) {
+        guard let uid = authUid else { return }
+        let key = scopedKey(tutorialCompletionKey(for: scenario), uid: uid)
+        UserDefaults.standard.set(true, forKey: key)
+    }
+}
 
 /// One normalized tutorial step payload used by shared tutorial overlay components.
 struct TutorialOverlayStep {
@@ -171,7 +243,7 @@ struct TutorialCoachOverlay: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(step.title)
                         .font(.headline)
-                    TutorialMessageBodyView(message: step.message)
+                    TutorialMessageBox(message: step.message)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

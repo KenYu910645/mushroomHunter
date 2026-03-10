@@ -1,5 +1,5 @@
 //
-//  TutorialMessageBodyView.swift
+//  TutorialMessageBox.swift
 //  mushroomHunter
 //
 //  Purpose:
@@ -9,7 +9,7 @@ import SwiftUI
 
 /// Message body renderer used by tutorial overlays.
 /// Lines prefixed with `*` or `＊` are displayed as bullet rows.
-struct TutorialMessageBodyView: View {
+struct TutorialMessageBox: View {
     /// Raw message text from tutorial configuration.
     let message: String
 
@@ -54,7 +54,7 @@ struct TutorialMessageBodyView: View {
     }
 }
 
-private extension TutorialMessageBodyView {
+private extension TutorialMessageBox {
     /// One parsed line from tutorial message text.
     struct ParsedLine {
         /// Rendering mode for this line.

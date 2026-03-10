@@ -303,7 +303,7 @@ struct PostcardView: View {
         .background(Theme.backgroundGradient(for: scheme))
         .allowsHitTesting(!isPostcardTutorialActive)
         .background(
-            TutorialFloatingHighlightWindowBridge(
+            TutorialHightlighAnchorUI(
                 frame: postcardTutorialFloatingHighlightFrame,
                 isVisible: isPostcardTutorialActive
             )
@@ -794,7 +794,7 @@ struct PostcardView: View {
 
     /// Handles initial detail load with tutorial-first flow for first entry scenarios.
     private func handleInitialPostcardLoadFlow() async {
-        let postcardPreloadDecision = FeatureTutorialCoordinator.resolvePostcardPreloadDecision(
+        let postcardPreloadDecision = TurorialTrigger.resolvePostcardPreloadDecision(
             overrideScenario: tutorialScenarioOverride,
             isUITesting: AppTesting.isUITesting,
             isSeller: isSeller,
@@ -813,7 +813,7 @@ struct PostcardView: View {
 
         await refreshListing(isForceRefresh: isForceRefreshOnAppear)
 
-        let postcardPostloadDecision = FeatureTutorialCoordinator.resolvePostcardPostloadDecision(
+        let postcardPostloadDecision = TurorialTrigger.resolvePostcardPostloadDecision(
             isSeller: isSeller,
             isPostcardSellerScenarioCompleted: session.isTutorialScenarioCompleted(.postcardSellerFirstVisit),
             isPostcardBuyerScenarioCompleted: session.isTutorialScenarioCompleted(.postcardBuyerFirstVisit)

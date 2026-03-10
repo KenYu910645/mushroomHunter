@@ -1,14 +1,14 @@
 //
-//  TutorialSceneMushroomBrowse.swift
+//  RoomBrowse.swift
 //  mushroomHunter
 //
 //  Purpose:
-//  - Defines TutorialScene.MushroomBrowse scenario data and step configuration.
+//  - Defines TutorialScene.RoomBrowse scenario data and step configuration.
 //
 import Foundation
 
 extension TutorialScene {
-enum MushroomBrowse {
+enum RoomBrowse {
     /// Shared step shape alias used by Mushroom browse tutorial views.
     typealias Step = TutorialScene.Step
     /// Shared fake-room shape alias used by Mushroom browse tutorial scenes.
@@ -57,7 +57,7 @@ enum MushroomBrowse {
             ),
             message: BilingualText(
                 en: "* You need to pay honey to join a room and join mushroom battles.\n* Hosting a room and inviting other players can earn honey.",
-                cn: "* HoneyHub的貨幣\n* 接受蘑菇邀請後需要支付蜂蜜\n* 主持房間並邀請其他玩家可以獲得蜂蜜"
+                cn: "* 打蘑菇需要消耗蜂蜜"
             )
         ),
         Step(

@@ -1,5 +1,5 @@
 //
-//  TutorialCatalogView.swift
+//  TutorialListView.swift
 //  mushroomHunter
 //
 //  Purpose:
@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// Help page that lets users choose and replay tutorials by scenario.
-struct TutorialCatalogView: View {
+struct TutorialListView: View {
     /// Shared user session used for completion-state chips.
     @EnvironmentObject private var session: UserSessionStore
 
@@ -87,7 +87,7 @@ private struct TutorialReplayDestinationView: View {
         case .roomPersonalFirstVisit:
             RoomView(
                 vm: RoomViewModel(
-                    roomId: TutorialScene.RoomPersonal.replayRoomId,
+                    roomId: TutorialScene.RoomJoiner.replayRoomId,
                     session: session,
                     seededRole: .attendee
                 ),
@@ -126,6 +126,6 @@ private struct TutorialReplayDestinationView: View {
 }
 
 #Preview {
-    TutorialCatalogView()
+    TutorialListView()
         .environmentObject(UserSessionStore())
 }

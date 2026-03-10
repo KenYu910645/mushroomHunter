@@ -1,14 +1,14 @@
 //
-//  TutorialSceneRoomPersonal.swift
+//  RoomJoiner.swift
 //  mushroomHunter
 //
 //  Purpose:
-//  - Defines TutorialScene.RoomPersonal scenario data and step configuration.
+//  - Defines TutorialScene.RoomJoiner scenario data and step configuration.
 //
 import Foundation
 
 extension TutorialScene {
-enum RoomPersonal {
+enum RoomJoiner {
     /// Replay room id used by tutorial catalog destination.
     static let replayRoomId: String = "tutorial-room-personal"
 

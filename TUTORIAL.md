@@ -51,14 +51,14 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
 
 ## TutorialScene File Layout and Tuning
 For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buyer + Postcard seller tutorials, tune values in the dedicated `TutorialScene*` files:
-- Shared primitives/helpers: `mushroomHunter/Features/Tutorial/TutorialSceneCore.swift`
+- Shared primitives/helpers: `mushroomHunter/Features/Tutorial/TutorialScene/Core.swift`
 - Scenario scene data:
-  - `mushroomHunter/Features/Tutorial/TutorialSceneMushroomBrowse.swift`
-  - `mushroomHunter/Features/Tutorial/TutorialSceneRoomPersonal.swift`
-  - `mushroomHunter/Features/Tutorial/TutorialSceneRoomHost.swift`
-  - `mushroomHunter/Features/Tutorial/TutorialScenePostcardBrowse.swift`
-  - `mushroomHunter/Features/Tutorial/TutorialScenePostcardBuyer.swift`
-  - `mushroomHunter/Features/Tutorial/TutorialScenePostcardSeller.swift`
+  - `mushroomHunter/Features/Tutorial/TutorialScene/RoomBrowse.swift`
+  - `mushroomHunter/Features/Tutorial/TutorialScene/RoomJoiner.swift`
+  - `mushroomHunter/Features/Tutorial/TutorialScene/RoomHost.swift`
+  - `mushroomHunter/Features/Tutorial/TutorialScene/PostcardBrowse.swift`
+  - `mushroomHunter/Features/Tutorial/TutorialScene/PostcardBuyer.swift`
+  - `mushroomHunter/Features/Tutorial/TutorialScene/PostcardSeller.swift`
 - Tunable content:
   - `steps`: controls page count, step card title/message copy, and highlight target id.
   - `highlightTarget`: stable UI anchor id used for automatic highlight detection across devices/Dynamic Type.

@@ -482,7 +482,7 @@ final class RoomViewModel: ObservableObject {
         let tutorialConfig: TutorialScene.RoomDetailTutorial.Scenario
         switch tutorialScenario {
         case .roomPersonalFirstVisit:
-            tutorialConfig = TutorialScene.RoomPersonal.scenario
+            tutorialConfig = TutorialScene.RoomJoiner.scenario
         case .roomHostFirstVisit:
             tutorialConfig = TutorialScene.RoomHost.scenario
         case .mushroomBrowseFirstVisit,

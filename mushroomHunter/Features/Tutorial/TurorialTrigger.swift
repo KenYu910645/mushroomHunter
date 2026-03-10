@@ -1,13 +1,13 @@
 //
-//  FeatureTutorialCoordinator.swift
+//  TurorialTrigger.swift
 //  mushroomHunter
 //
 //  Purpose:
-//  - Centralizes tutorial start-decision logic so view files focus on rendering.
+//  - Centralizes tutorial trigger-decision logic so view files focus on rendering.
 //
 import Foundation
 
-/// Decision payload returned by tutorial coordinators for first-load flows.
+/// Decision payload returned by tutorial trigger resolvers for first-load flows.
 enum FeatureTutorialDecision {
     /// Begin tutorial with the specified scenario.
     case start(TutorialScenario)
@@ -15,22 +15,22 @@ enum FeatureTutorialDecision {
     case continueNormalFlow
 }
 
-/// Shared coordinator that determines whether each feature should start tutorial mode.
-enum FeatureTutorialCoordinator {
+/// Shared trigger resolver that determines whether each feature should start tutorial mode.
+enum TurorialTrigger {
     /// Resolves room tutorial decision before first backend room load.
     /// - Parameters:
     ///   - overrideScenario: Replay override provided by tutorial catalog entry point.
     ///   - isUITesting: Indicates UI test mode where feature tutorials are disabled.
     ///   - initialRoleSeed: Role hint seeded by browse route before backend load.
     ///   - isRoomHostScenarioCompleted: Completion flag for room host scenario.
-    ///   - isRoomPersonalScenarioCompleted: Completion flag for room personal scenario.
+    ///   - isRoomJoinerScenarioCompleted: Completion flag for room personal scenario.
     /// - Returns: Start scenario or continue with normal load.
     static func resolveRoomPreloadDecision(
         overrideScenario: TutorialScenario?,
         isUITesting: Bool,
         initialRoleSeed: RoomRole?,
         isRoomHostScenarioCompleted: Bool,
-        isRoomPersonalScenarioCompleted: Bool
+        isRoomJoinerScenarioCompleted: Bool
     ) -> FeatureTutorialDecision {
         if overrideScenario == .roomPersonalFirstVisit {
             return .start(.roomPersonalFirstVisit)
@@ -44,7 +44,7 @@ enum FeatureTutorialCoordinator {
         if initialRoleSeed == .host, !isRoomHostScenarioCompleted {
             return .start(.roomHostFirstVisit)
         }
-        if initialRoleSeed != nil, initialRoleSeed != .host, !isRoomPersonalScenarioCompleted {
+        if initialRoleSeed != nil, initialRoleSeed != .host, !isRoomJoinerScenarioCompleted {
             return .start(.roomPersonalFirstVisit)
         }
         return .continueNormalFlow
@@ -54,17 +54,17 @@ enum FeatureTutorialCoordinator {
     /// - Parameters:
     ///   - role: Room role resolved from backend payload.
     ///   - isRoomHostScenarioCompleted: Completion flag for room host scenario.
-    ///   - isRoomPersonalScenarioCompleted: Completion flag for room personal scenario.
+    ///   - isRoomJoinerScenarioCompleted: Completion flag for room personal scenario.
     /// - Returns: Start scenario or continue with normal flow.
     static func resolveRoomPostloadDecision(
         role: RoomRole,
         isRoomHostScenarioCompleted: Bool,
-        isRoomPersonalScenarioCompleted: Bool
+        isRoomJoinerScenarioCompleted: Bool
     ) -> FeatureTutorialDecision {
         if role == .host, !isRoomHostScenarioCompleted {
             return .start(.roomHostFirstVisit)
         }
-        if role != .host, !isRoomPersonalScenarioCompleted {
+        if role != .host, !isRoomJoinerScenarioCompleted {
             return .start(.roomPersonalFirstVisit)
         }
         return .continueNormalFlow

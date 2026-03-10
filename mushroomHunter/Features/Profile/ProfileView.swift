@@ -107,7 +107,7 @@ struct ProfileView: View {
                 }
             }
             .navigationDestination(isPresented: $isTutorialCatalogPresented) {
-                TutorialCatalogView()
+                TutorialListView()
             }
         }
         .sheet(isPresented: $isNotificationInboxPresented) {
