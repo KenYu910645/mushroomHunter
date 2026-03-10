@@ -333,6 +333,8 @@
 "postcard_msg_receive_confirm_received_button" = "Received";
 "postcard_msg_receive_success_title" = "Order Completed";
 "postcard_msg_receive_success_message" = "Enjoy your postcard!";
+"postcard_msg_rate_seller_title" = "Rate the Seller: %@";
+"postcard_msg_rate_buyer_title" = "Rate the Buyer: %@";
 "postcard_order_pending_message" = "Your order is in progress. Wait for seller shipping or confirm receipt after delivery.";
 "postcard_order_waiting_shipping_message" = "Seller accepted. Waiting for seller to mark the postcard as shipped.";
 "postcard_order_waiting_buyer_confirm_message" = "Shipped, on-the-way. Confirm after you receive it to complete transaction.";

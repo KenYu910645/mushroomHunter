@@ -64,7 +64,7 @@ struct MessageBox: View {
                 Color.black.opacity(0.35)
                     .ignoresSafeArea()
 
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .center, spacing: 14) {
                     Text(title)
                         .font(.headline)
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -72,7 +72,9 @@ struct MessageBox: View {
                     tokenizedMessage(message)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .center)
 
                     buttonContainer
                 }

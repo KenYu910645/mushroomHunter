@@ -1819,8 +1819,125 @@ async function processPostcardRejectedEvent(event) {
       }
 }
 
+// Routed order-update branch: postcard rating transitions -> star receiver history + push.
+// Event: STAR_RECEIVED
+async function processPostcardStarReceivedEvent(event) {
+      const beforeData = event.data?.before?.data();
+      const afterData = event.data?.after?.data();
+      if (!beforeData || !afterData) return;
+
+      const buyerRatedSellerNow =
+          beforeData.isBuyerRatedSeller !== true &&
+          afterData.isBuyerRatedSeller === true;
+      const sellerRatedBuyerNow =
+          beforeData.isSellerRatedBuyer !== true &&
+          afterData.isSellerRatedBuyer === true;
+      if (!buyerRatedSellerNow && !sellerRatedBuyerNow) {
+        return;
+      }
+
+      const orderId = event.params.orderId;
+      const postcardId = stringifyValue(afterData.postcardId, "");
+      const sellerUid = stringifyValue(afterData.sellerId, "");
+      const buyerUid = stringifyValue(afterData.buyerId, "");
+      const sellerName = stringifyValue(afterData.sellerName, "Seller");
+      const buyerName = stringifyValue(afterData.buyerName, "Buyer");
+
+      if (buyerRatedSellerNow && sellerUid) {
+        const awardedStars = normalizeStarsCount(afterData.buyerRatedSellerStars, 1);
+        const sellerEventId = resolveEventDocumentId(event.id, sellerUid);
+        await recordUserEvent({
+          uid: sellerUid,
+          cloudEventId: event.id,
+          type: "STAR_RECEIVED",
+          postcardId,
+          orderId,
+          messageArgs: [buyerName, awardedStars],
+        });
+        try {
+          const sellerSnapshot = await resolveEventSnapshot(
+              sellerUid,
+              "STAR_RECEIVED",
+              [buyerName, awardedStars],
+          );
+          await sendPushToUser(
+              sellerUid,
+              pushMessageFromSnapshot(
+                  sellerSnapshot.title,
+                  sellerSnapshot.message,
+                  {
+                    type: "STAR_RECEIVED",
+                    postcardId,
+                    orderId,
+                    fromUid: buyerUid,
+                    toUid: sellerUid,
+                    stars: String(awardedStars),
+                    eventId: sellerEventId,
+                    event_id: sellerEventId,
+                  },
+              ),
+              {orderId, sellerUid},
+              afterData.sellerFcmToken,
+          );
+          logger.info("Postcard seller star received push sent", {orderId, sellerUid});
+        } catch (error) {
+          logger.error("Failed to send postcard seller star received push", {
+            orderId,
+            sellerUid,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      if (sellerRatedBuyerNow && buyerUid) {
+        const awardedStars = normalizeStarsCount(afterData.sellerRatedBuyerStars, 1);
+        const buyerEventId = resolveEventDocumentId(event.id, buyerUid);
+        await recordUserEvent({
+          uid: buyerUid,
+          cloudEventId: event.id,
+          type: "STAR_RECEIVED",
+          postcardId,
+          orderId,
+          messageArgs: [sellerName, awardedStars],
+        });
+        try {
+          const buyerSnapshot = await resolveEventSnapshot(
+              buyerUid,
+              "STAR_RECEIVED",
+              [sellerName, awardedStars],
+          );
+          await sendPushToUser(
+              buyerUid,
+              pushMessageFromSnapshot(
+                  buyerSnapshot.title,
+                  buyerSnapshot.message,
+                  {
+                    type: "STAR_RECEIVED",
+                    postcardId,
+                    orderId,
+                    fromUid: sellerUid,
+                    toUid: buyerUid,
+                    stars: String(awardedStars),
+                    eventId: buyerEventId,
+                    event_id: buyerEventId,
+                  },
+              ),
+              {orderId, buyerUid},
+              afterData.buyerFcmToken,
+          );
+          logger.info("Postcard buyer star received push sent", {orderId, buyerUid});
+        } catch (error) {
+          logger.error("Failed to send postcard buyer star received push", {
+            orderId,
+            buyerUid,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+}
+
 // Single update trigger for postcardOrders/{orderId}; routes all order status transition event logic.
-// Events: POSTCARD_SENT_BUYER, POSTCARD_SENT_SELLER, POSTCARD_RECEIVED_SELLER, POSTCARD_RECEIVED_BUYER, POSTCARD_REJECTED_BUYER, POSTCARD_REJECTED_SELLER
+// Events: POSTCARD_SENT_BUYER, POSTCARD_SENT_SELLER, POSTCARD_RECEIVED_SELLER, POSTCARD_RECEIVED_BUYER, POSTCARD_REJECTED_BUYER, POSTCARD_REJECTED_SELLER, STAR_RECEIVED
 exports.handlePostcardOrderUpdatedEvents = onDocumentUpdated(
     {
       document: "postcardOrders/{orderId}",
@@ -1830,6 +1947,7 @@ exports.handlePostcardOrderUpdatedEvents = onDocumentUpdated(
       await runEventProcessor("POSTCARD_SENT_BUYER", processPostcardShippedEvent, event);
       await runEventProcessor("postcard_completed", processSellerPostcardCompletedEvent, event);
       await runEventProcessor("POSTCARD_REJECTED_BUYER", processPostcardRejectedEvent, event);
+      await runEventProcessor("postcard_star_received", processPostcardStarReceivedEvent, event);
     },
 );
 

@@ -17,7 +17,7 @@
 
 ## Client Refresh Timing (Current Policy)
 - Bell tap refresh: when user taps the top-right bell icon, app must call `refreshFromServer()` first, then open the inbox sheet so the list is the latest from Firestore.
-- Action Event push refresh: when app receives a push whose `type` is an Action Event (`JOIN_REQUESTED_HOST`, `RAID_CONFIRM_ATTENDEE`, `POSTCARD_ORDER_SELLER`, `POSTCARD_SENT_BUYER`), app must force `refreshFromServer()` so badge count stays accurate.
+- Action Event push refresh: when app receives a push whose `type` is an Action Event (`JOIN_REQUESTED_HOST`, `RAID_CONFIRM_ATTENDEE`, `POSTCARD_ORDER_SELLER`, `POSTCARD_SENT_BUYER`), app immediately applies delivered APS badge when present and also forces `refreshFromServer()` plus app-shell badge recomputation so icon/tab counts stay accurate.
 - No other automatic refresh timing is enabled for inbox list sync.
 
 ## Event History Collection
@@ -38,7 +38,8 @@ Current event document fields:
 - `orderId` (String): postcard order id when applicable.
 - `relatedUid` (String): related user id for action-correlation flows (for example host-side join-request action rows).
 - `isActionEvent` (Bool): true when the event requires user action.
-- `isResolved` (Bool): true when the action is already processed; record events are written as resolved. (This is the only field that can be changed)
+- `isResolved` (Bool): true when the action is already processed; record events are written as resolved.
+- `isRead` (Bool): true when the user has already opened the action row from the inbox; unresolved action events stop showing red-dot/bold emphasis after they are read.
 - `createdAt` (Timestamp): event creation time.
 
 ## Global Policy
@@ -49,6 +50,7 @@ Current event document fields:
 - Badge count counts unresolved Action Events only.
 - Action Event push payload must include APNs `aps.badge` using latest unresolved Action Event count for receiver, so home-screen app icon badge updates immediately even when app is backgrounded.
 - For push-enabled events, push copy and event-list copy are generated from the same server-side snapshot text (`title`/`message`) per user locale at event creation time.
+- Inbox highlight state is stricter than badge state: a row stays highlighted only while it is both unresolved and unread.
 
 ## Stored Event Types (`users/{uid}/events.type`)
 
@@ -178,10 +180,10 @@ Current event document fields:
 
 - `STAR_RECEIVED`
   - Class: Record Event.
-  - Producer: `handleRoomAttendeeUpdatedEvents`.
-  - Trigger: rating transition emits receiver-side history.
+  - Producer: `handleRoomAttendeeUpdatedEvents`, `handlePostcardOrderUpdatedEvents`.
+  - Trigger: mushroom attendee-rating transition or postcard order-rating transition emits receiver-side history.
   - Target: receiver
-  - Push: `handleRoomAttendeeUpdatedEvents`.
+  - Push: `handleRoomAttendeeUpdatedEvents`, `handlePostcardOrderUpdatedEvents`.
   - Title(Eng): `Stars Received`
   - Title(Chinese): `收到評價`
   - Message(Eng): `%@ gave you %@ stars.`
@@ -265,7 +267,9 @@ Current event document fields:
   - Title(Chinese): `訂單完成`
   - Message(Eng): `%@ confirmed receipt. %@ honey has been transferred to you.`
   - Message(Chinese): `%@ 已確認收件，%@ 蜂蜜已轉給您。`
+  - Placeholder order: first argument is buyer name, second argument is the honey amount transferred to the seller.
   - Note: if order is `CompletedAuto`, the message becomes `%@ postcard received timed out. %@ honey has been transferred to you.` / `「%@」收件確認逾時，%@ 蜂蜜已轉給您。`.
+  - Note: seller-side postcard rating is not attached to this event row; the completed order doc carries `isSellerRatingRequired` until the seller rates the buyer.
 
 - `POSTCARD_RECEIVED_BUYER`
   - Class: Record Event.
@@ -277,6 +281,7 @@ Current event document fields:
   - Message(Eng): `You confirmed to receive postcard: %@.`
   - Message(Chinese): `您已確認收到明信片：%@。`
   - Push: none.
+  - Note: manual `Completed` orders set `isBuyerRatingRequired` and `isSellerRatingRequired` on the order so both sides can submit stars later; `CompletedAuto` leaves postcard rating unavailable.
 
 - `POSTCARD_REJECTED_BUYER`
   - Class: Record Event.

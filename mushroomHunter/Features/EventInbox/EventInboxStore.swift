@@ -55,8 +55,15 @@ struct EventInboxItem: Identifiable, Codable, Equatable {
     let isActionEvent: Bool
     /// True when this event has already been resolved/processed.
     var isResolved: Bool
+    /// True when user has already opened this action row from the inbox.
+    var isRead: Bool
     /// Destination route metadata used by tap navigation.
     let route: EventInboxRoute
+
+    /// True when the inbox should still emphasize this row as pending attention.
+    var isHighlighted: Bool {
+        isActionEvent && isResolved == false && isRead == false
+    }
 }
 
 /// Shared notification inbox state and Firestore paging bridge.
@@ -106,7 +113,34 @@ final class EventInboxStore: ObservableObject {
     /// Count of unresolved action events currently loaded in memory.
     var unreadCount: Int {
         items.reduce(0) { partialCount, item in
-            partialCount + (item.isActionEvent && item.isResolved == false ? 1 : 0)
+            partialCount + (item.isHighlighted ? 1 : 0)
+        }
+    }
+
+    /// Marks one action event as read after user taps it from the inbox.
+    /// - Parameter itemId: Firestore event document id.
+    func markActionEventAsRead(_ itemId: String) {
+        guard let itemIndex = items.firstIndex(where: { $0.id == itemId }) else { return }
+        guard items[itemIndex].isHighlighted else { return }
+
+        items[itemIndex].isRead = true
+
+        guard let currentUserId, currentUserId.isEmpty == false else { return }
+        let eventRef = db.collection("users")
+            .document(currentUserId)
+            .collection("events")
+            .document(itemId)
+
+        Task { [weak self] in
+            do {
+                try await eventRef.setData([
+                    "isRead": true,
+                ], merge: true)
+            } catch {
+                await MainActor.run {
+                    self?.restoreUnreadStateIfNeeded(itemId: itemId)
+                }
+            }
         }
     }
 
@@ -271,6 +305,7 @@ final class EventInboxStore: ObservableObject {
         let receivedAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
         let isActionEvent = data["isActionEvent"] as? Bool ?? isActionEventType(type: type)
         let isResolved = data["isResolved"] as? Bool ?? !isActionEvent
+        let isRead = data["isRead"] as? Bool ?? (isActionEvent == false || isResolved)
 
         let route = resolveRouteFromData(
             data: data,
@@ -286,8 +321,17 @@ final class EventInboxStore: ObservableObject {
             receivedAt: receivedAt,
             isActionEvent: isActionEvent,
             isResolved: isResolved,
+            isRead: isRead,
             route: route
         )
+    }
+
+    /// Restores local unread emphasis when Firestore write fails.
+    /// - Parameter itemId: Firestore event document id that failed to persist.
+    private func restoreUnreadStateIfNeeded(itemId: String) {
+        guard let itemIndex = items.firstIndex(where: { $0.id == itemId }) else { return }
+        guard items[itemIndex].isResolved == false else { return }
+        items[itemIndex].isRead = false
     }
 
     /// Resolves localized title text from event type.

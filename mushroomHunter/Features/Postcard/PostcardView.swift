@@ -19,6 +19,10 @@ struct PostcardDetailCachePayload: Codable {
     let pendingShippingCount: Int
     /// Cached seller friend code displayed in detail metadata.
     let sellerFriendCode: String
+    /// Cached seller stars shown beside the seller name.
+    let sellerStars: Int
+    /// Cached pending rating task for the current viewer, if any.
+    let pendingRatingContext: PostcardOrderRatingContext?
 }
 
 /// Postcard detail screen with buyer/seller actions for one listing.
@@ -73,8 +77,14 @@ struct PostcardView: View {
     @State private var isReceiveSuccessAlertPresented: Bool = false
     /// Success message shown after buyer confirms receipt.
     @State private var receiveSuccessMessage: String = ""
+    /// Pending completed-order rating task for the current viewer.
+    @State private var pendingRatingContext: PostcardOrderRatingContext?
+    /// Controls the room-style 1/2/3 star dialog visibility for postcard completion.
+    @State private var isRatingDialogPresented: Bool = false
     /// Seller friend code shown to buyers.
     @State private var sellerFriendCode: String = ""
+    /// Seller stars shown beside the seller name.
+    @State private var sellerStars: Int = 0
     /// Controls temporary copied toast visibility.
     @State private var isCopyToastVisible: Bool = false
     /// Tracks whether first-load refresh has already run.
@@ -149,6 +159,13 @@ struct PostcardView: View {
         return order.status == .sellerConfirmPending ||
             order.status == .awaitingShipping ||
             isReceiveConfirmationAvailable
+    }
+
+    /// Title shown in the postcard completion rating dialog.
+    private var ratingDialogTitle: String {
+        let counterpartName = pendingRatingContext?.counterpartName ?? (isSeller ? "Buyer" : "Seller")
+        let titleKey = isSeller ? "postcard_msg_rate_buyer_title" : "postcard_msg_rate_seller_title"
+        return String(format: NSLocalizedString(titleKey, comment: ""), counterpartName)
     }
 
     /// Purchase confirmation message with tokenized honey icon and postcard title.
@@ -227,7 +244,17 @@ struct PostcardView: View {
                     .foregroundStyle(.secondary)
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(String(format: NSLocalizedString("postcard_seller_format", comment: ""), currentListing.sellerName))
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(String(format: NSLocalizedString("postcard_seller_format", comment: ""), currentListing.sellerName))
+                            Spacer(minLength: 0)
+                            ColorfulTag(tone: .star, font: .footnote.weight(.semibold)) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "star.fill")
+                                    Text("\(sellerStars)")
+                                        .monospacedDigit()
+                                }
+                            }
+                        }
                         HStack(spacing: 6) {
                             Text("\(NSLocalizedString("profile_friend_code", comment: "")): \(formattedFriendCode(sellerFriendCode))")
                             Button {
@@ -482,6 +509,44 @@ struct PostcardView: View {
                         }
                     ]
                 )
+            } else if isRatingDialogPresented, pendingRatingContext != nil {
+                MessageBox(
+                    title: ratingDialogTitle,
+                    message: "",
+                    buttons: [
+                        MessageBoxButton(
+                            id: "postcard_rate_one_star",
+                            title: NSLocalizedString("room_msg_rate_one_star", comment: ""),
+                            role: .quiet
+                        ) {
+                            isRatingDialogPresented = false
+                            Task { await submitPostcardRating(stars: 1) }
+                        },
+                        MessageBoxButton(
+                            id: "postcard_rate_two_stars",
+                            title: NSLocalizedString("room_msg_rate_two_stars", comment: ""),
+                            role: .quiet
+                        ) {
+                            isRatingDialogPresented = false
+                            Task { await submitPostcardRating(stars: 2) }
+                        },
+                        MessageBoxButton(
+                            id: "postcard_rate_three_stars",
+                            title: NSLocalizedString("room_msg_rate_three_stars", comment: ""),
+                            role: .quiet
+                        ) {
+                            isRatingDialogPresented = false
+                            Task { await submitPostcardRating(stars: 3) }
+                        },
+                        MessageBoxButton(
+                            id: "postcard_rate_cancel",
+                            title: NSLocalizedString("common_cancel", comment: ""),
+                            role: .cancel
+                        ) {
+                            isRatingDialogPresented = false
+                        }
+                    ]
+                )
             } else if isBuyErrorAlertPresented {
                 MessageBox(
                     title: NSLocalizedString("common_error", comment: ""),
@@ -528,7 +593,10 @@ struct PostcardView: View {
                 ? AppTesting.fixtureOwnedPostcardListing()
                 : AppTesting.fixturePostcardListing()
             sellerFriendCode = currentListing.sellerFriendCode
+            sellerStars = isSeller ? max(0, session.stars) : 3
             pendingShippingCount = isSeller ? AppTesting.fixtureShippingRecipients().count : 0
+            pendingRatingContext = nil
+            isRatingDialogPresented = false
             return
         }
 
@@ -540,13 +608,18 @@ struct PostcardView: View {
                 currentListing = refreshed
                 let cachedFriendCode = refreshed.sellerFriendCode.trimmingCharacters(in: .whitespacesAndNewlines)
                 sellerFriendCode = cachedFriendCode
+                sellerStars = try await repo.fetchUserStars(userId: refreshed.sellerId)
                 await dirtyBits.clearPostcardDetailDirty(postcardId: refreshed.id)
                 if !isSeller {
                     buyerOrder = try await repo.fetchLatestBuyerOrder(postcardId: refreshed.id)
                     pendingShippingCount = 0
+                    let refreshedRatingContext = try await repo.fetchLatestBuyerRatingContext(postcardId: refreshed.id)
+                    applyPendingRatingContext(refreshedRatingContext)
                 } else {
                     buyerOrder = nil
                     await refreshPendingShippingCount(postcardId: refreshed.id)
+                    let refreshedRatingContext = try await repo.fetchLatestSellerRatingContext(postcardId: refreshed.id)
+                    applyPendingRatingContext(refreshedRatingContext)
                 }
                 await saveDetailToCache()
             } else {
@@ -663,7 +736,7 @@ struct PostcardView: View {
             await dirtyBits.markPostcardBrowseDirty()
             await dirtyBits.markPostcardDetailDirty(postcardId: currentListing.id)
             await session.refreshProfileFromBackend()
-            await refreshListing()
+            await refreshListing(isForceRefresh: true)
             receiveSuccessMessage = NSLocalizedString("postcard_msg_receive_success_message", comment: "")
             isReceiveSuccessAlertPresented = true
         } catch {
@@ -718,6 +791,8 @@ struct PostcardView: View {
         buyerOrder = payload.value.buyerOrder
         pendingShippingCount = payload.value.pendingShippingCount
         sellerFriendCode = payload.value.sellerFriendCode
+        sellerStars = payload.value.sellerStars
+        applyPendingRatingContext(payload.value.pendingRatingContext)
         return true
     }
 
@@ -727,9 +802,38 @@ struct PostcardView: View {
             listing: currentListing,
             buyerOrder: buyerOrder,
             pendingShippingCount: pendingShippingCount,
-            sellerFriendCode: sellerFriendCode
+            sellerFriendCode: sellerFriendCode,
+            sellerStars: sellerStars,
+            pendingRatingContext: pendingRatingContext
         )
         await cache.save(payload, key: detailCacheKey())
+    }
+
+    /// Applies latest pending rating task and presents the dialog when one is available.
+    /// - Parameter context: Newly fetched pending rating task for the current viewer.
+    private func applyPendingRatingContext(_ context: PostcardOrderRatingContext?) {
+        pendingRatingContext = context
+        isRatingDialogPresented = context != nil
+    }
+
+    /// Submits stars for the current postcard completion rating task.
+    /// - Parameter stars: Number of stars between 1 and 3.
+    private func submitPostcardRating(stars: Int) async {
+        guard let ratingContext = pendingRatingContext else { return }
+
+        do {
+            if isSeller {
+                try await repo.rateBuyerAfterCompletion(orderId: ratingContext.id, stars: stars)
+            } else {
+                try await repo.rateSellerAfterCompletion(orderId: ratingContext.id, stars: stars)
+            }
+            await dirtyBits.markPostcardDetailDirty(postcardId: currentListing.id)
+            await session.refreshProfileFromBackend()
+            await refreshListing(isForceRefresh: true)
+        } catch {
+            buyErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            isBuyErrorAlertPresented = true
+        }
     }
 
     /// Current postcard detail tutorial scenario configuration.
@@ -914,6 +1018,7 @@ struct PostcardView: View {
 
         currentListing = tutorialListing
         sellerFriendCode = tutorialListing.sellerFriendCode
+        sellerStars = scenario == .postcardSellerFirstVisit ? max(0, session.stars) : 3
         pendingShippingCount = tutorialConfig.fakePendingShippingCount
         if let fakeBuyerOrderStatus = tutorialConfig.fakeBuyerOrderStatus {
             buyerOrder = PostcardBuyerOrder(

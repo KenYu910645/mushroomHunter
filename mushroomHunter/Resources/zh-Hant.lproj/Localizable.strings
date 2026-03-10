@@ -258,7 +258,7 @@
 /***************************************/
 
 "postcard_shipping_title" = "訂單";
-"postcard_shipping_empty" = "目前沒有等待寄送的買家。";
+"postcard_shipping_empty" = "目前沒有新的訂單";
 "postcard_shipping_ordered_title_format" = "%@ 訂購了 %@";
 "postcard_shipping_friend_request_prefix_format" = "請先送出好友邀請給 %@（";
 "postcard_shipping_friend_request_code_prefix" = "好友碼：";
@@ -290,7 +290,7 @@
 "postcard_msg_purchase_order_button" = "下單";
 "postcard_msg_purchase_cancel_button" = "取消";
 "postcard_msg_buy_success_title" = "訂單已送出";
-"postcard_msg_buy_success_message" = "賣家正在準備您的明信片。請在 Pikmin Bloom 檢查新的好友邀請。";
+"postcard_msg_buy_success_message" = "賣家正在準備您的明信片。請在 Pikmin 檢查新的好友邀請。";
 
 /***************************************/
 /**** Notification: Mushroom ****/
@@ -319,7 +319,9 @@
 "postcard_msg_receive_confirm_message" = "您有收到這張明信片嗎？";
 "postcard_msg_receive_confirm_received_button" = "已收到";
 "postcard_msg_receive_success_title" = "交易完成";
-"postcard_msg_receive_success_message" = "享受您的明信片！";
+"postcard_msg_receive_success_message" = "Enjoy!!";
+"postcard_msg_rate_seller_title" = "評價賣家：%@";
+"postcard_msg_rate_buyer_title" = "評價買家：%@";
 "postcard_order_pending_message" = "您的訂單處理中。請等待賣家出貨，或在收到後確認收件。";
 "postcard_order_waiting_shipping_message" = "賣家已接受，等待賣家標記已出貨。";
 "postcard_order_waiting_buyer_confirm_message" = "已出貨、運送中。收到後請確認收件以完成交易。";

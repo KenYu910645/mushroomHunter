@@ -19,7 +19,7 @@
 
 ## Feature Coverage
 - Profile tab now focuses on account management only:
-  - Display name and friend code (read-only identity rows).
+  - Display name and friend code (read-only identity rows) appear in the first block without a visible section title.
   - Top-right bell entry opens the shared event inbox sheet.
   - Top-right settings icon was removed.
   - `Settings` button now appears in the form section above `Sign Out`, opens the same settings sheet as before, and uses localized text (`settings_title`).
@@ -31,12 +31,13 @@
 - Mushroom and postcard owned activity lists were removed from profile and moved into browse tabs:
   - Mushroom browse pins user `Joined` and `Host` rooms at the top with ownership tags.
   - Postcard browse pins user `On-shelf` and `Ordered` postcards at the top with ownership tags.
-- Profile actionable badge totals are refreshed by app-root tab logic in `ContentView` using Firebase repositories.
+- Profile actionable badge totals are refreshed by app-root tab logic in `ContentView` using Firebase repositories, app-foreground activation, and actionable push receipt reconciliation.
 - Profile edits and wallet changes now generate per-user event-history rows (`users/{uid}/events`) so bell Events includes:
   - display-name updates,
   - friend-code updates,
   - honey balance deltas (spend/gain/refund from room/postcard flows).
 - UI testing mode (`--ui-testing`) keeps profile backend reads/writes disabled for deterministic offline test execution.
+- Shared `MessageBox` centers its message text content.
 
 #### `feedbackSubmissions/{feedbackId}`
 User feedback submitted from profile settings.

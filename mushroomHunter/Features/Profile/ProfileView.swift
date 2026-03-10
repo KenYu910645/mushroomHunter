@@ -219,8 +219,6 @@ struct ProfileView: View {
                     .accessibilityIdentifier("profile_friend_code_value")
             }
             .padding(.vertical, 4)
-        } header: {
-            Text(LocalizedStringKey("profile_id_section"))
         }
     }
 

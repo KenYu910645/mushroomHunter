@@ -66,7 +66,7 @@ enum PostcardBuyer {
             ),
             message: BilingualText(
                 en: "Confirm postcard info and friend code before placing your order.",
-                cn: "* 下單後會直接扣除蜂蜜\n* 買家出貨後約12hr後明信片會送達"
+                cn: "* 下單後會直接扣除蜂蜜\n* 買家出貨後約12小時後明信片會送達"
             )
         )
     ]

@@ -53,6 +53,14 @@ struct HoneyHubApp: App {
 }
 
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
+    /// Push types that should update unresolved-action badge counts immediately on receipt.
+    private let actionPushTypes: Set<String> = [
+        "RAID_CONFIRM_ATTENDEE",
+        "JOIN_REQUESTED_HOST",
+        "POSTCARD_ORDER_SELLER",
+        "POSTCARD_SENT_BUYER"
+    ]
+
     /// Requests notification permissions and configures Firebase Messaging delegate.
     func application(
         _ application: UIApplication,
@@ -94,6 +102,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 message: notification.request.content.body
             )
         }
+        applyBadgeUpdateFromPush(
+            userInfo: notification.request.content.userInfo,
+            badgeNumber: notification.request.content.badge?.intValue
+        )
         completionHandler([.banner, .sound, .badge])
     }
 
@@ -110,8 +122,30 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 message: response.notification.request.content.body
             )
         }
+        applyBadgeUpdateFromPush(
+            userInfo: response.notification.request.content.userInfo,
+            badgeNumber: response.notification.request.content.badge?.intValue
+        )
         routePushNavigation(userInfo: response.notification.request.content.userInfo)
         completionHandler()
+    }
+
+    /// Applies the delivered badge count immediately and asks the SwiftUI shell to reconcile server counts.
+    /// - Parameters:
+    ///   - userInfo: APNs custom payload dictionary.
+    ///   - badgeNumber: Delivered APS badge value when present.
+    private func applyBadgeUpdateFromPush(userInfo: [AnyHashable: Any], badgeNumber: Int?) {
+        let type = (userInfo["type"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard actionPushTypes.contains(type) else { return }
+
+        if let badgeNumber {
+            UIApplication.shared.applicationIconBadgeNumber = max(0, badgeNumber)
+        }
+
+        NotificationCenter.default.post(
+            name: .didReceiveActionPushBadgeUpdate,
+            object: badgeNumber
+        )
     }
 
     /// Routes push-tap payload into room/postcard deep-link channels.
@@ -139,6 +173,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 name: .didOpenPostcardOrderFromPush,
                 object: ["postcardId": postcardId, "orderId": orderId]
             )
+        } else if (type == "POSTCARD_RECEIVED_SELLER" || type == "POSTCARD_RECEIVED_BUYER"),
+                  postcardId.isEmpty == false {
+            NotificationCenter.default.post(name: .didOpenPostcardFromLink, object: postcardId)
         }
     }
 }

@@ -97,13 +97,13 @@ enum AppConfig {
         // `defaultFixedRaidCost`
         // Purpose: default honey cost when hosting a new room.
         // Must be >= `minFixedRaidCost`.
-        // Suggested range: 1...200.
+        // Suggested range: 0...200.
         static let defaultFixedRaidCost: Int = 10
 
         // `minFixedRaidCost`
         // Purpose: floor for room join/update deposit validation.
-        // Suggested range: 1...50.
-        static let minFixedRaidCost: Int = 1
+        // Suggested range: 0...50.
+        static let minFixedRaidCost: Int = 0
 
         // `maxFixedRaidCost`
         // Purpose: upper bound in host form Stepper.
@@ -117,8 +117,8 @@ enum AppConfig {
 
         // `noFaultEffortFeeMinimum`
         // Purpose: minimum effort-fee honey for no-fault seat-full settlement.
-        // Suggested range: 1...10.
-        static let noFaultEffortFeeMinimum: Int = 1
+        // Suggested range: 0...10.
+        static let noFaultEffortFeeMinimum: Int = 0
 
         // Computes no-fault effort fee from fixed raid cost.
         static func noFaultEffortFee(for fixedRaidCost: Int) -> Int { // Handles noFaultEffortFee flow.

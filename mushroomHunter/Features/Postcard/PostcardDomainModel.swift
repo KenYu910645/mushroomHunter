@@ -154,6 +154,24 @@ struct PostcardBuyerOrder: Identifiable, Equatable, Codable {
     let createdAt: Date
 }
 
+/// Latest completed-order rating task shown to either buyer or seller.
+struct PostcardOrderRatingContext: Identifiable, Equatable, Codable {
+    /// Uses the order document id so one rating prompt maps to one order.
+    let id: String
+    /// Related postcard listing id.
+    let postcardId: String
+    /// Current completed order status.
+    let status: PostcardOrderStatus
+    /// Counterparty display name shown in the rating dialog title.
+    let counterpartName: String
+    /// True when the buyer still needs to rate the seller for this order.
+    let isBuyerRatingRequired: Bool
+    /// True when the seller still needs to rate the buyer for this order.
+    let isSellerRatingRequired: Bool
+    /// Timestamp when the order was completed.
+    let completedAt: Date
+}
+
 /// Ordered postcard summary rendered in profile with latest active order status.
 struct OrderedPostcardSummary: Identifiable, Equatable, Codable {
     /// Uses listing id so profile row navigation can open postcard detail directly.

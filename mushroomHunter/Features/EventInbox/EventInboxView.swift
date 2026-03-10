@@ -34,6 +34,7 @@ struct EventInboxView: View {
                     ForEach(notificationInbox.items) { item in
                         Button {
                             guard item.isActionEvent else { return }
+                            notificationInbox.markActionEventAsRead(item.id)
                             onOpenRoute(item.route)
                             dismiss()
                         } label: {
@@ -89,7 +90,7 @@ private struct EventInboxRow: View {
 
     /// Row UI with unread red dot + bold text.
     var body: some View {
-        let isShowingPendingState = item.isActionEvent && item.isResolved == false
+        let isShowingPendingState = item.isHighlighted
         HStack(alignment: .top, spacing: 10) {
             Circle()
                 .fill(isShowingPendingState ? Color.red : Color.clear)

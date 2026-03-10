@@ -147,6 +147,14 @@ struct MainTabView: View {
                 await refreshProfileActionBadgeCount()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .didReceiveActionPushBadgeUpdate)) { notif in
+            if let badgeCount = notif.object as? Int {
+                session.updateProfileActionBadgeCount(badgeCount)
+            }
+            Task {
+                await refreshProfileActionBadgeCount()
+            }
+        }
         .onChange(of: session.profileActionBadgeCount) { _, latestCount in
             UIApplication.shared.applicationIconBadgeNumber = latestCount
         }

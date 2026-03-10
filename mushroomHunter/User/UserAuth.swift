@@ -127,6 +127,7 @@ extension Notification.Name {
     static let didOpenRoomConfirmationFromPush = Notification.Name("mh.didOpenRoomConfirmationFromPush") // Notification for room confirmation queue deep-link routing.
     static let didOpenPostcardFromLink = Notification.Name("mh.didOpenPostcardFromLink") // Notification for postcard deep-link routing.
     static let didOpenPostcardOrderFromPush = Notification.Name("mh.didOpenPostcardOrderFromPush") // Notification for postcard order deep-link routing.
+    static let didReceiveActionPushBadgeUpdate = Notification.Name("mh.didReceiveActionPushBadgeUpdate") // Notification for actionable push badge refresh requests.
 }
 
 private func randomNonceString(length: Int = 32) -> String { // Generates a cryptographically secure random nonce string.

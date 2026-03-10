@@ -231,6 +231,7 @@ service firebase.storage {
 - Open shipping sheet:
   - Firestore query read: `postcardOrders` filtered by seller+postcard+pending statuses (`AwaitingShipping`, plus legacy aliases).
   - Friend-code fallback users query only for legacy orders missing snapshot values.
+  - Seller pending postcard-rating query: `postcardOrders where sellerId == uid and postcardId == postcardId and isSellerRatingRequired == true order by completedAt desc limit 1`.
 - Seller reject:
   - Firestore transaction write:
     - reject -> `status: Rejected` + buyer refund + stock restore
@@ -240,10 +241,15 @@ service firebase.storage {
 #### Buyer receive flow
 - Confirm received:
   - Firestore transaction reads order + seller user
-  - Firestore writes seller honey and order completion state
+  - Firestore writes seller honey, order completion state, and both postcard rating-required flags
+  - Buyer pending postcard-rating query: `postcardOrders where buyerId == uid and postcardId == postcardId and isBuyerRatingRequired == true order by completedAt desc limit 1`.
 - Auto-complete fallback:
   - Scheduled backend sweep processes `Shipped` orders past `buyerConfirmDeadlineAt`
   - Firestore transaction writes seller honey and order status -> `CompletedAuto`
+
+## Firestore Index Notes
+- Postcard buyer pending-rating lookup requires a composite index on `postcardOrders` covering `buyerId`, `postcardId`, `isBuyerRatingRequired`, and `completedAt desc`.
+- Postcard seller pending-rating lookup requires a composite index on `postcardOrders` covering `sellerId`, `postcardId`, `isSellerRatingRequired`, and `completedAt desc`.
 
 ### Feedback
 - Submit feedback from profile:

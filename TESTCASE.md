@@ -26,6 +26,8 @@ Need to check both English and Chinese
 3. Create, Edit and Delete postcard: 
    - Register a postcard and edit everything to make sure changes apply, and delete the postcard
    - check the event list, if it is correctly updated. (Create Room and CLose Room should have notification in Event list)
+   - complete one postcard order and verify buyer rates seller and seller rates buyer with the shared 1/2/3-star dialog
+   - verify manual `Completed` opens rating flow, but `CompletedAuto` does not
 4. Join room(Accept, Reject and Kick)
    - use QR code to scan to the room
    - Attendee apply join -> Check event and host MUSH receive a notification(Action EVENT) -> the badget counter need to increment
@@ -35,6 +37,17 @@ Need to check both English and Chinese
    - Host press invite, see if the joiner get APN and the badge count need to be correct, After resolving the invitation, the red dot should disappear and badge counter --
    - Joiner reply Join Success, Mushroom full, No invitation
    - If settlement makes attendee deposit fall below `fixedRaidCost`, attendee row status should switch to red `Not Enough Honey` / `蜂蜜不足`, and attendee should still be able to open deposit edit to top up
+   - The star is correctly updated.
+6. Postcard buy flow
+   - buyer buy, and seller can choose to accept or reject, the honey must update correctly
+   - The notification need to be ok 
+   - The star is correctly updated.
+
+7. Tutorial flow 
+   - All six tutorial flow need to work just fine.
+   
+8. Changing the profile acutally will work
+9. Feedback feature
 
 TODO: invite code?
 
