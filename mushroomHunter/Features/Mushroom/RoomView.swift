@@ -188,7 +188,7 @@ struct RoomView: View {
                                 .foregroundStyle(.secondary)
                         }
 
-                        let minimumRequiredDeposit = vm.room?.fixedRaidCost ?? 0
+                        let minimumRequiredDeposit = AppConfig.Mushroom.minimumRequiredDepositHoney
                         let maximumAvailableDeposit = max(session.honey, 0)
                         let lower = min(minimumRequiredDeposit, maximumAvailableDeposit)
                         Slider(
@@ -248,7 +248,7 @@ struct RoomView: View {
                             showJoinConfirmAlert = true
                         }
                         .disabled(
-                            joinDepositAmount < (vm.room?.fixedRaidCost ?? 0)
+                            joinDepositAmount < AppConfig.Mushroom.minimumRequiredDepositHoney
                             || joinDepositAmount > session.honey
                             || joinGreetingMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         )
@@ -281,7 +281,7 @@ struct RoomView: View {
                                 .foregroundStyle(.secondary)
                         }
 
-                        let minimumRequiredDeposit = vm.room?.fixedRaidCost ?? 0
+                        let minimumRequiredDeposit = AppConfig.Mushroom.minimumRequiredDepositHoney
                         let currentDeposit = vm.currentUserDepositHoney() ?? 0
                         let maximumAvailableDeposit = max(session.honey + currentDeposit, 0)
                         let lower = min(minimumRequiredDeposit, maximumAvailableDeposit)
@@ -341,7 +341,7 @@ struct RoomView: View {
                                 }
                             }
                         }
-                        .disabled(updateDepositAmount < (vm.room?.fixedRaidCost ?? 0) || updateDepositAmount > max(session.honey + (vm.currentUserDepositHoney() ?? 0), 0))
+                        .disabled(updateDepositAmount < AppConfig.Mushroom.minimumRequiredDepositHoney || updateDepositAmount > max(session.honey + (vm.currentUserDepositHoney() ?? 0), 0))
                     }
                 }
             }
@@ -380,7 +380,7 @@ struct RoomView: View {
                                                 .foregroundStyle(.secondary)
                                         }
                                     }
-                                    .disabled(attendee.depositHoney < room.fixedRaidCost)
+                                    .disabled(attendee.depositHoney < AppConfig.Mushroom.minimumRequiredDepositHoney)
                                 }
                             }
                         }
@@ -798,7 +798,7 @@ struct RoomView: View {
             if vm.role == .attendee {
                 Button {
                     let currentDeposit = vm.currentUserDepositHoney() ?? 0
-                    let fixedCost = vm.room?.fixedRaidCost ?? 0
+                    let fixedCost = AppConfig.Mushroom.minimumRequiredDepositHoney
                     let maximumAvailableDeposit = max(session.honey + currentDeposit, 0)
                     updateDepositAmount = min(maximumAvailableDeposit, max(currentDeposit, fixedCost))
                     showDepositSheet = true
@@ -825,7 +825,7 @@ struct RoomView: View {
                 HStack(spacing: 10) {
                     if AppTesting.useMockRooms, vm.role != .attendee {
                         Button {
-                            let minimumRequiredDeposit = room.fixedRaidCost
+                            let minimumRequiredDeposit = AppConfig.Mushroom.minimumRequiredDepositHoney
                             let clamped = max(joinDepositAmount, minimumRequiredDeposit)
                             joinDepositAmount = min(clamped, session.honey)
                             joinGreetingMessage = NSLocalizedString("room_join_greeting_default", comment: "")
@@ -836,10 +836,10 @@ struct RoomView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .accessibilityIdentifier("room_join_button")
-                        .disabled(vm.isLoading || session.honey < room.fixedRaidCost)
+                        .disabled(vm.isLoading || session.honey < AppConfig.Mushroom.minimumRequiredDepositHoney)
                     } else if vm.canJoin {
                         Button {
-                            let minimumRequiredDeposit = room.fixedRaidCost
+                            let minimumRequiredDeposit = AppConfig.Mushroom.minimumRequiredDepositHoney
                             let clamped = max(joinDepositAmount, minimumRequiredDeposit)
                             joinDepositAmount = min(clamped, session.honey)
                             joinGreetingMessage = NSLocalizedString("room_join_greeting_default", comment: "")
@@ -850,7 +850,7 @@ struct RoomView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .accessibilityIdentifier("room_join_button")
-                        .disabled(vm.isLoading || session.honey < room.fixedRaidCost)
+                        .disabled(vm.isLoading || session.honey < AppConfig.Mushroom.minimumRequiredDepositHoney)
                     }
 
                     if vm.role == .host {
@@ -1126,7 +1126,7 @@ struct RoomView: View {
                         showRaidThanksAlert = false
                         if let room = vm.room,
                            let deposit = vm.currentUserDepositHoney(),
-                           deposit < room.fixedRaidCost {
+                           deposit < AppConfig.Mushroom.minimumRequiredDepositHoney {
                             showNextRoundAfterRating = true
                         }
                         showAttendeeRateHostAlert = true
@@ -1550,16 +1550,14 @@ struct RoomView: View {
         case .joinedSuccess:
             let isConfirmed = await vm.respondToRaidConfirmation(confirmationId: queueItem.id, settlementOutcome: .joinedSuccess)
             if isConfirmed {
-                raidThanksHoney = vm.room?.fixedRaidCost ?? 0
+                raidThanksHoney = AppConfig.Mushroom.joinedSuccessRewardHoney
                 showRaidThanksAlert = true
             }
         case .seatFullNoFault:
             let currentDeposit = vm.currentUserDepositHoney() ?? 0
             let isConfirmed = await vm.respondToRaidConfirmation(confirmationId: queueItem.id, settlementOutcome: .seatFullNoFault)
             if isConfirmed {
-                let fixedRaidCost = vm.room?.fixedRaidCost ?? 0
-                let noFaultEffortFee = AppConfig.Mushroom.noFaultEffortFee(for: fixedRaidCost)
-                noFaultSettlementHoney = min(currentDeposit, noFaultEffortFee)
+                noFaultSettlementHoney = min(currentDeposit, AppConfig.Mushroom.seatFullRewardHoney)
                 isShowingNoFaultSettlementAlert = true
             }
         case .missedInvitation:

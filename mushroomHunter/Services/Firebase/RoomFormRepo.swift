@@ -20,7 +20,7 @@
 //  [W] - `hostUid`: Writes cached host uid on create for host lookups without attendee query.
 //  [W] - `location`: Writes location string from form input on create/edit.
 //  [W] - `description`: Writes room description from form input on create/edit.
-//  [W] - `fixedRaidCost`: Writes normalized fixed raid cost on create/edit.
+//  [W] - `fixedRaidCost`: Writes legacy compatibility reward value on create/edit.
 //  [W] - `maxPlayers`: Writes default max player cap on create.
 //  [W] - `joinedCount`: Writes initial joined count (`1`) on create.
 //  [W] - `createdAt`: Writes create timestamp when creating room.
@@ -52,7 +52,6 @@ struct FsRoomFormRequest {
     let location: String
     let description: String
     let hostFriendCode: String
-    let fixedRaidCost: Int
 }
 
 enum RoomFormError: LocalizedError {
@@ -74,6 +73,19 @@ final class FbRoomFormRepo {
     private let defaultMaxHostRooms = AppConfig.Mushroom.defaultHostRoomLimit
     private let defaultMaxJoinRooms = AppConfig.Mushroom.defaultJoinRoomLimit
 
+    /// Resolves the effective host-room limit from one user document snapshot.
+    /// - Parameter userData: Raw Firestore user document payload.
+    /// - Returns: Effective host-room limit for the current entitlement state.
+    private func effectiveMaxHostRooms(from userData: [String: Any]) -> Int {
+        let isPremium = userData["isPremium"] as? Bool ?? false
+        let premiumExpirationDate = (userData["premiumExpirationAt"] as? Timestamp)?.dateValue()
+        let isPremiumActive = isPremium && (premiumExpirationDate?.timeIntervalSinceNow ?? -1) > 0
+        if isPremiumActive {
+            return AppConfig.Premium.premiumHostRoomLimit
+        }
+        return userData["maxHostRoom"] as? Int ?? defaultMaxHostRooms
+    }
+
     func createRoom(req: FsRoomFormRequest, hostDisplayName: String, hostStars: Int) async throws -> String { // Handles createRoom flow.
         guard let uid = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "Auth", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
@@ -81,7 +93,7 @@ final class FbRoomFormRepo {
 
         let userSnap = try await db.collection("users").document(uid).getDocument()
         let userData = userSnap.data() ?? [:]
-        let maxHostRooms = userData["maxHostRoom"] as? Int ?? defaultMaxHostRooms
+        let maxHostRooms = effectiveMaxHostRooms(from: userData)
         let hostFcmToken = (userData["fcmToken"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 
         let hostedRoomsSnap = try await db.collection("rooms")
@@ -103,7 +115,7 @@ final class FbRoomFormRepo {
             "hostFcmToken": hostFcmToken,
             "location": req.location,
             "description": req.description,
-            "fixedRaidCost": max(AppConfig.Mushroom.minFixedRaidCost, req.fixedRaidCost),
+            "fixedRaidCost": AppConfig.Mushroom.joinedSuccessRewardHoney,
             "maxPlayers": AppConfig.Mushroom.defaultMaxPlayersPerRoom,
             "joinedCount": 1,
             "createdAt": now,
@@ -136,6 +148,8 @@ final class FbRoomFormRepo {
                 "honey": 0,
                 "maxHostRoom": defaultMaxHostRooms,
                 "maxJoinRoom": defaultMaxJoinRooms,
+                "isPremium": false,
+                "premiumProductId": "",
                 "createdAt": now,
                 "updatedAt": now
             ], merge: true)
@@ -162,7 +176,7 @@ final class FbRoomFormRepo {
             "title": req.title,
             "location": req.location,
             "description": req.description,
-            "fixedRaidCost": max(AppConfig.Mushroom.minFixedRaidCost, req.fixedRaidCost),
+            "fixedRaidCost": AppConfig.Mushroom.joinedSuccessRewardHoney,
             "updatedAt": now
         ]
 

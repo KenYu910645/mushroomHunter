@@ -22,6 +22,69 @@
 "common_copied" = "已複製到剪貼簿";
 
 /***************************************/
+/**** DailyReward ****/
+/***************************************/
+
+"daily_reward_title" = "每日獎勵";
+"daily_reward_toolbar_accessibility" = "開啟每日獎勵月曆";
+"daily_reward_claim_button" = "領取今日獎勵";
+"daily_reward_claiming_button" = "領取中…";
+"daily_reward_today_claimed_hint" = "今天的獎勵已領取。";
+"daily_reward_expired_hint" = "未領取的獎勵會在台北時間凌晨 12 點失效，之後無法補領。";
+"daily_reward_day_claimed" = "已領取";
+"daily_reward_day_today" = "今日";
+"daily_reward_day_expired" = "失效";
+"daily_reward_day_locked" = "未開放";
+"daily_reward_load_error" = "目前無法載入每日獎勵。";
+"daily_reward_claim_success_title" = "獎勵已領取";
+"daily_reward_claim_success_message" = "您已獲得 %d 蜂蜜。";
+"daily_reward_claim_error_already_claimed" = "今天的獎勵已經領取過。";
+"daily_reward_claim_error_service_unavailable" = "每日獎勵服務目前無法使用。";
+"daily_reward_claim_error_generic" = "目前無法領取今日獎勵。";
+"event_type_HONEY_REWARD_title" = "蜂蜜獎勵";
+"event_type_HONEY_REWARD_message" = "您已獲得蜂蜜獎勵。";
+
+/***************************************/
+/**** Premium ****/
+/***************************************/
+
+"premium_title" = "高級會員";
+"premium_upgrade_button" = "升級為高級會員";
+"premium_status_active" = "高級會員已啟用";
+"premium_status_active_short" = "已啟用";
+"premium_status_inactive" = "免費方案";
+"premium_status_active_summary" = "您目前可使用所有高級會員權益。";
+"premium_status_free_summary" = "訂閱月費方案後，可獲得更高的每日獎勵與更高的房間上限。";
+"premium_status_renews_format" = "有效期限至 %s。";
+"premium_syncing" = "正在同步訂閱狀態...";
+"premium_benefits_header" = "會員權益";
+"premium_benefit_daily_reward_title" = "每日獎勵 3 倍";
+"premium_benefit_daily_reward_detail" = "每日可領取 30 蜂蜜，免費玩家則為 10 蜂蜜。";
+"premium_benefit_host_limit_title" = "最多主持 5 個房間";
+"premium_benefit_host_limit_detail" = "同時主持房間上限從 1 個提升到 5 個。";
+"premium_benefit_join_limit_title" = "最多加入 10 個房間";
+"premium_benefit_join_limit_detail" = "同時加入房間上限從 3 個提升到 10 個。";
+"premium_purchase_header" = "訂閱方案";
+"premium_monthly_price_label" = "每月價格";
+"premium_subscribe_button" = "訂閱月費方案";
+"premium_subscribe_manage_button" = "重新整理訂閱";
+"premium_restore_button" = "還原購買";
+"premium_legal_header" = "條款";
+"premium_terms_button" = "服務條款";
+"premium_privacy_button" = "隱私權政策";
+"premium_legal_footer" = "訂閱扣款由 Apple 處理。送審前請把目前的條款與隱私連結換成正式公開頁面。";
+"premium_price_unavailable" = "目前無法取得";
+"premium_error_load_product" = "目前無法載入高級會員價格。";
+"premium_error_product_missing" = "高級會員商品尚未上架。";
+"premium_error_purchase_generic" = "目前無法完成高級會員購買。";
+"premium_error_unverified_transaction" = "Apple 無法驗證這筆購買。";
+"premium_error_sync_entitlement" = "購買已完成，但目前無法同步 HoneyHub 會員狀態。";
+"premium_error_unavailable_testing" = "UI 測試模式下無法購買高級會員。";
+"premium_purchase_success_message" = "高級會員已啟用。";
+"premium_purchase_pending_message" = "購買正在等待 Apple 核准。";
+"premium_restore_success_message" = "已還原購買紀錄。";
+
+/***************************************/
 /**** Mushroom Browse ****/
 /***************************************/
 
@@ -170,7 +233,7 @@
 "room_msg_raid_confirm_seat_full_button" = "有，但蘑菇已滿位";
 "room_msg_raid_confirm_missed_invite_button" = "沒有，我沒看到邀請";
 "room_msg_settlement_no_fault_title" = "感謝您的更新";
-"room_msg_settlement_no_fault_message" = "將給主持人 2 {honey_icon} 作為邀請獎勵。沒關係！主持人下次會再邀請您。";
+"room_msg_settlement_no_fault_message" = "蘑菇已滿位，您已支付主持人 %d {honey_icon}。沒關係！主持人下次會再邀請您。";
 "room_confirmation_queue_title" = "確認佇列";
 "room_confirmation_queue_empty" = "此房間目前沒有待處理確認。";
 "room_confirmation_queue_item_title_format" = "%@ 已邀請您參加蘑菇戰。";
@@ -224,7 +287,7 @@
 /***************************************/
 
 "room_msg_raid_thanks_title" = "享受蘑菇戰！";
-"room_msg_raid_thanks_message" = "轉給主持人 %d {honey_icon} 作為獎勵。";
+"room_msg_raid_thanks_message" = "您已支付主持人 %d {honey_icon}。";
 "room_msg_rate_host_title" = "評價主持人：%@";
 "room_msg_rate_attendee_title" = "評價參加者：%@？";
 "room_msg_rate_one_star" = "⭐";
@@ -250,8 +313,10 @@
 "postcard_sort_lowest_price" = "最低價格";
 "postcard_seller_format" = "賣家：%@";
 "postcard_tag_on_shelf" = "已上架";
+"postcard_tag_run_out" = "賣完了";
 "postcard_tag_ordered" = "已下單";
 "postcard_buy_button" = "購買";
+"postcard_status_sold_out" = "明信片已售完";
 
 /***************************************/
 /**** Postcard Sheet: Shipping Queue ****/
@@ -314,7 +379,7 @@
 /**** Postcard Message Box: Receive Confirmation ****/
 /***************************************/
 
-"postcard_receive_complete_button" = "確認收件，完成交易";
+"postcard_receive_complete_button" = "確認收件，完成訂單";
 "postcard_msg_receive_confirm_title" = "確認收件";
 "postcard_msg_receive_confirm_message" = "您有收到這張明信片嗎？";
 "postcard_msg_receive_confirm_received_button" = "已收到";
@@ -403,8 +468,8 @@
 /***************************************/
 
 "about_title" = "關於開發者";
-"about_intro" = "聯絡資訊";
-"about_phone_label" = "手機";
+"about_message" = "做這個 App 的初衷很簡單，就是希望讓皮友們更容易互相交流。不論是一起打蘑菇，還是交換明信片，都希望大家能更方便地和其他玩家互動。\n\nApp 裡的「蜂蜜」靈感來自 Pikmin 的種花概念。既然大家都在種花，那促進交流的角色應該就是蜜蜂吧！所以當你和其他玩家互動時，就會獲得蜂蜜。\n\n希望這個小工具能讓大家玩得更開心。如果有任何建議或問題，歡迎透過 Gmail 聯絡我，或使用 App 內的 Feedback 回報。";
+"about_support_title" = "聯絡方式";
 "about_email_label" = "電子郵件";
 "about_website_label" = "網站";
 
@@ -490,6 +555,10 @@
 "event_type_room_join_request_rejected_message" = "您的加入申請已被拒絕。";
 "event_type_room_joiner_rejected_title" = "已拒絕加入申請";
 "event_type_room_joiner_rejected_message" = "您已拒絕一筆加入申請。";
+"event_type_KICKED_ATTENDEE_title" = "已被踢出房間";
+"event_type_KICKED_ATTENDEE_message" = "您已被踢出房間:%@，您儲值的%@蜂蜜已返還。";
+"event_type_KICKED_HOST_title" = "已將玩家踢出房間";
+"event_type_KICKED_HOST_message" = "您已將%@踢出房間:%@";
 "event_type_reply_host_title" = "參加者已回覆";
 "event_type_reply_host_message" = "參加者已送出蘑菇戰確認回覆。";
 "event_type_room_star_received_title" = "已收到星星";

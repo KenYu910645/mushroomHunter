@@ -3,40 +3,34 @@
 //  mushroomHunter
 //
 //  Purpose:
-//  - Presents static support and contact information reachable from profile settings.
+//  - Presents static app background and support information reachable from profile settings.
 //
 import SwiftUI
 
-/// About screen with support contact channels.
+/// About screen with app background copy and support links.
 struct AboutView: View {
-    /// Phone destination if URL construction succeeds.
-    private let phoneURL: URL? = URL(string: "tel://886930200769")
-
     /// Email destination if URL construction succeeds.
     private let emailURL: URL? = URL(string: "mailto:kenyu910645@gmail.com")
 
     /// Website destination if URL construction succeeds.
     private let websiteURL: URL? = URL(string: "https://kenyu910645.github.io/")
 
-    /// About content that presents support contact links.
+    /// About message that explains the app concept and feedback path.
+    private let aboutMessageKey: LocalizedStringKey = "about_message"
+
+    /// About content that presents app context and support links.
     var body: some View {
         List {
             Section {
-                Text(LocalizedStringKey("about_intro"))
+                Text(aboutMessageKey)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("about_intro_text")
             }
+            .headerProminence(.increased)
 
-            Section {
-                LabeledContent(LocalizedStringKey("about_phone_label")) {
-                    if let phoneURL {
-                        Link("+886 930200769", destination: phoneURL)
-                    } else {
-                        Text("+886 930200769")
-                    }
-                }
-
+            Section(LocalizedStringKey("about_support_title")) {
                 LabeledContent(LocalizedStringKey("about_email_label")) {
                     if let emailURL {
                         Link("kenyu910645@gmail.com", destination: emailURL)

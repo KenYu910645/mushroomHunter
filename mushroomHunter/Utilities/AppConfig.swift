@@ -6,7 +6,7 @@
 //  - Centralizes owner-managed app settings that are not user-adjustable.
 //
 //  Defined in this file:
-//  - AppConfig namespaces for Mushroom, Postcard, Profile, and Network tuning values.
+//  - AppConfig namespaces for Mushroom, Postcard, DailyReward, Profile, and Network tuning values.
 //
 import Foundation
 import CoreGraphics
@@ -36,20 +36,15 @@ enum AppConfig {
     }
 
     enum Mushroom {
-        // `isRaidPaymentAdjustmentEnabled`
-        // Purpose: controls whether hosts can adjust fixed raid payment in room form.
-        // When false, room form hides the adjustment option and uses `disabledRaidPaymentHoney` default.
-        static let isRaidPaymentAdjustmentEnabled: Bool = true
+        // `joinedSuccessRewardHoney`
+        // Purpose: global honey payment attendee transfers to the host after a successful join confirmation.
+        // Keep app copy, runtime validation, and Cloud Functions constants aligned.
+        static let joinedSuccessRewardHoney: Int = 10
 
-        // `disabledRaidPaymentHoney`
-        // Purpose: fixed raid payment used when adjustment option is disabled.
-        // Keep aligned with product policy copy.
-        static let disabledRaidPaymentHoney: Int = 10
-
-        // `enabledRaidPaymentMaxHoney`
-        // Purpose: max adjustable payment used by room form when adjustment option is enabled.
-        // Keep aligned with product policy copy.
-        static let enabledRaidPaymentMaxHoney: Int = 10
+        // `seatFullRewardHoney`
+        // Purpose: global honey payment attendee transfers to the host after invited-but-seat-full confirmation.
+        // Keep app copy, runtime validation, and Cloud Functions constants aligned.
+        static let seatFullRewardHoney: Int = 2
 
         // `browseListFetchLimit`
         // Purpose: max rooms fetched for Mushroom browse.
@@ -95,37 +90,17 @@ enum AppConfig {
         static let defaultJoinRoomLimit: Int = 3
 
         // `defaultFixedRaidCost`
-        // Purpose: default honey cost when hosting a new room.
-        // Must be >= `minFixedRaidCost`.
-        // Suggested range: 0...200.
-        static let defaultFixedRaidCost: Int = 10
+        // Purpose: legacy room field value written for compatibility when creating or editing room docs.
+        // Runtime settlement and validation must use `minimumRequiredDepositHoney` instead of this field.
+        static let defaultFixedRaidCost: Int = joinedSuccessRewardHoney
 
-        // `minFixedRaidCost`
-        // Purpose: floor for room join/update deposit validation.
-        // Suggested range: 0...50.
-        static let minFixedRaidCost: Int = 0
+        // `minimumRequiredDepositHoney`
+        // Purpose: global minimum honey attendees must keep deposited to stay ready for the next raid.
+        static let minimumRequiredDepositHoney: Int = joinedSuccessRewardHoney
 
         // `maxFixedRaidCost`
-        // Purpose: upper bound in host form Stepper.
-        // Suggested range: 100...100_000.
+        // Purpose: legacy upper bound kept only for backward compatibility comments and stored room data.
         static let maxFixedRaidCost: Int = 10_000
-
-        // `noFaultEffortFeeRate`
-        // Purpose: host effort-fee ratio used when attendee selects "seat full" settlement.
-        // Suggested range: 0.05...0.5.
-        static let noFaultEffortFeeRate: Double = 0.2
-
-        // `noFaultEffortFeeMinimum`
-        // Purpose: minimum effort-fee honey for no-fault seat-full settlement.
-        // Suggested range: 0...10.
-        static let noFaultEffortFeeMinimum: Int = 0
-
-        // Computes no-fault effort fee from fixed raid cost.
-        static func noFaultEffortFee(for fixedRaidCost: Int) -> Int { // Handles noFaultEffortFee flow.
-            let normalizedRaidCost = max(0, fixedRaidCost)
-            let ratioFee = Int((Double(normalizedRaidCost) * noFaultEffortFeeRate).rounded(.down))
-            return max(noFaultEffortFeeMinimum, ratioFee)
-        }
 
         // `defaultHostCountryCode`
         // Purpose: fallback country if device region cannot be resolved.
@@ -241,6 +216,49 @@ enum AppConfig {
         static let sellerShippingDeadlineHours: Int = 72
         static let buyerReceiveReminderHours: Int = 24
         static let buyerConfirmDeadlineHours: Int = 120
+    }
+
+    enum DailyReward {
+        // `rewardHoney`
+        // Purpose: fixed honey amount granted by one successful daily-reward claim.
+        // Keep aligned with DailyReward UI copy and Cloud Functions claim logic.
+        static let rewardHoney: Int = 10
+
+        // `premiumRewardHoney`
+        // Purpose: boosted honey amount granted by one successful daily-reward claim for active premium users.
+        // Keep aligned with Cloud Functions premium reward logic.
+        static let premiumRewardHoney: Int = 30
+
+        // `resetTimeZoneIdentifier`
+        // Purpose: canonical business timezone used to decide which reward day is currently claimable.
+        static let resetTimeZoneIdentifier: String = "Asia/Taipei"
+    }
+
+    enum Premium {
+        // `monthlyProductId`
+        // Purpose: StoreKit product id used for the single monthly premium subscription.
+        // Replace this before App Store submission if App Store Connect uses a different identifier.
+        static let monthlyProductId: String = "com.kenyu.mushroomHunter.premium.monthly"
+
+        // `premiumSource`
+        // Purpose: canonical backend source label persisted on the user document for App Store subscriptions.
+        static let premiumSource: String = "app_store"
+
+        // `premiumHostRoomLimit`
+        // Purpose: effective host-room cap for premium subscribers.
+        static let premiumHostRoomLimit: Int = 5
+
+        // `premiumJoinRoomLimit`
+        // Purpose: effective joined-room cap for premium subscribers.
+        static let premiumJoinRoomLimit: Int = 10
+
+        // `termsURLString`
+        // Purpose: fallback web destination for subscription terms until dedicated policy pages are published.
+        static let termsURLString: String = "https://kenyu910645.github.io/"
+
+        // `privacyURLString`
+        // Purpose: fallback web destination for subscription privacy policy until dedicated policy pages are published.
+        static let privacyURLString: String = "https://kenyu910645.github.io/"
     }
 
     enum Profile {

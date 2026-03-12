@@ -21,7 +21,7 @@
 //  [X] - `hostStars`: Detail repo does not map host stars from room document.
 //  [R] - `location`: Reads room location for detail display.
 //  [R] - `description`: Reads room description for detail display.
-//  [R] - `fixedRaidCost`: Reads fixed raid cost used in detail and validations.
+//  [R] - `fixedRaidCost`: Reads legacy compatibility reward field; active validations use global app config instead.
 //  [R] - `maxPlayers`: Reads max player cap for detail occupancy logic.
 //  [X] - `joinedCount`: Not used because attendee count is derived from attendee list.
 //  [X] - `createdAt`: Not used by detail mapping.
@@ -70,7 +70,7 @@ final class FbRoomRepo {
         let title = data["title"] as? String ?? "Untitled"
         let location = data["location"] as? String ?? ""
         let description = data["description"] as? String ?? ""
-        let fixedRaidCost = (data["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
+        let fixedRaidCost = AppConfig.Mushroom.minimumRequiredDepositHoney
 
         // Meta
         let maxPlayers = data["maxPlayers"] as? Int ?? AppConfig.Mushroom.defaultMaxPlayersPerRoom

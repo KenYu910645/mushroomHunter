@@ -22,6 +22,69 @@
 "common_copied" = "Copied to clipboard";
 
 /***************************************/
+/**** DailyReward ****/
+/***************************************/
+
+"daily_reward_title" = "Daily Reward";
+"daily_reward_toolbar_accessibility" = "Open daily reward calendar";
+"daily_reward_claim_button" = "Claim Today Reward";
+"daily_reward_claiming_button" = "Claiming...";
+"daily_reward_today_claimed_hint" = "Today's reward has already been claimed.";
+"daily_reward_expired_hint" = "Missed days expire at 12:00 AM Taipei time and cannot be claimed later.";
+"daily_reward_day_claimed" = "Claimed";
+"daily_reward_day_today" = "Today";
+"daily_reward_day_expired" = "Expired";
+"daily_reward_day_locked" = "Locked";
+"daily_reward_load_error" = "Unable to load DailyReward right now.";
+"daily_reward_claim_success_title" = "Reward Claimed";
+"daily_reward_claim_success_message" = "You received %d honey.";
+"daily_reward_claim_error_already_claimed" = "Today's reward has already been claimed.";
+"daily_reward_claim_error_service_unavailable" = "DailyReward service is unavailable right now.";
+"daily_reward_claim_error_generic" = "Unable to claim today's reward right now.";
+"event_type_HONEY_REWARD_title" = "Honey Reward";
+"event_type_HONEY_REWARD_message" = "You received honey as a reward.";
+
+/***************************************/
+/**** Premium ****/
+/***************************************/
+
+"premium_title" = "Premium";
+"premium_upgrade_button" = "Upgrade to Premium";
+"premium_status_active" = "Premium is active";
+"premium_status_active_short" = "Active";
+"premium_status_inactive" = "Free Plan";
+"premium_status_active_summary" = "Your premium benefits are currently active.";
+"premium_status_free_summary" = "Unlock a larger daily reward and higher room limits with a monthly subscription.";
+"premium_status_renews_format" = "Renews until %s.";
+"premium_syncing" = "Syncing subscription status...";
+"premium_benefits_header" = "Benefits";
+"premium_benefit_daily_reward_title" = "Triple Daily Reward";
+"premium_benefit_daily_reward_detail" = "Claim 30 honey per day instead of the free 10-honey reward.";
+"premium_benefit_host_limit_title" = "Host up to 5 rooms";
+"premium_benefit_host_limit_detail" = "Raise your simultaneous hosting limit from 1 room to 5 rooms.";
+"premium_benefit_join_limit_title" = "Join up to 10 rooms";
+"premium_benefit_join_limit_detail" = "Raise your simultaneous joined-room limit from 3 rooms to 10 rooms.";
+"premium_purchase_header" = "Subscription";
+"premium_monthly_price_label" = "Monthly Price";
+"premium_subscribe_button" = "Subscribe Monthly";
+"premium_subscribe_manage_button" = "Refresh Subscription";
+"premium_restore_button" = "Restore Purchases";
+"premium_legal_header" = "Terms";
+"premium_terms_button" = "Terms of Use";
+"premium_privacy_button" = "Privacy Policy";
+"premium_legal_footer" = "Subscription billing is handled by Apple. Replace the current terms/privacy links with your final public policy pages before App Review.";
+"premium_price_unavailable" = "Unavailable";
+"premium_error_load_product" = "Unable to load premium pricing right now.";
+"premium_error_product_missing" = "Premium product is not available yet.";
+"premium_error_purchase_generic" = "Unable to complete the premium purchase right now.";
+"premium_error_unverified_transaction" = "Apple could not verify this purchase.";
+"premium_error_sync_entitlement" = "Purchase was processed, but subscription status could not sync to HoneyHub yet.";
+"premium_error_unavailable_testing" = "Premium purchases are unavailable in UI testing mode.";
+"premium_purchase_success_message" = "Premium subscription is active.";
+"premium_purchase_pending_message" = "Purchase is pending Apple approval.";
+"premium_restore_success_message" = "Purchase history restored.";
+
+/***************************************/
 /**** Mushroom Browse ****/
 /***************************************/
 
@@ -169,7 +232,7 @@
 "room_msg_raid_confirm_seat_full_button" = "Yes, but the mushroom is full";
 "room_msg_raid_confirm_missed_invite_button" = "No, I didn't see invitation";
 "room_msg_settlement_no_fault_title" = "Thanks for the update!";
-"room_msg_settlement_no_fault_message" = "Transfer 2 {honey_icon} to host as tips. No worries! The host will invite you next time.";
+"room_msg_settlement_no_fault_message" = "You paid the host %d {honey_icon} because the mushroom was full. No worries! The host will invite you next time.";
 "room_confirmation_queue_title" = "Confirmations";
 "room_confirmation_queue_empty" = "No pending confirmations in this room.";
 "room_confirmation_queue_item_title_format" = "%@ invited you to a mushroom.";
@@ -222,7 +285,7 @@
 /***************************************/
 
 "room_msg_raid_thanks_title" = "Enjoy the Mushroom!";
-"room_msg_raid_thanks_message" = "Transfer %d {honey_icon} as tips to the host.";
+"room_msg_raid_thanks_message" = "You paid the host %d {honey_icon}.";
 "room_msg_rate_host_title" = "Rate the Host: %@";
 "room_msg_rate_attendee_title" = "Rate Attendee: %@?";
 "room_msg_rate_one_star" = "⭐";
@@ -248,8 +311,10 @@
 "postcard_sort_lowest_price" = "Lowest Price";
 "postcard_seller_format" = "Seller: %@";
 "postcard_tag_on_shelf" = "On-shelf";
+"postcard_tag_run_out" = "Run out";
 "postcard_tag_ordered" = "Ordered";
 "postcard_buy_button" = "Buy";
+"postcard_status_sold_out" = "Postcard sold out";
 
 /***************************************/
 /**** Postcard Sheet: Order Queue ****/
@@ -416,8 +481,8 @@
 /***************************************/
 
 "about_title" = "About Developer";
-"about_intro" = "Contact information";
-"about_phone_label" = "Phone";
+"about_message" = "The original goal of making this app was simple: to help Pikmin Bloom players connect with each other more easily. Whether it is teaming up for mushroom battles or exchanging postcards, I hope it makes interacting with other players more convenient.\n\nThe idea for \"honey\" in the app comes from Pikmin Bloom's flower-planting concept. Since everyone is already planting flowers, it felt like bees should be the ones encouraging connection and exchange. That is why you receive honey when you interact with other players.\n\nI hope this small tool helps everyone enjoy the game a little more. If you have any suggestions or run into any issues, feel free to contact me through Gmail or send feedback from within the app.";
+"about_support_title" = "Support";
 "about_email_label" = "Email";
 "about_website_label" = "Website";
 
@@ -503,6 +568,10 @@
 "event_type_room_join_request_rejected_message" = "Your join request was rejected.";
 "event_type_room_joiner_rejected_title" = "Joiner Rejected";
 "event_type_room_joiner_rejected_message" = "You rejected a join request.";
+"event_type_KICKED_ATTENDEE_title" = "Kicked Out";
+"event_type_KICKED_ATTENDEE_message" = "You have been kicked out of room: %@. Your deposited %@ honey has been returned.";
+"event_type_KICKED_HOST_title" = "Kicked Out";
+"event_type_KICKED_HOST_message" = "You kicked %@ out of room: %@.";
 "event_type_reply_host_title" = "Attendee Replied";
 "event_type_reply_host_message" = "Attendee confirmation was submitted.";
 "event_type_room_star_received_title" = "Stars Received";

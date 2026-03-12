@@ -11,6 +11,8 @@
 - `mushroomHunter/Features/Mushroom/RoomDomainModels.swift`: room/attendee data models and status enums.
 - `mushroomHunter/Features/Shared/TopActionBar.swift`: shared honey/search/create header used by browse screens (stars hidden on mushroom browse).
 - `mushroomHunter/Features/EventInbox/EventInboxView.swift`: shared in-app notification inbox list opened from mushroom/postcard top-right bell actions.
+- `mushroomHunter/Features/DailyReward/DailyRewardView.swift`: shared DailyReward month sheet opened from the Mushroom tab top-right calendar icon.
+- `mushroomHunter/Features/DailyReward/DailyRewardToolbarActions.swift`: shared calendar + bell toolbar actions used by the Mushroom tab.
 - `mushroomHunter/Features/Shared/SmartTextField.swift`: shared auto-select text field wrapper used by host/profile/profile-create forms.
 - `mushroomHunter/Features/Shared/SmartTextEditor.swift`: shared auto-select text editor wrapper used by host description input.
 - `mushroomHunter/Features/Shared/KeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
@@ -33,6 +35,7 @@
 ### 1) Navigation and Entry
 - Mushroom tab icon uses SF Symbol `person.3.fill`.
 - Browse header uses shared top action bar (`honey/search/create`) and scrolls with content (`ScrollView + LazyVStack`).
+- Browse has top-right calendar to open the shared DailyReward sheet.
 - Browse has top-right bell to open shared notification inbox.
 - Push/deep-link routing opens Mushroom tab and pushes the standard room detail page (not a sheet).
 - First time entering Mushroom browse runs tutorial mode on the real browse page (same layout/styles as production), seeds local fake listings, blocks interactions with highlight steps, then loads real Firebase listings after completion.
@@ -55,11 +58,10 @@
 - Browse attendee count always renders SF Symbol `person.fill` with localized numeric count text (`%d/%d`) so locale translation does not replace the icon.
 
 ### 3) Host Room Form (Create/Edit)
-- Host form manages room `title`, `location`, `description`, and fixed raid cost only (no target mushroom selectors). Fixed raid cost can be set to `0` for free raids.
+- Host form manages room `title`, `location`, and `description` only (no target mushroom selectors and no host-editable honey reward control).
 - Description defaults to localized `host_default_description` when empty.
-- Raid payment adjustment is controlled by `AppConfig.Mushroom.isRaidPaymentAdjustmentEnabled`.
-- When disabled, fixed value uses `AppConfig.Mushroom.disabledRaidPaymentHoney`.
-- When enabled, payment stepper range is owner-configured.
+- Raid rewards are owner-tuned globally in `AppConfig.Mushroom.joinedSuccessRewardHoney` and `AppConfig.Mushroom.seatFullRewardHoney`.
+- The minimum attendee deposit is controlled globally by `AppConfig.Mushroom.minimumRequiredDepositHoney`.
 - Form supports outside-tap/keyboard dismiss and focused input auto-scroll above keyboard overlap.
 - Closing create sheet (manual close or success) triggers forced browse refresh.
 - Location parsing supports current-locale country names, English names, and ISO codes.
@@ -73,6 +75,7 @@
 - Host approves/rejects join requests from inline buttons under join greeting (`Accept` left, `Reject` right).
 - Host uses attendee `...` menu for non-request actions (for example `Kick`).
 - Reject refunds full attendee deposit and removes attendee row.
+- Kick refunds the kicked attendee's full deposited honey, removes the attendee row, and writes host/attendee record events into both inboxes.
 - Host actions include `Kick`, `Close room`, and raid finish cycle.
 - Leave flow UI shows hint that unspent deposit is returned.
 
@@ -136,13 +139,14 @@
 
 ### Confirmation stars flow
 - Attendee settlement flow now has three outcomes after host taps `Mushroom Raid Done`:
-  - `Yes, joined success`: host gets full payment (`fixedRaidCost`), attendee deposit deducts full payment, attendee can rate host.
-  - `No, seat full (no-fault race)`: host gets small effort fee (`AppConfig.Mushroom.noFaultEffortFee`), attendee deposit deducts only that effort fee.
+  - `Yes, joined success`: host gets the global joined-success reward (`AppConfig.Mushroom.joinedSuccessRewardHoney`, default `10`), attendee deposit deducts that amount, attendee can rate host.
+  - `No, seat full (no-fault race)`: host gets the global seat-full reward (`AppConfig.Mushroom.seatFullRewardHoney`, default `2`), attendee deposit deducts only that amount.
   - `No, I didn't see invitation`: no honey transfer, treated as host-not-invited outcome.
+- Host create/edit no longer exposes any raid-cost or honey-reward control; mushroom reward policy is owner-tuned only in `AppConfig.swift`.
 - Star-selection buttons in rating message boxes use neutral bordered style (non-prominent) to reduce visual glare.
 - Attendee rating is available only for `joined success` settlement.
 - Host flow: when attendee accepts confirmation, attendee doc is marked `isHostRatingRequired = true`; host can then give that attendee `1`, `2`, or `3` stars.
-- After a confirmation settles and the attendee no longer has any pending confirmation requests, attendee `status` becomes `NotEnoughHoney` when remaining `depositHoney` is below `fixedRaidCost`; otherwise it returns to `Ready`.
+- After a confirmation settles and the attendee no longer has any pending confirmation requests, attendee `status` becomes `NotEnoughHoney` when remaining `depositHoney` is below `AppConfig.Mushroom.minimumRequiredDepositHoney`; otherwise it returns to `Ready`.
 - Stars updates write to `users/{uid}.stars` and also refresh room attendee stars in the active room so Room Details reflects new totals immediately.
 - Firestore transaction rule reminder: in room raid settlement transactions, read all attendee docs before applying any writes to avoid "all reads must occur before writes" transaction failures.
 
@@ -171,7 +175,7 @@ Fields:
 - `hostFcmToken` (String, optional): cached host push token used by backend push flows before user lookup fallback.
 - `location` (String): short location label. Set on create/update. Typically, consist of country, city
 - `description` (String): description. Set on create/update.
-- `fixedRaidCost` (Int): minimum honey deposit for joining. Set on create/update and may be `0` for free raids.
+- `fixedRaidCost` (Int): legacy compatibility field written as the global joined-success reward on create/update. Active runtime validation and settlement now use `AppConfig.Mushroom.minimumRequiredDepositHoney`, `joinedSuccessRewardHoney`, and `seatFullRewardHoney` instead of trusting stored room values.
 - `maxPlayers` (Int): max attendees (default 10). Set on create.
 - `joinedCount` (Int): number of active attendees. Incremented on join, decremented on leave/kick/close. Host is counted as an attendee.
 - `createdAt` (Timestamp): set on create.
@@ -217,3 +221,14 @@ Fields:
 Compatibility notes:
 - Legacy attendee docs may still contain `attendeeRatedHost`, `hostRatedAttendee`, and `needsHostRating`.
 - Legacy user docs may still contain `profileComplete`.
+
+#### `rooms/{roomId}/kickEvents/{kickEventId}`
+Server-side kick marker documents written only by host kick transactions so backend event production can distinguish kick from leave or room close.
+Fields:
+- `hostUid` (String): host who kicked the attendee.
+- `attendeeUid` (String): removed attendee uid.
+- `attendeeName` (String): attendee display-name snapshot for inbox copy.
+- `roomId` (String): kicked room id snapshot.
+- `roomTitle` (String): room title snapshot for inbox copy.
+- `refundedHoney` (Int): full deposit honey returned to the attendee.
+- `createdAt` (Timestamp): kick marker creation time.

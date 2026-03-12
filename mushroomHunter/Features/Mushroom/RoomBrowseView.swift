@@ -39,6 +39,7 @@ struct RoomBrowseView: View {
     @State private var isSearchFieldVisible: Bool = false // Controls inline search field visibility.
     @State private var isDepositFieldFocused: Bool = false // Controls first-responder focus for the deposit entry field.
     @State private var isNotificationInboxPresented: Bool = false // Controls notification inbox sheet presentation.
+    @State private var isDailyRewardPresented: Bool = false // Controls DailyReward sheet presentation.
     @StateObject private var mushroomBrowseTutorial = TutorialStepController() // Shared tutorial step controller for Mushroom browse coach marks.
     @FocusState private var isSearchFieldFocused: Bool // Controls keyboard focus for inline search field.
     @Environment(\.colorScheme) private var scheme // Used for themed background.
@@ -105,25 +106,22 @@ struct RoomBrowseView: View {
                 }
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        Button {
-                            guard !mushroomBrowseTutorial.isActive else { return }
-                            Task { @MainActor in
-                                await notificationInbox.refreshFromServer()
-                                isNotificationInboxPresented = true
-                            }
-                        } label: {
-                            ZStack(alignment: .topTrailing) {
-                                Image(systemName: "bell")
-                                if notificationInbox.unreadCount > 0 {
-                                    Circle()
-                                        .fill(Color.red)
-                                        .frame(width: 8, height: 8)
-                                        .offset(x: 4, y: -3)
+                        DailyRewardToolbarActions(
+                            onOpenDailyReward: {
+                                guard !mushroomBrowseTutorial.isActive else { return }
+                                isDailyRewardPresented = true
+                            },
+                            onOpenNotificationInbox: {
+                                guard !mushroomBrowseTutorial.isActive else { return }
+                                Task { @MainActor in
+                                    await notificationInbox.refreshFromServer()
+                                    isNotificationInboxPresented = true
                                 }
-                            }
-                        }
-                        .accessibilityLabel(LocalizedStringKey("browse_notification_accessibility"))
-                        .accessibilityIdentifier("browse_notification_button")
+                            },
+                            unreadCount: notificationInbox.unreadCount,
+                            bellAccessibilityLabel: "browse_notification_accessibility",
+                            bellAccessibilityIdentifier: "browse_notification_button"
+                        )
                     }
                 }
         }
@@ -142,6 +140,11 @@ struct RoomBrowseView: View {
                 routeEventInboxItem(route)
             }
             .environmentObject(notificationInbox)
+        }
+        .sheet(isPresented: $isDailyRewardPresented) {
+            DailyRewardView()
+                .environmentObject(session)
+                .environmentObject(notificationInbox)
         }
         .sheet(item: $pendingJoinListing) { listing in
             NavigationStack {
@@ -360,7 +363,7 @@ struct RoomBrowseView: View {
                                 if AppTesting.useMockRooms {
                                     Button {
                                         pendingJoinListing = listing
-                                        depositText = "\(max(AppConfig.Mushroom.minFixedRaidCost, listing.joinedPlayers > 0 ? AppConfig.Mushroom.defaultFixedRaidCost : AppConfig.Mushroom.minFixedRaidCost))"
+                                        depositText = "\(AppConfig.Mushroom.minimumRequiredDepositHoney)"
                                         joinGreetingMessage = NSLocalizedString("browse_join_greeting_default", comment: "")
                                     } label: {
                                         Text(LocalizedStringKey("common_join"))

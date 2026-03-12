@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		656C51E472EB689224D98614 /* HoneyHubUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E02BB0AD9AE0EA4F453F4CE /* HoneyHubUITests.swift */; };
 		85F2B0FB6665E6B59339A123 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DA9BB33F8CA7C3E4F4FD9BC /* Foundation.framework */; };
+		BE1122334455667788990001 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = BE1122334455667788990002 /* FirebaseFunctions */; };
 		BE336F552F30B30400EE3FD7 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = BE336F542F30B30400EE3FD7 /* GoogleSignIn */; };
 		BE336F572F30B30400EE3FD7 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = BE336F562F30B30400EE3FD7 /* GoogleSignInSwift */; };
 		BEA4A7B32F30947A009038BE /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = BEA4A7B22F30947A009038BE /* FirebaseAnalytics */; };
@@ -63,6 +64,7 @@
 				BE336F572F30B30400EE3FD7 /* GoogleSignInSwift in Frameworks */,
 				BEA4A7B72F30947A009038BE /* FirebaseAuth in Frameworks */,
 				BEA4A7BB2F30947A009038BE /* FirebaseFirestore in Frameworks */,
+				BE1122334455667788990001 /* FirebaseFunctions in Frameworks */,
 				BEF0F0F32F50000200123456 /* FirebaseStorage in Frameworks */,
 				BEA4A7B52F30947A009038BE /* FirebaseAnalyticsCore in Frameworks */,
 				BEF0F0F12F50000100123456 /* FirebaseMessaging in Frameworks */,
@@ -159,6 +161,7 @@
 				BEA4A7B62F30947A009038BE /* FirebaseAuth */,
 				BEA4A7B82F30947A009038BE /* FirebaseCrashlytics */,
 				BEA4A7BA2F30947A009038BE /* FirebaseFirestore */,
+				BE1122334455667788990002 /* FirebaseFunctions */,
 				BEF0F0F42F50000200123456 /* FirebaseStorage */,
 				BEF0F0F22F50000100123456 /* FirebaseMessaging */,
 				BE336F542F30B30400EE3FD7 /* GoogleSignIn */,
@@ -425,7 +428,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kenyu.mushroomHunter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -462,7 +465,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kenyu.mushroomHunter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -553,6 +556,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		BE1122334455667788990002 /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BEA4A7B12F30947A009038BE /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
+		};
 		BE336F542F30B30400EE3FD7 /* GoogleSignIn */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = BE336F532F30B30400EE3FD7 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;

@@ -139,7 +139,7 @@ final class RoomViewModel: ObservableObject {
             .filter { attendee in
                 attendee.status != .host &&
                 attendee.status != .askingToJoin &&
-                attendee.depositHoney >= room.fixedRaidCost
+                attendee.depositHoney >= AppConfig.Mushroom.minimumRequiredDepositHoney
             }
             .map(\.id)
     }
@@ -219,8 +219,9 @@ final class RoomViewModel: ObservableObject {
 
         if AppTesting.useMockRooms, room.id == AppTesting.fixtureRoomId {
             let trimmedDeposit = max(0, initialDeposit)
-            guard trimmedDeposit >= max(AppConfig.Mushroom.minFixedRaidCost, room.fixedRaidCost) else {
-                errorMessage = String(format: NSLocalizedString("room_error_min_deposit", comment: ""), room.fixedRaidCost)
+            let minimumRequiredDepositHoney = AppConfig.Mushroom.minimumRequiredDepositHoney
+            guard trimmedDeposit >= minimumRequiredDepositHoney else {
+                errorMessage = String(format: NSLocalizedString("room_error_min_deposit", comment: ""), minimumRequiredDepositHoney)
                 return
             }
             guard !trimmedGreetingMessage.isEmpty else {
@@ -242,7 +243,7 @@ final class RoomViewModel: ObservableObject {
         
         do {
             let trimmedDeposit = max(0, initialDeposit)
-            let minimum = max(AppConfig.Mushroom.minFixedRaidCost, room.fixedRaidCost)
+            let minimum = AppConfig.Mushroom.minimumRequiredDepositHoney
             guard trimmedDeposit >= minimum else {
                 errorMessage = String(format: NSLocalizedString("room_error_min_deposit", comment: ""), minimum)
                 return
@@ -325,7 +326,7 @@ final class RoomViewModel: ObservableObject {
         
         do {
             let newDeposit = max(0, deposit)
-            let minimum = max(AppConfig.Mushroom.minFixedRaidCost, room.fixedRaidCost)
+            let minimum = AppConfig.Mushroom.minimumRequiredDepositHoney
             guard newDeposit >= minimum else {
                 errorMessage = String(format: NSLocalizedString("room_error_min_deposit", comment: ""), minimum)
                 return

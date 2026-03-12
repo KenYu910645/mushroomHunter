@@ -33,21 +33,37 @@ Need to check both English and Chinese
    - Attendee apply join -> Check event and host MUSH receive a notification(Action EVENT) -> the badget counter need to increment
    - The event need to record correctly on both side
    - The deposit honey need to be calculated correctly 
+   - Host kick must refund the kicked attendee's full deposit and create `KICKED_HOST` / `KICKED_ATTENDEE` record events without changing action badges
 5. Mushroom Invite
    - Host press invite, see if the joiner get APN and the badge count need to be correct, After resolving the invitation, the red dot should disappear and badge counter --
    - Joiner reply Join Success, Mushroom full, No invitation
-   - If settlement makes attendee deposit fall below `fixedRaidCost`, attendee row status should switch to red `Not Enough Honey` / `蜂蜜不足`, and attendee should still be able to open deposit edit to top up
+   - If settlement makes attendee deposit fall below `AppConfig.Mushroom.minimumRequiredDepositHoney`, attendee row status should switch to red `Not Enough Honey` / `蜂蜜不足`, and attendee should still be able to open deposit edit to top up
    - The star is correctly updated.
 6. Postcard buy flow
    - buyer buy, and seller can choose to accept or reject, the honey must update correctly
    - The notification need to be ok 
    - The star is correctly updated.
+   - sold-out postcard should remain visible in browse, move below in-stock browse cards, and show disabled buy state on detail for non-sellers
+   - seller-owned sold-out postcard should stay pinned at the top and show `Run out` / `賣完了`
 
 7. Tutorial flow 
    - All six tutorial flow need to work just fine.
    
 8. Changing the profile acutally will work
 9. Feedback feature
+10. DailyReward feature
+   - Verify the calendar icon appears on Mushroom, Postcard, and Profile, always to the left of bell
+   - Open the DailyReward sheet from all three tabs
+   - Verify the current month calendar shows and every day displays the same 10-honey reward
+   - Claim today's reward once and confirm wallet, disabled button state, and inbox `HONEY_REWARD` record event
+   - Confirm a second claim on the same day is blocked
+   - Verify missed previous days cannot be claimed after Taipei midnight
+11. Premium subscription feature
+   - Open Profile and verify the `Upgrade to Premium` row opens the premium membership sheet
+   - Verify free state shows 30-honey DailyReward benefit and 5/10 room-limit benefit copy
+   - Buy or restore a premium subscription in a sandbox account, then confirm profile state becomes active
+   - Confirm DailyReward calendar and success message show 30 honey for premium users and 10 honey for free users
+   - Confirm premium users can host up to 5 rooms and join up to 10 rooms, while free users remain at 1/3
 
 TODO: invite code?
 
@@ -85,6 +101,10 @@ TODO: invite code?
     - `Confirming` and `Seat full` (warning/yellow)
     - `Joined` (success/green)
     - `No invite` (critical/red)
+  - Manual validation must also cover host kick behavior:
+    - kick with non-zero deposit refunds the full deposit
+    - both host and attendee inboxes receive `KICKED_*` record rows
+    - kick does not increment badge counts or create Action Event highlighting
 
 ### 4. Postcard buy flow
 - Test: `testBuyPostcardFlow`
@@ -93,14 +113,21 @@ TODO: invite code?
   - Execute buyer action.
   - Verify buy success feedback appears.
 
-### 5. Postcard sell flow
+### 5. Postcard sold-out state
+- Test: `testSoldOutPostcardShowsDisabledBuyState`
+- Coverage:
+  - Open sold-out postcard listing from Postcard tab.
+  - Verify sold-out helper text appears on detail.
+  - Verify buy button stays visible but disabled.
+
+### 6. Postcard sell flow
 - Test: `testSellPostcardFlow`
 - Coverage:
   - Open postcard create form from Postcard tab.
   - Submit through UI-test quick-submit path in mock mode.
   - Return to browse screen after submit.
 
-### 6. Profile edit + settings flow
+### 7. Profile edit + settings flow
 - Test: `testProfileEditAndFeedbackAndAboutFlow`
 - Coverage:
   - Open settings -> edit profile, then update display name + friend code.
@@ -108,26 +135,26 @@ TODO: invite code?
   - Open settings -> feedback, send feedback in UI-testing mode.
   - Open settings -> about and verify about content is shown.
 
-### 7. Deep link postcard invite opens detail
+### 8. Deep link postcard invite opens detail
 - Test: `testDeepLinkPostcardInviteOpensDetail`
 - Coverage:
   - Launch app with postcard deep-link argument in UI test mode.
   - Verify postcard detail opens directly.
 
-### 8. Deep link mushroom invite opens room
+### 9. Deep link mushroom invite opens room
 - Test: `testDeepLinkMushroomInviteOpensRoom`
 - Coverage:
   - Launch app with room deep-link argument in UI test mode.
   - Verify room detail screen opens directly.
 
-### 9. Mushroom attendee leave flow
+### 10. Mushroom attendee leave flow
 - Test: `testMushroomAttendeeLeaveFlow`
 - Coverage:
   - Open room detail, join as attendee, open edit-deposit flow.
   - Execute leave action and confirm.
   - Verify attendee returns to join-capable state.
 
-### 10. Postcard seller shipping flow
+### 11. Postcard seller shipping flow
 - Test: `testPostcardSellerShippingFlow`
 - Coverage:
   - Open seller-owned postcard detail.
@@ -135,7 +162,7 @@ TODO: invite code?
   - Seller can accept/reject pending orders and mark accepted order as sent.
   - Verify shipping success feedback and recipient removal.
 
-### 11. Badge counters (manual validation pending automation)
+### 12. Badge counters (manual validation pending automation)
 - Current automation status:
   - No dedicated UI test currently asserts profile tab/app-icon badge counters.
   - No dedicated UI test currently asserts per-row actionable count badges in Profile mushroom/postcard lists.
@@ -152,6 +179,14 @@ TODO: invite code?
   - Room detail host `Raid History` icon opens a read-only history list and does not offer settlement action buttons.
   - Profile actionable rows (mushroom + postcard lists) show a tiny red dot marker at row-leading edge when actionable count is greater than `0`.
   - Room attendee rows show a tiny red dot before attendee name for host-visible `AskingToJoin` notification sources.
+
+### 13. DailyReward calendar claim
+- Test: `testDailyRewardCalendarClaimFlow`
+- Coverage:
+  - Open the shared DailyReward sheet from the top-right calendar icon.
+  - Verify the current month header and reward calendar grid render.
+  - Claim today's reward in UI-testing mode.
+  - Verify success feedback appears and the claim button becomes disabled for the rest of the current mock day.
 
 ## Covered User Journeys
 - Main app shell sanity (signed-in state + tab routing).

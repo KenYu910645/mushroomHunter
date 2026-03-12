@@ -161,6 +161,11 @@ struct PostcardView: View {
             isReceiveConfirmationAvailable
     }
 
+    /// Indicates whether this listing is sold out for the current buyer-facing CTA.
+    private var isSoldOut: Bool {
+        currentListing.stock <= 0
+    }
+
     /// Title shown in the postcard completion rating dialog.
     private var ratingDialogTitle: String {
         let counterpartName = pendingRatingContext?.counterpartName ?? (isSeller ? "Buyer" : "Seller")
@@ -266,7 +271,7 @@ struct PostcardView: View {
                             .accessibilityLabel(LocalizedStringKey("room_copy_host_code_accessibility"))
                         }
                         if isSeller {
-                            Text("Stock: \(currentListing.stock)")
+                            Text("\(NSLocalizedString("postcard_stock_field", comment: "")): \(currentListing.stock)")
                                 .monospacedDigit()
                         }
                     }
@@ -290,6 +295,11 @@ struct PostcardView: View {
                             Text(buyerStatusText)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
+                        } else if isSoldOut {
+                            Text(LocalizedStringKey("postcard_status_sold_out"))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .accessibilityIdentifier("postcard_sold_out_status")
                         }
 
                         if isReceiveConfirmationAvailable {
@@ -318,7 +328,7 @@ struct PostcardView: View {
                                 }
                             }
                             .buttonStyle(.borderedProminent)
-                            .disabled(isBuying)
+                            .disabled(isBuying || isSoldOut)
                             .tutorialHighlightAnchor(isPostcardTutorialActive ? .postcardBuyerBuyButton : nil)
                             .accessibilityIdentifier("postcard_buy_button")
                         }
@@ -589,9 +599,13 @@ struct PostcardView: View {
             return
         }
         if AppTesting.useMockPostcards {
-            currentListing = currentListing.sellerId == AppTesting.userId
-                ? AppTesting.fixtureOwnedPostcardListing()
-                : AppTesting.fixturePostcardListing()
+            if currentListing.id == AppTesting.fixtureOwnedPostcardListing().id {
+                currentListing = AppTesting.fixtureOwnedPostcardListing()
+            } else if currentListing.id == AppTesting.fixtureSoldOutPostcardId {
+                currentListing = AppTesting.fixtureSoldOutPostcardListing()
+            } else {
+                currentListing = AppTesting.fixturePostcardListing()
+            }
             sellerFriendCode = currentListing.sellerFriendCode
             sellerStars = isSeller ? max(0, session.stars) : 3
             pendingShippingCount = isSeller ? AppTesting.fixtureShippingRecipients().count : 0
@@ -675,6 +689,11 @@ struct PostcardView: View {
     /// Executes buy request for current listing.
     private func buyPostcard() async {
         guard !isBuying else { return }
+        guard !isSoldOut else {
+            buyErrorMessage = NSLocalizedString("postcard_status_sold_out", comment: "")
+            isBuyErrorAlertPresented = true
+            return
+        }
         isBuying = true
         defer { isBuying = false }
 

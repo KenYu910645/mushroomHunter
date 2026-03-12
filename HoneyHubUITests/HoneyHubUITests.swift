@@ -44,12 +44,15 @@ final class HoneyHubUITests: XCTestCase {
 
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 10))
         tapTab(app, index: 1)
+        XCTAssertTrue(app.buttons["daily_reward_button"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["postcard_create_button"].waitForExistence(timeout: 10))
 
         tapTab(app, index: 2)
-        XCTAssertTrue(app.buttons["profile_settings_button"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["daily_reward_button"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["profile_settings_row_button"].waitForExistence(timeout: 10))
 
         tapTab(app, index: 0)
+        XCTAssertTrue(app.buttons["daily_reward_button"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["browse_create_button"].waitForExistence(timeout: 10))
     }
 
@@ -192,11 +195,28 @@ final class HoneyHubUITests: XCTestCase {
     }
 
     @MainActor
+    func testSoldOutPostcardShowsDisabledBuyState() throws {
+        let app = launchApp()
+
+        tapTab(app, index: 1)
+        let soldOutListing = app.buttons["postcard_link_ui-test-postcard-sold-out"]
+        XCTAssertTrue(soldOutListing.waitForExistence(timeout: 10))
+        soldOutListing.tap()
+
+        let soldOutStatus = app.staticTexts["postcard_sold_out_status"]
+        XCTAssertTrue(soldOutStatus.waitForExistence(timeout: 10))
+
+        let buyButton = app.buttons["postcard_buy_button"]
+        XCTAssertTrue(buyButton.waitForExistence(timeout: 10))
+        XCTAssertFalse(buyButton.isEnabled)
+    }
+
+    @MainActor
     func testProfileEditAndFeedbackAndAboutFlow() throws {
         let app = launchApp()
 
         tapTab(app, index: 2)
-        let settingsButton = navigationBarButton(app, identifier: "profile_settings_button", fallbackIndex: 0)
+        let settingsButton = app.buttons["profile_settings_row_button"]
         XCTAssertTrue(settingsButton.waitForExistence(timeout: 10))
         settingsButton.tap()
 
@@ -241,5 +261,28 @@ final class HoneyHubUITests: XCTestCase {
         aboutButton.tap()
 
         XCTAssertTrue(app.staticTexts["about_intro_text"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testDailyRewardCalendarClaimFlow() throws {
+        let app = launchApp()
+
+        let dailyRewardButton = app.buttons["daily_reward_button"]
+        XCTAssertTrue(dailyRewardButton.waitForExistence(timeout: 10))
+        dailyRewardButton.tap()
+
+        let monthTitle = app.staticTexts["daily_reward_month_title"]
+        XCTAssertTrue(monthTitle.waitForExistence(timeout: 10))
+
+        let claimButton = app.buttons["daily_reward_claim_button"]
+        XCTAssertTrue(claimButton.waitForExistence(timeout: 10))
+        XCTAssertTrue(claimButton.isEnabled)
+        claimButton.tap()
+
+        let successButton = app.buttons["daily_reward_success_ok"]
+        XCTAssertTrue(successButton.waitForExistence(timeout: 10))
+        successButton.tap()
+
+        XCTAssertFalse(claimButton.isEnabled)
     }
 }

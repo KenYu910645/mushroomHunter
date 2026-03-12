@@ -9,6 +9,8 @@
 - `mushroomHunter/Features/Postcard/PostcardDomainModel.swift`: postcard listing/order/location models and status enums.
 - `mushroomHunter/Features/Shared/TopActionBar.swift`: shared honey/search/create header used by browse screens (stars hidden on postcard browse).
 - `mushroomHunter/Features/EventInbox/EventInboxView.swift`: shared in-app notification inbox list opened from mushroom/postcard top-right bell actions.
+- `mushroomHunter/Features/DailyReward/DailyRewardView.swift`: shared DailyReward month sheet opened from the Postcard tab top-right calendar icon.
+- `mushroomHunter/Features/DailyReward/DailyRewardToolbarActions.swift`: shared calendar + bell toolbar actions used by the Postcard tab.
 - `mushroomHunter/Features/Shared/SmartTextField.swift`: shared auto-select text field wrapper used by postcard form inputs.
 - `mushroomHunter/Features/Shared/SmartTextEditor.swift`: shared auto-select text editor wrapper used by postcard description inputs.
 - `mushroomHunter/Features/Shared/KeyboardDismissBridge.swift`: shared UIKit bridge that dismisses keyboard on outside taps without collapsing during scroll.
@@ -41,6 +43,7 @@
   - Pinned rows still follow the same stock/location/search filters, so unmatched rows are hidden while typing a query.
 - Browse search is opened from the top action bar as an inline search field above the listing grid (no dedicated sheet/alert).
 - Postcard browse includes a screen-level top-right bell icon that opens the shared notification inbox list.
+- Postcard browse includes a screen-level top-right calendar icon that opens the shared DailyReward sheet.
 - Browse tab re-entry and pull-to-refresh now use the same canonical full-refresh flow.
 - Notification inbox loads the latest 10 events first from `users/{uid}/events` and loads older pages while scrolling.
 - Notification inbox rows now separate Action vs Record semantics:
@@ -51,8 +54,11 @@
 - Postcard browse search applies local filtering while typing; backend paged query also runs after typing pauses briefly (debounced) or when user taps keyboard `Search`.
 - Inline search field includes an `x` clear button; tapping `x` clears query and collapses the search field. Pressing keyboard Enter triggers search. Top-bar search icon toggles field show/hide.
 - Postcard browse card thumbnail overlays the honey price badge (honey icon + value) at the top-right corner using shared `ColorfulTag` with a solid accent-orange background matching confirm buttons for readability over images; stock count is not shown on browse cards.
+- Postcard browse keeps sold-out (`stock == 0`) listings visible instead of hiding them.
 - Postcard browse card title stays single-line, scales down for longer names, then truncates with trailing ellipsis.
 - Postcard location country labels are rendered in the current user locale when possible (including legacy listings that stored English country names).
+- Seller-owned pinned browse cards switch their ownership chip from `On-shelf` / `已上架` to `Run out` / `賣完了` when stock reaches `0`.
+- Non-pinned sold-out browse cards are always grouped after in-stock browse cards, while seller-owned pinned cards still stay at the top.
 - First time entering Postcard browse runs tutorial mode on the real browse page (same layout/styles as production), seeds local fake listings, blocks interactions with highlight steps, then loads real Firebase listings after completion.
 - First time entering Postcard detail in buyer/seller view runs in-place tutorial mode on the real postcard page, loads fake detail scene from `TutorialConfig`, blocks interactions, then restores real Firebase postcard payload after completion.
 - Postcard browse tutorial completion always triggers a backend refresh (instead of `loadOnAppear` shortcut) so fake tutorial cards cannot remain on screen after tapping `Done`.
@@ -60,8 +66,9 @@
 - Postcard detail view hides the navigation title so the postcard snapshot is the first visible content at the top.
 - Postcard detail view renders title and price on the same first line; price uses a right-aligned honey `ColorfulTag` (HoneyIcon + value).
 - Postcard detail view metadata is shown as left-aligned stacked rows: `Seller: {name}` with a right-aligned star `ColorfulTag`, then `Friend Code: {code}` with inline copy action icon.
-- Postcard detail view stock visibility is role-based: buyers do not see stock; sellers see a left-aligned `Stock: {count}` row.
+- Postcard detail view stock visibility is role-based: buyers do not see stock; sellers see a left-aligned localized stock row using the `postcard_stock_field` label plus the current count.
 - Seller/friend-code/stock metadata rows share the same gray `subheadline` text style for visual consistency.
+- Buyer postcard detail keeps sold-out listings viewable and replaces the actionable purchase state with sold-out text plus a disabled `Buy` button when there is no active order.
 - Cache behavior and refresh/invalidation rules are documented only in `CACHE.md`.
 - Postcard browse/detail now honor dirty bits so push-triggered/local mutations can force the next refresh cycle.
 - Register flow uploads full image + thumbnail to Firebase Storage, then creates Firestore listing.
@@ -98,6 +105,7 @@
   - In postcard detail buyer action area:
     - Shows explicit status (`Waiting, seller to ship`, `Shipped, on-the-way`).
     - Shows `Buy` only when no active order exists.
+    - When listing stock is `0` and buyer has no active order, shows sold-out helper text and a disabled `Buy` button instead of removing the listing.
     - Tapping `Buy` opens the shared custom `MessageBox` dialog with tokenized text parsing (`{honey_icon}`) rendered as inline text icon content, so text wrapping keeps icon position within sentence flow.
     - Inline HoneyIcon size used in tokenized message text is owner-tunable via `AppConfig.SharedUI.honeyMessageIconSize`.
     - Shows `Confirm received, complete transaction` when order is `Shipped` (replaces buy action).

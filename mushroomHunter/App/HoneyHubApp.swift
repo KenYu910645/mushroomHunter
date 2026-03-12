@@ -22,6 +22,8 @@ struct HoneyHubApp: App {
     @StateObject private var session = UserSessionStore()
     /// Stores in-app notification inbox state shared across tabs.
     @StateObject private var notificationInbox = EventInboxStore.shared
+    /// Stores premium StoreKit product state and entitlement syncing.
+    @StateObject private var premiumStore = PremiumStore.shared
 
     /// Configures Firebase before any app view is rendered.
     init() {
@@ -33,6 +35,10 @@ struct HoneyHubApp: App {
             ContentView()
                 .environmentObject(session)
                 .environmentObject(notificationInbox)
+                .environmentObject(premiumStore)
+                .task(id: session.authUid) {
+                    await premiumStore.handleSessionChange(session: session)
+                }
                 .onOpenURL { url in
                     // Let GoogleSignIn handle the redirect back into the app
                     if GIDSignIn.sharedInstance.handle(url) {

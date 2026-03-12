@@ -38,7 +38,6 @@ final class HostViewModel: ObservableObject {
     @Published var countryCode: String = Locale.current.region?.identifier ?? AppConfig.Mushroom.defaultHostCountryCode // Selected ISO country code for room location.
     @Published var city: String = NSLocalizedString("host_city_default", comment: "") // User-entered city/area portion of room location.
     @Published var otherMessage: String = NSLocalizedString("host_default_description", comment: "") // Optional room description displayed to joiners.
-    @Published var fixedRaidCost: Int = HostViewModel.resolvedInitialFixedRaidCost() // Minimum honey deposit required for joining.
     // UI State
     @Published var showSuccessAlert: Bool = false // Presents success alert after create/update request finishes.
     @Published var successRoomId: String? = nil // Stores created/updated room id for downstream actions.
@@ -65,7 +64,6 @@ final class HostViewModel: ObservableObject {
         self.session = session
         self.repo = repo
         self.mode = .create
-        self.fixedRaidCost = Self.resolvedInitialFixedRaidCost()
     }
 
     init(session: UserSessionStore, room: RoomDetail, repo: FbRoomFormRepo = FbRoomFormRepo()) { // Initializes this type.
@@ -152,12 +150,11 @@ final class HostViewModel: ObservableObject {
 
         do {
             let req = FsRoomFormRequest(
-            title: hostName,
-            location: locationString,
-            description: otherMessage,
-            hostFriendCode: session.friendCode,
-            fixedRaidCost: fixedRaidCost
-        )
+                title: hostName,
+                location: locationString,
+                description: otherMessage,
+                hostFriendCode: session.friendCode
+            )
 
             switch mode {
             case .create:
@@ -194,7 +191,6 @@ final class HostViewModel: ObservableObject {
         countryCode = Locale.current.region?.identifier ?? AppConfig.Mushroom.defaultHostCountryCode
         city = NSLocalizedString("host_city_default", comment: "")
         otherMessage = NSLocalizedString("host_default_description", comment: "")
-        fixedRaidCost = Self.resolvedInitialFixedRaidCost()
         errorMessage = nil
         successRoomId = nil
         showSuccessAlert = false
@@ -215,7 +211,6 @@ final class HostViewModel: ObservableObject {
         otherMessage = trimmedDescription.isEmpty
             ? NSLocalizedString("host_default_description", comment: "")
             : room.description
-        fixedRaidCost = room.fixedRaidCost
     }
 
     // MARK: Word utils
@@ -226,14 +221,6 @@ final class HostViewModel: ObservableObject {
     static func trimToChars(_ text: String, maxChars: Int) -> String {
         if text.count <= maxChars { return text }
         return String(text.prefix(maxChars))
-    }
-
-    /// Resolves create-form fixed raid payment default based on owner config.
-    static func resolvedInitialFixedRaidCost() -> Int {
-        if AppConfig.Mushroom.isRaidPaymentAdjustmentEnabled {
-            return AppConfig.Mushroom.defaultFixedRaidCost
-        }
-        return AppConfig.Mushroom.disabledRaidPaymentHoney
     }
 
     // MARK: Location helpers
@@ -294,10 +281,6 @@ final class HostViewModel: ObservableObject {
 // MARK: - View
 
 struct RoomCreateEditView: View {
-    /// Text token replaced by inline honey icon in form labels.
-    private let honeyIconToken: String = "{honey_icon}"
-    /// Inline honey icon size used in tokenized host-form labels.
-    private let honeyInlineIconSize: CGFloat = 16
     @Environment(\.dismiss) private var dismiss // Dismiss action for closing the modal form.
     @EnvironmentObject private var session: UserSessionStore // Shared user session injected from app root.
     @Environment(\.colorScheme) private var scheme // Color scheme used to pick themed background gradient.
@@ -415,28 +398,6 @@ struct RoomCreateEditView: View {
                     }
                 } header: {
                     Text(LocalizedStringKey("host_description_header"))
-                }
-
-                if AppConfig.Mushroom.isRaidPaymentAdjustmentEnabled {
-                    Section {
-                        Stepper(
-                            value: $vm.fixedRaidCost,
-                            in: AppConfig.Mushroom.minFixedRaidCost...AppConfig.Mushroom.enabledRaidPaymentMaxHoney,
-                            step: 1
-                        ) {
-                            HStack {
-                                tokenizedHostFixedRaidCostLabel
-                                Spacer()
-                                Text("\(vm.fixedRaidCost)")
-                                    .monospacedDigit()
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    } header: {
-                        Text(LocalizedStringKey("host_fixed_raid_cost_header"))
-                    } footer: {
-                        Text(LocalizedStringKey("host_fixed_raid_cost_footer"))
-                    }
                 }
 
                 // Error
@@ -566,41 +527,4 @@ struct RoomCreateEditView: View {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
-    /// Localized host fixed-raid-cost label where `{honey_icon}` tokens render as inline icon.
-    private var tokenizedHostFixedRaidCostLabel: Text {
-        let rawLabel = NSLocalizedString("host_fixed_raid_cost_label", comment: "")
-        return tokenizedHoneyLabel(rawLabel)
-    }
-
-    /// Builds one inline text run that replaces `{honey_icon}` with `HoneyIcon`.
-    /// - Parameter rawText: Source localized text that may contain icon tokens.
-    /// - Returns: Tokenized SwiftUI `Text` ready for inline rendering.
-    private func tokenizedHoneyLabel(_ rawText: String) -> Text {
-        let segments = rawText.components(separatedBy: honeyIconToken)
-        var combinedText = Text("")
-
-        for (index, segment) in segments.enumerated() {
-            combinedText = combinedText + Text(segment)
-            if index < segments.count - 1 {
-                combinedText = combinedText + Text(honeyInlineImage())
-            }
-        }
-
-        return combinedText
-    }
-
-    /// Generates a pre-scaled honey icon image for inline tokenized text rendering.
-    /// - Returns: Resized `HoneyIcon` image with fallback symbol when asset is missing.
-    private func honeyInlineImage() -> Image {
-        guard let sourceImage = UIImage(named: "HoneyIcon") else {
-            return Image(systemName: "drop.fill")
-        }
-
-        let iconRenderSize = CGSize(width: honeyInlineIconSize, height: honeyInlineIconSize)
-        let renderer = UIGraphicsImageRenderer(size: iconRenderSize)
-        let resizedImage = renderer.image { _ in
-            sourceImage.draw(in: CGRect(origin: .zero, size: iconRenderSize))
-        }
-        return Image(uiImage: resizedImage)
-    }
 }

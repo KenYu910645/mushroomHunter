@@ -46,7 +46,7 @@ service firebase.storage {
   - upload/download operations
 
 ## Core Data Collections
-- `users/{uid}`: profile, wallet, limits, push token
+- `users/{uid}`: profile, wallet, limits, push token, premium entitlement
 - `users/{uid}/events/{eventId}`: per-user event history (Action/Record state via `isActionEvent`/`isResolved`, route metadata, newest-first paging)
 - `rooms/{roomId}`: mushroom room header data
 - `rooms/{roomId}/attendees/{uid}`: room membership and state
@@ -69,7 +69,9 @@ service firebase.storage {
 ### Profile Tab
 - Open profile tab:
   - Profile screen reads session identity values (display name/friend code/honey/stars).
+  - Premium membership sheet loads StoreKit product metadata locally, then syncs verified entitlement state to `users/{uid}` through `syncPremiumSubscription`.
   - Actionable badge totals are refreshed by app-root tab logic in `ContentView`.
+  - Shared calendar icon opens the DailyReward sheet and loads current-month reward state from `users/{uid}.dailyReward`.
 - Profile/app-icon actionable badge refresh:
   - Joined rooms query for attendee statuses (`collectionGroup(attendees)` by `uid`).
   - Hosted rooms query (`rooms where hostUid == uid`), then per-room attendee query:
@@ -90,6 +92,17 @@ service firebase.storage {
   - Firestore write: `users/{uid}` (guarded by changed fields).
   - Firestore batch writes: host attendee snapshot fields across active hosted rooms.
   - Event history write behavior is documented in `EVENTS.md`.
+- Sync premium subscription:
+  - Callable Function: `syncPremiumSubscription`
+  - Firestore write on `users/{uid}`:
+    - update `isPremium`
+    - update `premiumSource`
+    - update `premiumProductId`
+    - update `premiumExpirationAt`
+    - update `premiumLastVerifiedAt`
+    - update effective `maxHostRoom`
+    - update effective `maxJoinRoom`
+    - update `updatedAt`
 
 ### Notification Inbox (Bell)
 - Open inbox from Mushroom/Postcard top-right bell:
@@ -103,6 +116,22 @@ service firebase.storage {
 - Event text storage:
   - Server event pipeline writes localized snapshot `title` + `message` into each event doc at creation time.
   - iOS inbox reads stored `title`/`message` first, with `event_type_*` fallback for legacy rows.
+
+### DailyReward Calendar
+- Open DailyReward sheet from Mushroom/Postcard/Profile toolbar:
+  - Firestore read: `users/{uid}` to load `dailyReward.monthKey`, `dailyReward.claimedDays`, and wallet snapshot fallback.
+- Claim today's reward:
+  - Callable Function: `claimDailyHoneyReward`
+  - Firestore transaction write on `users/{uid}`:
+    - increment `honey` by `10` for free users or `30` for active premium users
+    - update `dailyReward.monthKey`
+    - update `dailyReward.claimedDays`
+    - update `dailyReward.lastClaimedDayKey`
+    - update `dailyReward.lastClaimedAt`
+    - update `dailyReward.updatedAt`
+    - update `updatedAt`
+  - Firestore write: create `users/{uid}/events/{eventId}` with type `HONEY_REWARD`
+  - No push notification is sent for DailyReward claims.
 
 ### Mushroom Tab
 
@@ -129,6 +158,7 @@ service firebase.storage {
 #### Join room
 - Tap Join:
   - Firestore read: `users/{uid}` for limit and wallet info.
+  - Effective joined-room limit uses premium entitlement when `isPremium == true` and `premiumExpirationAt` is still in the future.
   - Firestore query read: active joined-room count via `collectionGroup(attendees)`.
   - Legacy fallback query only when required.
   - Firestore transaction writes:
@@ -162,8 +192,8 @@ service firebase.storage {
 - Host taps raid done:
   - Firestore transaction writes all non-host attendee statuses to `WaitingConfirmation` and room timestamps
 - Attendee submits escrow settlement:
-  - `JoinedSuccess`: full raid cost transferred to host, attendee escrow deducts full cost.
-  - `SeatFullNoFault`: small effort fee transferred to host, attendee escrow deducts only effort fee.
+  - `JoinedSuccess`: global joined-success reward (`AppConfig.Mushroom.joinedSuccessRewardHoney`, default `10`) transferred to host, attendee escrow deducts the same amount.
+  - `SeatFullNoFault`: global seat-full reward (`AppConfig.Mushroom.seatFullRewardHoney`, default `2`) transferred to host, attendee escrow deducts only that amount.
   - `MissedInvitation`: no honey transfer.
   - Firestore transaction writes status/deposit/honey/rating flags and settlement snapshot fields.
 - Host/attendee rating:

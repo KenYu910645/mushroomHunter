@@ -78,6 +78,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - Cloud Functions in `functions/index.js`:
   - `recordRoomCreatedEvent`
   - `recordRoomClosedEvent`
+  - `recordRoomKickEvents`
   - `recordHostRaidInviteEvent`
   - `notifyHostJoinRequest`
   - `handleRoomAttendeeUpdatedEvents`
@@ -118,6 +119,8 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 
 ### PROFILE (`PROFILE.md`)
 - `mushroomHunter/Features/Profile/ProfileView.swift`
+- `mushroomHunter/Features/Premium/PremiumView.swift` (profile-linked premium intro/paywall sheet with subscribe/restore actions)
+- `mushroomHunter/Features/Premium/PremiumStore.swift` (StoreKit 2 product loader, purchase/restore flow, and backend entitlement sync)
 - `mushroomHunter/Features/Profile/ProfileCreateEditView.swift` (shared create/edit profile form presented from onboarding and profile edit sheet)
 - `mushroomHunter/Features/Profile/ProfileViewModel.swift` (profile tab badge aggregation + background refresh for room/postcard actionable counts)
 - `mushroomHunter/Features/Profile/FeedbackView.swift` (feedback compose view + submission payload model)
@@ -139,6 +142,18 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - Cloud Functions in `functions/index.js`:
   - `sendFeedbackNotificationEmail`
   - `recordUserProfileAndWalletEvents` (records user-level event history for honey balance deltas and profile name/friend-code updates)
+  - `syncPremiumSubscription` (mirrors locally verified StoreKit premium entitlement into `users/{uid}` and effective room limits)
+
+### DAILYREWARD (`PROFILE.md`, `EVENTS.md`, `FIREBASE.md`, `TESTCASE.md`)
+- `mushroomHunter/Features/DailyReward/DailyRewardModels.swift`
+- `mushroomHunter/Features/DailyReward/DailyRewardStore.swift`
+- `mushroomHunter/Features/DailyReward/DailyRewardView.swift`
+- `mushroomHunter/Features/DailyReward/DailyRewardToolbarActions.swift` (shared calendar + bell toolbar actions shown on Mushroom/Postcard/Profile tabs)
+- `mushroomHunter/Utilities/AppConfig.swift` (owner-managed daily reward amount and reset timezone)
+- `mushroomHunter/Utilities/AppTesting.swift` (UI-test DailyReward mock claim state)
+- `functions/index.js`
+  - `claimDailyHoneyReward`
+  - `syncPremiumSubscription`
 
 ### SIGNIN (`SIGNIN.md`)
 - `mushroomHunter/Features/Profile/LoginView.swift`
@@ -240,6 +255,20 @@ Commit message format:
 - All comments must be meaningful and explain intent/purpose; placeholder comments are forbidden.
 - Do not use generic placeholders such as `// State or dependency property.` or similar non-informative comments.
 - All boolean variables naming need to start with "is"
+
+## Hard Issue Debugging Policy
+- Trigger phrase: if Ken says `hard issue`, treat the task as a root-cause debugging task instead of a quick fix task.
+- Do not make speculative code changes based on guesswork. Narrow down the cause step by step and state the working hypothesis being tested.
+- Prefer inspection, reproduction, existing code-path tracing, and targeted instrumentation before changing behavior.
+- Add focused debug logging when the root cause cannot be proven from static inspection alone.
+- When logs from a real device are needed, ask Ken to reproduce the issue and return the relevant log output so debugging can continue from evidence.
+- Keep temporary debug changes minimal and intentional so each added log helps confirm or eliminate one hypothesis.
+- Do not bundle multiple unrelated fixes into a `hard issue` task. Isolate the failing path first, then apply the smallest validated fix.
+- In the handoff for a `hard issue`, explicitly separate:
+  - confirmed root cause
+  - evidence collected
+  - fix applied
+  - remaining uncertainty or next debug step
 
 ## Automated Testing
 - UI test target: `HoneyHubUITests`

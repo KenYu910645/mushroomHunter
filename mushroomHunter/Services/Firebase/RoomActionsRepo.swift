@@ -22,7 +22,7 @@
 //  [X] - `hostStars`: Not used by actions logic.
 //  [X] - `location`: Not used by actions logic.
 //  [X] - `description`: Not used by actions logic.
-//  [W] - `fixedRaidCost`: Reads for validation/settlement and drives writes to attendee deposit outcomes.
+//  [W] - `fixedRaidCost`: Reads/writes legacy compatibility room reward value but does not drive active settlement policy.
 //  [R] - `maxPlayers`: Reads to enforce room capacity during join.
 //  [W] - `joinedCount`: Updates when joining, leaving, kicking, and closing.
 //  [X] - `createdAt`: Not used by actions logic.
@@ -49,6 +49,15 @@
 //  [W] - `pendingConfirmationRequests`: Reads/writes per-attendee pending confirmation queue entries.
 //  [W] - `lastSettlementOutcome`: Writes latest attendee escrow-settlement result.
 //  [W] - `lastSettlementHoney`: Writes latest honey settled from attendee to host.
+//
+//  Kick marker document (`rooms/{roomId}/kickEvents/{kickEventId}`):
+//  [W] - `hostUid`: Writes host uid snapshot for kick event production.
+//  [W] - `attendeeUid`: Writes kicked attendee uid snapshot for kick event production.
+//  [W] - `attendeeName`: Writes kicked attendee display name snapshot for inbox copy.
+//  [W] - `roomId`: Writes room id snapshot for backend event routing.
+//  [W] - `roomTitle`: Writes room title snapshot for inbox copy.
+//  [W] - `refundedHoney`: Writes refunded deposit amount for attendee event copy.
+//  [W] - `createdAt`: Writes kick marker creation timestamp.
 //
 import Foundation
 import FirebaseAuth
@@ -89,9 +98,28 @@ enum RoomActionError: LocalizedError {
 }
 
 final class FbRoomActionsRepo {
+    /// Room-scoped backend marker collection used to produce kick record events.
+    private enum BackendCollectionName {
+        /// Distinguishes host kick flows from leave/close attendee deletions.
+        static let kickEvents: String = "kickEvents"
+    }
+
     private let db = Firestore.firestore()
     private let defaultMaxHostRooms = AppConfig.Mushroom.defaultHostRoomLimit
     private let defaultMaxJoinRooms = AppConfig.Mushroom.defaultJoinRoomLimit
+
+    /// Resolves the effective joined-room limit from one user document snapshot.
+    /// - Parameter userData: Raw Firestore user document payload.
+    /// - Returns: Effective joined-room limit for the current entitlement state.
+    private func effectiveMaxJoinRooms(from userData: [String: Any]) -> Int {
+        let isPremium = userData["isPremium"] as? Bool ?? false
+        let premiumExpirationDate = (userData["premiumExpirationAt"] as? Timestamp)?.dateValue()
+        let isPremiumActive = isPremium && (premiumExpirationDate?.timeIntervalSinceNow ?? -1) > 0
+        if isPremiumActive {
+            return AppConfig.Premium.premiumJoinRoomLimit
+        }
+        return userData["maxJoinRoom"] as? Int ?? defaultMaxJoinRooms
+    }
 
     /// Returns the attendee status that should be stored after a confirmation settles.
     private func resolvedPostSettlementStatus(
@@ -110,7 +138,7 @@ final class FbRoomActionsRepo {
 
     private func fetchMaxJoinRooms(uid: String) async throws -> Int {
         let userSnap = try await db.collection("users").document(uid).getDocument()
-        return userSnap.data()?["maxJoinRoom"] as? Int ?? defaultMaxJoinRooms
+        return effectiveMaxJoinRooms(from: userSnap.data() ?? [:])
     }
 
     private func countActiveJoinedRooms(uid: String) async throws -> Int {
@@ -123,7 +151,6 @@ final class FbRoomActionsRepo {
 
     private struct RoomHostContext {
         let hostUid: String
-        let raidCostHoney: Int
     }
 
     private func fetchRoomHostContext(roomRef: DocumentReference) async throws -> RoomHostContext {
@@ -132,11 +159,10 @@ final class FbRoomActionsRepo {
             throw RoomActionError.roomNotFound
         }
 
-        let raidCostHoney = (roomData["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
         let hostUidFromRoom = (roomData["hostUid"] as? String ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if !hostUidFromRoom.isEmpty {
-            return RoomHostContext(hostUid: hostUidFromRoom, raidCostHoney: raidCostHoney)
+            return RoomHostContext(hostUid: hostUidFromRoom)
         }
 
         let hostQuery = try await roomRef.collection("attendees")
@@ -146,7 +172,7 @@ final class FbRoomActionsRepo {
         guard let hostDoc = hostQuery.documents.first else {
             throw RoomActionError.notHost
         }
-        return RoomHostContext(hostUid: hostDoc.documentID, raidCostHoney: raidCostHoney)
+        return RoomHostContext(hostUid: hostDoc.documentID)
     }
 
     // MARK: - Join (transaction)
@@ -190,7 +216,7 @@ final class FbRoomActionsRepo {
                 return nil
             }
 
-            let fixedRaidCost = (room["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
+            let minimumRequiredDepositHoney = AppConfig.Mushroom.minimumRequiredDepositHoney
 
             // 2) Check attendee doc doesn't already exist
             let attendeeSnap: DocumentSnapshot
@@ -222,13 +248,15 @@ final class FbRoomActionsRepo {
                     "honey": currentHoney,
                     "maxHostRoom": self.defaultMaxHostRooms,
                     "maxJoinRoom": self.defaultMaxJoinRooms,
+                    "isPremium": false,
+                    "premiumProductId": "",
                     "createdAt": now,
                     "updatedAt": now
                 ], forDocument: userRef)
             }
 
             let deposit = max(0, initialDepositHoney)
-            if deposit < max(AppConfig.Mushroom.minFixedRaidCost, fixedRaidCost) {
+            if deposit < minimumRequiredDepositHoney {
                 errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
                 return nil
             }
@@ -298,8 +326,8 @@ final class FbRoomActionsRepo {
             let roomSnap: DocumentSnapshot
             do { roomSnap = try tx.getDocument(roomRef) }
             catch { errPtr?.pointee = error as NSError; return nil }
-            let fixedRaidCost = (roomSnap.data()?["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
-            if newDeposit < max(AppConfig.Mushroom.minFixedRaidCost, fixedRaidCost) {
+            let minimumRequiredDepositHoney = AppConfig.Mushroom.minimumRequiredDepositHoney
+            if newDeposit < minimumRequiredDepositHoney {
                 errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
                 return nil
             }
@@ -320,6 +348,8 @@ final class FbRoomActionsRepo {
                     "honey": currentHoney,
                     "maxHostRoom": self.defaultMaxHostRooms,
                     "maxJoinRoom": self.defaultMaxJoinRooms,
+                    "isPremium": false,
+                    "premiumProductId": "",
                     "createdAt": now,
                     "updatedAt": now
                 ], forDocument: userRef)
@@ -499,6 +529,8 @@ final class FbRoomActionsRepo {
                     "honey": currentHoney,
                     "maxHostRoom": self.defaultMaxHostRooms,
                     "maxJoinRoom": self.defaultMaxJoinRooms,
+                    "isPremium": false,
+                    "premiumProductId": "",
                     "createdAt": now,
                     "updatedAt": now
                 ], forDocument: userRef)
@@ -530,6 +562,10 @@ final class FbRoomActionsRepo {
         let roomRef = db.collection("rooms").document(roomId)
         let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
         let userRef = db.collection("users").document(attendeeUid)
+        // Stable marker id reused across transaction retries so backend history stays single-write.
+        let kickEventRef = roomRef
+            .collection(BackendCollectionName.kickEvents)
+            .document()
         let now = Timestamp(date: Date())
 
         try await db.runTransaction { tx, errPtr -> Any? in
@@ -564,13 +600,28 @@ final class FbRoomActionsRepo {
                 return nil
             }
 
-            let deposit = attendeeSnap.data()?["depositHoney"] as? Int ?? 0
+            let roomTitle = (roomSnap.data()?["title"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let attendeeData = attendeeSnap.data() ?? [:]
+            let deposit = attendeeData["depositHoney"] as? Int ?? 0
+            let attendeeName = (attendeeData["name"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
 
             tx.deleteDocument(attendeeRef)
             tx.updateData([
                 "joinedCount": FieldValue.increment(Int64(-1)),
                 "updatedAt": now
             ], forDocument: roomRef)
+
+            tx.setData([
+                "hostUid": uid,
+                "attendeeUid": attendeeUid,
+                "attendeeName": attendeeName,
+                "roomId": roomId,
+                "roomTitle": roomTitle,
+                "refundedHoney": max(0, deposit),
+                "createdAt": now
+            ], forDocument: kickEventRef)
 
             if deposit > 0 {
                 tx.setData([
@@ -665,8 +716,6 @@ final class FbRoomActionsRepo {
                 errPtr?.pointee = RoomActionError.notHost as NSError
                 return nil
             }
-
-            _ = (room["fixedRaidCost"] as? Int) ?? AppConfig.Mushroom.defaultFixedRaidCost
 
             var attendeeDocsForHistory: [(uid: String, ref: DocumentReference, data: [String: Any])] = []
             attendeeDocsForHistory.reserveCapacity(allNonHostAttendeeUids.count)
@@ -798,11 +847,11 @@ final class FbRoomActionsRepo {
             switch settlementOutcome {
             case .joinedSuccess:
                 historyStatus = .joined
-                if attendeeDeposit < hostContext.raidCostHoney {
+                if attendeeDeposit < AppConfig.Mushroom.joinedSuccessRewardHoney {
                     errPtr?.pointee = RoomActionError.notEnoughHoney as NSError
                     return nil
                 }
-                let settlementHoney = max(0, hostContext.raidCostHoney)
+                let settlementHoney = AppConfig.Mushroom.joinedSuccessRewardHoney
                 tx.updateData([
                     "honey": hostHoney + settlementHoney,
                     "updatedAt": now
@@ -811,7 +860,7 @@ final class FbRoomActionsRepo {
                 let remainingDepositHoney = max(0, attendeeDeposit - settlementHoney)
                 let nextStatus = resolvedPostSettlementStatus(
                     remainingDepositHoney: remainingDepositHoney,
-                    fixedRaidCost: hostContext.raidCostHoney,
+                    fixedRaidCost: AppConfig.Mushroom.minimumRequiredDepositHoney,
                     hasPendingConfirmation: hasPendingConfirmation
                 )
                 tx.updateData([
@@ -826,8 +875,7 @@ final class FbRoomActionsRepo {
                 ], forDocument: attendeeRef)
             case .seatFullNoFault:
                 historyStatus = .seatFull
-                let noFaultEffortFee = AppConfig.Mushroom.noFaultEffortFee(for: hostContext.raidCostHoney)
-                let settlementHoney = min(attendeeDeposit, max(0, noFaultEffortFee))
+                let settlementHoney = min(attendeeDeposit, AppConfig.Mushroom.seatFullRewardHoney)
                 tx.updateData([
                     "honey": hostHoney + settlementHoney,
                     "updatedAt": now
@@ -836,7 +884,7 @@ final class FbRoomActionsRepo {
                 let remainingDepositHoney = max(0, attendeeDeposit - settlementHoney)
                 let nextStatus = resolvedPostSettlementStatus(
                     remainingDepositHoney: remainingDepositHoney,
-                    fixedRaidCost: hostContext.raidCostHoney,
+                    fixedRaidCost: AppConfig.Mushroom.minimumRequiredDepositHoney,
                     hasPendingConfirmation: hasPendingConfirmation
                 )
                 tx.updateData([
@@ -853,7 +901,7 @@ final class FbRoomActionsRepo {
                 historyStatus = .noInvite
                 let nextStatus = resolvedPostSettlementStatus(
                     remainingDepositHoney: attendeeDeposit,
-                    fixedRaidCost: hostContext.raidCostHoney,
+                    fixedRaidCost: AppConfig.Mushroom.minimumRequiredDepositHoney,
                     hasPendingConfirmation: hasPendingConfirmation
                 )
                 tx.updateData([

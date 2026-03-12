@@ -21,6 +21,9 @@ struct ProfileView: View {
         /// Edit-profile form sheet.
         case editProfile
 
+        /// Premium subscription paywall sheet.
+        case premium
+
         /// Stable identity used by `.sheet(item:)`.
         var id: String {
             rawValue
@@ -31,6 +34,8 @@ struct ProfileView: View {
     @EnvironmentObject private var session: UserSessionStore
     /// Shared notification inbox state used by the top-right bell button.
     @EnvironmentObject private var notificationInbox: EventInboxStore
+    /// Shared premium manager used by the upgrade flow.
+    @EnvironmentObject private var premiumStore: PremiumStore
 
     /// Current color scheme used to keep background styling consistent with app theme.
     @Environment(\.colorScheme) private var colorScheme
@@ -49,6 +54,8 @@ struct ProfileView: View {
     @State private var isFeedbackSubmittedAlertPresented: Bool = false
     /// Controls presentation of the event inbox sheet.
     @State private var isNotificationInboxPresented: Bool = false
+    /// Controls presentation of the DailyReward sheet.
+    @State private var isDailyRewardPresented: Bool = false
 
     /// Controls whether the sign-out confirmation message box is visible.
     @State private var isSignOutConfirmationPresented: Bool = false
@@ -78,6 +85,7 @@ struct ProfileView: View {
                 .listRowBackground(Color.clear)
 
                 accountSection
+                premiumSection
                 settingsSection
                 signOutSection
             }
@@ -86,24 +94,20 @@ struct ProfileView: View {
             .background(Theme.backgroundGradient(for: colorScheme))
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        Task { @MainActor in
-                            await notificationInbox.refreshFromServer()
-                            isNotificationInboxPresented = true
-                        }
-                    } label: {
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: "bell")
-                            if notificationInbox.unreadCount > 0 {
-                                Circle()
-                                    .fill(Color.red)
-                                    .frame(width: 8, height: 8)
-                                    .offset(x: 4, y: -3)
+                    DailyRewardToolbarActions(
+                        onOpenDailyReward: {
+                            isDailyRewardPresented = true
+                        },
+                        onOpenNotificationInbox: {
+                            Task { @MainActor in
+                                await notificationInbox.refreshFromServer()
+                                isNotificationInboxPresented = true
                             }
-                        }
-                    }
-                    .accessibilityLabel(LocalizedStringKey("browse_notification_accessibility"))
-                    .accessibilityIdentifier("profile_notification_button")
+                        },
+                        unreadCount: notificationInbox.unreadCount,
+                        bellAccessibilityLabel: "browse_notification_accessibility",
+                        bellAccessibilityIdentifier: "profile_notification_button"
+                    )
                 }
             }
             .navigationDestination(isPresented: $isTutorialCatalogPresented) {
@@ -115,6 +119,11 @@ struct ProfileView: View {
                 routeEventInboxItem(route)
             }
             .environmentObject(notificationInbox)
+        }
+        .sheet(isPresented: $isDailyRewardPresented) {
+            DailyRewardView()
+                .environmentObject(session)
+                .environmentObject(notificationInbox)
         }
         .sheet(item: $activeSheet, onDismiss: {
             if let pendingSheetAfterDismiss, activeSheet == nil {
@@ -154,6 +163,10 @@ struct ProfileView: View {
                 }
             case .editProfile:
                 ProfileCreateEditView(mode: .edit)
+            case .premium:
+                PremiumView()
+                    .environmentObject(session)
+                    .environmentObject(premiumStore)
             }
         }
         .overlay {
@@ -219,6 +232,25 @@ struct ProfileView: View {
                     .accessibilityIdentifier("profile_friend_code_value")
             }
             .padding(.vertical, 4)
+        }
+    }
+
+    /// Section that exposes the premium upgrade entry above settings.
+    private var premiumSection: some View {
+        Section {
+            Button {
+                activeSheet = .premium
+            } label: {
+                HStack {
+                    Text(LocalizedStringKey("premium_upgrade_button"))
+                    Spacer()
+                    if session.isPremium {
+                        Text(LocalizedStringKey("premium_status_active_short"))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .accessibilityIdentifier("profile_premium_row_button")
         }
     }
 

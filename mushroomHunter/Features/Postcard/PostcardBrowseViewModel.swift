@@ -19,6 +19,8 @@ final class PostcardBrowseViewModel: ObservableObject {
     enum OwnershipTag {
         /// Listing currently sold by the signed-in user.
         case onShelf
+        /// Listing currently sold by the signed-in user but all stock has been purchased.
+        case runOut
         /// Listing currently ordered by the signed-in user.
         case ordered
 
@@ -27,6 +29,8 @@ final class PostcardBrowseViewModel: ObservableObject {
             switch self {
             case .onShelf:
                 return LocalizedStringKey("postcard_tag_on_shelf")
+            case .runOut:
+                return LocalizedStringKey("postcard_tag_run_out")
             case .ordered:
                 return LocalizedStringKey("postcard_tag_ordered")
             }
@@ -201,6 +205,7 @@ final class PostcardBrowseViewModel: ObservableObject {
         if AppTesting.useMockPostcards {
             listings = [
                 AppTesting.fixturePostcardListing(),
+                AppTesting.fixtureSoldOutPostcardListing(),
                 AppTesting.fixtureOwnedPostcardListing()
             ]
             isHasMorePages = false
@@ -256,19 +261,14 @@ final class PostcardBrowseViewModel: ObservableObject {
         let visiblePinnedListings = mergedPinnedListings.filter { listing in
             matchesBrowseFilters(for: listing, normalizedQuery: normalizedQuery)
         }
-        var result = listings.filter { listing in
+        let result = listings.filter { listing in
             matchesBrowseFilters(for: listing, normalizedQuery: normalizedQuery)
         }
-
-        switch sortOrder {
-        case .newest:
-            result = result.sorted { $0.createdAt > $1.createdAt }
-        case .lowestPrice:
-            result = result.sorted { $0.priceHoney < $1.priceHoney }
-        }
-
         let pinnedListingIds = Set(visiblePinnedListings.map(\.id))
-        let browseListings = result.filter { pinnedListingIds.contains($0.id) == false }
+        let unpinnedListings = result.filter { pinnedListingIds.contains($0.id) == false }
+        let inStockListings = sortListings(unpinnedListings.filter { $0.stock > 0 })
+        let soldOutListings = sortListings(unpinnedListings.filter { $0.stock <= 0 })
+        let browseListings = inStockListings + soldOutListings
         return visiblePinnedListings + browseListings
     }
 
@@ -277,6 +277,10 @@ final class PostcardBrowseViewModel: ObservableObject {
     /// - Returns: Ownership tag (`On-shelf` or `Ordered`) when applicable.
     func ownershipTag(for postcardId: String) -> OwnershipTag? {
         if onShelfListingIds.contains(postcardId) {
+            let listing = mergedPinnedListings.first { $0.id == postcardId }
+            if listing?.stock ?? 0 <= 0 {
+                return .runOut
+            }
             return .onShelf
         }
         if orderedListingIds.contains(postcardId) {
@@ -325,9 +329,6 @@ final class PostcardBrowseViewModel: ObservableObject {
     ///   - normalizedQuery: Lowercased query text already trimmed by caller.
     /// - Returns: `true` when listing matches all active browse filters.
     private func matchesBrowseFilters(for listing: PostcardListing, normalizedQuery: String) -> Bool {
-        if listing.stock <= 0 {
-            return false
-        }
         if selectedCountry != "All" && listing.location.country != selectedCountry {
             return false
         }
@@ -342,6 +343,18 @@ final class PostcardBrowseViewModel: ObservableObject {
             || listing.location.country.lowercased().contains(normalizedQuery)
             || listing.location.province.lowercased().contains(normalizedQuery)
             || listing.location.fullLabel.lowercased().contains(normalizedQuery)
+    }
+
+    /// Applies the current browse sort to one homogeneous stock bucket.
+    /// - Parameter listings: Listings that share the same sold-out/in-stock priority tier.
+    /// - Returns: Listings sorted by the user-selected browse order.
+    private func sortListings(_ listings: [PostcardListing]) -> [PostcardListing] {
+        switch sortOrder {
+        case .newest:
+            return listings.sorted { $0.createdAt > $1.createdAt }
+        case .lowestPrice:
+            return listings.sorted { $0.priceHoney < $1.priceHoney }
+        }
     }
 
     /// Marks one listing as locally deleted and removes it from all visible browse datasets.

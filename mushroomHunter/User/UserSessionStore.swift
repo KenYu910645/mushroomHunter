@@ -21,6 +21,9 @@ final class UserSessionStore: ObservableObject {
     @Published var honey: Int = 0 // State or dependency property.
     @Published var maxHostRoom: Int = AppConfig.Mushroom.defaultHostRoomLimit // State or dependency property.
     @Published var maxJoinRoom: Int = AppConfig.Mushroom.defaultJoinRoomLimit // State or dependency property.
+    @Published var isPremium: Bool = false // State or dependency property.
+    @Published var premiumProductId: String = "" // State or dependency property.
+    @Published var premiumExpirationDate: Date? = nil // State or dependency property.
     @Published var authUid: String? = nil // State or dependency property.
     @Published var fcmToken: String? = nil // State or dependency property.
     @Published var isProfileComplete: Bool = false // State or dependency property.
@@ -37,6 +40,9 @@ final class UserSessionStore: ObservableObject {
     let kFcmToken: String = "mh.fcmToken" // Local persistence key.
     let kMaxHostRoom: String = "mh.maxHostRoom" // Local persistence key.
     let kMaxJoinRoom: String = "mh.maxJoinRoom" // Local persistence key.
+    let kIsPremium: String = "mh.isPremium" // Local persistence key.
+    let kPremiumProductId: String = "mh.premiumProductId" // Local persistence key.
+    let kPremiumExpirationDate: String = "mh.premiumExpirationDate" // Local persistence key.
     let kHasShownOnboardingTutorial: String = "mh.hasShownOnboardingTutorial" // Local persistence key for one-time tutorial visibility.
 
     var authHandle: AuthStateDidChangeListenerHandle? // Firebase auth state listener handle.
@@ -108,6 +114,34 @@ final class UserSessionStore: ObservableObject {
         UserDefaults.standard.set(value, forKey: scopedKey(key, uid: uid))
     }
 
+    /// Saves a user-scoped boolean value locally.
+    /// - Parameters:
+    ///   - key: Base persistence key.
+    ///   - value: Boolean value to persist for the current user.
+    func persistScopedBool(_ key: String, value: Bool) {
+        guard let uid = authUid else { return }
+        UserDefaults.standard.set(value, forKey: scopedKey(key, uid: uid))
+    }
+
+    /// Saves a user-scoped date value locally.
+    /// - Parameters:
+    ///   - key: Base persistence key.
+    ///   - value: Date value to persist for the current user, or `nil` to clear it.
+    func persistScopedDate(_ key: String, value: Date?) {
+        guard let uid = authUid else { return }
+        let scopedStorageKey = scopedKey(key, uid: uid)
+        if let value {
+            UserDefaults.standard.set(value.timeIntervalSince1970, forKey: scopedStorageKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: scopedStorageKey)
+        }
+    }
+
+    /// Effective DailyReward amount for the current user entitlement state.
+    var dailyRewardHoneyAmount: Int {
+        isPremium ? AppConfig.DailyReward.premiumRewardHoney : AppConfig.DailyReward.rewardHoney
+    }
+
     func updateProfileCompletionFromFields() { // Recomputes profile-complete state from current local fields.
         let nameOK = !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let codeOK = !friendCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -132,6 +166,9 @@ final class UserSessionStore: ObservableObject {
         honey = 100
         maxHostRoom = AppConfig.Mushroom.defaultHostRoomLimit
         maxJoinRoom = AppConfig.Mushroom.defaultJoinRoomLimit
+        isPremium = false
+        premiumProductId = ""
+        premiumExpirationDate = nil
         isProfileComplete = false
         isShowingOnboardingTutorial = false
         isFeatureTutorialActive = false
@@ -236,6 +273,25 @@ final class UserSessionStore: ObservableObject {
             maxJoinRoom = max(AppConfig.Mushroom.defaultJoinRoomLimit, value)
         } else {
             maxJoinRoom = AppConfig.Mushroom.defaultJoinRoomLimit
+        }
+
+        if UserDefaults.standard.object(forKey: scopedKey(kIsPremium, uid: uid)) != nil {
+            isPremium = UserDefaults.standard.bool(forKey: scopedKey(kIsPremium, uid: uid))
+        } else {
+            isPremium = false
+        }
+
+        if let storedProductId = UserDefaults.standard.string(forKey: scopedKey(kPremiumProductId, uid: uid)) {
+            premiumProductId = storedProductId
+        } else {
+            premiumProductId = ""
+        }
+
+        if UserDefaults.standard.object(forKey: scopedKey(kPremiumExpirationDate, uid: uid)) != nil {
+            let timestamp = UserDefaults.standard.double(forKey: scopedKey(kPremiumExpirationDate, uid: uid))
+            premiumExpirationDate = Date(timeIntervalSince1970: timestamp)
+        } else {
+            premiumExpirationDate = nil
         }
 
         updateProfileCompletionFromFields()

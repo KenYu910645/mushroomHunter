@@ -1,5 +1,6 @@
 const {setGlobalOptions} = require("firebase-functions/v2");
 const {onDocumentCreated, onDocumentUpdated, onDocumentDeleted} = require("firebase-functions/v2/firestore");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
@@ -11,6 +12,19 @@ setGlobalOptions({maxInstances: 10});
 admin.initializeApp();
 const db = admin.firestore();
 const messaging = admin.messaging();
+// Keep these mushroom reward constants aligned with `AppConfig.Mushroom` in the iOS app.
+const MUSHROOM_JOINED_SUCCESS_REWARD_HONEY = 10;
+const MUSHROOM_SEAT_FULL_REWARD_HONEY = 2;
+// Keep these DailyReward constants aligned with `AppConfig.DailyReward` in the iOS app.
+const DAILY_REWARD_HONEY = 10;
+const PREMIUM_DAILY_REWARD_HONEY = 30;
+const DAILY_REWARD_TIME_ZONE = "Asia/Taipei";
+// Keep these premium limit constants aligned with `AppConfig.Premium` in the iOS app.
+const DEFAULT_HOST_ROOM_LIMIT = 1;
+const DEFAULT_JOIN_ROOM_LIMIT = 3;
+const PREMIUM_HOST_ROOM_LIMIT = 5;
+const PREMIUM_JOIN_ROOM_LIMIT = 10;
+const PREMIUM_SOURCE_APP_STORE = "app_store";
 // SMTP transport is lazily initialized and then reused across invocations.
 let cachedMailer = null;
 const userLocaleCache = new Map();
@@ -94,6 +108,68 @@ function normalizeHoneyValue(value) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) return 0;
   return Math.trunc(numericValue);
+}
+
+// Normalize milliseconds-since-epoch values received from callable payloads.
+function normalizeMillisTimestamp(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return null;
+  const roundedValue = Math.trunc(numericValue);
+  return roundedValue > 0 ? roundedValue : null;
+}
+
+// Resolve whether one premium entitlement should be treated as active at the current moment.
+function isPremiumActive(userData, nowDate = new Date()) {
+  const isPremium = userData?.isPremium === true;
+  if (!isPremium) return false;
+
+  const expirationValue = userData?.premiumExpirationAt;
+  if (!expirationValue || typeof expirationValue.toDate !== "function") {
+    return false;
+  }
+
+  return expirationValue.toDate().getTime() > nowDate.getTime();
+}
+
+// Resolve the effective room limits for the current entitlement state.
+function effectiveRoomLimits(userData, nowDate = new Date()) {
+  if (isPremiumActive(userData, nowDate)) {
+    return {
+      maxHostRoom: PREMIUM_HOST_ROOM_LIMIT,
+      maxJoinRoom: PREMIUM_JOIN_ROOM_LIMIT,
+    };
+  }
+
+  return {
+    maxHostRoom: Math.max(DEFAULT_HOST_ROOM_LIMIT, normalizeHoneyValue(userData?.maxHostRoom) || DEFAULT_HOST_ROOM_LIMIT),
+    maxJoinRoom: Math.max(DEFAULT_JOIN_ROOM_LIMIT, normalizeHoneyValue(userData?.maxJoinRoom) || DEFAULT_JOIN_ROOM_LIMIT),
+  };
+}
+
+// Resolve the DailyReward honey amount for the current entitlement state.
+function effectiveDailyRewardHoney(userData, nowDate = new Date()) {
+  return isPremiumActive(userData, nowDate) ? PREMIUM_DAILY_REWARD_HONEY : DAILY_REWARD_HONEY;
+}
+
+// Resolve current Taipei calendar date parts for DailyReward business rules.
+function currentRewardDateParts(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: DAILY_REWARD_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const partMap = Object.fromEntries(
+      formatter.formatToParts(date)
+          .filter((part) => part.type !== "literal")
+          .map((part) => [part.type, part.value]),
+  );
+  const year = Number(partMap.year || 0);
+  const month = Number(partMap.month || 0);
+  const day = Number(partMap.day || 0);
+  const monthKey = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}`;
+  const dayKey = `${monthKey}-${String(day).padStart(2, "0")}`;
+  return {year, month, day, monthKey, dayKey};
 }
 
 // Send push notification with snapshot token first, then user profile fallback token.
@@ -262,6 +338,10 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
       en: ["Friend Code Updated", "Your friend code was updated to %@."],
       zh: ["好友碼已更新", "您的好友碼已更新為 %@。"],
     },
+    HONEY_REWARD: {
+      en: ["Honey Reward", "You have received %@ honey as reward."],
+      zh: ["蜂蜜獎勵", "您已獲得 %@ 蜂蜜獎勵。"],
+    },
     RAID_CONFIRM_ATTENDEE: {
       en: ["Mushroom Invitation", "Action required: confirm whether you received the mushroom raid invitation from %@."],
       zh: ["蘑菇邀請確認", "需要處理：請確認您是否收到來自 %@ 的蘑菇邀請。"],
@@ -289,6 +369,14 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
     JOIN_REJECTED_HOST: {
       en: ["Joiner Rejected", "You rejected a join request from %@."],
       zh: ["已拒絕加入申請", "您已拒絕來自 %@ 的加入申請。"],
+    },
+    KICKED_ATTENDEE: {
+      en: ["Kicked Out", "You have been kicked out of room: %@. Your deposited %@ honey has been returned."],
+      zh: ["已被踢出房間", "您已被踢出房間:%@，您儲值的%@蜂蜜已返還。"],
+    },
+    KICKED_HOST: {
+      en: ["Kicked Out", "You kicked %@ out of room: %@."],
+      zh: ["已將玩家踢出房間", "您已將%@踢出房間:%@"],
     },
     REPLY_HOST: {
       en: ["Attendee Replied", "Attendee confirmation was submitted."],
@@ -353,8 +441,8 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
     if (firstArg === "raid_confirmation_seat_full") {
       titleTemplate = isChinese ? "參加者已確認" : "Attendee Confirmed";
       messageTemplate = isChinese ?
-        "%@ 回報蘑菇滿位。您獲得 %@ 蜂蜜。" :
-        "%@ reported invited but seat full. You earned %@ honey.";
+        "%@ 回報蘑菇滿位，已支付您 %@ 蜂蜜。" :
+        "%@ reported invited but seat full and paid you %@ honey.";
       templateArgs = [argValues[1] || "", argValues[2] || "0"];
     } else if (firstArg === "raid_confirmation_missed_invite") {
       titleTemplate = isChinese ? "參加者未看到邀請" : "Attendee Missed Invite";
@@ -365,18 +453,20 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
     } else {
       titleTemplate = isChinese ? "參加者已確認" : "Attendee Confirmed";
       messageTemplate = isChinese ?
-        "%@ 已確認參加戰鬥。您獲得 %@ 蜂蜜。" :
-        "%@ confirmed raid join. You earned %@ honey.";
+        "%@ 已確認參加戰鬥，已支付您 %@ 蜂蜜。" :
+        "%@ confirmed raid join and paid you %@ honey.";
       templateArgs = [argValues[1] || "", argValues[2] || "0"];
     }
   } else if (normalizedType === "POSTCARD_RECEIVED_SELLER") {
     const isAutoCompleted = firstArg === "auto";
-    if (isAutoCompleted) {
-      messageTemplate = isChinese ?
+    messageTemplate = isAutoCompleted ?
+      (isChinese ?
         "「%@」收件確認逾時，%@ 蜂蜜已轉給您。" :
-        "%@ postcard received timed out. %@ honey has been transferred to you.";
-      templateArgs = [argValues[1] || "", argValues[2] || "0"];
-    }
+        "%@ postcard received timed out. %@ honey has been transferred to you.") :
+      (isChinese ?
+        "%@ 已確認收件，%@ 蜂蜜已轉給您。" :
+        "%@ confirmed receipt. %@ honey has been transferred to you.");
+    templateArgs = [argValues[1] || "", argValues[2] || "0"];
   }
 
   return {
@@ -731,6 +821,139 @@ exports.processPostcardOrderTimeouts = onSchedule(
     },
 );
 
+// Callable premium entitlement sync endpoint.
+// Mirrors locally verified StoreKit state into users/{uid} for server-authoritative feature checks.
+exports.syncPremiumSubscription = onCall(
+    {
+      region: "us-central1",
+    },
+    async (request) => {
+      const uid = stringifyValue(request.auth?.uid, "");
+      if (!uid) {
+        throw new HttpsError("unauthenticated", "Sign in is required.");
+      }
+
+      const payload = request.data || {};
+      const isPremium = payload.isPremium === true;
+      const productId = stringifyValue(payload.productId, "");
+      const expirationDateMillis = normalizeMillisTimestamp(payload.expirationDateMillis);
+      const nowTimestamp = admin.firestore.Timestamp.now();
+      const expirationTimestamp = expirationDateMillis ?
+        admin.firestore.Timestamp.fromMillis(expirationDateMillis) :
+        null;
+      if (isPremium && !productId) {
+        throw new HttpsError("invalid-argument", "Premium product id is required.");
+      }
+      const isEntitlementActive = isPremium &&
+        expirationTimestamp !== null &&
+        expirationTimestamp.toMillis() > nowTimestamp.toMillis();
+      const nextLimits = effectiveRoomLimits({
+        isPremium: isEntitlementActive,
+        premiumExpirationAt: isEntitlementActive && expirationTimestamp ? {
+          toDate: () => expirationTimestamp.toDate(),
+        } : null,
+        maxHostRoom: DEFAULT_HOST_ROOM_LIMIT,
+        maxJoinRoom: DEFAULT_JOIN_ROOM_LIMIT,
+      }, nowTimestamp.toDate());
+
+      await db.collection("users").doc(uid).set({
+        isPremium: isEntitlementActive,
+        premiumSource: isEntitlementActive ? PREMIUM_SOURCE_APP_STORE : admin.firestore.FieldValue.delete(),
+        premiumProductId: isEntitlementActive ? productId : "",
+        premiumExpirationAt: isEntitlementActive && expirationTimestamp ?
+          expirationTimestamp :
+          admin.firestore.FieldValue.delete(),
+        premiumLastVerifiedAt: nowTimestamp,
+        maxHostRoom: nextLimits.maxHostRoom,
+        maxJoinRoom: nextLimits.maxJoinRoom,
+        updatedAt: nowTimestamp,
+      }, {merge: true});
+
+      return {
+        isPremium: isEntitlementActive,
+        productId: isEntitlementActive ? productId : "",
+        expirationDateMillis: isEntitlementActive && expirationTimestamp ?
+          expirationTimestamp.toMillis() :
+          null,
+        maxHostRoom: nextLimits.maxHostRoom,
+        maxJoinRoom: nextLimits.maxJoinRoom,
+      };
+    },
+);
+
+// Callable DailyReward claimer that grants today's honey once per Taipei calendar day.
+exports.claimDailyHoneyReward = onCall(
+    {
+      region: "us-central1",
+    },
+    async (request) => {
+      const uid = stringifyValue(request.auth?.uid, "");
+      if (!uid) {
+        throw new HttpsError("unauthenticated", "Sign in is required.");
+      }
+
+      const nowTimestamp = admin.firestore.Timestamp.now();
+      const rewardDate = currentRewardDateParts(nowTimestamp.toDate());
+      const userRef = db.collection("users").doc(uid);
+      let updatedHoney = 0;
+      let grantedHoney = DAILY_REWARD_HONEY;
+
+      await db.runTransaction(async (tx) => {
+        const userSnap = await tx.get(userRef);
+        if (!userSnap.exists) {
+          throw new HttpsError("failed-precondition", "User profile is missing.");
+        }
+
+        const userData = userSnap.data() || {};
+        const rewardData = userData.dailyReward || {};
+        const storedMonthKey = stringifyValue(rewardData.monthKey, "");
+        const rawClaimedDays = Array.isArray(rewardData.claimedDays) ? rewardData.claimedDays : [];
+        let claimedDays = rawClaimedDays
+            .map((value) => normalizeHoneyValue(value))
+            .filter((value) => value > 0 && value <= 31);
+
+        if (storedMonthKey !== rewardDate.monthKey) {
+          claimedDays = [];
+        }
+
+        if (claimedDays.includes(rewardDate.day)) {
+          throw new HttpsError("already-exists", "Today's reward has already been claimed.");
+        }
+
+        const currentHoney = normalizeHoneyValue(userData.honey);
+        grantedHoney = effectiveDailyRewardHoney(userData, nowTimestamp.toDate());
+        updatedHoney = currentHoney + grantedHoney;
+        const nextClaimedDays = Array.from(new Set([...claimedDays, rewardDate.day])).sort((left, right) => left - right);
+
+        tx.set(userRef, {
+          honey: updatedHoney,
+          dailyReward: {
+            monthKey: rewardDate.monthKey,
+            claimedDays: nextClaimedDays,
+            lastClaimedDayKey: rewardDate.dayKey,
+            lastClaimedAt: nowTimestamp,
+            updatedAt: nowTimestamp,
+          },
+          updatedAt: nowTimestamp,
+        }, {merge: true});
+      });
+
+      await recordUserEvent({
+        uid,
+        cloudEventId: `daily_reward_${rewardDate.dayKey}`,
+        type: "HONEY_REWARD",
+        messageArgs: [String(grantedHoney)],
+      });
+
+      return {
+        rewardAmount: grantedHoney,
+        claimedDay: rewardDate.day,
+        monthKey: rewardDate.monthKey,
+        updatedHoney,
+      };
+    },
+);
+
 // Record host-side room-created history event.
 // Event: ROOM_CREATED_HOST
 exports.recordRoomCreatedEvent = onDocumentCreated(
@@ -782,6 +1005,51 @@ exports.recordRoomClosedEvent = onDocumentDeleted(
         roomId,
         messageArgs: [stringifyValue(roomData.title, "Untitled Room")],
       });
+    },
+);
+
+// Record host/attendee kick history events when the host kicks one attendee out of a room.
+// Events: KICKED_ATTENDEE, KICKED_HOST
+exports.recordRoomKickEvents = onDocumentCreated(
+    {
+      document: "rooms/{roomId}/kickEvents/{kickEventId}",
+      region: "us-central1",
+    },
+    async (event) => {
+      const kickData = event.data?.data();
+      if (!kickData) return;
+
+      const roomId = event.params.roomId;
+      const hostUid = stringifyValue(kickData.hostUid, "");
+      const attendeeUid = stringifyValue(kickData.attendeeUid, "");
+      const attendeeName = stringifyValue(kickData.attendeeName, "A player");
+      const roomTitle = stringifyValue(kickData.roomTitle, "the room");
+      const refundedHoney = String(normalizeHoneyValue(kickData.refundedHoney));
+      if (!hostUid || !attendeeUid) {
+        logger.warn("Skipping kick events because participant ids are missing", {
+          roomId,
+          kickEventId: event.params.kickEventId,
+        });
+        return;
+      }
+
+      await Promise.all([
+        recordUserEvent({
+          uid: attendeeUid,
+          cloudEventId: event.id,
+          type: "KICKED_ATTENDEE",
+          roomId,
+          messageArgs: [roomTitle, refundedHoney],
+        }),
+        recordUserEvent({
+          uid: hostUid,
+          cloudEventId: event.id,
+          type: "KICKED_HOST",
+          roomId,
+          relatedUid: attendeeUid,
+          messageArgs: [attendeeName, roomTitle],
+        }),
+      ]);
     },
 );
 
@@ -1276,19 +1544,16 @@ async function processHostRaidConfirmationResultEvent(event) {
         return;
       }
 
-      const raidCostHoney = Number(roomData.fixedRaidCost || 0);
       const attendeeName = stringifyValue(afterData.name, "A player");
       const settlementOutcome = (afterData.lastSettlementOutcome || "").toString();
       const settlementHoney = Number(afterData.lastSettlementHoney || 0);
-      const raidCostHoneyText = String(raidCostHoney);
-      const settlementHoneyText = String(settlementHoney);
       const pushType = settlementOutcome === "SeatFullNoFault" ?
         "raid_confirmation_seat_full" : settlementOutcome === "MissedInvitation" ?
           "raid_confirmation_missed_invite" :
           "raid_confirmation_accepted";
       const pushHoneyEarned = settlementOutcome === "SeatFullNoFault" ?
-        settlementHoneyText : settlementOutcome === "MissedInvitation" ?
-          "0" : raidCostHoneyText;
+        String(settlementHoney > 0 ? settlementHoney : MUSHROOM_SEAT_FULL_REWARD_HONEY) : settlementOutcome === "MissedInvitation" ?
+          "0" : String(MUSHROOM_JOINED_SUCCESS_REWARD_HONEY);
       const replyHostMessageArgs = [pushType, attendeeName, pushHoneyEarned];
       const hostEventId = resolveEventDocumentId(event.id, hostUid);
       await recordUserEvent({

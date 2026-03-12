@@ -17,6 +17,61 @@ extension UserSessionStore {
     private var currentLocaleIdentifier: String {
         Locale.current.identifier
     }
+
+    /// Returns whether the provided premium entitlement is still active at the current time.
+    /// - Parameters:
+    ///   - isPremiumFlag: Stored backend premium flag.
+    ///   - expirationDate: Stored backend expiration timestamp.
+    /// - Returns: `true` when the entitlement is marked premium and not expired.
+    private func isPremiumEntitlementActive(
+        isPremiumFlag: Bool,
+        expirationDate: Date?
+    ) -> Bool {
+        guard isPremiumFlag else { return false }
+        guard let expirationDate else { return false }
+        return expirationDate > Date()
+    }
+
+    /// Applies premium entitlement fields and derives effective room limits for the session.
+    /// - Parameters:
+    ///   - isPremiumFlag: Stored backend premium flag.
+    ///   - productId: StoreKit product id currently linked to the user.
+    ///   - expirationDate: Premium subscription expiration date when present.
+    ///   - maxHostRoomValue: Backend fallback host-room limit field.
+    ///   - maxJoinRoomValue: Backend fallback joined-room limit field.
+    private func applyPremiumState(
+        isPremiumFlag: Bool,
+        productId: String,
+        expirationDate: Date?,
+        maxHostRoomValue: Int?,
+        maxJoinRoomValue: Int?
+    ) {
+        let isEntitlementActive = isPremiumEntitlementActive(
+            isPremiumFlag: isPremiumFlag,
+            expirationDate: expirationDate
+        )
+
+        isPremium = isEntitlementActive
+        premiumProductId = productId
+        premiumExpirationDate = expirationDate
+
+        persistScopedBool(kIsPremium, value: isPremium)
+        persistScopedString(kPremiumProductId, value: productId)
+        persistScopedDate(kPremiumExpirationDate, value: expirationDate)
+
+        if isEntitlementActive {
+            maxHostRoom = AppConfig.Premium.premiumHostRoomLimit
+            maxJoinRoom = AppConfig.Premium.premiumJoinRoomLimit
+        } else {
+            let backendHostLimit = maxHostRoomValue ?? AppConfig.Mushroom.defaultHostRoomLimit
+            let backendJoinLimit = maxJoinRoomValue ?? AppConfig.Mushroom.defaultJoinRoomLimit
+            maxHostRoom = max(AppConfig.Mushroom.defaultHostRoomLimit, backendHostLimit)
+            maxJoinRoom = max(AppConfig.Mushroom.defaultJoinRoomLimit, backendJoinLimit)
+        }
+
+        persistScopedInt(kMaxHostRoom, value: maxHostRoom)
+        persistScopedInt(kMaxJoinRoom, value: maxJoinRoom)
+    }
     /// Source context for a profile save operation.
     enum ProfileSaveSource {
         /// Save originated from first-time onboarding completion.
@@ -115,21 +170,26 @@ extension UserSessionStore {
                 lastSyncedFcmTokenByUid[uid] = backendFcmToken
             }
 
-            if let maxHostValue = data["maxHostRoom"] as? Int {
-                maxHostRoom = max(AppConfig.Mushroom.defaultHostRoomLimit, maxHostValue)
-                persistScopedInt(kMaxHostRoom, value: maxHostRoom)
-            } else {
-                maxHostRoom = AppConfig.Mushroom.defaultHostRoomLimit
-                persistScopedInt(kMaxHostRoom, value: maxHostRoom)
+            let premiumProductId = (data["premiumProductId"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let premiumExpirationDate = (data["premiumExpirationAt"] as? Timestamp)?.dateValue()
+            let backendPremiumFlag = data["isPremium"] as? Bool ?? false
+            let maxHostValue = data["maxHostRoom"] as? Int
+            let maxJoinValue = data["maxJoinRoom"] as? Int
+
+            applyPremiumState(
+                isPremiumFlag: backendPremiumFlag,
+                productId: premiumProductId,
+                expirationDate: premiumExpirationDate,
+                maxHostRoomValue: maxHostValue,
+                maxJoinRoomValue: maxJoinValue
+            )
+
+            if maxHostValue == nil {
                 needsDefaults["maxHostRoom"] = maxHostRoom
             }
 
-            if let maxJoinValue = data["maxJoinRoom"] as? Int {
-                maxJoinRoom = max(AppConfig.Mushroom.defaultJoinRoomLimit, maxJoinValue)
-                persistScopedInt(kMaxJoinRoom, value: maxJoinRoom)
-            } else {
-                maxJoinRoom = AppConfig.Mushroom.defaultJoinRoomLimit
-                persistScopedInt(kMaxJoinRoom, value: maxJoinRoom)
+            if maxJoinValue == nil {
                 needsDefaults["maxJoinRoom"] = maxJoinRoom
             }
 
@@ -209,6 +269,8 @@ extension UserSessionStore {
                     "honey": honey,
                     "maxHostRoom": maxHostRoom,
                     "maxJoinRoom": maxJoinRoom,
+                    "isPremium": false,
+                    "premiumProductId": "",
                     "localeIdentifier": currentLocaleIdentifier,
                     "isProfileComplete": isProfileComplete,
                     "createdAt": now,

@@ -6,6 +6,7 @@
 - `mushroomHunter/Features/EventInbox/EventInboxView.swift`: inbox list UI and row tap behavior.
 - `mushroomHunter/Features/Mushroom/RoomBrowseView.swift`: mushroom-tab bell tap handler that refreshes inbox before presenting it.
 - `mushroomHunter/Features/Postcard/PostcardBrowseView.swift`: postcard-tab bell tap handler that refreshes inbox before presenting it.
+- `mushroomHunter/Features/DailyReward/DailyRewardView.swift`: DailyReward claim flow that refreshes inbox after successful reward event creation.
 - `mushroomHunter/App/HoneyHubApp.swift`: APNs tap routing (`room`/`postcard`) and inbox refresh hooks.
 - `mushroomHunter/Resources/en.lproj/Localizable.strings`: English `event_type_*` and `push_*` localization keys.
 - `mushroomHunter/Resources/zh-Hant.lproj/Localizable.strings`: Traditional Chinese `event_type_*` and `push_*` localization keys.
@@ -55,6 +56,17 @@ Current event document fields:
 ## Stored Event Types (`users/{uid}/events.type`)
 
 ### Mushroom Events
+
+- `HONEY_REWARD`
+  - Class: Record Event.
+  - Producer: `claimDailyHoneyReward`.
+  - Trigger: user successfully claims today's DailyReward honey.
+  - Target: claimant
+  - Title(Eng): `Honey Reward`
+  - Title(Chinese): `蜂蜜獎勵`
+  - Message(Eng): `You have received %@ honey as reward.`
+  - Message(Chinese): `您已獲得 %@ 蜂蜜獎勵。`
+  - Push: none.
 
 - `ROOM_CREATED_HOST`
   - Class: Record Event.
@@ -144,6 +156,29 @@ Current event document fields:
   - Message(Chinese): `您已拒絕來自 %@ 的加入申請。`
   - Push: none.
 
+- `KICKED_ATTENDEE`
+  - Class: Record Event.
+  - Producer: `recordRoomKickEvents`.
+  - Trigger: When attendee has been kicked out of a room 
+  - Target: attendee
+  - Push: none.
+  - Title(Eng): `Kicked Out`
+  - Title(Chinese): `已被踢出房間`
+  - Message(Eng): `You have been kicked out of room: %@. Your deposited %@ honey has been returned.`
+  - Message(Chinese): `您已被踢出房間:%@，您儲值的%@蜂蜜已返還。`
+
+- `KICKED_HOST`
+  - Class: Record Event.
+  - Producer: `recordRoomKickEvents`.
+  - Trigger: When attendee has been kicked out of a room 
+  - Target: host
+  - Title(Eng): `Kicked Out`
+  - Title(Chinese): `已將玩家踢出房間`
+  - Message(Eng): `You kicked %@ out of room: %@.`
+  - Message(Chinese): `您已將%@踢出房間:%@`
+  - Push: none.
+
+
 - `RAID_INVITED_HOST`
   - Class: Record Event.
   - Producer: `recordHostRaidInviteEvent`.
@@ -175,8 +210,8 @@ Current event document fields:
   - Push: `handleRoomAttendeeUpdatedEvents`.
   - Title(Eng): `Attendee Confirmed` or `Attendee Missed Invite`
   - Title(Chinese): `參加者已確認` or `參加者未看到邀請`
-  - Message(Eng): `%@ confirmed raid join. You earned %@ honey.` or `%@ reported invited but seat full. You earned %@ honey.` or `%@ reported no invitation was seen.`
-  - Message(Chinese): `%@ 已確認參加戰鬥。您獲得 %@ 蜂蜜。` or `%@ 回報蘑菇滿位。您獲得 %@ 蜂蜜。` or `%@ 回報未看到邀請。`
+  - Message(Eng): `%@ confirmed raid join and paid you %@ honey.` or `%@ reported invited but seat full and paid you %@ honey.` or `%@ reported no invitation was seen.`
+  - Message(Chinese): `%@ 已確認參加戰鬥，已支付您 %@ 蜂蜜。` or `%@ 回報蘑菇滿位，已支付您 %@ 蜂蜜。` or `%@ 回報未看到邀請。`
 
 - `STAR_RECEIVED`
   - Class: Record Event.
@@ -268,6 +303,7 @@ Current event document fields:
   - Message(Eng): `%@ confirmed receipt. %@ honey has been transferred to you.`
   - Message(Chinese): `%@ 已確認收件，%@ 蜂蜜已轉給您。`
   - Placeholder order: first argument is buyer name, second argument is the honey amount transferred to the seller.
+  - Event arg contract: server stores an internal leading completion-mode discriminator (`manual` or `auto`) and remaps placeholders so manual completion still renders buyer name first and honey amount second.
   - Note: if order is `CompletedAuto`, the message becomes `%@ postcard received timed out. %@ honey has been transferred to you.` / `「%@」收件確認逾時，%@ 蜂蜜已轉給您。`.
   - Note: seller-side postcard rating is not attached to this event row; the completed order doc carries `isSellerRatingRequired` until the seller rates the buyer.
 

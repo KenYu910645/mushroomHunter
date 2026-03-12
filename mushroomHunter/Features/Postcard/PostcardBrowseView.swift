@@ -39,6 +39,8 @@ struct PostcardBrowseView: View {
     @State private var isRegisterSheetPresented: Bool = false
     /// Controls presentation of the notification inbox sheet.
     @State private var isNotificationInboxPresented: Bool = false
+    /// Controls presentation of the DailyReward sheet.
+    @State private var isDailyRewardPresented: Bool = false
     /// Refresh trigger incremented after creating a postcard.
     @State private var browseDataRefreshToken: Int = 0
     /// Current color scheme used for theme background rendering.
@@ -186,25 +188,22 @@ struct PostcardBrowseView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        guard !postcardBrowseTutorial.isActive else { return }
-                        Task { @MainActor in
-                            await notificationInbox.refreshFromServer()
-                            isNotificationInboxPresented = true
-                        }
-                    } label: {
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: "bell")
-                            if notificationInbox.unreadCount > 0 {
-                                Circle()
-                                    .fill(Color.red)
-                                    .frame(width: 8, height: 8)
-                                    .offset(x: 4, y: -3)
+                    DailyRewardToolbarActions(
+                        onOpenDailyReward: {
+                            guard !postcardBrowseTutorial.isActive else { return }
+                            isDailyRewardPresented = true
+                        },
+                        onOpenNotificationInbox: {
+                            guard !postcardBrowseTutorial.isActive else { return }
+                            Task { @MainActor in
+                                await notificationInbox.refreshFromServer()
+                                isNotificationInboxPresented = true
                             }
-                        }
-                    }
-                    .accessibilityLabel(LocalizedStringKey("postcard_notification_accessibility"))
-                    .accessibilityIdentifier("postcard_notification_button")
+                        },
+                        unreadCount: notificationInbox.unreadCount,
+                        bellAccessibilityLabel: "postcard_notification_accessibility",
+                        bellAccessibilityIdentifier: "postcard_notification_button"
+                    )
                 }
             }
             .background(Theme.backgroundGradient(for: scheme))
@@ -251,6 +250,11 @@ struct PostcardBrowseView: View {
                 routeEventInboxItem(route)
             }
             .environmentObject(notificationInbox)
+        }
+        .sheet(isPresented: $isDailyRewardPresented) {
+            DailyRewardView()
+                .environmentObject(session)
+                .environmentObject(notificationInbox)
         }
         .onChange(of: vm.selectedCountry) { _, _ in
             vm.normalizeProvinceSelection()
@@ -554,6 +558,8 @@ private struct PostcardBrowseDestinationView: View {
         if AppTesting.useMockPostcards {
             if route.postcardId == AppTesting.fixturePostcardId {
                 listing = AppTesting.fixturePostcardListing()
+            } else if route.postcardId == AppTesting.fixtureSoldOutPostcardId {
+                listing = AppTesting.fixtureSoldOutPostcardListing()
             } else if route.postcardId == AppTesting.fixtureOwnedPostcardListing().id {
                 listing = AppTesting.fixtureOwnedPostcardListing()
             }
