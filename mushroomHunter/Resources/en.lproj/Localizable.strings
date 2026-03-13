@@ -285,7 +285,7 @@
 /***************************************/
 
 "room_msg_raid_thanks_title" = "Enjoy the Mushroom!";
-"room_msg_raid_thanks_message" = "You paid the host %d {honey_icon}.";
+"room_msg_raid_thanks_message" = "You paid the host %d {honey_icon}. Remaining deposited honey in this room: %d {honey_icon}.";
 "room_msg_rate_host_title" = "Rate the Host: %@";
 "room_msg_rate_attendee_title" = "Rate Attendee: %@?";
 "room_msg_rate_one_star" = "⭐";

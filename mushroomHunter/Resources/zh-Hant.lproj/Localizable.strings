@@ -286,8 +286,8 @@
 /**** Room Message Box: Thanks/Rating ****/
 /***************************************/
 
-"room_msg_raid_thanks_title" = "享受蘑菇戰！";
-"room_msg_raid_thanks_message" = "您已支付主持人 %d {honey_icon}。";
+"room_msg_raid_thanks_title" = "Enjoy!";
+"room_msg_raid_thanks_message" = "已支付主持人 %d {honey_icon}，您在此房間剩餘的蜂蜜儲值為 %d {honey_icon}。";
 "room_msg_rate_host_title" = "評價主持人：%@";
 "room_msg_rate_attendee_title" = "評價參加者：%@？";
 "room_msg_rate_one_star" = "⭐";

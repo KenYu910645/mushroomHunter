@@ -62,6 +62,7 @@ struct RoomView: View {
     @State private var showNextRoundAlert: Bool = false // State or dependency property.
     @State private var showRaidThanksAlert: Bool = false // State or dependency property.
     @State private var raidThanksHoney: Int = 0 // State or dependency property.
+    @State private var raidRemainingDepositHoney: Int = 0 // Remaining honey still deposited in the room after joined-success settlement.
     @State private var isShowingNoFaultSettlementAlert: Bool = false // Indicates no-fault seat-full settlement result should be shown.
     @State private var noFaultSettlementHoney: Int = 0 // Latest effort-fee honey transferred from no-fault seat-full settlement.
     @State private var showAttendeeRateHostAlert: Bool = false // State or dependency property.
@@ -1117,7 +1118,11 @@ struct RoomView: View {
         if showRaidThanksAlert {
             MessageBox(
                 title: NSLocalizedString("room_msg_raid_thanks_title", comment: ""),
-                message: String(format: NSLocalizedString("room_msg_raid_thanks_message", comment: ""), raidThanksHoney),
+                message: String(
+                    format: NSLocalizedString("room_msg_raid_thanks_message", comment: ""),
+                    raidThanksHoney,
+                    raidRemainingDepositHoney
+                ),
                 buttons: [
                     MessageBoxButton(
                         id: "room_raid_thanks_ok",
@@ -1551,6 +1556,7 @@ struct RoomView: View {
             let isConfirmed = await vm.respondToRaidConfirmation(confirmationId: queueItem.id, settlementOutcome: .joinedSuccess)
             if isConfirmed {
                 raidThanksHoney = AppConfig.Mushroom.joinedSuccessRewardHoney
+                raidRemainingDepositHoney = vm.currentUserDepositHoney() ?? 0
                 showRaidThanksAlert = true
             }
         case .seatFullNoFault:
