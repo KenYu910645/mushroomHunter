@@ -40,8 +40,11 @@ Need to check both English and Chinese
    - Joiner reply Join Success, Mushroom full, No invitation
    - If settlement makes attendee deposit fall below `AppConfig.Mushroom.minimumRequiredDepositHoney`, attendee row status should switch to red `Not Enough Honey` / `蜂蜜不足`, and attendee should still be able to open deposit edit to top up
    - The star is correctly updated.
+   - If the receiver is already viewing room detail, the attendee slot star count should update in place without pull-to-refresh.
+   - If room detail still shows stale star counts, pull-to-refresh should force-correct all attendee row stars from latest profile values.
    - Host/attendee clipboard icons should show a red dot when pending rating tasks exist there.
    - Rating and skip should both work from the clipboard queue/history sheets and should never reopen a popup.
+   - Receiver should get a `STAR_RECEIVED` inbox row and mushroom star push when a room rating task is completed.
 6. Postcard buy flow
    - buyer buy, and seller can choose to accept or reject, the honey must update correctly
    - The notification need to be ok 

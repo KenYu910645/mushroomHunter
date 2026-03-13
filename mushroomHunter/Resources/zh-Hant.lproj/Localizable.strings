@@ -35,7 +35,6 @@
 "daily_reward_claim_button" = "領取今日獎勵";
 "daily_reward_claiming_button" = "領取中…";
 "daily_reward_today_claimed_hint" = "今天的獎勵已領取。";
-"daily_reward_expired_hint" = "未領取的獎勵會在台北時間凌晨 12 點失效，之後無法補領。";
 "daily_reward_day_claimed" = "已領取";
 "daily_reward_day_today" = "今日";
 "daily_reward_day_expired" = "失效";
@@ -145,7 +144,7 @@
 "host_fixed_raid_cost_header" = "報酬";
 "host_fixed_raid_cost_footer" = "每次成功邀請玩家打蘑菇後獲得的報酬。";
 "host_close_room_button" = "刪除房間";
-"host_close_room_footer" = "即將刪除房間並且無法恢復。";
+"host_close_room_footer" = "刪除房間將無法恢復。";
 "host_room_default_name" = "一起來打蘑菇吧";
 
 /***************************************/

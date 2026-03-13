@@ -10,6 +10,7 @@
 //
 import SwiftUI
 import Combine
+import FirebaseFirestore
 
 // MARK: - ViewModel
 
@@ -53,6 +54,7 @@ final class RoomViewModel: ObservableObject {
     private let actions = FbRoomActionsRepo()
     private let cache = RoomCache.shared // Shared Mushroom cache used for stale-first room detail loading.
     private let dirtyBits = CacheDirtyBitStore.shared // Shared dirty-bit state used to force backend refresh after room mutations/events.
+    private var attendeeListenerRegistration: ListenerRegistration? // Live attendee listener that keeps room attendee rows fresh while the screen stays open.
     
     // MARK: Init
     
@@ -70,6 +72,10 @@ final class RoomViewModel: ObservableObject {
             sortAttendees(by: attendeeSort)
         }
     }
+
+    deinit {
+        attendeeListenerRegistration?.remove()
+    }
     
     // MARK: Public API
     
@@ -77,6 +83,7 @@ final class RoomViewModel: ObservableObject {
         let isRoomDirty = await dirtyBits.isMushroomRoomDirty(roomId: roomId)
         let isShouldForceRefresh = isForceRefresh || isRoomDirty
         if !isShouldForceRefresh, await loadRoomFromCache() {
+            bindLiveAttendeesIfNeeded()
             await refreshRoomRatingTasks()
             return
         }
@@ -97,7 +104,10 @@ final class RoomViewModel: ObservableObject {
         
         do {
             let fetchedRoom = try await repo.fetchRoom(roomId: roomId)
-            let attendees = try await repo.fetchAttendees(roomId: roomId)
+            let attendees = try await repo.fetchAttendees(
+                roomId: roomId,
+                isHydratingLatestUserStars: isShouldForceRefresh
+            )
             
             var merged = fetchedRoom
             merged.attendees = attendees
@@ -105,6 +115,7 @@ final class RoomViewModel: ObservableObject {
             await cache.save(merged, key: roomCacheKey(roomId: roomId))
             await dirtyBits.clearMushroomRoomDirty(roomId: roomId)
             
+            bindLiveAttendeesIfNeeded()
             recomputeRole()
             recomputeConfirmationStates()
             sortAttendees(by: attendeeSort)
@@ -644,6 +655,25 @@ final class RoomViewModel: ObservableObject {
         recomputeConfirmationStates()
         sortAttendees(by: attendeeSort)
         return true
+    }
+
+    /// Starts the room attendee listener once so stars and statuses refresh while the room page remains visible.
+    private func bindLiveAttendeesIfNeeded() {
+        if AppTesting.useMockRooms { return }
+        guard attendeeListenerRegistration == nil else { return }
+
+        attendeeListenerRegistration = repo.observeAttendees(roomId: roomId) { [weak self] attendees in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard var currentRoom = self.room else { return }
+                currentRoom.attendees = attendees
+                self.room = currentRoom
+                await self.cache.save(currentRoom, key: self.roomCacheKey(roomId: self.roomId))
+                self.recomputeRole()
+                self.recomputeConfirmationStates()
+                self.sortAttendees(by: self.attendeeSort)
+            }
+        }
     }
 
     /// Refreshes durable room rating tasks for the current user and room.

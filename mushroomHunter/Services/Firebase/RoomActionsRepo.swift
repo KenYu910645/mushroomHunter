@@ -1050,6 +1050,7 @@ final class FbRoomActionsRepo {
         let taskRef = db.collection(BackendCollectionName.roomRatingTasks).document(taskId)
         let now = Timestamp(date: Date())
 
+        print("🔎 [RoomRating] submit start taskId=\(taskId) raterUid=\(currentUid) stars=\(stars)")
         try await db.runTransaction { tx, errPtr -> Any? in
             let taskSnap: DocumentSnapshot
             do {
@@ -1084,6 +1085,19 @@ final class FbRoomActionsRepo {
                 return nil
             }
             let rateeUserRef = self.db.collection("users").document(rateeUid)
+            let rateeUserSnapshot: DocumentSnapshot
+            do {
+                rateeUserSnapshot = try tx.getDocument(rateeUserRef)
+            } catch {
+                errPtr?.pointee = error as NSError
+                return nil
+            }
+            let previousRateeStars = rateeUserSnapshot.data()?["stars"] as? Int ?? 0
+            print(
+                "🔎 [RoomRating] taskId=\(taskId) roomId=\(roomId) rateeUid=\(rateeUid) " +
+                "previousUserStars=\(previousRateeStars) increment=\(stars) " +
+                "expectedUserStars=\(previousRateeStars + stars)"
+            )
 
             tx.setData([
                 "stars": FieldValue.increment(Int64(stars)),
@@ -1109,6 +1123,16 @@ final class FbRoomActionsRepo {
             ], forDocument: taskRef)
 
             return nil
+        }
+
+        let committedTaskSnapshot = try await taskRef.getDocument(source: .server)
+        let rateeUid = committedTaskSnapshot.data()?["rateeUid"] as? String ?? ""
+        if rateeUid.isEmpty == false {
+            let rateeSnapshot = try await db.collection("users").document(rateeUid).getDocument(source: .server)
+            let serverStars = rateeSnapshot.data()?["stars"] as? Int ?? 0
+            print("🔎 [RoomRating] submit committed taskId=\(taskId) rateeUid=\(rateeUid) serverUserStars=\(serverStars)")
+        } else {
+            print("🔎 [RoomRating] submit committed taskId=\(taskId) but rateeUid was empty on post-read")
         }
     }
 

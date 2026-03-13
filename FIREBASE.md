@@ -61,11 +61,12 @@ service firebase.storage {
 ### App Launch, Sign-in, Session
 - Open app while signed in:
   - Firestore read: `users/{uid}` to refresh local session/profile/wallet.
+  - Firestore snapshot listener on `users/{uid}` keeps local stars/honey/profile fields synchronized with backend transaction writes while the session stays signed in.
 - Receive/refresh FCM token:
   - Firestore write: `users/{uid}.fcmToken` (guarded; skip write if unchanged in-session).
   - Firestore writes: hosted room snapshots (`rooms.hostFcmToken`, host attendee `fcmToken`) to reduce later function reads.
 - Sign in (Apple/Google):
-  - Auth operation only, then profile sync may write `users/{uid}` defaults.
+  - Auth operation only, then profile sync may fill missing `users/{uid}` defaults without overwriting existing `stars`/`honey` counters.
 
 ### Profile Tab
 - Open profile tab:
@@ -151,10 +152,12 @@ service firebase.storage {
 #### Open room detail
 - Tap a room:
   - Firestore read/query for room header + attendee list.
+  - Firestore attendee snapshot listener stays attached while the room page remains open so attendee stars/status changes from other devices refresh in place.
   - See `CACHE.md` for cache-hit/miss and refresh trigger behavior.
 - Pull-to-refresh:
   - Firestore read: `rooms/{roomId}`
   - Firestore query read: `rooms/{roomId}/attendees`
+  - Firestore query reads on `users` (by attendee uid chunks) to override attendee-row `stars` with the latest profile star counts during forced refresh.
 
 #### Join room
 - Tap Join:
@@ -199,6 +202,7 @@ service firebase.storage {
   - Firestore transaction writes status/deposit/honey/settlement snapshot fields and creates two `roomRatingTasks` docs.
 - Host/attendee rating:
   - Firestore transaction updates user stars, best-effort updates active room attendee stars, and resolves the matching `roomRatingTasks` doc as `Rated` or `Skipped`.
+  - Cloud Function trigger `handleRoomRatingTaskUpdatedEvents` watches `roomRatingTasks/{taskId}` transitions into `Rated` and emits receiver-side `STAR_RECEIVED` inbox rows plus push notifications.
   - Room close marks pending `roomRatingTasks` docs for that room as `Closed`.
 
 ### Postcard Tab

@@ -688,6 +688,51 @@ async function resolveHostDisplayName(roomId, roomData, hostUid = "") {
   return "Host";
 }
 
+// Resolve one room participant display name using room snapshots first, then the user profile.
+async function resolveRoomParticipantDisplayName(roomId, roomData, participantUid) {
+  const normalizedParticipantUid = stringifyValue(participantUid, "");
+  if (!normalizedParticipantUid) return "A player";
+
+  const hostUid = stringifyValue(roomData?.hostUid, "") || await resolveHostUid(roomId, roomData);
+  if (hostUid && normalizedParticipantUid === hostUid) {
+    return resolveHostDisplayName(roomId, roomData, hostUid);
+  }
+
+  try {
+    const attendeeSnap = await db.collection("rooms")
+        .doc(roomId)
+        .collection("attendees")
+        .doc(normalizedParticipantUid)
+        .get();
+    const attendeeName = stringifyValue(attendeeSnap.data()?.name, "");
+    if (attendeeName) {
+      return attendeeName;
+    }
+  } catch (error) {
+    logger.warn("Failed to resolve room participant name from attendee snapshot", {
+      roomId,
+      participantUid: normalizedParticipantUid,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  try {
+    const userSnap = await db.collection("users").doc(normalizedParticipantUid).get();
+    const userName = stringifyValue(userSnap.data()?.displayName, "");
+    if (userName) {
+      return userName;
+    }
+  } catch (error) {
+    logger.warn("Failed to resolve room participant name from user profile", {
+      roomId,
+      participantUid: normalizedParticipantUid,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return "A player";
+}
+
 // Run one routed processor safely so one branch failure does not block other branches.
 async function runEventProcessor(processorName, processor, event) {
   try {
@@ -1734,6 +1779,88 @@ async function processMushroomStarReceivedEvent(event) {
       }
 }
 
+// Routed room-rating-task branch: pending -> rated emits receiver history + push for queue-based room ratings.
+async function processMushroomRoomRatingTaskEvent(event) {
+      const beforeData = event.data?.before?.data();
+      const afterData = event.data?.after?.data();
+      if (!beforeData || !afterData) return;
+
+      const oldStatus = stringifyValue(beforeData.status, "");
+      const newStatus = stringifyValue(afterData.status, "");
+      if (oldStatus === "Rated" || newStatus !== "Rated") {
+        return;
+      }
+
+      const roomId = stringifyValue(afterData.roomId, "");
+      const raterUid = stringifyValue(afterData.raterUid, "");
+      const rateeUid = stringifyValue(afterData.rateeUid, "");
+      if (!roomId || !raterUid || !rateeUid) {
+        logger.warn("Skipping room rating event because required task fields are missing", {
+          taskId: event.params.taskId,
+          roomId,
+          raterUid,
+          rateeUid,
+        });
+        return;
+      }
+
+      const awardedStars = normalizeStarsCount(afterData.stars, 1);
+      const roomSnap = await db.collection("rooms").doc(roomId).get();
+      const roomData = roomSnap.data() || {};
+      const raterName = await resolveRoomParticipantDisplayName(roomId, roomData, raterUid);
+      const receiverEventId = resolveEventDocumentId(event.id, rateeUid);
+
+      await recordUserEvent({
+        uid: rateeUid,
+        cloudEventId: event.id,
+        type: "STAR_RECEIVED",
+        roomId,
+        relatedUid: raterUid,
+        messageArgs: [raterName, awardedStars],
+      });
+
+      try {
+        const receiverSnapshot = await resolveEventSnapshot(
+            rateeUid,
+            "STAR_RECEIVED",
+            [raterName, awardedStars],
+        );
+        await sendPushToUser(
+            rateeUid,
+            pushMessageFromSnapshot(
+                receiverSnapshot.title,
+                receiverSnapshot.message,
+                {
+                  type: "STAR_RECEIVED",
+                  roomId,
+                  room_id: roomId,
+                  fromUid: raterUid,
+                  toUid: rateeUid,
+                  stars: String(awardedStars),
+                  eventId: receiverEventId,
+                  event_id: receiverEventId,
+                },
+            ),
+            {roomId, raterUid, rateeUid, taskId: event.params.taskId},
+        );
+        logger.info("Room rating star received push sent", {
+          roomId,
+          raterUid,
+          rateeUid,
+          taskId: event.params.taskId,
+          awardedStars,
+        });
+      } catch (error) {
+        logger.error("Failed to send room rating star received push", {
+          roomId,
+          raterUid,
+          rateeUid,
+          taskId: event.params.taskId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+}
+
 // Single update trigger for rooms/{roomId}/attendees/{attendeeUid}; routes all attendee update event logic.
 // Events: RAID_CONFIRM_ATTENDEE, JOIN_ACCEPTED_ATTENDEE, JOIN_ACCEPTED_HOST, REPLY_HOST, STAR_RECEIVED
 exports.handleRoomAttendeeUpdatedEvents = onDocumentUpdated(
@@ -1746,6 +1873,17 @@ exports.handleRoomAttendeeUpdatedEvents = onDocumentUpdated(
       await runEventProcessor("join_applicant_accepted", processJoinApplicantAcceptedEvent, event);
       await runEventProcessor("host_raid_confirmation_result", processHostRaidConfirmationResultEvent, event);
       await runEventProcessor("mushroom_star_received", processMushroomStarReceivedEvent, event);
+    },
+);
+
+// Events: STAR_RECEIVED
+exports.handleRoomRatingTaskUpdatedEvents = onDocumentUpdated(
+    {
+      document: "roomRatingTasks/{taskId}",
+      region: "us-central1",
+    },
+    async (event) => {
+      await runEventProcessor("mushroom_star_received_task", processMushroomRoomRatingTaskEvent, event);
     },
 );
 

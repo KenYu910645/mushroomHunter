@@ -35,7 +35,6 @@
 "daily_reward_claim_button" = "Claim Today Reward";
 "daily_reward_claiming_button" = "Claiming...";
 "daily_reward_today_claimed_hint" = "Today's reward has already been claimed.";
-"daily_reward_expired_hint" = "Missed days expire at 12:00 AM Taipei time and cannot be claimed later.";
 "daily_reward_day_claimed" = "Claimed";
 "daily_reward_day_today" = "Today";
 "daily_reward_day_expired" = "Expired";

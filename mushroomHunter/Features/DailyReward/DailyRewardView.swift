@@ -87,11 +87,6 @@ struct DailyRewardView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                    } else {
-                        Text(LocalizedStringKey("daily_reward_expired_hint"))
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
 

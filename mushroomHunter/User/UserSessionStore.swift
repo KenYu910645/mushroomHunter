@@ -11,6 +11,7 @@
 import Foundation
 import FirebaseAuth
 import Combine
+import FirebaseFirestore
 
 @MainActor
 final class UserSessionStore: ObservableObject {
@@ -46,6 +47,7 @@ final class UserSessionStore: ObservableObject {
     let kHasShownOnboardingTutorial: String = "mh.hasShownOnboardingTutorial" // Local persistence key for one-time tutorial visibility.
 
     var authHandle: AuthStateDidChangeListenerHandle? // Firebase auth state listener handle.
+    var userProfileListener: ListenerRegistration? // Live listener for the signed-in user's backend profile document.
     var currentAppleNonce: String? // Temporary nonce used during Apple sign-in.
     var lastSyncedFcmTokenByUid: [String: String] = [:] // Tracks the most recently synced FCM token per uid to avoid duplicate writes.
     var isUserProfileEnsuredInCurrentSession: Bool = false // Tracks whether ensureUserProfile already wrote for the current signed-in uid.
@@ -71,8 +73,10 @@ final class UserSessionStore: ObservableObject {
 
             if let user {
                 self.loadLocalProfile(for: user.uid)
+                self.bindUserProfileListener(for: user.uid)
                 Task { await self.refreshProfileFromBackend() }
             } else {
+                self.unbindUserProfileListener()
                 self.resetToDefaults()
             }
 
@@ -98,6 +102,7 @@ final class UserSessionStore: ObservableObject {
         if let handle = authHandle {
             Auth.auth().removeStateDidChangeListener(handle)
         }
+        userProfileListener?.remove()
     }
 
     func scopedKey(_ key: String, uid: String) -> String { // Builds a user-scoped persistence key.
@@ -174,6 +179,66 @@ final class UserSessionStore: ObservableObject {
         isFeatureTutorialActive = false
         activeFeatureTutorialCount = 0
         profileActionBadgeCount = 0
+    }
+
+    /// Starts a live Firestore listener for the current signed-in user's profile document.
+    /// - Parameter uid: Authenticated user id whose profile should drive in-memory session fields.
+    private func bindUserProfileListener(for uid: String) {
+        userProfileListener?.remove()
+        userProfileListener = Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard error == nil else { return }
+                guard let data = snapshot?.data() else { return }
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.applyBackendProfileSnapshot(data, uid: uid)
+                }
+            }
+    }
+
+    /// Stops the active Firestore profile listener when auth state changes or the store deinitializes.
+    private func unbindUserProfileListener() {
+        userProfileListener?.remove()
+        userProfileListener = nil
+    }
+
+    /// Applies backend profile fields to local session state and persistence.
+    /// - Parameters:
+    ///   - data: Raw `users/{uid}` payload received from Firestore.
+    ///   - uid: Signed-in user id whose scoped local cache should be updated.
+    private func applyBackendProfileSnapshot(_ data: [String: Any], uid: String) {
+        let previousStars = stars
+        let previousHoney = honey
+        if let name = data["displayName"] as? String, name.isEmpty == false {
+            displayName = name
+            UserDefaults.standard.set(name, forKey: scopedKey(kDisplayName, uid: uid))
+        }
+
+        if let code = data["friendCode"] as? String {
+            let sanitizedFriendCode = FriendCode.digitsOnly(code)
+            friendCode = sanitizedFriendCode
+            UserDefaults.standard.set(sanitizedFriendCode, forKey: scopedKey(kFriendCode, uid: uid))
+        }
+
+        if let starsValue = data["stars"] as? Int {
+            stars = max(0, starsValue)
+            UserDefaults.standard.set(stars, forKey: scopedKey(kStars, uid: uid))
+        }
+
+        if let honeyValue = data["honey"] as? Int {
+            honey = max(0, honeyValue)
+            UserDefaults.standard.set(honey, forKey: scopedKey(kHoney, uid: uid))
+        }
+
+        updateProfileCompletionFromFields()
+        if previousStars != stars || previousHoney != honey {
+            print(
+                "🔎 [UserSession] profileListener uid=\(uid) " +
+                "stars \(previousStars)->\(stars) honey \(previousHoney)->\(honey)"
+            )
+        }
     }
 
     /// Marks that one interactive feature tutorial presentation started.

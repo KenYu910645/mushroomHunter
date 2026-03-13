@@ -54,6 +54,77 @@ import FirebaseFirestore
 final class FbRoomRepo {
     private let db = Firestore.firestore()
 
+    /// Decodes one attendee document snapshot into the room attendee model used by detail UI.
+    /// - Parameter document: Firestore attendee snapshot from `rooms/{roomId}/attendees/{uid}`.
+    /// - Returns: Decoded attendee row with defensive fallbacks for legacy fields.
+    private func decodeAttendee(document: QueryDocumentSnapshot) -> RoomAttendee {
+        let data = document.data()
+        let name = data["name"] as? String ?? "Unknown"
+        let friendCode = data["friendCode"] as? String ?? ""
+        let stars = data["stars"] as? Int ?? 0
+        let deposit = (data["depositHoney"] as? Int) ?? 0
+        let joinGreetingMessage = (data["joinGreetingMessage"] as? String) ?? ""
+        let joinedAt = (data["joinedAt"] as? Timestamp)?.dateValue()
+        let statusRaw = (data["status"] as? String) ?? AttendeeStatus.ready.rawValue
+        let status = AttendeeStatus(rawValue: statusRaw) ?? .ready
+        let isHostRatingRequired = (data["isHostRatingRequired"] as? Bool) ?? (data["needsHostRating"] as? Bool) ?? false
+        let pendingConfirmationRequestsRaw = data["pendingConfirmationRequests"] as? [String: Any] ?? [:]
+        let pendingConfirmationRequests = pendingConfirmationRequestsRaw.reduce(into: [String: Date]()) { partialResult, entry in
+            if let timestamp = entry.value as? Timestamp {
+                partialResult[entry.key] = timestamp.dateValue()
+            }
+        }
+
+        return RoomAttendee(
+            id: document.documentID,
+            name: name,
+            friendCode: friendCode,
+            stars: stars,
+            depositHoney: deposit,
+            joinGreetingMessage: joinGreetingMessage,
+            joinedAt: joinedAt,
+            status: status,
+            isHostRatingRequired: isHostRatingRequired,
+            pendingConfirmationRequests: pendingConfirmationRequests
+        )
+    }
+
+    /// Resolves latest profile stars for attendee ids from `users/{uid}` so forced refresh can bypass stale room snapshots.
+    /// - Parameters:
+    ///   - attendeeIds: Room attendee document ids that also match profile user ids.
+    ///   - isForcingServer: True when pull-to-refresh requires server-authoritative stars.
+    /// - Returns: Dictionary keyed by attendee uid with the latest non-negative user stars.
+    private func fetchLatestUserStarsByAttendeeId(
+        attendeeIds: [String],
+        isForcingServer: Bool
+    ) async throws -> [String: Int] {
+        let uniqueAttendeeIds = Array(Set(attendeeIds.filter { $0.isEmpty == false }))
+        guard uniqueAttendeeIds.isEmpty == false else { return [:] }
+
+        var starsByAttendeeId: [String: Int] = [:]
+        for attendeeIdChunk in uniqueAttendeeIds.chunked(into: 10) {
+            let query = db.collection("users")
+                .whereField(FieldPath.documentID(), in: attendeeIdChunk)
+            let snapshot: QuerySnapshot
+            if isForcingServer {
+                snapshot = try await query.getDocuments(source: .server)
+            } else {
+                do {
+                    snapshot = try await query.getDocuments(source: .server)
+                } catch {
+                    snapshot = try await query.getDocuments(source: .default)
+                }
+            }
+
+            for document in snapshot.documents {
+                let starsValue = document.data()["stars"] as? Int ?? 0
+                starsByAttendeeId[document.documentID] = max(0, starsValue)
+            }
+        }
+
+        return starsByAttendeeId
+    }
+
     func fetchRoom(roomId: String) async throws -> RoomDetail { // Handles fetchRoom flow.
         let ref = db.collection("rooms").document(roomId)
         let snap: DocumentSnapshot
@@ -125,7 +196,10 @@ final class FbRoomRepo {
         )
     }
 
-    func fetchAttendees(roomId: String) async throws -> [RoomAttendee] { // Handles fetchAttendees flow.
+    func fetchAttendees(
+        roomId: String,
+        isHydratingLatestUserStars: Bool = false
+    ) async throws -> [RoomAttendee] { // Handles fetchAttendees flow.
         // Most useful sort: high deposit first
         // (single-field orderBy in a subcollection does NOT require composite index)
         let query = db.collection("rooms")
@@ -140,37 +214,42 @@ final class FbRoomRepo {
             qs = try await query.getDocuments(source: .default)
         }
 
-        return qs.documents.map { doc in
-            let d = doc.data()
-            let name = d["name"] as? String ?? "Unknown"
-            let friendCode = d["friendCode"] as? String ?? ""
-            let stars = d["stars"] as? Int ?? 0
-            let deposit = (d["depositHoney"] as? Int) ?? 0
-            let joinGreetingMessage = (d["joinGreetingMessage"] as? String) ?? ""
-            let joinedAt = (d["joinedAt"] as? Timestamp)?.dateValue()
-            let statusRaw = (d["status"] as? String) ?? AttendeeStatus.ready.rawValue
-            let status = AttendeeStatus(rawValue: statusRaw) ?? .ready
-            let isHostRatingRequired = (d["isHostRatingRequired"] as? Bool) ?? (d["needsHostRating"] as? Bool) ?? false
-            let pendingConfirmationRequestsRaw = d["pendingConfirmationRequests"] as? [String: Any] ?? [:]
-            let pendingConfirmationRequests = pendingConfirmationRequestsRaw.reduce(into: [String: Date]()) { partialResult, entry in
-                if let timestamp = entry.value as? Timestamp {
-                    partialResult[entry.key] = timestamp.dateValue()
-                }
-            }
-
-            return RoomAttendee(
-                id: doc.documentID,
-                name: name,
-                friendCode: friendCode,
-                stars: stars,
-                depositHoney: deposit,
-                joinGreetingMessage: joinGreetingMessage,
-                joinedAt: joinedAt,
-                status: status,
-                isHostRatingRequired: isHostRatingRequired,
-                pendingConfirmationRequests: pendingConfirmationRequests
+        var attendees = qs.documents.map(decodeAttendee)
+        if isHydratingLatestUserStars {
+            let latestStarsByAttendeeId = try await fetchLatestUserStarsByAttendeeId(
+                attendeeIds: attendees.map(\.id),
+                isForcingServer: true
             )
+            attendees = attendees.map { attendee in
+                var hydratedAttendee = attendee
+                if let latestStars = latestStarsByAttendeeId[attendee.id] {
+                    hydratedAttendee.stars = latestStars
+                }
+                return hydratedAttendee
+            }
         }
+        return attendees
+    }
+
+    /// Starts a live Firestore listener for attendee rows inside one room.
+    /// - Parameters:
+    ///   - roomId: Parent room id.
+    ///   - onUpdate: Callback invoked with the latest decoded attendee rows.
+    /// - Returns: Listener registration that must be removed when the room screen disappears.
+    func observeAttendees(
+        roomId: String,
+        onUpdate: @escaping ([RoomAttendee]) -> Void
+    ) -> ListenerRegistration {
+        db.collection("rooms")
+            .document(roomId)
+            .collection("attendees")
+            .order(by: "depositHoney", descending: true)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self else { return }
+                guard error == nil else { return }
+                guard let snapshot else { return }
+                onUpdate(snapshot.documents.map(self.decodeAttendee))
+            }
     }
 
     /// Loads pending room rating tasks for the current user inside one room.
@@ -230,4 +309,22 @@ final class FbRoomRepo {
         }
     }
 
+}
+
+private extension Array {
+    /// Splits an array into fixed-size chunks for Firestore `in` query limits.
+    /// - Parameter size: Maximum number of items per chunk.
+    /// - Returns: Ordered chunk slices preserving the original element order.
+    func chunked(into size: Int) -> [[Element]] {
+        guard size > 0, isEmpty == false else { return isEmpty ? [] : [self] }
+        var chunks: [[Element]] = []
+        chunks.reserveCapacity((count + size - 1) / size)
+        var index = 0
+        while index < count {
+            let end = Swift.min(index + size, count)
+            chunks.append(Array(self[index..<end]))
+            index += size
+        }
+        return chunks
+    }
 }

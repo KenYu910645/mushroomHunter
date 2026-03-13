@@ -215,10 +215,10 @@ Current event document fields:
 
 - `STAR_RECEIVED`
   - Class: Record Event.
-  - Producer: `handleRoomAttendeeUpdatedEvents`, `handlePostcardOrderUpdatedEvents`.
-  - Trigger: mushroom attendee-rating transition or postcard order-rating transition emits receiver-side history.
+  - Producer: `handleRoomAttendeeUpdatedEvents` (legacy mushroom attendee-flag flow), `handleRoomRatingTaskUpdatedEvents` (current mushroom queue-rating flow), `handlePostcardOrderUpdatedEvents`.
+  - Trigger: mushroom room-rating task transitions to `Rated`, legacy mushroom attendee-rating transition, or postcard order-rating transition emits receiver-side history.
   - Target: receiver
-  - Push: `handleRoomAttendeeUpdatedEvents`, `handlePostcardOrderUpdatedEvents`.
+  - Push: `handleRoomAttendeeUpdatedEvents`, `handleRoomRatingTaskUpdatedEvents`, `handlePostcardOrderUpdatedEvents`.
   - Title(Eng): `Stars Received`
   - Title(Chinese): `收到評價`
   - Message(Eng): `%@ gave you %@ stars.`

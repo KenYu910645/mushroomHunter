@@ -106,6 +106,8 @@
 - Joined attendee: `Confirmation Queue -> Edit Deposit`.
 - Host clipboard icon shows a red dot when host-side room rating tasks are pending.
 - Attendee clipboard icon shows a red dot when either confirmation responses or attendee-side room rating tasks are pending.
+- While room detail stays open, attendee rows live-refresh from Firestore so star/status changes made on another device appear without a manual reload.
+- Pull-to-refresh on room detail now rehydrates every attendee row from `users/{uid}.stars` so the page can force-correct stale star snapshots even if the room attendee subcollection lags behind.
 - Role-seeded toolbar supports early host/attendee action slot rendering before room payload finishes loading.
 - Action buttons that depend on room payload stay disabled until detail data is ready.
 - Host-visible `AskingToJoin` attendee name includes small red dot marker.

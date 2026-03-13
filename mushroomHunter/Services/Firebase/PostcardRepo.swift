@@ -881,6 +881,7 @@ final class FbPostcardRepo {
         let orderRef = db.collection("postcardOrders").document(orderId)
         let now = Timestamp(date: Date())
 
+        print("🔎 [PostcardRating] buyer->seller start orderId=\(orderId) buyerId=\(buyerId) stars=\(stars)")
         _ = try await db.runTransaction { tx, errorPointer in
             let orderSnap: DocumentSnapshot
             do {
@@ -926,6 +927,19 @@ final class FbPostcardRepo {
             }
 
             let sellerUserRef = self.db.collection("users").document(sellerId)
+            let sellerUserSnapshot: DocumentSnapshot
+            do {
+                sellerUserSnapshot = try tx.getDocument(sellerUserRef)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+            let previousSellerStars = sellerUserSnapshot.data()?["stars"] as? Int ?? 0
+            print(
+                "🔎 [PostcardRating] orderId=\(orderId) sellerId=\(sellerId) " +
+                "previousUserStars=\(previousSellerStars) increment=\(stars) " +
+                "expectedUserStars=\(previousSellerStars + stars)"
+            )
             tx.setData([
                 "stars": FieldValue.increment(Int64(stars)),
                 "updatedAt": now,
@@ -940,6 +954,16 @@ final class FbPostcardRepo {
             ], forDocument: orderRef)
 
             return nil
+        }
+
+        let committedOrderSnapshot = try await db.collection("postcardOrders").document(orderId).getDocument(source: .server)
+        let committedSellerId = committedOrderSnapshot.data()?["sellerId"] as? String ?? ""
+        if committedSellerId.isEmpty == false {
+            let sellerSnapshot = try await db.collection("users").document(committedSellerId).getDocument(source: .server)
+            let sellerStars = sellerSnapshot.data()?["stars"] as? Int ?? 0
+            print("🔎 [PostcardRating] buyer->seller committed orderId=\(orderId) sellerId=\(committedSellerId) serverUserStars=\(sellerStars)")
+        } else {
+            print("🔎 [PostcardRating] buyer->seller committed orderId=\(orderId) but sellerId was empty on post-read")
         }
     }
 
@@ -956,6 +980,7 @@ final class FbPostcardRepo {
         let orderRef = db.collection("postcardOrders").document(orderId)
         let now = Timestamp(date: Date())
 
+        print("🔎 [PostcardRating] seller->buyer start orderId=\(orderId) sellerId=\(sellerId) stars=\(stars)")
         _ = try await db.runTransaction { tx, errorPointer in
             let orderSnap: DocumentSnapshot
             do {
@@ -1001,6 +1026,19 @@ final class FbPostcardRepo {
             }
 
             let buyerUserRef = self.db.collection("users").document(buyerId)
+            let buyerUserSnapshot: DocumentSnapshot
+            do {
+                buyerUserSnapshot = try tx.getDocument(buyerUserRef)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+            let previousBuyerStars = buyerUserSnapshot.data()?["stars"] as? Int ?? 0
+            print(
+                "🔎 [PostcardRating] orderId=\(orderId) buyerId=\(buyerId) " +
+                "previousUserStars=\(previousBuyerStars) increment=\(stars) " +
+                "expectedUserStars=\(previousBuyerStars + stars)"
+            )
             tx.setData([
                 "stars": FieldValue.increment(Int64(stars)),
                 "updatedAt": now,
@@ -1015,6 +1053,16 @@ final class FbPostcardRepo {
             ], forDocument: orderRef)
 
             return nil
+        }
+
+        let committedOrderSnapshot = try await db.collection("postcardOrders").document(orderId).getDocument(source: .server)
+        let committedBuyerId = committedOrderSnapshot.data()?["buyerId"] as? String ?? ""
+        if committedBuyerId.isEmpty == false {
+            let buyerSnapshot = try await db.collection("users").document(committedBuyerId).getDocument(source: .server)
+            let buyerStars = buyerSnapshot.data()?["stars"] as? Int ?? 0
+            print("🔎 [PostcardRating] seller->buyer committed orderId=\(orderId) buyerId=\(committedBuyerId) serverUserStars=\(buyerStars)")
+        } else {
+            print("🔎 [PostcardRating] seller->buyer committed orderId=\(orderId) but buyerId was empty on post-read")
         }
     }
 

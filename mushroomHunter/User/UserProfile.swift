@@ -143,6 +143,9 @@ extension UserSessionStore {
         do {
             let snap = try await Firestore.firestore().collection("users").document(uid).getDocument()
             guard let data = snap.data() else { return }
+            let backendStars = data["stars"] as? Int ?? -1
+            let backendHoney = data["honey"] as? Int ?? -1
+            print("🔎 [UserProfile] refreshProfileFromBackend uid=\(uid) backendStars=\(backendStars) backendHoney=\(backendHoney)")
 
             var needsDefaults: [String: Any] = [:]
 
@@ -241,6 +244,9 @@ extension UserSessionStore {
         var data = fields
         data["localeIdentifier"] = currentLocaleIdentifier
         data["updatedAt"] = Timestamp(date: Date())
+        if fields.keys.contains("stars") || fields.keys.contains("honey") {
+            print("🔎 [UserProfile] syncProfileFields uid=\(uid) payload=\(data)")
+        }
 
         do {
             try await Firestore.firestore()
@@ -259,23 +265,66 @@ extension UserSessionStore {
 
         do {
             let now = Timestamp(date: Date())
-            try await Firestore.firestore()
-                .collection("users")
-                .document(uid)
-                .setData([
-                    "displayName": displayName,
-                    "friendCode": friendCode,
-                    "stars": stars,
-                    "honey": honey,
-                    "maxHostRoom": maxHostRoom,
-                    "maxJoinRoom": maxJoinRoom,
-                    "isPremium": false,
-                    "premiumProductId": "",
-                    "localeIdentifier": currentLocaleIdentifier,
-                    "isProfileComplete": isProfileComplete,
-                    "createdAt": now,
-                    "updatedAt": now
-                ], merge: true)
+            let userRef = Firestore.firestore().collection("users").document(uid)
+            _ = try await Firestore.firestore().runTransaction { [self] transaction, errorPointer in
+                let userSnapshot: DocumentSnapshot
+                do {
+                    userSnapshot = try transaction.getDocument(userRef)
+                } catch {
+                    errorPointer?.pointee = error as NSError
+                    return nil
+                }
+
+                if userSnapshot.exists == false {
+                    print("🔎 [UserProfile] ensureUserProfile create uid=\(uid) stars=\(self.stars) honey=\(self.honey)")
+                    transaction.setData([
+                        "displayName": self.displayName,
+                        "friendCode": self.friendCode,
+                        "stars": self.stars,
+                        "honey": self.honey,
+                        "maxHostRoom": self.maxHostRoom,
+                        "maxJoinRoom": self.maxJoinRoom,
+                        "isPremium": false,
+                        "premiumProductId": "",
+                        "localeIdentifier": self.currentLocaleIdentifier,
+                        "isProfileComplete": self.isProfileComplete,
+                        "createdAt": now,
+                        "updatedAt": now
+                    ], forDocument: userRef)
+                    return nil
+                }
+
+                let existingData = userSnapshot.data() ?? [:]
+                var missingFields: [String: Any] = [:]
+
+                if existingData["displayName"] == nil {
+                    missingFields["displayName"] = self.displayName
+                }
+                if existingData["friendCode"] == nil {
+                    missingFields["friendCode"] = self.friendCode
+                }
+                if existingData["maxHostRoom"] == nil {
+                    missingFields["maxHostRoom"] = self.maxHostRoom
+                }
+                if existingData["maxJoinRoom"] == nil {
+                    missingFields["maxJoinRoom"] = self.maxJoinRoom
+                }
+                if existingData["localeIdentifier"] == nil {
+                    missingFields["localeIdentifier"] = self.currentLocaleIdentifier
+                }
+                if existingData["isProfileComplete"] == nil {
+                    missingFields["isProfileComplete"] = self.isProfileComplete
+                }
+                if existingData["createdAt"] == nil {
+                    missingFields["createdAt"] = now
+                }
+
+                guard missingFields.isEmpty == false else { return nil }
+                missingFields["updatedAt"] = now
+                print("🔎 [UserProfile] ensureUserProfile fill-missing uid=\(uid) fields=\(missingFields)")
+                transaction.setData(missingFields, forDocument: userRef, merge: true)
+                return nil
+            }
             isUserProfileEnsuredInCurrentSession = true
         } catch {
             print("❌ ensureUserProfile error:", error)
