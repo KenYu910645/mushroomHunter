@@ -70,6 +70,7 @@
 
 ### 4) Membership and Room Actions
 - Join requires deposit + greeting message (required, max 100 chars); join sheet pre-fills localized default greeting.
+- When the available deposit is fixed to a single valid value (for example user honey is exactly the minimum required 10), Room Details hides the slider and keeps that fixed amount instead of constructing a zero-width slider range.
 - Join confirmation dialog includes `Sure` + `Cancel`, and uses generic wording (no room title).
 - Join request creates attendee with `AskingToJoin` and immediately occupies a seat.
 - Host approves/rejects join requests from inline buttons under join greeting (`Accept` left, `Reject` right).

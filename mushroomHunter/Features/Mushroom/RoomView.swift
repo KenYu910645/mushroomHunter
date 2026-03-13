@@ -184,14 +184,17 @@ struct RoomView: View {
                         let minimumRequiredDeposit = AppConfig.Mushroom.minimumRequiredDepositHoney
                         let maximumAvailableDeposit = max(session.honey, 0)
                         let lower = min(minimumRequiredDeposit, maximumAvailableDeposit)
-                        Slider(
-                            value: Binding(
-                                get: { Double(joinDepositAmount) },
-                                set: { joinDepositAmount = Int($0) }
-                            ),
-                            in: Double(lower)...Double(maximumAvailableDeposit),
-                            step: 1
-                        )
+                        let isDepositRangeAdjustable = maximumAvailableDeposit > lower
+                        if isDepositRangeAdjustable {
+                            Slider(
+                                value: Binding(
+                                    get: { Double(joinDepositAmount) },
+                                    set: { joinDepositAmount = Int($0) }
+                                ),
+                                in: Double(lower)...Double(maximumAvailableDeposit),
+                                step: 1
+                            )
+                        }
                     } header: {
                         Text(LocalizedStringKey("room_join_deposit_header"))
                     } footer: {
@@ -278,14 +281,17 @@ struct RoomView: View {
                         let currentDeposit = vm.currentUserDepositHoney() ?? 0
                         let maximumAvailableDeposit = max(session.honey + currentDeposit, 0)
                         let lower = min(minimumRequiredDeposit, maximumAvailableDeposit)
-                        Slider(
-                            value: Binding(
-                                get: { Double(updateDepositAmount) },
-                                set: { updateDepositAmount = Int($0) }
-                            ),
-                            in: Double(lower)...Double(maximumAvailableDeposit),
-                            step: 1
-                        )
+                        let isDepositRangeAdjustable = maximumAvailableDeposit > lower
+                        if isDepositRangeAdjustable {
+                            Slider(
+                                value: Binding(
+                                    get: { Double(updateDepositAmount) },
+                                    set: { updateDepositAmount = Int($0) }
+                                ),
+                                in: Double(lower)...Double(maximumAvailableDeposit),
+                                step: 1
+                            )
+                        }
                     } header: {
                         Text(LocalizedStringKey("room_update_deposit_header"))
                     } footer: {
