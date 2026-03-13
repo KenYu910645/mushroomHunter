@@ -235,6 +235,11 @@ enum AppConfig {
     }
 
     enum Premium {
+        // `isPremiumEntryEnabled`
+        // Purpose: temporary feature flag that controls whether the Profile tab exposes the premium upgrade entry.
+        // Keep `false` until App Store Connect product and policy URLs are ready for review/testing.
+        static let isPremiumEntryEnabled: Bool = false
+
         // `monthlyProductId`
         // Purpose: StoreKit product id used for the single monthly premium subscription.
         // Replace this before App Store submission if App Store Connect uses a different identifier.

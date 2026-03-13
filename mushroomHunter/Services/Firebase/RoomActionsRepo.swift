@@ -102,6 +102,8 @@ final class FbRoomActionsRepo {
     private enum BackendCollectionName {
         /// Distinguishes host kick flows from leave/close attendee deletions.
         static let kickEvents: String = "kickEvents"
+        /// Stores durable room rating tasks while the room remains open.
+        static let roomRatingTasks: String = "roomRatingTasks"
     }
 
     private let db = Firestore.firestore()
@@ -139,6 +141,45 @@ final class FbRoomActionsRepo {
     private func fetchMaxJoinRooms(uid: String) async throws -> Int {
         let userSnap = try await db.collection("users").document(uid).getDocument()
         return effectiveMaxJoinRooms(from: userSnap.data() ?? [:])
+    }
+
+    /// Builds a stable room rating task id so retries do not create duplicates.
+    /// - Parameters:
+    ///   - roomId: Parent room id.
+    ///   - confirmationId: Confirmation cycle id.
+    ///   - attendeeUid: Non-host attendee uid tied to this confirmation result.
+    ///   - direction: Rating direction for the task.
+    /// - Returns: Stable task document id.
+    private func roomRatingTaskId(
+        roomId: String,
+        confirmationId: String,
+        attendeeUid: String,
+        direction: RoomRatingDirection
+    ) -> String {
+        "\(roomId)_\(confirmationId)_\(attendeeUid)_\(direction.rawValue)"
+    }
+
+    /// Returns the durable room rating task reference for one confirmation participant pair.
+    /// - Parameters:
+    ///   - roomId: Parent room id.
+    ///   - confirmationId: Confirmation cycle id.
+    ///   - attendeeUid: Non-host attendee uid tied to the task.
+    ///   - direction: Rating direction for this task.
+    /// - Returns: Firestore document reference.
+    private func roomRatingTaskRef(
+        roomId: String,
+        confirmationId: String,
+        attendeeUid: String,
+        direction: RoomRatingDirection
+    ) -> DocumentReference {
+        db.collection(BackendCollectionName.roomRatingTasks).document(
+            roomRatingTaskId(
+                roomId: roomId,
+                confirmationId: confirmationId,
+                attendeeUid: attendeeUid,
+                direction: direction
+            )
+        )
     }
 
     private func countActiveJoinedRooms(uid: String) async throws -> Int {
@@ -651,6 +692,10 @@ final class FbRoomActionsRepo {
         guard status == AttendeeStatus.host.rawValue else { throw RoomActionError.notHost }
 
         let attendeesSnap = try await roomRef.collection("attendees").getDocuments()
+        let pendingRatingTasksSnap = try await db.collection(BackendCollectionName.roomRatingTasks)
+            .whereField("roomId", isEqualTo: roomId)
+            .whereField("status", isEqualTo: RoomRatingTaskStatus.pending.rawValue)
+            .getDocuments()
         let now = Timestamp(date: Date())
 
         let batch = db.batch()
@@ -676,6 +721,14 @@ final class FbRoomActionsRepo {
                     "updatedAt": now
                 ], forDocument: userRef, merge: true)
             }
+        }
+
+        for taskDoc in pendingRatingTasksSnap.documents {
+            batch.updateData([
+                "status": RoomRatingTaskStatus.closed.rawValue,
+                "updatedAt": now,
+                "resolvedAt": now
+            ], forDocument: taskDoc.reference)
         }
 
         batch.deleteDocument(roomRef)
@@ -817,10 +870,16 @@ final class FbRoomActionsRepo {
             }
 
             let roomData = roomSnap.data() ?? [:]
+            let roomTitle = (roomData["title"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             let hostHoney = hostSnap.data()?["honey"] as? Int ?? 0
+            let hostName = (hostSnap.data()?["displayName"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             let attendeeData = attendeeSnap.data() ?? [:]
             let attendeeDeposit = attendeeData["depositHoney"] as? Int ?? 0
             let attendeeStatus = attendeeData["status"] as? String ?? ""
+            let attendeeName = (attendeeData["name"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             let pendingQueueRaw = attendeeData["pendingConfirmationRequests"] as? [String: Any] ?? [:]
             var pendingConfirmationRequests = pendingQueueRaw.reduce(into: [String: Timestamp]()) { partialResult, entry in
                 if let timestamp = entry.value as? Timestamp {
@@ -866,8 +925,8 @@ final class FbRoomActionsRepo {
                 tx.updateData([
                     "depositHoney": max(0, attendeeDeposit - settlementHoney),
                     "status": nextStatus.rawValue,
-                    "isHostRatingRequired": true,
-                    "needsHostRating": true,
+                    "isHostRatingRequired": false,
+                    "needsHostRating": false,
                     "pendingConfirmationRequests": pendingConfirmationRequests,
                     "lastSettlementOutcome": settlementOutcome.rawValue,
                     "lastSettlementHoney": settlementHoney,
@@ -915,6 +974,49 @@ final class FbRoomActionsRepo {
                 ], forDocument: attendeeRef)
             }
 
+            let attendeeToHostTaskRef = self.roomRatingTaskRef(
+                roomId: roomId,
+                confirmationId: confirmationId,
+                attendeeUid: attendeeUid,
+                direction: .attendeeToHost
+            )
+            let hostToAttendeeTaskRef = self.roomRatingTaskRef(
+                roomId: roomId,
+                confirmationId: confirmationId,
+                attendeeUid: attendeeUid,
+                direction: .hostToAttendee
+            )
+            let requestedAtTimestamp = pendingQueueRaw[confirmationId] as? Timestamp ?? now
+            let normalizedRoomTitle = roomTitle.isEmpty ? "Room" : roomTitle
+            let normalizedHostName = hostName.isEmpty ? "Host" : hostName
+            let normalizedAttendeeName = attendeeName.isEmpty ? "Attendee" : attendeeName
+            tx.setData([
+                "roomId": roomId,
+                "roomTitle": normalizedRoomTitle,
+                "confirmationId": confirmationId,
+                "requestedAt": requestedAtTimestamp,
+                "raterUid": attendeeUid,
+                "rateeUid": hostContext.hostUid,
+                "counterpartName": normalizedHostName,
+                "direction": RoomRatingDirection.attendeeToHost.rawValue,
+                "settlementOutcome": settlementOutcome.rawValue,
+                "status": RoomRatingTaskStatus.pending.rawValue,
+                "updatedAt": now
+            ], forDocument: attendeeToHostTaskRef, merge: true)
+            tx.setData([
+                "roomId": roomId,
+                "roomTitle": normalizedRoomTitle,
+                "confirmationId": confirmationId,
+                "requestedAt": requestedAtTimestamp,
+                "raterUid": hostContext.hostUid,
+                "rateeUid": attendeeUid,
+                "counterpartName": normalizedAttendeeName,
+                "direction": RoomRatingDirection.hostToAttendee.rawValue,
+                "settlementOutcome": settlementOutcome.rawValue,
+                "status": RoomRatingTaskStatus.pending.rawValue,
+                "updatedAt": now
+            ], forDocument: hostToAttendeeTaskRef, merge: true)
+
             var raidConfirmationHistory = roomData["raidConfirmationHistory"] as? [[String: Any]] ?? []
             if let historyIndex = raidConfirmationHistory.firstIndex(where: { historyEntry in
                 (historyEntry["id"] as? String) == confirmationId
@@ -940,136 +1042,114 @@ final class FbRoomActionsRepo {
         }
     }
 
-    // MARK: - Stars (attendee -> host)
-    func rateHostAfterConfirmation(roomId: String, attendeeUid: String, stars: Int) async throws { // Handles rateHostAfterConfirmation flow.
+    // MARK: - Stars
+    func submitRoomRating(taskId: String, stars: Int) async throws { // Handles submitRoomRating flow.
         guard (1...3).contains(stars) else { throw RoomActionError.invalidStars }
-        guard let uid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
-        guard uid == attendeeUid else { throw RoomActionError.notInRoom }
+        guard let currentUid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
-        let roomRef = db.collection("rooms").document(roomId)
-        let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
+        let taskRef = db.collection(BackendCollectionName.roomRatingTasks).document(taskId)
         let now = Timestamp(date: Date())
-        let hostContext = try await fetchRoomHostContext(roomRef: roomRef)
-        let hostAttendeeRef = roomRef.collection("attendees").document(hostContext.hostUid)
-        let hostUserRef = db.collection("users").document(hostContext.hostUid)
 
         try await db.runTransaction { tx, errPtr -> Any? in
-            let attendeeSnap: DocumentSnapshot
+            let taskSnap: DocumentSnapshot
             do {
-                attendeeSnap = try tx.getDocument(attendeeRef)
+                taskSnap = try tx.getDocument(taskRef)
             } catch {
                 errPtr?.pointee = error as NSError
                 return nil
             }
 
-            guard attendeeSnap.exists else {
-                errPtr?.pointee = RoomActionError.notInRoom as NSError
-                return nil
-            }
-            let attendeeData = attendeeSnap.data() ?? [:]
-            let attendeeStatus = attendeeData["status"] as? String ?? ""
-            let isRatingEligibleStatus = AttendeeStatus(rawValue: attendeeStatus)?.isRatingEligibleAfterSettlement ?? false
-            if !isRatingEligibleStatus {
+            guard let taskData = taskSnap.data() else {
                 errPtr?.pointee = RoomActionError.ratingNotAvailable as NSError
                 return nil
             }
-            let alreadyRated = (attendeeData["isAttendeeRatedHost"] as? Bool) ?? (attendeeData["attendeeRatedHost"] as? Bool) ?? false
-            if alreadyRated {
-                errPtr?.pointee = RoomActionError.alreadyRated as NSError
+            let taskRaterUid = (taskData["raterUid"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard taskRaterUid == currentUid else {
+                errPtr?.pointee = RoomActionError.notInRoom as NSError
                 return nil
             }
+            let taskStatusRaw = (taskData["status"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard taskStatusRaw == RoomRatingTaskStatus.pending.rawValue else {
+                errPtr?.pointee = RoomActionError.ratingNotAvailable as NSError
+                return nil
+            }
+            let rateeUid = (taskData["rateeUid"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let roomId = (taskData["roomId"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard rateeUid.isEmpty == false else {
+                errPtr?.pointee = RoomActionError.ratingNotAvailable as NSError
+                return nil
+            }
+            let rateeUserRef = self.db.collection("users").document(rateeUid)
 
-            // Always persist rating to users/{hostUid} so profile + backend data stay in sync.
             tx.setData([
                 "stars": FieldValue.increment(Int64(stars)),
                 "updatedAt": now
-            ], forDocument: hostUserRef, merge: true)
+            ], forDocument: rateeUserRef, merge: true)
 
-            // Also reflect the latest stars in this room attendee row.
-            tx.setData([
-                "stars": FieldValue.increment(Int64(stars)),
-                "updatedAt": now
-            ], forDocument: hostAttendeeRef, merge: true)
+            if roomId.isEmpty == false {
+                let roomAttendeeRef = self.db.collection("rooms")
+                    .document(roomId)
+                    .collection("attendees")
+                    .document(rateeUid)
+                tx.setData([
+                    "stars": FieldValue.increment(Int64(stars)),
+                    "updatedAt": now
+                ], forDocument: roomAttendeeRef, merge: true)
+            }
 
             tx.updateData([
-                "isAttendeeRatedHost": true,
-                "attendeeRatedHost": true,
-                "attendeeRatedHostStars": stars,
-                "updatedAt": now
-            ], forDocument: attendeeRef)
+                "status": RoomRatingTaskStatus.rated.rawValue,
+                "stars": stars,
+                "updatedAt": now,
+                "resolvedAt": now
+            ], forDocument: taskRef)
 
             return nil
         }
     }
 
-    // MARK: - Stars (host -> attendee)
-    func rateAttendeeAfterConfirmation(roomId: String, attendeeUid: String, stars: Int) async throws { // Handles rateAttendeeAfterConfirmation flow.
-        guard (1...3).contains(stars) else { throw RoomActionError.invalidStars }
-        guard let hostUid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
+    /// Permanently skips one pending room rating task.
+    /// - Parameter taskId: Durable rating task id shown in the room clipboard UI.
+    func skipRoomRating(taskId: String) async throws {
+        guard let currentUid = Auth.auth().currentUser?.uid else { throw RoomActionError.notSignedIn }
 
-        let roomRef = db.collection("rooms").document(roomId)
-        let hostSelfRef = roomRef.collection("attendees").document(hostUid)
-        let attendeeRef = roomRef.collection("attendees").document(attendeeUid)
-        let attendeeUserRef = db.collection("users").document(attendeeUid)
+        let taskRef = db.collection(BackendCollectionName.roomRatingTasks).document(taskId)
         let now = Timestamp(date: Date())
 
         try await db.runTransaction { tx, errPtr -> Any? in
-            let hostSelfSnap: DocumentSnapshot
-            let attendeeSnap: DocumentSnapshot
+            let taskSnap: DocumentSnapshot
             do {
-                hostSelfSnap = try tx.getDocument(hostSelfRef)
-                attendeeSnap = try tx.getDocument(attendeeRef)
+                taskSnap = try tx.getDocument(taskRef)
             } catch {
                 errPtr?.pointee = error as NSError
                 return nil
             }
 
-            let hostStatus = hostSelfSnap.data()?["status"] as? String ?? ""
-            guard hostStatus == AttendeeStatus.host.rawValue else {
-                errPtr?.pointee = RoomActionError.notHost as NSError
+            guard let taskData = taskSnap.data() else {
+                errPtr?.pointee = RoomActionError.ratingNotAvailable as NSError
                 return nil
             }
-
-            guard attendeeSnap.exists else {
+            let taskRaterUid = (taskData["raterUid"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard taskRaterUid == currentUid else {
                 errPtr?.pointee = RoomActionError.notInRoom as NSError
                 return nil
             }
-            let attendeeData = attendeeSnap.data() ?? [:]
-            let attendeeStatus = attendeeData["status"] as? String ?? ""
-            let isRatingEligibleStatus = AttendeeStatus(rawValue: attendeeStatus)?.isRatingEligibleAfterSettlement ?? false
-            if !isRatingEligibleStatus {
+            let taskStatusRaw = (taskData["status"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard taskStatusRaw == RoomRatingTaskStatus.pending.rawValue else {
                 errPtr?.pointee = RoomActionError.ratingNotAvailable as NSError
                 return nil
             }
-
-            let isPendingHostRating = (attendeeData["isHostRatingRequired"] as? Bool) ?? (attendeeData["needsHostRating"] as? Bool) ?? false
-            if !isPendingHostRating {
-                errPtr?.pointee = RoomActionError.ratingNotAvailable as NSError
-                return nil
-            }
-
-            let alreadyRated = (attendeeData["isHostRatedAttendee"] as? Bool) ?? (attendeeData["hostRatedAttendee"] as? Bool) ?? false
-            if alreadyRated {
-                errPtr?.pointee = RoomActionError.alreadyRated as NSError
-                return nil
-            }
-
-            // Always persist rating to users/{attendeeUid} so profile + backend data stay in sync.
-            tx.setData([
-                "stars": FieldValue.increment(Int64(stars)),
-                "updatedAt": now
-            ], forDocument: attendeeUserRef, merge: true)
-
-            // Also reflect the latest stars in this room attendee row.
             tx.updateData([
-                "stars": FieldValue.increment(Int64(stars)),
-                "isHostRatedAttendee": true,
-                "hostRatedAttendee": true,
-                "hostRatedAttendeeStars": stars,
-                "isHostRatingRequired": false,
-                "needsHostRating": false,
-                "updatedAt": now
-            ], forDocument: attendeeRef)
+                "status": RoomRatingTaskStatus.skipped.rawValue,
+                "updatedAt": now,
+                "resolvedAt": now
+            ], forDocument: taskRef)
 
             return nil
         }

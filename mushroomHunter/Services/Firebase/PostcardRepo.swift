@@ -743,6 +743,25 @@ final class FbPostcardRepo {
         return decodeBuyerRatingContext(latestDoc)
     }
 
+    /// Loads all latest pending seller-side rating contexts for one postcard listing.
+    /// - Parameter postcardId: Listing id currently open in postcard detail.
+    /// - Returns: Seller-side pending rating tasks sorted newest first.
+    func fetchPendingSellerRatingContexts(postcardId: String) async throws -> [PostcardOrderRatingContext] {
+        guard let sellerId = Auth.auth().currentUser?.uid else {
+            throw PostcardRepoError.notSignedIn
+        }
+
+        let query = db.collection("postcardOrders")
+            .whereField("sellerId", isEqualTo: sellerId)
+            .whereField("postcardId", isEqualTo: postcardId)
+            .whereField("isSellerRatingRequired", isEqualTo: true)
+            .limit(to: 20)
+        let docs = try await fetchDocuments(query: query)
+        return docs.compactMap(decodeSellerRatingContext).sorted { lhs, rhs in
+            lhs.completedAt > rhs.completedAt
+        }
+    }
+
     /// Loads the latest completed order for this postcard where the seller still needs to rate the buyer.
     /// - Parameter postcardId: Listing id currently open in postcard detail.
     /// - Returns: Pending seller-side rating context, or `nil` when there is no outstanding rating.
@@ -759,6 +778,15 @@ final class FbPostcardRepo {
         let docs = try await fetchDocuments(query: query)
         guard let latestDoc = latestCompletedRatingDocument(in: docs) else { return nil }
         return decodeSellerRatingContext(latestDoc)
+    }
+
+    /// Returns the combined pending seller clipboard count for one postcard detail.
+    /// - Parameter postcardId: Listing id currently open in postcard detail.
+    /// - Returns: Pending shipping plus pending seller-rating count.
+    func fetchPendingSellerClipboardCount(postcardId: String) async throws -> Int {
+        let shippingRecipients = try await fetchShippingRecipients(postcardId: postcardId)
+        let ratingTasks = try await fetchPendingSellerRatingContexts(postcardId: postcardId)
+        return shippingRecipients.count + ratingTasks.count
     }
 
     func confirmPostcardReceived(orderId: String) async throws { // Handles confirmPostcardReceived flow.
@@ -824,6 +852,8 @@ final class FbPostcardRepo {
                 "status": PostcardOrderStatus.completed.rawValue,
                 "isBuyerRatingRequired": true,
                 "isSellerRatingRequired": true,
+                "isBuyerRatingDismissed": false,
+                "isSellerRatingDismissed": false,
                 "isBuyerRatedSeller": false,
                 "isSellerRatedBuyer": false,
                 "updatedAt": now,
@@ -877,6 +907,12 @@ final class FbPostcardRepo {
                 return nil
             }
 
+            let isRatingDismissed = order["isBuyerRatingDismissed"] as? Bool ?? false
+            guard !isRatingDismissed else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.ratingNotAvailable)
+                return nil
+            }
+
             let isAlreadyRated = order["isBuyerRatedSeller"] as? Bool ?? false
             guard !isAlreadyRated else {
                 errorPointer?.pointee = self.makeError(PostcardRepoError.alreadyRated)
@@ -898,6 +934,7 @@ final class FbPostcardRepo {
             tx.updateData([
                 "isBuyerRatedSeller": true,
                 "isBuyerRatingRequired": false,
+                "isBuyerRatingDismissed": false,
                 "buyerRatedSellerStars": stars,
                 "updatedAt": now,
             ], forDocument: orderRef)
@@ -945,6 +982,12 @@ final class FbPostcardRepo {
                 return nil
             }
 
+            let isRatingDismissed = order["isSellerRatingDismissed"] as? Bool ?? false
+            guard !isRatingDismissed else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.ratingNotAvailable)
+                return nil
+            }
+
             let isAlreadyRated = order["isSellerRatedBuyer"] as? Bool ?? false
             guard !isAlreadyRated else {
                 errorPointer?.pointee = self.makeError(PostcardRepoError.alreadyRated)
@@ -966,7 +1009,102 @@ final class FbPostcardRepo {
             tx.updateData([
                 "isSellerRatedBuyer": true,
                 "isSellerRatingRequired": false,
+                "isSellerRatingDismissed": false,
                 "sellerRatedBuyerStars": stars,
+                "updatedAt": now,
+            ], forDocument: orderRef)
+
+            return nil
+        }
+    }
+
+    /// Permanently skips buyer -> seller stars for one completed postcard order.
+    /// - Parameter orderId: Completed order document id.
+    func skipSellerRatingAfterCompletion(orderId: String) async throws {
+        guard let buyerId = Auth.auth().currentUser?.uid else {
+            throw PostcardRepoError.notSignedIn
+        }
+
+        let orderRef = db.collection("postcardOrders").document(orderId)
+        let now = Timestamp(date: Date())
+
+        _ = try await db.runTransaction { tx, errorPointer in
+            let orderSnap: DocumentSnapshot
+            do {
+                orderSnap = try tx.getDocument(orderRef)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+
+            guard let order = orderSnap.data() else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.listingNotFound)
+                return nil
+            }
+
+            let orderBuyerId = order["buyerId"] as? String ?? ""
+            guard orderBuyerId == buyerId else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.forbidden)
+                return nil
+            }
+
+            let isRatingRequired = order["isBuyerRatingRequired"] as? Bool ?? false
+            guard isRatingRequired else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.ratingNotAvailable)
+                return nil
+            }
+
+            tx.updateData([
+                "isBuyerRatingRequired": false,
+                "isBuyerRatingDismissed": true,
+                "buyerRatingDismissedAt": now,
+                "updatedAt": now,
+            ], forDocument: orderRef)
+
+            return nil
+        }
+    }
+
+    /// Permanently skips seller -> buyer stars for one completed postcard order.
+    /// - Parameter orderId: Completed order document id.
+    func skipBuyerRatingAfterCompletion(orderId: String) async throws {
+        guard let sellerId = Auth.auth().currentUser?.uid else {
+            throw PostcardRepoError.notSignedIn
+        }
+
+        let orderRef = db.collection("postcardOrders").document(orderId)
+        let now = Timestamp(date: Date())
+
+        _ = try await db.runTransaction { tx, errorPointer in
+            let orderSnap: DocumentSnapshot
+            do {
+                orderSnap = try tx.getDocument(orderRef)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+
+            guard let order = orderSnap.data() else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.listingNotFound)
+                return nil
+            }
+
+            let orderSellerId = order["sellerId"] as? String ?? ""
+            guard orderSellerId == sellerId else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.forbidden)
+                return nil
+            }
+
+            let isRatingRequired = order["isSellerRatingRequired"] as? Bool ?? false
+            guard isRatingRequired else {
+                errorPointer?.pointee = self.makeError(PostcardRepoError.ratingNotAvailable)
+                return nil
+            }
+
+            tx.updateData([
+                "isSellerRatingRequired": false,
+                "isSellerRatingDismissed": true,
+                "sellerRatingDismissedAt": now,
                 "updatedAt": now,
             ], forDocument: orderRef)
 
@@ -1094,6 +1232,8 @@ final class FbPostcardRepo {
             counterpartName: counterpartName.isEmpty ? "Seller" : counterpartName,
             isBuyerRatingRequired: data["isBuyerRatingRequired"] as? Bool ?? false,
             isSellerRatingRequired: data["isSellerRatingRequired"] as? Bool ?? false,
+            isBuyerRatingDismissed: data["isBuyerRatingDismissed"] as? Bool ?? false,
+            isSellerRatingDismissed: data["isSellerRatingDismissed"] as? Bool ?? false,
             completedAt: completedAt
         )
     }
@@ -1120,6 +1260,8 @@ final class FbPostcardRepo {
             counterpartName: counterpartName.isEmpty ? "Buyer" : counterpartName,
             isBuyerRatingRequired: data["isBuyerRatingRequired"] as? Bool ?? false,
             isSellerRatingRequired: data["isSellerRatingRequired"] as? Bool ?? false,
+            isBuyerRatingDismissed: data["isBuyerRatingDismissed"] as? Bool ?? false,
+            isSellerRatingDismissed: data["isSellerRatingDismissed"] as? Bool ?? false,
             completedAt: completedAt
         )
     }

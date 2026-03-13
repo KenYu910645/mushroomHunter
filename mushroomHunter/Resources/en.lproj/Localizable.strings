@@ -18,8 +18,13 @@
 "common_join" = "Join";
 "common_close" = "Close";
 "common_yes" = "Yes";
+"common_skip" = "Skip";
 "common_loading" = "Loading…";
 "common_copied" = "Copied to clipboard";
+"common_relative_unknown" = "—";
+"common_relative_minutes_ago" = "%dm ago";
+"common_relative_hours_ago" = "%dh ago";
+"common_relative_days_ago" = "%dd ago";
 
 /***************************************/
 /**** DailyReward ****/
@@ -234,10 +239,17 @@
 "room_msg_settlement_no_fault_title" = "Thanks for the update!";
 "room_msg_settlement_no_fault_message" = "You paid the host %d {honey_icon} because the mushroom was full. No worries! The host will invite you next time.";
 "room_confirmation_queue_title" = "Confirmations";
+"room_confirmation_queue_section_title" = "Confirmations";
 "room_confirmation_queue_empty" = "No pending confirmations in this room.";
 "room_confirmation_queue_item_title_format" = "%@ invited you to a mushroom.";
 "room_raid_history_title" = "Raid History";
+"room_raid_history_section_title" = "History";
 "room_raid_history_empty" = "No raid confirmations yet.";
+"room_pending_ratings_section_title" = "Pending Ratings";
+"room_rating_title_format" = "Rate %@";
+"room_rating_outcome_joined_success" = "Joined successfully";
+"room_rating_outcome_seat_full" = "Mushroom was full";
+"room_rating_outcome_missed_invitation" = "Invitation was missed";
 "room_raid_history_status_confirming" = "Confirming";
 "room_raid_history_status_joined" = "Joined";
 "room_raid_history_status_seat_full" = "Seat full";
@@ -321,6 +333,10 @@
 /***************************************/
 
 "postcard_shipping_title" = "Orders";
+"postcard_shipping_section_title" = "Shipping";
+"postcard_pending_ratings_section_title" = "Pending Ratings";
+"postcard_rating_title_format" = "Rate %@";
+"postcard_rating_prompt" = "How was the trade experience?";
 "postcard_shipping_empty" = "No buyers are waiting for shipment.";
 "postcard_shipping_ordered_title_format" = "%@ ordered %@";
 "postcard_shipping_friend_request_prefix_format" = "Please send friend request to %@ (";

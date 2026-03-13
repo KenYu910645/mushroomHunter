@@ -26,8 +26,9 @@ Need to check both English and Chinese
 3. Create, Edit and Delete postcard: 
    - Register a postcard and edit everything to make sure changes apply, and delete the postcard
    - check the event list, if it is correctly updated. (Create Room and CLose Room should have notification in Event list)
-   - complete one postcard order and verify buyer rates seller and seller rates buyer with the shared 1/2/3-star dialog
-   - verify manual `Completed` opens rating flow, but `CompletedAuto` does not
+   - complete one postcard order and verify buyer rates seller from the inline buyer card while seller rates buyer from the seller order queue
+   - verify `Skip` permanently removes that specific postcard rating task
+   - verify manual `Completed` creates rating tasks, but `CompletedAuto` does not
 4. Join room(Accept, Reject and Kick)
    - use QR code to scan to the room
    - Attendee apply join -> Check event and host MUSH receive a notification(Action EVENT) -> the badget counter need to increment
@@ -39,10 +40,14 @@ Need to check both English and Chinese
    - Joiner reply Join Success, Mushroom full, No invitation
    - If settlement makes attendee deposit fall below `AppConfig.Mushroom.minimumRequiredDepositHoney`, attendee row status should switch to red `Not Enough Honey` / `蜂蜜不足`, and attendee should still be able to open deposit edit to top up
    - The star is correctly updated.
+   - Host/attendee clipboard icons should show a red dot when pending rating tasks exist there.
+   - Rating and skip should both work from the clipboard queue/history sheets and should never reopen a popup.
 6. Postcard buy flow
    - buyer buy, and seller can choose to accept or reject, the honey must update correctly
    - The notification need to be ok 
    - The star is correctly updated.
+   - Seller clipboard icon should show a red dot when either shipping or seller-side rating tasks are pending.
+   - Buyer rating should appear inline on postcard detail and `Skip` should permanently remove it.
    - sold-out postcard should remain visible in browse, move below in-stock browse cards, and show disabled buy state on detail for non-sellers
    - seller-owned sold-out postcard should stay pinned at the top and show `Run out` / `賣完了`
 
@@ -176,7 +181,9 @@ TODO: invite code?
   - App icon badge shows the numeric actionable total.
   - Postcard detail seller shipping icon shows a tiny red dot when pending shipping count is greater than `0`.
   - Room detail attendee confirmation-queue icon shows a tiny red dot when attendee has pending `WaitingConfirmation` in that room.
-  - Room detail host `Raid History` icon opens a read-only history list and does not offer settlement action buttons.
+  - Room detail attendee confirmation-queue icon also stays dotted when attendee-side room rating tasks are pending.
+  - Room detail host `Raid History` icon opens history plus pending host-side room rating actions.
+  - Postcard detail seller shipping icon shows a tiny red dot when either shipping rows or seller rating rows are pending.
   - Profile actionable rows (mushroom + postcard lists) show a tiny red dot marker at row-leading edge when actionable count is greater than `0`.
   - Room attendee rows show a tiny red dot before attendee name for host-visible `AskingToJoin` notification sources.
 

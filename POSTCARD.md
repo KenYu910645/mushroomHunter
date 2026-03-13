@@ -77,7 +77,7 @@
 - Postcard browse pull-to-refresh is bound directly to the browse `ScrollView` and shares the same server-authoritative full-refresh path used by browse tab re-entry, covering both pinned owner sections (`On-shelf`/`Ordered`) and paged browse listings.
 - The Postcard browse pull-to-refresh closure now hands the actual reload to an app-owned async task so SwiftUI `.refreshable` cancellation cannot abort the backend refresh mid-gesture.
 - Seller can open shipping sheet in postcard detail to see waiting buyers and mark each order as sent.
-- Seller shipping toolbar button in postcard detail shows a tiny red dot when there are pending orders that need seller processing.
+- Seller shipping toolbar button in postcard detail shows a tiny red dot when there are pending seller clipboard tasks (shipping rows or seller-side rating rows).
 - Seller shipping queue rows show `Buyer ordered Postcard` title text plus a friend-request instruction line with inline copy icon for buyer friend code.
 - Seller shipping queue action order is `Postcard Sent` on the left and `Reject` on the right.
 - Seller shipping queue copy icon shows the shared `Copied to clipboard` toast feedback used across postcard screens.
@@ -96,9 +96,10 @@
   - Manual `Completed` orders create two postcard rating tasks:
     - buyer rates seller
     - seller rates buyer
-    - both flows reuse the mushroom room `MessageBox` 1/2/3-star selector
-  - Buyer sees the rating dialog immediately after the completion success dialog.
-  - Seller sees the rating dialog when opening the refreshed completed postcard detail.
+- Seller resolves pending buyer-rating tasks inside the existing order queue clipboard sheet.
+- Buyer resolves pending seller-rating tasks from an inline rating card rendered on postcard detail below the description/transaction metadata.
+- Popup rating dialogs are removed from postcard flows.
+- Seller queue and buyer inline rating card both use localized labels and star-icon buttons (`⭐`, `⭐⭐`, `⭐⭐⭐`).
   - Buyer inactivity after shipped deadline -> Cloud Function auto-settles order as `CompletedAuto`.
   - `CompletedAuto` does not open postcard rating tasks.
   - Buyer cannot place another order for the same postcard while an active order exists (`AwaitingShipping`, `Shipped`).
@@ -195,10 +196,14 @@ Fields:
 - `completedAt` (Timestamp, optional): set when buyer confirms receipt and transaction completes.
 - `isBuyerRatingRequired` (Bool, optional): true after manual completion until buyer rates seller.
 - `isSellerRatingRequired` (Bool, optional): true after manual completion until seller rates buyer.
+- `isBuyerRatingDismissed` (Bool, optional): true when buyer permanently skips seller rating.
+- `isSellerRatingDismissed` (Bool, optional): true when seller permanently skips buyer rating.
 - `isBuyerRatedSeller` (Bool, optional): true after buyer submits seller stars.
 - `isSellerRatedBuyer` (Bool, optional): true after seller submits buyer stars.
 - `buyerRatedSellerStars` (Int, optional): buyer -> seller star count.
 - `sellerRatedBuyerStars` (Int, optional): seller -> buyer star count.
+- `buyerRatingDismissedAt` (Timestamp, optional): when buyer permanently skipped seller rating.
+- `sellerRatingDismissedAt` (Timestamp, optional): when seller permanently skipped buyer rating.
 - `timeouts` (Map): hour-based parameters written to each order:
   - `sellerShippingDeadlineHours`
   - `buyerReceiveReminderHours`
@@ -216,7 +221,7 @@ Notes:
 - Browse/search list fetch is paginated by `AppConfig.Postcard.browseListFetchLimit` (`20`) and uses cursor-based "Load more".
 - Profile ordered-postcards view uses one server-side query: `buyerId + status in [AwaitingShipping, Shipped]` (plus legacy aliases), ordered by `createdAt desc`, limited by profile fetch cap.
 - Buyer latest-order lookup uses a server-side query with `buyerId + postcardId + status in [AwaitingShipping, Shipped]` (plus legacy aliases), ordered by `createdAt desc`, limited to `1`.
-- Buyer pending-rating lookup uses a server-side query with `buyerId + postcardId + isBuyerRatingRequired == true`, limited to `10`; the app then picks the latest `completedAt` client-side.
-- Seller pending-rating lookup uses a server-side query with `sellerId + postcardId + isSellerRatingRequired == true`, limited to `10`; the app then picks the latest `completedAt` client-side.
+- Buyer pending-rating lookup uses a server-side query with `buyerId + postcardId + isBuyerRatingRequired == true`, limited to `10`; the app then picks the latest `completedAt` client-side for the inline buyer rating card.
+- Seller pending-rating lookup uses a server-side query with `sellerId + postcardId + isSellerRatingRequired == true`, limited to `20`; the app renders all pending seller rating rows inside the order queue clipboard sheet.
 - Shipping recipients are fetched with server-side filters on `postcardId`, `sellerId`, and `status in [AwaitingShipping]` (plus legacy aliases); buyer friend codes are read from order snapshots with users lookup fallback for legacy orders.
 - Register/edit upload flow performs best-effort cleanup of newly uploaded image blobs if subsequent Firestore write fails.

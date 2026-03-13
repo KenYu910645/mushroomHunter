@@ -48,6 +48,7 @@
 //  [R] - `pendingConfirmationRequests`: Reads joiner pending confirmation queue for room detail confirmation UI.
 //
 import Foundation
+import FirebaseAuth
 import FirebaseFirestore
 
 final class FbRoomRepo {
@@ -169,6 +170,63 @@ final class FbRoomRepo {
                 isHostRatingRequired: isHostRatingRequired,
                 pendingConfirmationRequests: pendingConfirmationRequests
             )
+        }
+    }
+
+    /// Loads pending room rating tasks for the current user inside one room.
+    /// - Parameter roomId: Room currently open in detail UI.
+    /// - Returns: Pending room rating tasks sorted newest first.
+    func fetchPendingRoomRatingTasks(roomId: String) async throws -> [RoomRatingTask] {
+        guard let uid = Auth.auth().currentUser?.uid else { return [] }
+
+        let query = db.collection("roomRatingTasks")
+            .whereField("roomId", isEqualTo: roomId)
+            .whereField("raterUid", isEqualTo: uid)
+            .whereField("status", isEqualTo: RoomRatingTaskStatus.pending.rawValue)
+
+        let snapshot: QuerySnapshot
+        do {
+            snapshot = try await query.getDocuments(source: .server)
+        } catch {
+            snapshot = try await query.getDocuments(source: .default)
+        }
+
+        return snapshot.documents.compactMap { document in
+            let data = document.data()
+            let confirmationId = (data["confirmationId"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let requestedAt = (data["requestedAt"] as? Timestamp)?.dateValue() ?? .distantPast
+            let rateeUid = (data["rateeUid"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let counterpartName = (data["counterpartName"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let directionRaw = (data["direction"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let outcomeRaw = (data["settlementOutcome"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let statusRaw = (data["status"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard confirmationId.isEmpty == false,
+                  rateeUid.isEmpty == false,
+                  let direction = RoomRatingDirection(rawValue: directionRaw),
+                  let settlementOutcome = RaidSettlementOutcome(rawValue: outcomeRaw),
+                  let status = RoomRatingTaskStatus(rawValue: statusRaw) else {
+                return nil
+            }
+            return RoomRatingTask(
+                id: document.documentID,
+                roomId: roomId,
+                confirmationId: confirmationId,
+                requestedAt: requestedAt,
+                rateeUid: rateeUid,
+                counterpartName: counterpartName.isEmpty ? "Player" : counterpartName,
+                direction: direction,
+                settlementOutcome: settlementOutcome,
+                status: status
+            )
+        }
+        .sorted { lhs, rhs in
+            lhs.requestedAt > rhs.requestedAt
         }
     }
 

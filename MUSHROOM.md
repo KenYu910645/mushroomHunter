@@ -83,16 +83,19 @@
 - Host `Mushroom Raid Done` sends settlement requests to all eligible non-host attendees, including attendees with unresolved requests.
 - Joiner has confirmation queue icon with red dot when pending requests exist.
 - Queue shows all unprocessed confirmations newest-first.
-- Queue row content is compact: host invitation text + relative elapsed time (`Xm ago` / `Xh ago`).
+- Queue row content is compact: host invitation text + localized relative elapsed time (`0m ago` / `0分鐘前`).
 - Each queue row supports 3 settlement actions:
 - `Yes, I joined the mushroom`
 - `Yes, but the mushroom is full`
 - `No, I didn't see invitation`
 - Host can resend by running `Mushroom Raid Done` again for the same attendee(s); each resend appends a new pending confirmation request and sends a fresh attendee action push/event even if the attendee is already in `WaitingConfirmation`.
 - Host has read-only raid history page (`list.clipboard`) showing latest-first confirmation records.
+- Host raid-history clipboard now also includes a `Pending Ratings` section for unresolved host -> attendee rating tasks.
+- Pending rating rows use localized copy and the same star-icon labels (`⭐`, `⭐⭐`, `⭐⭐⭐`) previously used by room message boxes.
 - Host history attendee status pills: `Confirming` (yellow), `Joined` (green), `Seat full` (yellow), `No invite` (red).
 - Tapping raid-confirmation push opens room and auto-presents confirmation queue.
 - Room opened from push forces first-load server refresh for latest confirmation state.
+- Attendee confirmation clipboard now also includes a `Pending Ratings` section for unresolved attendee -> host rating tasks.
 
 ### 6) Room Detail UI
 - Room header focuses on title, attendee count, location, and description (no last-raid line in header).
@@ -100,6 +103,8 @@
 - Top-right action order:
 - Host: `Share -> Raid History -> Edit`.
 - Joined attendee: `Confirmation Queue -> Edit Deposit`.
+- Host clipboard icon shows a red dot when host-side room rating tasks are pending.
+- Attendee clipboard icon shows a red dot when either confirmation responses or attendee-side room rating tasks are pending.
 - Role-seeded toolbar supports early host/attendee action slot rendering before room payload finishes loading.
 - Action buttons that depend on room payload stay disabled until detail data is ready.
 - Host-visible `AskingToJoin` attendee name includes small red dot marker.
@@ -143,9 +148,15 @@
   - `No, seat full (no-fault race)`: host gets the global seat-full reward (`AppConfig.Mushroom.seatFullRewardHoney`, default `2`), attendee deposit deducts only that amount.
   - `No, I didn't see invitation`: no honey transfer, treated as host-not-invited outcome.
 - Host create/edit no longer exposes any raid-cost or honey-reward control; mushroom reward policy is owner-tuned only in `AppConfig.swift`.
-- Star-selection buttons in rating message boxes use neutral bordered style (non-prominent) to reduce visual glare.
-- Attendee rating is available only for `joined success` settlement.
-- Host flow: when attendee accepts confirmation, attendee doc is marked `isHostRatingRequired = true`; host can then give that attendee `1`, `2`, or `3` stars.
+- Popup rating message boxes are removed from mushroom room flows.
+- Every resolved confirmation now creates two room rating tasks while the room remains open:
+  - attendee -> host
+  - host -> attendee
+- Both tasks live in the existing clipboard surfaces and remain available regardless of later attendee status changes.
+- Host rates attendees from the host `Raid History` clipboard sheet.
+- Attendee rates host from the attendee `Confirmation Queue` clipboard sheet.
+- `Skip` permanently closes that specific room rating task.
+- Closing the room marks unresolved room rating tasks as closed and removes any remaining rating opportunity.
 - After a confirmation settles and the attendee no longer has any pending confirmation requests, attendee `status` becomes `NotEnoughHoney` when remaining `depositHoney` is below `AppConfig.Mushroom.minimumRequiredDepositHoney`; otherwise it returns to `Ready`.
 - Stars updates write to `users/{uid}.stars` and also refresh room attendee stars in the active room so Room Details reflects new totals immediately.
 - Firestore transaction rule reminder: in room raid settlement transactions, read all attendee docs before applying any writes to avoid "all reads must occur before writes" transaction failures.
@@ -221,6 +232,23 @@ Fields:
 Compatibility notes:
 - Legacy attendee docs may still contain `attendeeRatedHost`, `hostRatedAttendee`, and `needsHostRating`.
 - Legacy user docs may still contain `profileComplete`.
+
+#### `roomRatingTasks/{taskId}`
+Durable room rating tasks that power the host/attendee clipboard surfaces while the room remains open.
+Fields:
+- `roomId` (String): parent room id.
+- `roomTitle` (String): room title snapshot for clipboard display fallback.
+- `confirmationId` (String): confirmation cycle that created the task.
+- `requestedAt` (Timestamp): source confirmation timestamp used for newest-first ordering.
+- `raterUid` (String): uid who can act on the task.
+- `rateeUid` (String): uid who will receive stars.
+- `counterpartName` (String): display name shown in the clipboard row.
+- `direction` (String): `AttendeeToHost` or `HostToAttendee`.
+- `settlementOutcome` (String): `JoinedSuccess`, `SeatFullNoFault`, or `MissedInvitation`.
+- `status` (String): `Pending`, `Rated`, `Skipped`, or `Closed`.
+- `stars` (Int, optional): submitted star value when `status == Rated`.
+- `resolvedAt` (Timestamp, optional): when the task was rated, skipped, or closed.
+- `updatedAt` (Timestamp): latest task mutation time.
 
 #### `rooms/{roomId}/kickEvents/{kickEventId}`
 Server-side kick marker documents written only by host kick transactions so backend event production can distinguish kick from leave or room close.

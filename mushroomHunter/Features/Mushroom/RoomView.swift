@@ -65,11 +65,6 @@ struct RoomView: View {
     @State private var raidRemainingDepositHoney: Int = 0 // Remaining honey still deposited in the room after joined-success settlement.
     @State private var isShowingNoFaultSettlementAlert: Bool = false // Indicates no-fault seat-full settlement result should be shown.
     @State private var noFaultSettlementHoney: Int = 0 // Latest effort-fee honey transferred from no-fault seat-full settlement.
-    @State private var showAttendeeRateHostAlert: Bool = false // State or dependency property.
-    @State private var showNextRoundAfterRating: Bool = false // State or dependency property.
-    @State private var showHostRateAttendeeAlert: Bool = false // State or dependency property.
-    @State private var hostRateAttendeeId: String = "" // State or dependency property.
-    @State private var hostRateAttendeeName: String = "" // State or dependency property.
     @State private var showInviteSheet: Bool = false // State or dependency property.
     @State private var isDidRunInitialLoad: Bool = false // Ensures first-load sequence executes only once.
     @State private var isPendingOpenConfirmationQueueOnAppear: Bool // Tracks one-time auto-open request for attendee confirmation queue.
@@ -104,9 +99,6 @@ struct RoomView: View {
                     guard !isDidRunInitialLoad else { return }
                     isDidRunInitialLoad = true
                     await handleInitialRoomLoadFlow()
-                }
-                .onChange(of: vm.hostPendingRatingAttendeeIds) { _, _ in
-                    presentNextHostRatingAlertIfNeeded()
                 }
         }
         .sheet(item: $editingRoom, onDismiss: {
@@ -421,6 +413,7 @@ struct RoomView: View {
             NavigationStack {
                 RoomRaidConfirmationQueueView(
                     queueItems: pendingRaidConfirmationQueueItems,
+                    ratingTasks: vm.attendeePendingRoomRatingTasks,
                     isResponding: isRaidConfirmationResponding,
                     onClose: { isRaidConfirmationQueueSheetPresented = false },
                     onRefresh: {
@@ -429,6 +422,12 @@ struct RoomView: View {
                     onRespond: { queueItem, settlementOutcome in
                         isRaidConfirmationQueueSheetPresented = false
                         Task { await respondToRaidConfirmation(queueItem: queueItem, settlementOutcome: settlementOutcome) }
+                    },
+                    onRate: { taskId, stars in
+                        Task { await vm.submitRoomRating(taskId: taskId, stars: stars) }
+                    },
+                    onSkipRating: { taskId in
+                        Task { await vm.skipRoomRating(taskId: taskId) }
                     }
                 )
             }
@@ -437,9 +436,16 @@ struct RoomView: View {
             NavigationStack {
                 RoomRaidHistoryView(
                     historyItems: raidHistoryItemsLatestFirst,
+                    ratingTasks: vm.hostPendingRoomRatingTasks,
                     onClose: { isRaidHistorySheetPresented = false },
                     onRefresh: {
                         await vm.load(forceRefresh: true)
+                    },
+                    onRate: { taskId, stars in
+                        Task { await vm.submitRoomRating(taskId: taskId, stars: stars) }
+                    },
+                    onSkipRating: { taskId in
+                        Task { await vm.skipRoomRating(taskId: taskId) }
                     }
                 )
             }
@@ -759,8 +765,7 @@ struct RoomView: View {
                 Button {
                     isRaidHistorySheetPresented = true
                 } label: {
-                    Image(systemName: "list.clipboard")
-                        .font(.headline)
+                    raidHistoryToolbarIcon
                 }
                 .tutorialHighlightAnchor(isRoomTutorialActive ? .roomHostRaidHistoryButton : nil)
                 .accessibilityLabel(LocalizedStringKey("room_raid_history_accessibility"))
@@ -1129,12 +1134,9 @@ struct RoomView: View {
                         title: NSLocalizedString("common_ok", comment: "")
                     ) {
                         showRaidThanksAlert = false
-                        if let room = vm.room,
-                           let deposit = vm.currentUserDepositHoney(),
-                           deposit < AppConfig.Mushroom.minimumRequiredDepositHoney {
-                            showNextRoundAfterRating = true
+                        if vm.currentUserDepositHoney() ?? 0 < AppConfig.Mushroom.minimumRequiredDepositHoney {
+                            showNextRoundAlert = true
                         }
-                        showAttendeeRateHostAlert = true
                     }
                 ]
             )
@@ -1148,105 +1150,6 @@ struct RoomView: View {
                         title: NSLocalizedString("common_ok", comment: "")
                     ) {
                         isShowingNoFaultSettlementAlert = false
-                    }
-                ]
-            )
-        } else if showAttendeeRateHostAlert {
-            MessageBox(
-                title: String(format: NSLocalizedString("room_msg_rate_host_title", comment: ""), vm.room?.hostName ?? "Host"),
-                message: "",
-                buttons: [
-                    MessageBoxButton(
-                        id: "room_rate_host_one",
-                        title: NSLocalizedString("room_msg_rate_one_star", comment: ""),
-                        role: .quiet
-                    ) {
-                        showAttendeeRateHostAlert = false
-                        Task {
-                            await vm.rateHost(stars: 1)
-                            presentNextRoundAlertIfNeeded()
-                        }
-                    },
-                    MessageBoxButton(
-                        id: "room_rate_host_two",
-                        title: NSLocalizedString("room_msg_rate_two_stars", comment: ""),
-                        role: .quiet
-                    ) {
-                        showAttendeeRateHostAlert = false
-                        Task {
-                            await vm.rateHost(stars: 2)
-                            presentNextRoundAlertIfNeeded()
-                        }
-                    },
-                    MessageBoxButton(
-                        id: "room_rate_host_three",
-                        title: NSLocalizedString("room_msg_rate_three_stars", comment: ""),
-                        role: .quiet
-                    ) {
-                        showAttendeeRateHostAlert = false
-                        Task {
-                            await vm.rateHost(stars: 3)
-                            presentNextRoundAlertIfNeeded()
-                        }
-                    },
-                    MessageBoxButton(
-                        id: "room_rate_host_cancel",
-                        title: NSLocalizedString("common_cancel", comment: ""),
-                        role: .cancel
-                    ) {
-                        showAttendeeRateHostAlert = false
-                        presentNextRoundAlertIfNeeded()
-                    }
-                ]
-            )
-        } else if showHostRateAttendeeAlert {
-            MessageBox(
-                title: String(format: NSLocalizedString("room_msg_rate_attendee_title", comment: ""), hostRateAttendeeName),
-                message: "",
-                buttons: [
-                    MessageBoxButton(
-                        id: "room_rate_attendee_one",
-                        title: NSLocalizedString("room_msg_rate_one_star", comment: ""),
-                        role: .quiet
-                    ) {
-                        let attendeeId = hostRateAttendeeId
-                        showHostRateAttendeeAlert = false
-                        Task {
-                            await vm.rateAttendee(attendeeId: attendeeId, stars: 1)
-                            presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
-                        }
-                    },
-                    MessageBoxButton(
-                        id: "room_rate_attendee_two",
-                        title: NSLocalizedString("room_msg_rate_two_stars", comment: ""),
-                        role: .quiet
-                    ) {
-                        let attendeeId = hostRateAttendeeId
-                        showHostRateAttendeeAlert = false
-                        Task {
-                            await vm.rateAttendee(attendeeId: attendeeId, stars: 2)
-                            presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
-                        }
-                    },
-                    MessageBoxButton(
-                        id: "room_rate_attendee_three",
-                        title: NSLocalizedString("room_msg_rate_three_stars", comment: ""),
-                        role: .quiet
-                    ) {
-                        let attendeeId = hostRateAttendeeId
-                        showHostRateAttendeeAlert = false
-                        Task {
-                            await vm.rateAttendee(attendeeId: attendeeId, stars: 3)
-                            presentNextHostRatingAlertIfNeeded(excluding: attendeeId)
-                        }
-                    },
-                    MessageBoxButton(
-                        id: "room_rate_attendee_cancel",
-                        title: NSLocalizedString("common_cancel", comment: ""),
-                        role: .cancel
-                    ) {
-                        showHostRateAttendeeAlert = false
-                        presentNextHostRatingAlertIfNeeded(excluding: hostRateAttendeeId)
                     }
                 ]
             )
@@ -1449,34 +1352,6 @@ struct RoomView: View {
         NSLocalizedString("room_msg_claim_confirm_message", comment: "")
     }
 
-    private func presentNextHostRatingAlertIfNeeded(excluding attendeeId: String? = nil) {
-        guard vm.role == .host else { return }
-        let pending = vm.hostPendingRatingAttendeeIds
-            .filter { id in
-                guard let attendeeId else { return true }
-                return id != attendeeId
-            }
-            .sorted()
-
-        guard let nextId = pending.first,
-              let attendee = vm.attendeeById(nextId) else {
-            showHostRateAttendeeAlert = false
-            hostRateAttendeeId = ""
-            hostRateAttendeeName = ""
-            return
-        }
-
-        hostRateAttendeeId = attendee.id
-        hostRateAttendeeName = attendee.name
-        showHostRateAttendeeAlert = true
-    }
-
-    private func presentNextRoundAlertIfNeeded() {
-        guard showNextRoundAfterRating else { return }
-        showNextRoundAfterRating = false
-        showNextRoundAlert = true
-    }
-
     /// Host-visible raid history items sorted from latest confirmation to oldest confirmation.
     private var raidHistoryItemsLatestFirst: [RoomRaidHistoryItem] {
         guard let room = vm.room else { return [] }
@@ -1517,7 +1392,7 @@ struct RoomView: View {
 
     /// Pending attendee confirmation count used by toolbar badge.
     private var pendingRaidConfirmationCount: Int {
-        pendingRaidConfirmationQueueItems.count
+        vm.attendeeClipboardPendingCount
     }
 
     /// Toolbar icon with a red dot indicator when attendee has pending confirmations.
@@ -1534,6 +1409,26 @@ struct RoomView: View {
             Text(
                 pendingRaidConfirmationCount > 0
                     ? "\(pendingRaidConfirmationCount)"
+                    : "0"
+            )
+        )
+    }
+
+    /// Toolbar icon with a red dot indicator when host has pending room rating tasks.
+    @ViewBuilder
+    private var raidHistoryToolbarIcon: some View {
+        ZStack(alignment: .topTrailing) {
+            Image(systemName: "list.clipboard")
+
+            if vm.hostClipboardPendingCount > 0 {
+                ProfileActionDot()
+                    .offset(x: 6, y: -4)
+            }
+        }
+        .accessibilityValue(
+            Text(
+                vm.hostClipboardPendingCount > 0
+                    ? "\(vm.hostClipboardPendingCount)"
                     : "0"
             )
         )
@@ -1591,6 +1486,8 @@ private struct RoomRaidConfirmationQueueItem: Identifiable, Equatable {
 private struct RoomRaidConfirmationQueueView: View {
     /// Pending confirmation items that still need attendee responses.
     let queueItems: [RoomRaidConfirmationQueueItem]
+    /// Pending attendee-side room rating tasks shown below confirmations.
+    let ratingTasks: [RoomRatingTask]
     /// True while a confirmation response transaction is in flight.
     let isResponding: Bool
     /// Callback used to close this queue page.
@@ -1599,61 +1496,81 @@ private struct RoomRaidConfirmationQueueView: View {
     let onRefresh: () async -> Void
     /// Callback when attendee selects one settlement outcome.
     let onRespond: (RoomRaidConfirmationQueueItem, RaidSettlementOutcome) -> Void
+    /// Callback when attendee submits a star rating from the clipboard queue.
+    let onRate: (String, Int) -> Void
+    /// Callback when attendee permanently skips a pending rating.
+    let onSkipRating: (String) -> Void
 
     /// Main queue list layout.
     var body: some View {
         List {
-            if queueItems.isEmpty {
+            if queueItems.isEmpty && ratingTasks.isEmpty {
                 Text(LocalizedStringKey("room_confirmation_queue_empty"))
                     .foregroundStyle(.secondary)
-            } else {
-                ForEach(queueItems) { queueItem in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(
-                            String(
-                                format: NSLocalizedString("room_confirmation_queue_item_title_format", comment: ""),
-                                queueItem.hostName
+            }
+
+            if queueItems.isEmpty == false {
+                Section(LocalizedStringKey("room_confirmation_queue_section_title")) {
+                    ForEach(queueItems) { queueItem in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(
+                                String(
+                                    format: NSLocalizedString("room_confirmation_queue_item_title_format", comment: ""),
+                                    queueItem.hostName
+                                )
                             )
-                        )
-                        .font(.headline)
+                            .font(.headline)
 
-                        Text(Optional(queueItem.requestedAt).relativeShortString())
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            Text(Optional(queueItem.requestedAt).relativeShortString())
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
 
-                        VStack(spacing: 8) {
-                            Button {
-                                onRespond(queueItem, .joinedSuccess)
-                            } label: {
-                                Text(LocalizedStringKey("room_msg_raid_confirm_joined_success_button"))
-                                    .frame(maxWidth: .infinity)
+                            VStack(spacing: 8) {
+                                Button {
+                                    onRespond(queueItem, .joinedSuccess)
+                                } label: {
+                                    Text(LocalizedStringKey("room_msg_raid_confirm_joined_success_button"))
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(isResponding)
+                                .accessibilityIdentifier("room_confirmation_joined_success_button_\(queueItem.id)")
+
+                                Button {
+                                    onRespond(queueItem, .seatFullNoFault)
+                                } label: {
+                                    Text(LocalizedStringKey("room_msg_raid_confirm_seat_full_button"))
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(isResponding)
+                                .accessibilityIdentifier("room_confirmation_seat_full_button_\(queueItem.id)")
+
+                                Button {
+                                    onRespond(queueItem, .missedInvitation)
+                                } label: {
+                                    Text(LocalizedStringKey("room_msg_raid_confirm_missed_invite_button"))
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(isResponding)
+                                .accessibilityIdentifier("room_confirmation_missed_invite_button_\(queueItem.id)")
                             }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(isResponding)
-                            .accessibilityIdentifier("room_confirmation_joined_success_button_\(queueItem.id)")
-
-                            Button {
-                                onRespond(queueItem, .seatFullNoFault)
-                            } label: {
-                                Text(LocalizedStringKey("room_msg_raid_confirm_seat_full_button"))
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(isResponding)
-                            .accessibilityIdentifier("room_confirmation_seat_full_button_\(queueItem.id)")
-
-                            Button {
-                                onRespond(queueItem, .missedInvitation)
-                            } label: {
-                                Text(LocalizedStringKey("room_msg_raid_confirm_missed_invite_button"))
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(isResponding)
-                            .accessibilityIdentifier("room_confirmation_missed_invite_button_\(queueItem.id)")
                         }
+                        .padding(.vertical, 4)
                     }
-                    .padding(.vertical, 4)
+                }
+            }
+
+            if ratingTasks.isEmpty == false {
+                Section(LocalizedStringKey("room_pending_ratings_section_title")) {
+                    ForEach(ratingTasks) { task in
+                        RoomRatingTaskActionCard(
+                            task: task,
+                            onRate: onRate,
+                            onSkip: onSkipRating
+                        )
+                    }
                 }
             }
         }
@@ -1696,38 +1613,60 @@ private struct RoomRaidHistoryAttendeeResultItem: Identifiable, Equatable {
 private struct RoomRaidHistoryView: View {
     /// Confirmation history entries sorted latest to oldest.
     let historyItems: [RoomRaidHistoryItem]
+    /// Pending host-side room rating tasks shown above read-only history.
+    let ratingTasks: [RoomRatingTask]
     /// Callback used to dismiss this sheet.
     let onClose: () -> Void
     /// Pull-to-refresh callback for reloading latest history.
     let onRefresh: () async -> Void
+    /// Callback when host submits stars from one pending history task.
+    let onRate: (String, Int) -> Void
+    /// Callback when host permanently skips one pending history task.
+    let onSkipRating: (String) -> Void
 
     /// Main history list composition.
     var body: some View {
         List {
-            if historyItems.isEmpty {
+            if historyItems.isEmpty && ratingTasks.isEmpty {
                 Text(LocalizedStringKey("room_raid_history_empty"))
                     .foregroundStyle(.secondary)
-            } else {
-                ForEach(historyItems) { historyItem in
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(Optional(historyItem.requestedAt).relativeShortString())
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+            }
 
-                        ForEach(historyItem.attendeeResults) { attendeeResult in
-                            HStack(spacing: 10) {
-                                Text(attendeeResult.attendeeName)
-                                    .font(.headline)
-                                    .lineLimit(1)
-                                Spacer()
-                                ColorfulTag(
-                                    titleKey: attendeeResult.status.statusTitleKey,
-                                    tone: attendeeResult.status.statusUrgency
-                                )
+            if ratingTasks.isEmpty == false {
+                Section(LocalizedStringKey("room_pending_ratings_section_title")) {
+                    ForEach(ratingTasks) { task in
+                        RoomRatingTaskActionCard(
+                            task: task,
+                            onRate: onRate,
+                            onSkip: onSkipRating
+                        )
+                    }
+                }
+            }
+
+            if historyItems.isEmpty == false {
+                Section(LocalizedStringKey("room_raid_history_section_title")) {
+                    ForEach(historyItems) { historyItem in
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(Optional(historyItem.requestedAt).relativeShortString())
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+
+                            ForEach(historyItem.attendeeResults) { attendeeResult in
+                                HStack(spacing: 10) {
+                                    Text(attendeeResult.attendeeName)
+                                        .font(.headline)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    ColorfulTag(
+                                        titleKey: attendeeResult.status.statusTitleKey,
+                                        tone: attendeeResult.status.statusUrgency
+                                    )
+                                }
                             }
                         }
+                        .padding(.vertical, 4)
                     }
-                    .padding(.vertical, 4)
                 }
             }
         }
@@ -1743,6 +1682,72 @@ private struct RoomRaidHistoryView: View {
         .refreshable {
             await onRefresh()
         }
+    }
+}
+
+/// Shared pending room-rating card rendered in the room clipboard sheets.
+private struct RoomRatingTaskActionCard: View {
+    /// Pending rating task currently being rendered.
+    let task: RoomRatingTask
+    /// Callback for star submission.
+    let onRate: (String, Int) -> Void
+    /// Callback for permanent skip action.
+    let onSkip: (String) -> Void
+
+    /// Localized status summary for the underlying settlement outcome.
+    private var outcomeSummary: String {
+        switch task.settlementOutcome {
+        case .joinedSuccess:
+            return NSLocalizedString("room_rating_outcome_joined_success", comment: "")
+        case .seatFullNoFault:
+            return NSLocalizedString("room_rating_outcome_seat_full", comment: "")
+        case .missedInvitation:
+            return NSLocalizedString("room_rating_outcome_missed_invitation", comment: "")
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(
+                String(
+                    format: NSLocalizedString("room_rating_title_format", comment: ""),
+                    task.counterpartName
+                )
+            )
+                .font(.headline)
+
+            Text(outcomeSummary)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            Text(Optional(task.requestedAt).relativeShortString())
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                Button(LocalizedStringKey("room_msg_rate_one_star")) {
+                    onRate(task.id, 1)
+                }
+                .buttonStyle(.bordered)
+
+                Button(LocalizedStringKey("room_msg_rate_two_stars")) {
+                    onRate(task.id, 2)
+                }
+                .buttonStyle(.bordered)
+
+                Button(LocalizedStringKey("room_msg_rate_three_stars")) {
+                    onRate(task.id, 3)
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Button(LocalizedStringKey("common_skip")) {
+                onSkip(task.id)
+            }
+            .buttonStyle(.bordered)
+            .tint(.red)
+        }
+        .padding(.vertical, 4)
     }
 }
 

@@ -27,8 +27,8 @@
   - Display name and friend code (read-only identity rows) appear in the first block without a visible section title.
   - Top-right calendar entry opens the shared DailyReward sheet.
   - Top-right bell entry opens the shared event inbox sheet.
-  - Profile form now includes an `Upgrade to Premium` / `升級為高級會員` row above `Settings`.
-  - Tapping the premium row opens a dedicated membership sheet that shows:
+  - Profile form can expose an `Upgrade to Premium` / `升級為高級會員` row above `Settings` when `AppConfig.Premium.isPremiumEntryEnabled` is turned on.
+  - When the premium row is enabled, tapping it opens a dedicated membership sheet that shows:
     - active/free status,
     - monthly StoreKit price,
     - premium benefits,

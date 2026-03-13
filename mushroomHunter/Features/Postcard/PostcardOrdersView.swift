@@ -17,6 +17,8 @@ struct PostcardOrdersView: View {
     @Environment(\.dismiss) private var dismiss
     /// Buyers currently waiting for seller to ship or decline.
     @State private var recipients: [PostcardShippingRecipient] = []
+    /// Seller rating tasks that still need buyer stars after completion.
+    @State private var ratingTasks: [PostcardOrderRatingContext] = []
     /// Indicates whether recipient list is loading.
     @State private var isLoading: Bool = false
     /// Order id currently being marked as shipped.
@@ -46,64 +48,112 @@ struct PostcardOrdersView: View {
                     .foregroundStyle(.red)
             }
 
-            if isLoading && recipients.isEmpty {
+            if isLoading && recipients.isEmpty && ratingTasks.isEmpty {
                 HStack {
                     Spacer()
                     ProgressView()
                     Spacer()
                 }
-            } else if recipients.isEmpty {
+            } else if recipients.isEmpty && ratingTasks.isEmpty {
                 Text(LocalizedStringKey("postcard_shipping_empty"))
                     .foregroundStyle(.secondary)
-            } else {
-                ForEach(recipients) { recipient in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(
-                            String(
-                                format: NSLocalizedString("postcard_shipping_ordered_title_format", comment: ""),
-                                recipient.buyerName,
-                                postcard.title
+            }
+
+            if recipients.isEmpty == false {
+                Section(LocalizedStringKey("postcard_shipping_section_title")) {
+                    ForEach(recipients) { recipient in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(
+                                String(
+                                    format: NSLocalizedString("postcard_shipping_ordered_title_format", comment: ""),
+                                    recipient.buyerName,
+                                    postcard.title
+                                )
                             )
-                        )
-                            .font(.headline)
-                        friendRequestInstruction(for: recipient)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                                .font(.headline)
+                            friendRequestInstruction(for: recipient)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
 
-                        HStack(spacing: 8) {
-                            Button {
-                                pendingSentConfirmationRecipient = recipient
-                            } label: {
-                                if isSendingOrderId == recipient.id {
-                                    ProgressView()
-                                        .frame(maxWidth: .infinity)
-                                } else {
-                                    Text(LocalizedStringKey("postcard_shipping_send_button"))
-                                        .frame(maxWidth: .infinity)
+                            HStack(spacing: 8) {
+                                Button {
+                                    pendingSentConfirmationRecipient = recipient
+                                } label: {
+                                    if isSendingOrderId == recipient.id {
+                                        ProgressView()
+                                            .frame(maxWidth: .infinity)
+                                    } else {
+                                        Text(LocalizedStringKey("postcard_shipping_send_button"))
+                                            .frame(maxWidth: .infinity)
+                                    }
                                 }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(isPendingActionLocked)
+                                .accessibilityIdentifier("postcard_shipping_send_button_\(recipient.id)")
+
+                                Button {
+                                    pendingRejectConfirmationRecipient = recipient
+                                } label: {
+                                    if isRejectingOrderId == recipient.id {
+                                        ProgressView()
+                                            .frame(maxWidth: .infinity)
+                                    } else {
+                                        Text(LocalizedStringKey("postcard_shipping_reject_button"))
+                                            .frame(maxWidth: .infinity)
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(.red)
+                                .disabled(isPendingActionLocked)
+                                .accessibilityIdentifier("postcard_shipping_reject_button_\(recipient.id)")
                             }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(isPendingActionLocked)
-                            .accessibilityIdentifier("postcard_shipping_send_button_\(recipient.id)")
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
 
-                            Button {
-                                pendingRejectConfirmationRecipient = recipient
-                            } label: {
-                                if isRejectingOrderId == recipient.id {
-                                    ProgressView()
-                                        .frame(maxWidth: .infinity)
-                                } else {
-                                    Text(LocalizedStringKey("postcard_shipping_reject_button"))
-                                        .frame(maxWidth: .infinity)
+            if ratingTasks.isEmpty == false {
+                Section(LocalizedStringKey("postcard_pending_ratings_section_title")) {
+                    ForEach(ratingTasks) { ratingTask in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(
+                                String(
+                                    format: NSLocalizedString("postcard_rating_title_format", comment: ""),
+                                    ratingTask.counterpartName
+                                )
+                            )
+                                .font(.headline)
+
+                            Text(Optional(ratingTask.completedAt).relativeShortString())
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+
+                            HStack(spacing: 8) {
+                                Button(LocalizedStringKey("room_msg_rate_one_star")) {
+                                    Task { await submitSellerRating(task: ratingTask, stars: 1) }
                                 }
+                                .buttonStyle(.bordered)
+
+                                Button(LocalizedStringKey("room_msg_rate_two_stars")) {
+                                    Task { await submitSellerRating(task: ratingTask, stars: 2) }
+                                }
+                                .buttonStyle(.bordered)
+
+                                Button(LocalizedStringKey("room_msg_rate_three_stars")) {
+                                    Task { await submitSellerRating(task: ratingTask, stars: 3) }
+                                }
+                                .buttonStyle(.bordered)
+                            }
+
+                            Button(LocalizedStringKey("common_skip")) {
+                                Task { await skipSellerRating(task: ratingTask) }
                             }
                             .buttonStyle(.bordered)
                             .tint(.red)
-                            .disabled(isPendingActionLocked)
-                            .accessibilityIdentifier("postcard_shipping_reject_button_\(recipient.id)")
                         }
+                        .padding(.vertical, 4)
                     }
-                    .padding(.vertical, 4)
                 }
             }
         }
@@ -275,11 +325,13 @@ struct PostcardOrdersView: View {
 
         if AppTesting.useMockPostcards {
             recipients = AppTesting.fixtureShippingRecipients()
+            ratingTasks = []
             return
         }
 
         do {
             recipients = try await repo.fetchShippingRecipients(postcardId: postcard.id)
+            ratingTasks = try await repo.fetchPendingSellerRatingContexts(postcardId: postcard.id)
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -325,6 +377,32 @@ struct PostcardOrdersView: View {
             await dirtyBits.markPostcardBrowseDirty()
             await dirtyBits.markPostcardDetailDirty(postcardId: postcard.id)
             recipients.removeAll { $0.id == recipient.id }
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    /// Submits seller-side rating for one completed order row.
+    /// - Parameters:
+    ///   - task: Pending seller rating task.
+    ///   - stars: Number of stars selected by seller.
+    private func submitSellerRating(task: PostcardOrderRatingContext, stars: Int) async {
+        do {
+            try await repo.rateBuyerAfterCompletion(orderId: task.id, stars: stars)
+            await dirtyBits.markPostcardDetailDirty(postcardId: postcard.id)
+            ratingTasks.removeAll { $0.id == task.id }
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    /// Permanently skips seller-side rating for one completed order row.
+    /// - Parameter task: Pending seller rating task.
+    private func skipSellerRating(task: PostcardOrderRatingContext) async {
+        do {
+            try await repo.skipBuyerRatingAfterCompletion(orderId: task.id)
+            await dirtyBits.markPostcardDetailDirty(postcardId: postcard.id)
+            ratingTasks.removeAll { $0.id == task.id }
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }

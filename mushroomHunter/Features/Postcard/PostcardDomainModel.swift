@@ -168,6 +168,10 @@ struct PostcardOrderRatingContext: Identifiable, Equatable, Codable {
     let isBuyerRatingRequired: Bool
     /// True when the seller still needs to rate the buyer for this order.
     let isSellerRatingRequired: Bool
+    /// True when the buyer permanently skipped seller rating for this order.
+    let isBuyerRatingDismissed: Bool
+    /// True when the seller permanently skipped buyer rating for this order.
+    let isSellerRatingDismissed: Bool
     /// Timestamp when the order was completed.
     let completedAt: Date
 }

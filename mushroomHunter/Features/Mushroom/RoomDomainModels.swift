@@ -69,12 +69,48 @@ struct RoomRaidConfirmationAttendeeResult: Identifiable, Equatable, Codable {
     var status: RoomRaidConfirmationAttendeeStatus
 }
 
+/// One durable room rating task that lives in the room clipboard flow.
+struct RoomRatingTask: Identifiable, Equatable, Codable {
+    /// Stable task document id.
+    let id: String
+    /// Parent room id this task belongs to.
+    let roomId: String
+    /// Confirmation cycle id that created this task.
+    let confirmationId: String
+    /// Confirmation request timestamp used for newest-first ordering.
+    let requestedAt: Date
+    /// Counterparty uid that will receive the stars.
+    let rateeUid: String
+    /// Counterparty display name shown in the queue/history row.
+    let counterpartName: String
+    /// Direction of this room rating task.
+    let direction: RoomRatingDirection
+    /// Settlement outcome associated with this rating opportunity.
+    let settlementOutcome: RaidSettlementOutcome
+    /// Current lifecycle state for this rating task.
+    var status: RoomRatingTaskStatus
+}
+
 /// Host-visible attendee response state used by raid history.
 enum RoomRaidConfirmationAttendeeStatus: String, CaseIterable, Codable {
     case confirming = "Confirming"
     case joined = "Joined"
     case seatFull = "SeatFull"
     case noInvite = "NoInvite"
+}
+
+/// Direction of one room rating task.
+enum RoomRatingDirection: String, CaseIterable, Codable {
+    case attendeeToHost = "AttendeeToHost"
+    case hostToAttendee = "HostToAttendee"
+}
+
+/// Persisted lifecycle state for one room rating task.
+enum RoomRatingTaskStatus: String, CaseIterable, Codable {
+    case pending = "Pending"
+    case rated = "Rated"
+    case skipped = "Skipped"
+    case closed = "Closed"
 }
 
 /// Mushroom targeting info (align with your Host tab)
@@ -216,19 +252,36 @@ extension RoomAttendee {
 }
 
 extension Optional where Wrapped == Date {
-    /// For UI: "24h ago", "10m ago", "2d ago", or "—"
+    /// For UI: localized short relative time such as "24h ago" or "24 小時前".
     func relativeShortString(now: Date = Date()) -> String { // Handles relativeShortString flow.
-        guard let date = self else { return "—" }
+        guard let date = self else {
+            return NSLocalizedString("common_relative_unknown", comment: "")
+        }
         let seconds = Int(now.timeIntervalSince(date))
-        if seconds < 0 { return "—" }
+        if seconds < 0 {
+            return NSLocalizedString("common_relative_unknown", comment: "")
+        }
 
         let minutes = seconds / 60
-        if minutes < 60 { return "\(minutes)m ago" }
+        if minutes < 60 {
+            return String(
+                format: NSLocalizedString("common_relative_minutes_ago", comment: ""),
+                minutes
+            )
+        }
 
         let hours = minutes / 60
-        if hours < 48 { return "\(hours)h ago" }
+        if hours < 48 {
+            return String(
+                format: NSLocalizedString("common_relative_hours_ago", comment: ""),
+                hours
+            )
+        }
 
         let days = hours / 24
-        return "\(days)d ago"
+        return String(
+            format: NSLocalizedString("common_relative_days_ago", comment: ""),
+            days
+        )
     }
 }

@@ -121,6 +121,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Profile/ProfileView.swift`
 - `mushroomHunter/Features/Premium/PremiumView.swift` (profile-linked premium intro/paywall sheet with subscribe/restore actions)
 - `mushroomHunter/Features/Premium/PremiumStore.swift` (StoreKit 2 product loader, purchase/restore flow, and backend entitlement sync)
+- `mushroomHunter/Utilities/AppConfig.swift` (`Premium.isPremiumEntryEnabled` temporarily controls whether Profile shows the premium upgrade row)
 - `mushroomHunter/Features/Profile/ProfileCreateEditView.swift` (shared create/edit profile form presented from onboarding and profile edit sheet)
 - `mushroomHunter/Features/Profile/ProfileViewModel.swift` (profile tab badge aggregation + background refresh for room/postcard actionable counts)
 - `mushroomHunter/Features/Profile/FeedbackView.swift` (feedback compose view + submission payload model)

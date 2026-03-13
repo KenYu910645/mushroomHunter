@@ -79,8 +79,6 @@ struct PostcardView: View {
     @State private var receiveSuccessMessage: String = ""
     /// Pending completed-order rating task for the current viewer.
     @State private var pendingRatingContext: PostcardOrderRatingContext?
-    /// Controls the room-style 1/2/3 star dialog visibility for postcard completion.
-    @State private var isRatingDialogPresented: Bool = false
     /// Seller friend code shown to buyers.
     @State private var sellerFriendCode: String = ""
     /// Seller stars shown beside the seller name.
@@ -164,13 +162,6 @@ struct PostcardView: View {
     /// Indicates whether this listing is sold out for the current buyer-facing CTA.
     private var isSoldOut: Bool {
         currentListing.stock <= 0
-    }
-
-    /// Title shown in the postcard completion rating dialog.
-    private var ratingDialogTitle: String {
-        let counterpartName = pendingRatingContext?.counterpartName ?? (isSeller ? "Buyer" : "Seller")
-        let titleKey = isSeller ? "postcard_msg_rate_buyer_title" : "postcard_msg_rate_seller_title"
-        return String(format: NSLocalizedString(titleKey, comment: ""), counterpartName)
     }
 
     /// Purchase confirmation message with tokenized honey icon and postcard title.
@@ -282,6 +273,13 @@ struct PostcardView: View {
                         Text(currentListing.location.detail)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
+                    }
+
+                    if !isSeller, let pendingRatingContext {
+                        Divider()
+                            .padding(.top, 4)
+
+                        buyerRatingCard(context: pendingRatingContext)
                     }
                 }
                 .tutorialHighlightAnchor(isPostcardTutorialActive ? .postcardDetailInfoSection : nil)
@@ -519,44 +517,6 @@ struct PostcardView: View {
                         }
                     ]
                 )
-            } else if isRatingDialogPresented, pendingRatingContext != nil {
-                MessageBox(
-                    title: ratingDialogTitle,
-                    message: "",
-                    buttons: [
-                        MessageBoxButton(
-                            id: "postcard_rate_one_star",
-                            title: NSLocalizedString("room_msg_rate_one_star", comment: ""),
-                            role: .quiet
-                        ) {
-                            isRatingDialogPresented = false
-                            Task { await submitPostcardRating(stars: 1) }
-                        },
-                        MessageBoxButton(
-                            id: "postcard_rate_two_stars",
-                            title: NSLocalizedString("room_msg_rate_two_stars", comment: ""),
-                            role: .quiet
-                        ) {
-                            isRatingDialogPresented = false
-                            Task { await submitPostcardRating(stars: 2) }
-                        },
-                        MessageBoxButton(
-                            id: "postcard_rate_three_stars",
-                            title: NSLocalizedString("room_msg_rate_three_stars", comment: ""),
-                            role: .quiet
-                        ) {
-                            isRatingDialogPresented = false
-                            Task { await submitPostcardRating(stars: 3) }
-                        },
-                        MessageBoxButton(
-                            id: "postcard_rate_cancel",
-                            title: NSLocalizedString("common_cancel", comment: ""),
-                            role: .cancel
-                        ) {
-                            isRatingDialogPresented = false
-                        }
-                    ]
-                )
             } else if isBuyErrorAlertPresented {
                 MessageBox(
                     title: NSLocalizedString("common_error", comment: ""),
@@ -610,7 +570,6 @@ struct PostcardView: View {
             sellerStars = isSeller ? max(0, session.stars) : 3
             pendingShippingCount = isSeller ? AppTesting.fixtureShippingRecipients().count : 0
             pendingRatingContext = nil
-            isRatingDialogPresented = false
             return
         }
 
@@ -631,9 +590,8 @@ struct PostcardView: View {
                     applyPendingRatingContext(refreshedRatingContext)
                 } else {
                     buyerOrder = nil
+                    pendingRatingContext = nil
                     await refreshPendingShippingCount(postcardId: refreshed.id)
-                    let refreshedRatingContext = try await repo.fetchLatestSellerRatingContext(postcardId: refreshed.id)
-                    applyPendingRatingContext(refreshedRatingContext)
                 }
                 await saveDetailToCache()
             } else {
@@ -784,11 +742,56 @@ struct PostcardView: View {
         )
     }
 
+    /// Inline buyer-side rating card rendered below the detail description area.
+    /// - Parameter context: Pending buyer rating task for the current listing.
+    @ViewBuilder
+    private func buyerRatingCard(context: PostcardOrderRatingContext) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(
+                String(
+                    format: NSLocalizedString("postcard_rating_title_format", comment: ""),
+                    context.counterpartName
+                )
+            )
+                .font(.headline)
+
+            Text(LocalizedStringKey("postcard_rating_prompt"))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                Button(LocalizedStringKey("room_msg_rate_one_star")) {
+                    Task { await submitPostcardRating(stars: 1) }
+                }
+                .buttonStyle(.bordered)
+
+                Button(LocalizedStringKey("room_msg_rate_two_stars")) {
+                    Task { await submitPostcardRating(stars: 2) }
+                }
+                .buttonStyle(.bordered)
+
+                Button(LocalizedStringKey("room_msg_rate_three_stars")) {
+                    Task { await submitPostcardRating(stars: 3) }
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Button(LocalizedStringKey("common_skip")) {
+                Task { await skipPostcardRating() }
+            }
+            .buttonStyle(.bordered)
+            .tint(.red)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
     /// Refreshes seller pending-shipping order count for badge rendering.
     /// - Parameter postcardId: Listing id to scope shipping recipients query.
     private func refreshPendingShippingCount(postcardId: String) async {
         do {
-            pendingShippingCount = try await repo.fetchShippingRecipients(postcardId: postcardId).count
+            pendingShippingCount = try await repo.fetchPendingSellerClipboardCount(postcardId: postcardId)
         } catch {
             // Keep last badge count if recipient refresh fails.
         }
@@ -832,7 +835,6 @@ struct PostcardView: View {
     /// - Parameter context: Newly fetched pending rating task for the current viewer.
     private func applyPendingRatingContext(_ context: PostcardOrderRatingContext?) {
         pendingRatingContext = context
-        isRatingDialogPresented = context != nil
     }
 
     /// Submits stars for the current postcard completion rating task.
@@ -848,6 +850,24 @@ struct PostcardView: View {
             }
             await dirtyBits.markPostcardDetailDirty(postcardId: currentListing.id)
             await session.refreshProfileFromBackend()
+            await refreshListing(isForceRefresh: true)
+        } catch {
+            buyErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            isBuyErrorAlertPresented = true
+        }
+    }
+
+    /// Permanently skips the current postcard completion rating task.
+    private func skipPostcardRating() async {
+        guard let ratingContext = pendingRatingContext else { return }
+
+        do {
+            if isSeller {
+                try await repo.skipBuyerRatingAfterCompletion(orderId: ratingContext.id)
+            } else {
+                try await repo.skipSellerRatingAfterCompletion(orderId: ratingContext.id)
+            }
+            await dirtyBits.markPostcardDetailDirty(postcardId: currentListing.id)
             await refreshListing(isForceRefresh: true)
         } catch {
             buyErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

@@ -240,19 +240,21 @@ struct ProfileView: View {
     /// Section that exposes the premium upgrade entry above settings.
     private var premiumSection: some View {
         Section {
-            Button {
-                activeSheet = .premium
-            } label: {
-                HStack {
-                    Text(LocalizedStringKey("premium_upgrade_button"))
-                    Spacer()
-                    if session.isPremium {
-                        Text(LocalizedStringKey("premium_status_active_short"))
-                            .foregroundStyle(.secondary)
+            if AppConfig.Premium.isPremiumEntryEnabled {
+                Button {
+                    activeSheet = .premium
+                } label: {
+                    HStack {
+                        Text(LocalizedStringKey("premium_upgrade_button"))
+                        Spacer()
+                        if session.isPremium {
+                            Text(LocalizedStringKey("premium_status_active_short"))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
+                .accessibilityIdentifier("profile_premium_row_button")
             }
-            .accessibilityIdentifier("profile_premium_row_button")
         }
     }
 

@@ -50,6 +50,7 @@ service firebase.storage {
 - `users/{uid}/events/{eventId}`: per-user event history (Action/Record state via `isActionEvent`/`isResolved`, route metadata, newest-first paging)
 - `rooms/{roomId}`: mushroom room header data
 - `rooms/{roomId}/attendees/{uid}`: room membership and state
+- `roomRatingTasks/{taskId}`: durable mushroom room rating tasks while the room remains open
 - `postcards/{postcardId}`: postcard listing data
 - `postcardOrders/{orderId}`: postcard order lifecycle
 - `feedbackSubmissions/{feedbackId}`: feedback payloads
@@ -195,9 +196,10 @@ service firebase.storage {
   - `JoinedSuccess`: global joined-success reward (`AppConfig.Mushroom.joinedSuccessRewardHoney`, default `10`) transferred to host, attendee escrow deducts the same amount.
   - `SeatFullNoFault`: global seat-full reward (`AppConfig.Mushroom.seatFullRewardHoney`, default `2`) transferred to host, attendee escrow deducts only that amount.
   - `MissedInvitation`: no honey transfer.
-  - Firestore transaction writes status/deposit/honey/rating flags and settlement snapshot fields.
+  - Firestore transaction writes status/deposit/honey/settlement snapshot fields and creates two `roomRatingTasks` docs.
 - Host/attendee rating:
-  - Firestore transaction updates user stars + attendee flags
+  - Firestore transaction updates user stars, best-effort updates active room attendee stars, and resolves the matching `roomRatingTasks` doc as `Rated` or `Skipped`.
+  - Room close marks pending `roomRatingTasks` docs for that room as `Closed`.
 
 ### Postcard Tab
 
@@ -261,7 +263,7 @@ service firebase.storage {
 - Open shipping sheet:
   - Firestore query read: `postcardOrders` filtered by seller+postcard+pending statuses (`AwaitingShipping`, plus legacy aliases).
   - Friend-code fallback users query only for legacy orders missing snapshot values.
-  - Seller pending postcard-rating query: `postcardOrders where sellerId == uid and postcardId == postcardId and isSellerRatingRequired == true limit 10`, then the app chooses the latest `completedAt` locally.
+  - Seller pending postcard-rating query: `postcardOrders where sellerId == uid and postcardId == postcardId and isSellerRatingRequired == true limit 20`, then the app renders all pending seller-rating rows in the sheet.
 - Seller reject:
   - Firestore transaction write:
     - reject -> `status: Rejected` + buyer refund + stock restore
@@ -271,8 +273,8 @@ service firebase.storage {
 #### Buyer receive flow
 - Confirm received:
   - Firestore transaction reads order + seller user
-  - Firestore writes seller honey, order completion state, and both postcard rating-required flags
-  - Buyer pending postcard-rating query: `postcardOrders where buyerId == uid and postcardId == postcardId and isBuyerRatingRequired == true limit 10`, then the app chooses the latest `completedAt` locally.
+  - Firestore writes seller honey, order completion state, both postcard rating-required flags, and resets both postcard rating-dismissed flags
+  - Buyer pending postcard-rating query: `postcardOrders where buyerId == uid and postcardId == postcardId and isBuyerRatingRequired == true limit 10`, then the app chooses the latest `completedAt` locally for the inline buyer rating card.
 - Auto-complete fallback:
   - Scheduled backend sweep processes `Shipped` orders past `buyerConfirmDeadlineAt`
   - Firestore transaction writes seller honey and order status -> `CompletedAuto`

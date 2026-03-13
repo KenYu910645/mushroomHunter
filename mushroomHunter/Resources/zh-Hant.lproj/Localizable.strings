@@ -18,8 +18,13 @@
 "common_join" = "加入";
 "common_close" = "關閉";
 "common_yes" = "是";
+"common_skip" = "略過";
 "common_loading" = "載入中…";
 "common_copied" = "已複製到剪貼簿";
+"common_relative_unknown" = "—";
+"common_relative_minutes_ago" = "%d分鐘前";
+"common_relative_hours_ago" = "%d小時前";
+"common_relative_days_ago" = "%d天前";
 
 /***************************************/
 /**** DailyReward ****/
@@ -235,10 +240,17 @@
 "room_msg_settlement_no_fault_title" = "感謝您的更新";
 "room_msg_settlement_no_fault_message" = "蘑菇已滿位，您已支付主持人 %d {honey_icon}。沒關係！主持人下次會再邀請您。";
 "room_confirmation_queue_title" = "確認佇列";
+"room_confirmation_queue_section_title" = "待確認";
 "room_confirmation_queue_empty" = "此房間目前沒有待處理確認。";
 "room_confirmation_queue_item_title_format" = "%@ 已邀請您參加蘑菇戰。";
 "room_raid_history_title" = "蘑菇邀請紀錄";
+"room_raid_history_section_title" = "紀錄";
 "room_raid_history_empty" = "目前沒有邀請紀錄。";
+"room_pending_ratings_section_title" = "評價玩家";
+"room_rating_title_format" = "評價玩家 %@";
+"room_rating_outcome_joined_success" = "已成功加入";
+"room_rating_outcome_seat_full" = "蘑菇已滿";
+"room_rating_outcome_missed_invitation" = "錯過邀請";
 "room_raid_history_status_confirming" = "確認中";
 "room_raid_history_status_joined" = "已加入";
 "room_raid_history_status_seat_full" = "已滿位";
@@ -323,6 +335,10 @@
 /***************************************/
 
 "postcard_shipping_title" = "訂單";
+"postcard_shipping_section_title" = "待寄送";
+"postcard_pending_ratings_section_title" = "評價玩家";
+"postcard_rating_title_format" = "評價玩家 %@";
+"postcard_rating_prompt" = "這次交換體驗如何？";
 "postcard_shipping_empty" = "目前沒有新的訂單";
 "postcard_shipping_ordered_title_format" = "%@ 訂購了 %@";
 "postcard_shipping_friend_request_prefix_format" = "請先送出好友邀請給 %@（";

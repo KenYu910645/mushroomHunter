@@ -22,7 +22,7 @@ final class RoomViewModel: ObservableObject {
     @Published var errorMessage: String? = nil // State or dependency property.
     @Published private(set) var pendingConfirmationAttendeeIds: Set<String> = [] // State or dependency property.
     @Published private(set) var pendingConfirmationForCurrentUser: Bool = false // State or dependency property.
-    @Published private(set) var hostPendingRatingAttendeeIds: Set<String> = [] // State or dependency property.    
+    @Published private(set) var pendingRoomRatingTasks: [RoomRatingTask] = [] // State or dependency property.
     // Sorting / presentation
     enum AttendeeSort: String, CaseIterable, Identifiable {
         case depositHighToLow = "Deposit (High → Low)"
@@ -77,6 +77,7 @@ final class RoomViewModel: ObservableObject {
         let isRoomDirty = await dirtyBits.isMushroomRoomDirty(roomId: roomId)
         let isShouldForceRefresh = isForceRefresh || isRoomDirty
         if !isShouldForceRefresh, await loadRoomFromCache() {
+            await refreshRoomRatingTasks()
             return
         }
 
@@ -90,6 +91,7 @@ final class RoomViewModel: ObservableObject {
             recomputeRole()
             recomputeConfirmationStates()
             sortAttendees(by: attendeeSort)
+            pendingRoomRatingTasks = []
             return
         }
         
@@ -106,6 +108,7 @@ final class RoomViewModel: ObservableObject {
             recomputeRole()
             recomputeConfirmationStates()
             sortAttendees(by: attendeeSort)
+            await refreshRoomRatingTasks()
         } catch {
             print("❌ RoomDetails load error:", error)
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -144,10 +147,9 @@ final class RoomViewModel: ObservableObject {
             .map(\.id)
     }
 
-    func rateHost(stars: Int) async { // Handles rateHost flow.
-        guard let room, let uid = session.authUid else { return }
+    func submitRoomRating(taskId: String, stars: Int) async { // Handles submitRoomRating flow.
         do {
-            try await actions.rateHostAfterConfirmation(roomId: room.id, attendeeUid: uid, stars: stars)
+            try await actions.submitRoomRating(taskId: taskId, stars: stars)
             await markCurrentRoomDirty()
             await load(forceRefresh: true)
             await session.refreshProfileFromBackend()
@@ -156,13 +158,11 @@ final class RoomViewModel: ObservableObject {
         }
     }
 
-    func rateAttendee(attendeeId: String, stars: Int) async { // Handles rateAttendee flow.
-        guard let room else { return }
+    func skipRoomRating(taskId: String) async { // Handles skipRoomRating flow.
         do {
-            try await actions.rateAttendeeAfterConfirmation(roomId: room.id, attendeeUid: attendeeId, stars: stars)
+            try await actions.skipRoomRating(taskId: taskId)
             await markCurrentRoomDirty()
             await load(forceRefresh: true)
-            await session.refreshProfileFromBackend()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -183,6 +183,26 @@ final class RoomViewModel: ObservableObject {
 
     func attendeeById(_ attendeeId: String) -> RoomAttendee? { // Handles attendeeById flow.
         room?.attendees.first(where: { $0.id == attendeeId })
+    }
+
+    /// Returns current pending room rating tasks for the attendee clipboard flow.
+    var attendeePendingRoomRatingTasks: [RoomRatingTask] {
+        pendingRoomRatingTasks.filter { $0.direction == .attendeeToHost }
+    }
+
+    /// Returns current pending room rating tasks for the host clipboard flow.
+    var hostPendingRoomRatingTasks: [RoomRatingTask] {
+        pendingRoomRatingTasks.filter { $0.direction == .hostToAttendee }
+    }
+
+    /// Total pending task count shown as the attendee clipboard red-dot badge.
+    var attendeeClipboardPendingCount: Int {
+        currentUserPendingConfirmationQueueLatestFirst().count + attendeePendingRoomRatingTasks.count
+    }
+
+    /// Total pending task count shown as the host clipboard red-dot badge.
+    var hostClipboardPendingCount: Int {
+        hostPendingRoomRatingTasks.count
     }
 
     func approveJoinApplication(attendeeId: String) async { // Handles approveJoinApplication flow.
@@ -534,6 +554,7 @@ final class RoomViewModel: ObservableObject {
         )
         isLoading = false
         errorMessage = nil
+        pendingRoomRatingTasks = []
         recomputeRole()
         recomputeConfirmationStates()
         sortAttendees(by: attendeeSort)
@@ -587,7 +608,6 @@ final class RoomViewModel: ObservableObject {
         guard let room else {
             pendingConfirmationAttendeeIds = []
             pendingConfirmationForCurrentUser = false
-            hostPendingRatingAttendeeIds = []
             return
         }
 
@@ -596,11 +616,6 @@ final class RoomViewModel: ObservableObject {
             .map { $0.id }
 
         pendingConfirmationAttendeeIds = Set(pending)
-        hostPendingRatingAttendeeIds = Set(
-            room.attendees
-                .filter { $0.status != .host && $0.isHostRatingRequired }
-                .map(\.id)
-        )
 
         if let uid = currentUserId,
            let me = room.attendees.first(where: { $0.id == uid }) {
@@ -629,6 +644,19 @@ final class RoomViewModel: ObservableObject {
         recomputeConfirmationStates()
         sortAttendees(by: attendeeSort)
         return true
+    }
+
+    /// Refreshes durable room rating tasks for the current user and room.
+    private func refreshRoomRatingTasks() async {
+        if AppTesting.useMockRooms {
+            pendingRoomRatingTasks = []
+            return
+        }
+        do {
+            pendingRoomRatingTasks = try await repo.fetchPendingRoomRatingTasks(roomId: roomId)
+        } catch {
+            pendingRoomRatingTasks = []
+        }
     }
 
     /// Marks current room detail and mushroom browse datasets dirty after a successful room mutation.
