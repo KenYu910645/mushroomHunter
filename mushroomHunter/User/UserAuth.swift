@@ -127,6 +127,7 @@ extension Notification.Name {
     static let didOpenRoomConfirmationFromPush = Notification.Name("mh.didOpenRoomConfirmationFromPush") // Notification for room confirmation queue deep-link routing.
     static let didOpenPostcardFromLink = Notification.Name("mh.didOpenPostcardFromLink") // Notification for postcard deep-link routing.
     static let didOpenPostcardOrderFromPush = Notification.Name("mh.didOpenPostcardOrderFromPush") // Notification for postcard order deep-link routing.
+    static let didOpenDailyRewardReminder = Notification.Name("mh.didOpenDailyRewardReminder") // Notification for opening the shared DailyReward sheet from push or inbox actions.
     static let didReceiveActionPushBadgeUpdate = Notification.Name("mh.didReceiveActionPushBadgeUpdate") // Notification for actionable push badge refresh requests.
 }
 

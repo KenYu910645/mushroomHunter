@@ -72,16 +72,10 @@ service firebase.storage {
 - Open profile tab:
   - Profile screen reads session identity values (display name/friend code/honey/stars).
   - Premium membership sheet loads StoreKit product metadata locally, then syncs verified entitlement state to `users/{uid}` through `syncPremiumSubscription`.
-  - Actionable badge totals are refreshed by app-root tab logic in `ContentView`.
   - Shared calendar icon opens the DailyReward sheet and loads current-month reward state from `users/{uid}.dailyReward`.
-- Profile/app-icon actionable badge refresh:
-  - Joined rooms query for attendee statuses (`collectionGroup(attendees)` by `uid`).
-  - Hosted rooms query (`rooms where hostUid == uid`), then per-room attendee query:
-    - `rooms/{roomId}/attendees where status == AskingToJoin` (count pending join applications).
-  - Seller pending-order query:
-    - `postcardOrders where sellerId == uid and status in [SellerConfirmPending, AwaitingShipping, AwaitingSellerSend]`.
-  - Buyer pending-receive query:
-    - `postcardOrders where buyerId == uid and status in [Shipped, InTransit, AwaitingBuyerDecision]`.
+- App icon badge refresh:
+  - Firestore query read: `users/{uid}/events where isActionEvent == true and isResolved == false`.
+  - Client excludes `DAILY_REWARD_REMINDER` from that unresolved action count and then adds `1` when `users/{uid}.dailyReward.lastClaimedDayKey` is not today's Taipei day key.
 - On-shelf postcard status badges:
   - Firestore query: `postcardOrders where sellerId == uid and status in [SellerConfirmPending, AwaitingShipping, AwaitingSellerSend]` to flag listings with unprocessed seller queue items as `Order Received`.
 - Hosted rooms list:
@@ -122,6 +116,7 @@ service firebase.storage {
 ### DailyReward Calendar
 - Open DailyReward sheet from Mushroom/Postcard/Profile toolbar:
   - Firestore read: `users/{uid}` to load `dailyReward.monthKey`, `dailyReward.claimedDays`, and wallet snapshot fallback.
+  - Shared calendar icon shows a red dot when `dailyReward.lastClaimedDayKey` does not match today's Taipei day key.
 - Claim today's reward:
   - Callable Function: `claimDailyHoneyReward`
   - Firestore transaction write on `users/{uid}`:
@@ -133,7 +128,13 @@ service firebase.storage {
     - update `dailyReward.updatedAt`
     - update `updatedAt`
   - Firestore write: create `users/{uid}/events/{eventId}` with type `HONEY_REWARD`
+  - Firestore batch write: resolve unresolved `DAILY_REWARD_REMINDER` events for that user
   - No push notification is sent for DailyReward claims.
+- Scheduled reminder at 12:00 PM Asia/Taipei:
+  - Scheduled Function: `sendDailyRewardReminders`
+  - Firestore paged read: `users`
+  - Firestore event write: create `users/{uid}/events/{eventId}` with type `DAILY_REWARD_REMINDER` when today's reward is still unclaimed
+  - Push: sends snapshot-title/body APNs that route user into the shared DailyReward sheet
 
 ### Mushroom Tab
 

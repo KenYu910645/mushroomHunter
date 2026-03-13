@@ -23,6 +23,8 @@ enum AppTesting {
     static let openRoomArgument = "--ui-open-room"
     /// Launch argument key used to deep-link directly into one postcard.
     static let openPostcardArgument = "--ui-open-postcard"
+    /// Launch argument that forces today's DailyReward to start as already claimed.
+    static let mockDailyRewardClaimedArgument = "--mock-daily-reward-claimed"
     /// Stable mock uid used across all UI-test-only data.
     static let userId = "ui-test-user"
     /// In-memory claimed-day storage used by the DailyReward mock implementation.
@@ -216,5 +218,11 @@ enum AppTesting {
         var claimedDays = mockDailyRewardClaimStorage[monthKey] ?? []
         claimedDays.insert(day)
         mockDailyRewardClaimStorage[monthKey] = claimedDays
+    }
+
+    /// True when today's mock DailyReward should still show as pending.
+    static var isMockDailyRewardPendingToday: Bool {
+        let args = ProcessInfo.processInfo.arguments
+        return !args.contains(mockDailyRewardClaimedArgument)
     }
 }

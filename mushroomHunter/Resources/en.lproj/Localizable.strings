@@ -45,6 +45,8 @@
 "daily_reward_claim_error_already_claimed" = "Today's reward has already been claimed.";
 "daily_reward_claim_error_service_unavailable" = "DailyReward service is unavailable right now.";
 "daily_reward_claim_error_generic" = "Unable to claim today's reward right now.";
+"event_type_DAILY_REWARD_REMINDER_title" = "Daily Reward";
+"event_type_DAILY_REWARD_REMINDER_message" = "You haven't claimed your daily reward yet. Tap to claim";
 "event_type_HONEY_REWARD_title" = "Honey Reward";
 "event_type_HONEY_REWARD_message" = "You received honey as a reward.";
 

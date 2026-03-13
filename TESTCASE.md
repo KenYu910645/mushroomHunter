@@ -61,11 +61,14 @@ Need to check both English and Chinese
 9. Feedback feature
 10. DailyReward feature
    - Verify the calendar icon appears on Mushroom, Postcard, and Profile, always to the left of bell
+   - Verify the calendar icon shows a red dot whenever today's Taipei DailyReward has not been claimed yet
    - Open the DailyReward sheet from all three tabs
    - Verify the current month calendar shows and every day displays the same 10-honey reward
    - Claim today's reward once and confirm wallet, disabled button state, and inbox `HONEY_REWARD` record event
    - Confirm a second claim on the same day is blocked
    - Verify missed previous days cannot be claimed after Taipei midnight
+   - Verify app icon badge adds `+1` while today's DailyReward is pending and does not double-count after the noon reminder event is created
+   - Verify `DAILY_REWARD_REMINDER` push and inbox row both open the shared DailyReward sheet
 11. Premium subscription feature
    - Open Profile and verify the `Upgrade to Premium` row opens the premium membership sheet
    - Verify free state shows 30-honey DailyReward benefit and 5/10 room-limit benefit copy
@@ -172,22 +175,15 @@ TODO: invite code?
 
 ### 12. Badge counters (manual validation pending automation)
 - Current automation status:
-  - No dedicated UI test currently asserts profile tab/app-icon badge counters.
-  - No dedicated UI test currently asserts per-row actionable count badges in Profile mushroom/postcard lists.
+  - No dedicated UI test currently asserts app icon badge counters.
 - Manual verification focus:
-  - Profile actionable total equals the sum of:
-    - joined `WaitingConfirmation`
-    - hosted `AskingToJoin`
-    - seller pending postcard orders
-    - buyer shipped-awaiting-receipt orders
-  - Profile tab icon shows a red dot when actionable total is greater than `0`.
-  - App icon badge shows the numeric actionable total.
+  - Profile tab shows no legacy badge count or red-dot badge.
+  - App icon badge shows unresolved non-DailyReward Action Events plus `1` when today's DailyReward is still pending.
   - Postcard detail seller shipping icon shows a tiny red dot when pending shipping count is greater than `0`.
   - Room detail attendee confirmation-queue icon shows a tiny red dot when attendee has pending `WaitingConfirmation` in that room.
   - Room detail attendee confirmation-queue icon also stays dotted when attendee-side room rating tasks are pending.
   - Room detail host `Raid History` icon opens history plus pending host-side room rating actions.
   - Postcard detail seller shipping icon shows a tiny red dot when either shipping rows or seller rating rows are pending.
-  - Profile actionable rows (mushroom + postcard lists) show a tiny red dot marker at row-leading edge when actionable count is greater than `0`.
   - Room attendee rows show a tiny red dot before attendee name for host-visible `AskingToJoin` notification sources.
 
 ### 13. DailyReward calendar claim
@@ -197,6 +193,12 @@ TODO: invite code?
   - Verify the current month header and reward calendar grid render.
   - Claim today's reward in UI-testing mode.
   - Verify success feedback appears and the claim button becomes disabled for the rest of the current mock day.
+
+### 14. DailyReward toolbar pending state
+- Test: `testDailyRewardToolbarPendingStateChangesWithMockClaimStatus`
+- Coverage:
+  - Default UI-testing launch shows the calendar toolbar button accessibility value as `pending`.
+  - Launching with `--mock-daily-reward-claimed` removes the pending state and exposes accessibility value `none`.
 
 ## Covered User Journeys
 - Main app shell sanity (signed-in state + tab routing).

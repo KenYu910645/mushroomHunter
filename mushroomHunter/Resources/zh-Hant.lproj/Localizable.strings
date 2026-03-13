@@ -45,6 +45,8 @@
 "daily_reward_claim_error_already_claimed" = "今天的獎勵已經領取過。";
 "daily_reward_claim_error_service_unavailable" = "每日獎勵服務目前無法使用。";
 "daily_reward_claim_error_generic" = "目前無法領取今日獎勵。";
+"event_type_DAILY_REWARD_REMINDER_title" = "每日登入獎勵";
+"event_type_DAILY_REWARD_REMINDER_message" = "您還沒領取每日獎勵喔，點擊這裡領取";
 "event_type_HONEY_REWARD_title" = "蜂蜜獎勵";
 "event_type_HONEY_REWARD_message" = "您已獲得蜂蜜獎勵。";
 

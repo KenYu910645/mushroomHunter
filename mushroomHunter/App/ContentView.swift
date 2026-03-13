@@ -45,16 +45,16 @@ struct MainTabView: View {
     }
 
     @EnvironmentObject private var session: UserSessionStore // State or dependency property.
-    /// Repository for profile room queries used by tab/app-icon badge aggregation.
-    private let profileRepo = FbProfileListRepo()
-    /// Repository for postcard order queries used by tab/app-icon badge aggregation.
-    private let postcardRepo = FbPostcardRepo()
+    /// Shared notification inbox state used for action-event badge aggregation.
+    @EnvironmentObject private var notificationInbox: EventInboxStore
     /// Currently selected tab in app shell.
     @State private var selectedTab: RootTab = .mushroom
     /// Pending mushroom push-link route consumed by Room browse navigation stack.
     @State private var pendingRoomPushRoute: RoomBrowsePushRoute? = nil
     /// Pending postcard push-link route consumed by Postcard browse navigation stack.
     @State private var pendingPostcardPushRoute: PostcardBrowsePushRoute? = nil
+    /// Controls the app-root DailyReward sheet used by push/inbox routing.
+    @State private var isGlobalDailyRewardPresented: Bool = false
     /// Tab selection binding that ignores user tab-tap changes while any tutorial is active.
     private var tabSelectionBinding: Binding<RootTab> {
         Binding(
@@ -93,6 +93,11 @@ struct MainTabView: View {
                 }
                 .tag(RootTab.profile)
                 .accessibilityIdentifier("tab_profile")
+        }
+        .sheet(isPresented: $isGlobalDailyRewardPresented) {
+            DailyRewardView()
+                .environmentObject(session)
+                .environmentObject(notificationInbox)
         }
         .toolbar(session.isFeatureTutorialActive ? .hidden : .visible, for: .tabBar)
         .background(
@@ -137,26 +142,32 @@ struct MainTabView: View {
                 postcardId: postcardId,
                 isOpeningOrderPage: true,
                 isForceRefresh: true
-            )
+                )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .didOpenDailyRewardReminder)) { _ in
+            isGlobalDailyRewardPresented = true
         }
         .task(id: session.authUid) {
-            await refreshProfileActionBadgeCount()
+            await refreshAppShellState()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             Task {
-                await refreshProfileActionBadgeCount()
+                await refreshAppShellState()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .didReceiveActionPushBadgeUpdate)) { notif in
-            if let badgeCount = notif.object as? Int {
-                session.updateProfileActionBadgeCount(badgeCount)
-            }
             Task {
-                await refreshProfileActionBadgeCount()
+                if let badgeCount = notif.object as? Int {
+                    UIApplication.shared.applicationIconBadgeNumber = max(0, badgeCount)
+                }
+                await refreshAppShellState()
             }
         }
-        .onChange(of: session.profileActionBadgeCount) { _, latestCount in
-            UIApplication.shared.applicationIconBadgeNumber = latestCount
+        .onChange(of: notificationInbox.unresolvedActionBadgeCountExcludingDailyReward) { _, _ in
+            applyAppIconBadge()
+        }
+        .onChange(of: session.isDailyRewardPending) { _, _ in
+            applyAppIconBadge()
         }
         .onAppear {
             if AppTesting.isUITesting {
@@ -167,6 +178,11 @@ struct MainTabView: View {
                 session.stars = 1
                 session.honey = 100
                 session.isProfileComplete = true
+                session.updateDailyRewardPendingState(AppTesting.isMockDailyRewardPendingToday)
+                Task { @MainActor in
+                    await notificationInbox.refreshFromServer()
+                    applyAppIconBadge()
+                }
 
                 if let postcardId = AppTesting.launchArgumentValue(after: AppTesting.openPostcardArgument) {
                     selectedTab = .postcard
@@ -187,56 +203,26 @@ struct MainTabView: View {
         }
     }
 
-    /// Recomputes profile actionable counts and applies them to tab/app icon badges.
-    private func refreshProfileActionBadgeCount() async {
-        if AppTesting.isUITesting || !session.isLoggedIn {
-            session.updateProfileActionBadgeCount(0)
+    /// Refreshes shared app-shell state that drives app icon badge and global push routes.
+    private func refreshAppShellState() async {
+        guard session.isLoggedIn else {
+            session.updateDailyRewardPendingState(false)
+            UIApplication.shared.applicationIconBadgeNumber = 0
             return
         }
 
-        guard let userId = session.authUid, userId.isEmpty == false else {
-            session.updateProfileActionBadgeCount(0)
-            return
+        if AppTesting.isUITesting == false {
+            await session.refreshProfileFromBackend()
         }
+        await notificationInbox.refreshFromServer()
+        applyAppIconBadge()
+    }
 
-        do {
-            async let joinedRoomsLoad: [JoinedRoomSummary] = profileRepo.fetchMyJoinedRooms(
-                limit: AppConfig.Mushroom.profileListFetchLimit
-            )
-            async let hostedRoomsLoad: [HostedRoomSummary] = profileRepo.fetchMyHostedRooms(
-                limit: AppConfig.Mushroom.profileListFetchLimit
-            )
-            async let sellerOrderCountsLoad: [String: Int] = postcardRepo.fetchSellerPendingOrderCountsByPostcardId(
-                userId: userId
-            )
-            async let buyerPendingReceiveCountLoad: Int = postcardRepo.fetchBuyerPendingReceiveCount(
-                userId: userId
-            )
-
-            let joinedRooms = try await joinedRoomsLoad
-            let hostedRooms = try await hostedRoomsLoad
-            let sellerOrderCountsByPostcardId = try await sellerOrderCountsLoad
-            let buyerPendingReceiveCount = try await buyerPendingReceiveCountLoad
-
-            let hostedRoomIds = hostedRooms.map { $0.id }
-            let pendingJoinRequestCountsByRoomId = try await profileRepo.fetchHostPendingJoinRequestCounts(
-                roomIds: hostedRoomIds
-            )
-
-            let joinerPendingConfirmationCount = joinedRooms.reduce(0) { partial, room in
-                let isWaitingConfirmation = room.attendeeStatus == .waitingConfirmation
-                return partial + (isWaitingConfirmation ? 1 : 0)
-            }
-            let hostPendingJoinRequestCount = pendingJoinRequestCountsByRoomId.values.reduce(0, +)
-            let sellerPendingOrderCount = sellerOrderCountsByPostcardId.values.reduce(0, +)
-            let totalBadgeCount = joinerPendingConfirmationCount
-                + hostPendingJoinRequestCount
-                + sellerPendingOrderCount
-                + buyerPendingReceiveCount
-            session.updateProfileActionBadgeCount(totalBadgeCount)
-        } catch {
-            // Keep current badge count when refresh fails.
-        }
+    /// Applies the current app icon badge using unresolved action count plus pending DailyReward state.
+    private func applyAppIconBadge() {
+        let badgeCount = notificationInbox.unresolvedActionBadgeCountExcludingDailyReward
+            + (session.isDailyRewardPending ? 1 : 0)
+        UIApplication.shared.applicationIconBadgeNumber = max(0, badgeCount)
     }
 }
 

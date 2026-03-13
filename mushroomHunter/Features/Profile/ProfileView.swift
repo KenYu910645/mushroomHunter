@@ -104,6 +104,7 @@ struct ProfileView: View {
                                 isNotificationInboxPresented = true
                             }
                         },
+                        isDailyRewardPending: session.isDailyRewardPending,
                         unreadCount: notificationInbox.unreadCount,
                         bellAccessibilityLabel: "browse_notification_accessibility",
                         bellAccessibilityIdentifier: "profile_notification_button",
@@ -356,6 +357,8 @@ struct ProfileView: View {
             } else {
                 NotificationCenter.default.post(name: .didOpenPostcardFromLink, object: postcardId)
             }
+        case .dailyReward:
+            NotificationCenter.default.post(name: .didOpenDailyRewardReminder, object: nil)
         case .none:
             break
         }

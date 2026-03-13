@@ -169,6 +169,7 @@ extension UserSessionStore {
                 honey = max(0, honeyValue)
                 persistScopedInt(kHoney, value: honey)
             }
+            updateDailyRewardPendingState(resolveIsDailyRewardPending(from: data))
             if let backendFcmToken = data["fcmToken"] as? String {
                 lastSyncedFcmTokenByUid[uid] = backendFcmToken
             }

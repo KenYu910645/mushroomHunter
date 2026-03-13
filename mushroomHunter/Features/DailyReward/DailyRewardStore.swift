@@ -50,6 +50,7 @@ final class DailyRewardStore: ObservableObject {
 
         let context = currentDateContext()
         if AppTesting.isUITesting {
+            session.updateDailyRewardPendingState(AppTesting.isMockDailyRewardPendingToday)
             applyCalendarState(
                 context: context,
                 claimedDays: AppTesting.mockDailyRewardClaimedDays(forMonthKey: context.monthKey),
@@ -59,6 +60,7 @@ final class DailyRewardStore: ObservableObject {
         }
 
         guard let userId = session.authUid ?? Auth.auth().currentUser?.uid, userId.isEmpty == false else {
+            session.updateDailyRewardPendingState(true)
             applyCalendarState(
                 context: context,
                 claimedDays: [],
@@ -69,6 +71,7 @@ final class DailyRewardStore: ObservableObject {
 
         do {
             let snapshot = try await db.collection("users").document(userId).getDocument()
+            session.updateDailyRewardPendingState(session.resolveIsDailyRewardPending(from: snapshot.data() ?? [:]))
             let claimedDays = claimedDaysFromUserData(snapshot.data(), monthKey: context.monthKey)
             applyCalendarState(
                 context: context,
@@ -76,6 +79,7 @@ final class DailyRewardStore: ObservableObject {
                 rewardHoney: session.dailyRewardHoneyAmount
             )
         } catch {
+            session.updateDailyRewardPendingState(isTodayClaimed == false)
             applyCalendarState(
                 context: context,
                 claimedDays: [],
@@ -118,6 +122,7 @@ final class DailyRewardStore: ObservableObject {
         let context = currentDateContext()
         if AppTesting.isUITesting {
             AppTesting.addMockDailyRewardClaim(day: context.day, monthKey: context.monthKey)
+            session.updateDailyRewardPendingState(false)
             session.addHoney(session.dailyRewardHoneyAmount)
             applyCalendarState(
                 context: context,
@@ -143,6 +148,7 @@ final class DailyRewardStore: ObservableObject {
                 session.honey = max(0, updatedHoney)
                 session.persistScopedInt(session.kHoney, value: session.honey)
             }
+            session.updateDailyRewardPendingState(false)
 
             applyCalendarState(
                 context: context,

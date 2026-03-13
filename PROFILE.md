@@ -16,16 +16,15 @@
 - `mushroomHunter/Features/Shared/TopActionBar.swift`: shared top action bar in honey+stars display mode.
 - `mushroomHunter/Features/Shared/MessageBox.swift`: shared confirmation/success dialog used by feedback/profile flows.
 - `mushroomHunter/Services/Firebase/FeedbackRepo.swift`: writes feedback payloads to Firestore `feedbackSubmissions`.
-- `mushroomHunter/Services/Firebase/ProfileListRepo.swift`: hosted/joined room summary reads used for profile badge aggregation and mushroom browse pinning.
-- `mushroomHunter/Services/Firebase/PostcardRepo.swift`: on-shelf/ordered postcard reads used for profile badge aggregation and postcard browse pinning.
-- `mushroomHunter/App/ContentView.swift`: app icon badge sync and tab routing.
-- `mushroomHunter/User/UserSessionStore.swift`: shared session state and badge count store.
+- `mushroomHunter/App/ContentView.swift`: app icon badge sync, global DailyReward sheet routing, and tab routing.
+- `mushroomHunter/User/UserSessionStore.swift`: shared session state and DailyReward pending-state store.
 - `mushroomHunter/Utilities/AppConfig.swift`: premium product id, premium DailyReward amount, and premium room-limit constants.
 
 ## Feature Coverage
 - Profile tab now focuses on account management only:
   - Display name and friend code (read-only identity rows) appear in the first block without a visible section title.
   - Top-right calendar entry opens the shared DailyReward sheet.
+  - The shared calendar icon shows a red dot whenever today's Taipei DailyReward is still unclaimed.
   - Top-right bell entry opens the shared event inbox sheet.
   - Profile form can expose an `Upgrade to Premium` / `升級為高級會員` row above `Settings` when `AppConfig.Premium.isPremiumEntryEnabled` is turned on.
   - When the premium row is enabled, tapping it opens a dedicated membership sheet that shows:
@@ -46,7 +45,8 @@
 - Mushroom and postcard owned activity lists were removed from profile and moved into browse tabs:
   - Mushroom browse pins user `Joined` and `Host` rooms at the top with ownership tags.
   - Postcard browse pins user `On-shelf` and `Ordered` postcards at the top with ownership tags.
-- Profile actionable badge totals are refreshed by app-root tab logic in `ContentView` using Firebase repositories, app-foreground activation, and actionable push receipt reconciliation.
+- Profile tab no longer shows any legacy actionable badge count.
+- App icon badge is recomputed from unresolved non-DailyReward Action Events plus `1` when today's Taipei DailyReward is still pending.
 - Premium subscription state is refreshed from StoreKit on app launch/auth changes and then synced to Firebase-backed profile state:
   - `users/{uid}.isPremium`
   - `users/{uid}.premiumSource`

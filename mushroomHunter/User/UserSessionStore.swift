@@ -30,7 +30,7 @@ final class UserSessionStore: ObservableObject {
     @Published var isProfileComplete: Bool = false // State or dependency property.
     @Published var isShowingOnboardingTutorial: Bool = false // Tracks whether the first-time tutorial sheet is currently presented.
     @Published var isFeatureTutorialActive: Bool = false // Indicates any interactive feature tutorial is currently active and should lock tab switching.
-    @Published var profileActionBadgeCount: Int = 0 // Actionable item count used by profile tab/app icon badges.
+    @Published var isDailyRewardPending: Bool = false // Indicates whether today's Taipei DailyReward has not been claimed yet.
     @Published var isLoading: Bool = false // State or dependency property.
     @Published var errorMessage: String? = nil // State or dependency property.
 
@@ -178,7 +178,7 @@ final class UserSessionStore: ObservableObject {
         isShowingOnboardingTutorial = false
         isFeatureTutorialActive = false
         activeFeatureTutorialCount = 0
-        profileActionBadgeCount = 0
+        isDailyRewardPending = false
     }
 
     /// Starts a live Firestore listener for the current signed-in user's profile document.
@@ -255,10 +255,10 @@ final class UserSessionStore: ObservableObject {
         isFeatureTutorialActive = activeFeatureTutorialCount > 0
     }
 
-    /// Stores a sanitized actionable badge count for profile/tab/app-icon updates.
-    /// - Parameter count: Raw actionable count from profile/mushroom/postcard queries.
-    func updateProfileActionBadgeCount(_ count: Int) {
-        profileActionBadgeCount = max(0, count)
+    /// Updates whether today's Taipei DailyReward still needs to be claimed.
+    /// - Parameter isPending: True when today's reward is still available to claim.
+    func updateDailyRewardPendingState(_ isPending: Bool) {
+        isDailyRewardPending = isPending
     }
 
     /// Updates user stars locally and syncs stars/profile snapshot updates to backend.
@@ -360,5 +360,27 @@ final class UserSessionStore: ObservableObject {
         }
 
         updateProfileCompletionFromFields()
+    }
+
+    /// Resolves whether today's DailyReward is already claimed from backend snapshot data.
+    /// - Parameter data: Raw `users/{uid}` payload received from Firestore.
+    /// - Returns: True when today's reward is still pending.
+    func resolveIsDailyRewardPending(from data: [String: Any]) -> Bool {
+        let rewardData = data["dailyReward"] as? [String: Any] ?? [:]
+        let lastClaimedDayKey = (rewardData["lastClaimedDayKey"] as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return lastClaimedDayKey != currentDailyRewardDayKey()
+    }
+
+    /// Builds the current Taipei day key used by DailyReward business rules.
+    /// - Returns: Day key in `YYYY-MM-DD` form.
+    func currentDailyRewardDayKey() -> String {
+        let timeZone = TimeZone(identifier: AppConfig.DailyReward.resetTimeZoneIdentifier) ?? .current
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
     }
 }

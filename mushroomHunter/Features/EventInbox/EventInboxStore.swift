@@ -21,6 +21,8 @@ struct EventInboxRoute: Codable, Equatable {
         case room
         /// Opens a postcard detail destination.
         case postcard
+        /// Opens the shared DailyReward calendar sheet.
+        case dailyReward
         /// No destination available for this notification.
         case none
     }
@@ -80,6 +82,8 @@ final class EventInboxStore: ObservableObject {
     @Published private(set) var isLoadingNextPage: Bool = false
     /// True when backend likely has another page.
     @Published private(set) var isHasMorePages: Bool = false
+    /// Aggregate unresolved Action Event count excluding DailyReward reminders.
+    @Published private(set) var unresolvedActionBadgeCountExcludingDailyReward: Int = 0
 
     /// Firestore database reference used for inbox paging and read updates.
     private let db = Firestore.firestore()
@@ -161,6 +165,7 @@ final class EventInboxStore: ObservableObject {
             items = loadedItems
             lastDocumentCursor = pageSnapshot.documents.last
             isHasMorePages = pageSnapshot.documents.count == pageSize
+            unresolvedActionBadgeCountExcludingDailyReward = try await fetchUnresolvedActionBadgeCountExcludingDailyReward(userId: currentUserId)
         } catch {
             // Keep current in-memory rows if refresh fails.
         }
@@ -234,6 +239,7 @@ final class EventInboxStore: ObservableObject {
         isHasMorePages = false
         isLoadingInitialPage = false
         isLoadingNextPage = false
+        unresolvedActionBadgeCountExcludingDailyReward = 0
     }
 
     /// Loads one paged slice from Firestore for a user inbox collection.
@@ -257,6 +263,31 @@ final class EventInboxStore: ObservableObject {
         } catch {
             return try await query.getDocuments(source: .default)
         }
+    }
+
+    /// Loads the unresolved Action Event aggregate used by the app icon badge.
+    /// - Parameter userId: Target user uid.
+    /// - Returns: Unresolved Action Event count excluding DailyReward reminders.
+    private func fetchUnresolvedActionBadgeCountExcludingDailyReward(userId: String) async throws -> Int {
+        let query = db.collection("users")
+            .document(userId)
+            .collection("events")
+            .whereField("isActionEvent", isEqualTo: true)
+            .whereField("isResolved", isEqualTo: false)
+
+        let snapshot: QuerySnapshot
+        do {
+            snapshot = try await query.getDocuments(source: .server)
+        } catch {
+            snapshot = try await query.getDocuments(source: .default)
+        }
+
+        let unresolvedCount = snapshot.documents.reduce(0) { partialCount, document in
+            let type = (document.data()["type"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return partialCount + (type == "DAILY_REWARD_REMINDER" ? 0 : 1)
+        }
+        return max(0, unresolvedCount)
     }
 
     /// Loads and appends one older page of inbox events.
@@ -396,7 +427,7 @@ final class EventInboxStore: ObservableObject {
     /// - Returns: True when this event requires explicit user action.
     private func isActionEventType(type: String) -> Bool {
         switch type {
-        case "RAID_CONFIRM_ATTENDEE", "JOIN_REQUESTED_HOST", "POSTCARD_ORDER_SELLER", "POSTCARD_SENT_BUYER":
+        case "RAID_CONFIRM_ATTENDEE", "JOIN_REQUESTED_HOST", "POSTCARD_ORDER_SELLER", "POSTCARD_SENT_BUYER", "DAILY_REWARD_REMINDER":
             return true
         default:
             return false
@@ -435,6 +466,17 @@ final class EventInboxStore: ObservableObject {
                 orderId: orderId,
                 isOpeningConfirmationQueue: false,
                 isOpeningOrderPage: type == "POSTCARD_ORDER_SELLER" || type == "POSTCARD_SENT_BUYER"
+            )
+        }
+
+        if type == "DAILY_REWARD_REMINDER" {
+            return EventInboxRoute(
+                kind: .dailyReward,
+                roomId: nil,
+                postcardId: nil,
+                orderId: nil,
+                isOpeningConfirmationQueue: false,
+                isOpeningOrderPage: false
             )
         }
 

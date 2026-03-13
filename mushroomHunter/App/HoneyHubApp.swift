@@ -64,7 +64,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         "RAID_CONFIRM_ATTENDEE",
         "JOIN_REQUESTED_HOST",
         "POSTCARD_ORDER_SELLER",
-        "POSTCARD_SENT_BUYER"
+        "POSTCARD_SENT_BUYER",
+        "DAILY_REWARD_REMINDER"
     ]
 
     /// Requests notification permissions and configures Firebase Messaging delegate.
@@ -164,6 +165,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let orderId = (userInfo["orderId"] as? String ?? userInfo["order_id"] as? String ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if type == "DAILY_REWARD_REMINDER" {
+            NotificationCenter.default.post(name: .didOpenDailyRewardReminder, object: nil)
+            return
+        }
 
         if roomId.isEmpty == false {
             if type == "RAID_CONFIRM_ATTENDEE" {

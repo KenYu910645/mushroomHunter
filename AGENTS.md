@@ -123,7 +123,6 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Premium/PremiumStore.swift` (StoreKit 2 product loader, purchase/restore flow, and backend entitlement sync)
 - `mushroomHunter/Utilities/AppConfig.swift` (`Premium.isPremiumEntryEnabled` temporarily controls whether Profile shows the premium upgrade row)
 - `mushroomHunter/Features/Profile/ProfileCreateEditView.swift` (shared create/edit profile form presented from onboarding and profile edit sheet)
-- `mushroomHunter/Features/Profile/ProfileViewModel.swift` (profile tab badge aggregation + background refresh for room/postcard actionable counts)
 - `mushroomHunter/Features/Profile/FeedbackView.swift` (feedback compose view + submission payload model)
 - `mushroomHunter/Features/Profile/AboutView.swift` (about page contact information view)
 - `mushroomHunter/Features/EventInbox/EventInboxView.swift` (shared in-app notification inbox sheet opened from the profile top-right bell action)
@@ -151,9 +150,10 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/DailyReward/DailyRewardView.swift`
 - `mushroomHunter/Features/DailyReward/DailyRewardToolbarActions.swift` (shared calendar + bell toolbar actions shown on Mushroom/Postcard/Profile tabs)
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed daily reward amount and reset timezone)
-- `mushroomHunter/Utilities/AppTesting.swift` (UI-test DailyReward mock claim state)
+- `mushroomHunter/Utilities/AppTesting.swift` (UI-test DailyReward mock claim state + pending-dot launch override)
 - `functions/index.js`
   - `claimDailyHoneyReward`
+  - `sendDailyRewardReminders`
   - `syncPremiumSubscription`
 
 ### SIGNIN (`SIGNIN.md`)

@@ -172,8 +172,15 @@ function currentRewardDateParts(date = new Date()) {
   return {year, month, day, monthKey, dayKey};
 }
 
+// Resolve whether the provided user still has today's DailyReward pending.
+function isDailyRewardPendingForUser(userData, nowDate = new Date()) {
+  const rewardData = userData?.dailyReward || {};
+  const lastClaimedDayKey = stringifyValue(rewardData.lastClaimedDayKey, "");
+  return lastClaimedDayKey !== currentRewardDateParts(nowDate).dayKey;
+}
+
 // Send push notification with snapshot token first, then user profile fallback token.
-async function sendPushToUser(uid, message, context, snapshotToken = "") {
+async function sendPushToUser(uid, message, context, snapshotToken = "", userData = null) {
   let token = normalizeToken(snapshotToken);
   if (!token) {
     const userSnap = await db.collection("users").doc(uid).get();
@@ -217,7 +224,7 @@ async function sendPushToUser(uid, message, context, snapshotToken = "") {
     }
   }
   if (isActionPush && mergedAps.badge === undefined) {
-    const badgeCount = await unresolvedActionEventBadgeCount(uid);
+    const badgeCount = await unresolvedActionEventBadgeCount(uid, userData);
     mergedAps.badge = Math.max(1, badgeCount);
   }
 
@@ -341,6 +348,10 @@ function eventCopyForType(type, messageArgs, localeIdentifier) {
     HONEY_REWARD: {
       en: ["Honey Reward", "You have received %@ honey as reward."],
       zh: ["蜂蜜獎勵", "您已獲得 %@ 蜂蜜獎勵。"],
+    },
+    DAILY_REWARD_REMINDER: {
+      en: ["Daily Reward", "You haven't claimed your daily reward yet. Tap to claim"],
+      zh: ["每日登入獎勵", "您還沒領取每日獎勵喔，點擊這裡領取"],
     },
     RAID_CONFIRM_ATTENDEE: {
       en: ["Mushroom Invitation", "Action required: confirm whether you received the mushroom raid invitation from %@."],
@@ -514,6 +525,7 @@ const ACTION_EVENT_TYPES = new Set([
   "JOIN_REQUESTED_HOST",
   "POSTCARD_ORDER_SELLER",
   "POSTCARD_SENT_BUYER",
+  "DAILY_REWARD_REMINDER",
 ]);
 
 // Classify event type for Action Event semantics (badge + unresolved state + required push).
@@ -523,7 +535,7 @@ function isActionEventType(type) {
 }
 
 // Count unresolved Action Events for APNs badge synchronization.
-async function unresolvedActionEventBadgeCount(uid) {
+async function unresolvedActionEventBadgeCount(uid, userData = null) {
   const normalizedUid = stringifyValue(uid, "");
   if (!normalizedUid) return 0;
 
@@ -533,10 +545,19 @@ async function unresolvedActionEventBadgeCount(uid) {
         .collection("events")
         .where("isActionEvent", "==", true)
         .where("isResolved", "==", false);
-    const aggregateSnapshot = await unresolvedQuery.count().get();
-    const rawCount = Number(aggregateSnapshot.data().count ?? 0);
-    if (!Number.isFinite(rawCount)) return 0;
-    return Math.max(0, Math.trunc(rawCount));
+    const unresolvedSnapshot = await unresolvedQuery.get();
+    const unresolvedActionCount = unresolvedSnapshot.docs.reduce((partialCount, doc) => {
+      const type = stringifyValue(doc.data()?.type, "");
+      return partialCount + (type === "DAILY_REWARD_REMINDER" ? 0 : 1);
+    }, 0);
+
+    let resolvedUserData = userData;
+    if (!resolvedUserData) {
+      const userSnap = await db.collection("users").doc(normalizedUid).get();
+      resolvedUserData = userSnap.data() || {};
+    }
+    const dailyRewardBadgeCount = isDailyRewardPendingForUser(resolvedUserData) ? 1 : 0;
+    return Math.max(0, Math.trunc(unresolvedActionCount + dailyRewardBadgeCount));
   } catch (error) {
     logger.warn("Failed to resolve unresolved Action Event count for badge", {
       uid: normalizedUid,
@@ -989,6 +1010,10 @@ exports.claimDailyHoneyReward = onCall(
         type: "HONEY_REWARD",
         messageArgs: [String(grantedHoney)],
       });
+      await resolveUserActionEvents({
+        uid,
+        type: "DAILY_REWARD_REMINDER",
+      });
 
       return {
         rewardAmount: grantedHoney,
@@ -996,6 +1021,79 @@ exports.claimDailyHoneyReward = onCall(
         monthKey: rewardDate.monthKey,
         updatedHoney,
       };
+    },
+);
+
+// Scheduled DailyReward reminder sweep for users who still have not claimed today.
+exports.sendDailyRewardReminders = onSchedule(
+    {
+      schedule: "0 12 * * *",
+      region: "us-central1",
+      timeZone: DAILY_REWARD_TIME_ZONE,
+    },
+    async () => {
+      const nowDate = new Date();
+      const rewardDate = currentRewardDateParts(nowDate);
+      let lastUserId = "";
+      const pageSize = 200;
+
+      while (true) {
+        let query = db.collection("users")
+            .orderBy(admin.firestore.FieldPath.documentId())
+            .limit(pageSize);
+
+        if (lastUserId) {
+          query = query.startAfter(lastUserId);
+        }
+
+        const pageSnapshot = await query.get();
+        if (pageSnapshot.empty) break;
+
+        for (const userDoc of pageSnapshot.docs) {
+          const userData = userDoc.data() || {};
+          const uid = userDoc.id;
+          if (!uid) continue;
+          if (!isDailyRewardPendingForUser(userData, nowDate)) continue;
+
+          await resolveUserActionEvents({
+            uid,
+            type: "DAILY_REWARD_REMINDER",
+          });
+
+          const eventId = `daily_reward_reminder_${rewardDate.dayKey}`;
+          await recordUserEvent({
+            uid,
+            cloudEventId: eventId,
+            type: "DAILY_REWARD_REMINDER",
+          });
+
+          const snapshot = await resolveEventSnapshot(uid, "DAILY_REWARD_REMINDER");
+          await sendPushToUser(
+              uid,
+              pushMessageFromSnapshot(
+                  snapshot.title,
+                  snapshot.message,
+                  {
+                    type: "DAILY_REWARD_REMINDER",
+                    eventId,
+                  },
+              ),
+              {
+                event: "DAILY_REWARD_REMINDER",
+                uid,
+              },
+              userData.fcmToken,
+              userData,
+          );
+        }
+
+        lastUserId = pageSnapshot.docs[pageSnapshot.docs.length - 1].id;
+        if (pageSnapshot.docs.length < pageSize) break;
+      }
+
+      logger.info("DailyReward reminder sweep completed", {
+        dayKey: rewardDate.dayKey,
+      });
     },
 );
 

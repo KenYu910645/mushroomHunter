@@ -18,7 +18,7 @@
 
 ## Client Refresh Timing (Current Policy)
 - Bell tap refresh: when user taps the top-right bell icon, app must call `refreshFromServer()` first, then open the inbox sheet so the list is the latest from Firestore.
-- Action Event push refresh: when app receives a push whose `type` is an Action Event (`JOIN_REQUESTED_HOST`, `RAID_CONFIRM_ATTENDEE`, `POSTCARD_ORDER_SELLER`, `POSTCARD_SENT_BUYER`), app immediately applies delivered APS badge when present and also forces `refreshFromServer()` plus app-shell badge recomputation so icon/tab counts stay accurate.
+- Action Event push refresh: when app receives a push whose `type` is an Action Event (`JOIN_REQUESTED_HOST`, `RAID_CONFIRM_ATTENDEE`, `POSTCARD_ORDER_SELLER`, `POSTCARD_SENT_BUYER`, `DAILY_REWARD_REMINDER`), app immediately applies delivered APS badge when present and also forces `refreshFromServer()` plus app-shell badge recomputation so icon/tab counts stay accurate.
 - No other automatic refresh timing is enabled for inbox list sync.
 
 ## Event History Collection
@@ -48,8 +48,8 @@ Current event document fields:
 - A push sender must first produce at least one event document in the same Cloud Function flow.
 - Not all events send push notifications.
 - Every Action Event must always send push notification.
-- Badge count counts unresolved Action Events only.
-- Action Event push payload must include APNs `aps.badge` using latest unresolved Action Event count for receiver, so home-screen app icon badge updates immediately even when app is backgrounded.
+- App icon badge count equals unresolved Action Events excluding `DAILY_REWARD_REMINDER`, plus `1` when today's Taipei DailyReward is still unclaimed.
+- Action Event push payload must include APNs `aps.badge` using that app icon badge formula, so home-screen app icon badge updates immediately even when app is backgrounded.
 - For push-enabled events, push copy and event-list copy are generated from the same server-side snapshot text (`title`/`message`) per user locale at event creation time.
 - Inbox highlight state is stricter than badge state: a row stays highlighted only while it is both unresolved and unread.
 
@@ -67,6 +67,17 @@ Current event document fields:
   - Message(Eng): `You have received %@ honey as reward.`
   - Message(Chinese): `您已獲得 %@ 蜂蜜獎勵。`
   - Push: none.
+
+- `DAILY_REWARD_REMINDER`
+  - Class: Action Event.
+  - Producer: `sendDailyRewardReminders`.
+  - Trigger: scheduled 12:00 PM Asia/Taipei sweep finds today's DailyReward still unclaimed.
+  - Target: claimant
+  - Push: `sendDailyRewardReminders`.
+  - Title(Eng): `Daily Reward`
+  - Title(Chinese): `每日登入獎勵`
+  - Message(Eng): `You haven't claimed your daily reward yet. Tap to claim`
+  - Message(Chinese): `您還沒領取每日獎勵喔，點擊這裡領取`
 
 - `ROOM_CREATED_HOST`
   - Class: Record Event.
@@ -373,6 +384,6 @@ Current event document fields:
 
 ## Implementation Notes
 - Push data `type` now matches the event type for all push-enabled events.
-- Action Event pushes set `aps.badge` from `users/{uid}/events` unresolved Action Event aggregate count.
+- Action Event pushes set `aps.badge` from unresolved non-DailyReward Action Events plus the current DailyReward pending flag.
 - Badge injection classifies Action Event by `type` and also falls back to pushed `eventId` doc (`users/{uid}/events/{eventId}.isActionEvent`) so newly added Action Event types still get badge updates without missing APNs badge.
 - `REPLY_HOST` includes extra push field `outcome` with values `raid_confirmation_seat_full`, `raid_confirmation_missed_invite`, or `raid_confirmation_accepted`.

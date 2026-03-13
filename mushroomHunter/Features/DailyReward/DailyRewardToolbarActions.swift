@@ -16,6 +16,8 @@ struct DailyRewardToolbarActions: View {
     let onOpenDailyReward: () -> Void
     /// Callback fired when the notification bell is tapped.
     let onOpenNotificationInbox: () -> Void
+    /// True when the calendar button should show a pending DailyReward red dot.
+    let isDailyRewardPending: Bool
     /// Current unread action-event count shown as the bell red dot.
     let unreadCount: Int
     /// Accessibility label applied to the bell button.
@@ -31,9 +33,18 @@ struct DailyRewardToolbarActions: View {
     var body: some View {
         HStack(spacing: 16) {
             Button(action: onOpenDailyReward) {
-                Image(systemName: "calendar")
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "calendar")
+                    if isDailyRewardPending {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 8, height: 8)
+                            .offset(x: 4, y: -3)
+                    }
+                }
             }
             .accessibilityLabel(LocalizedStringKey("daily_reward_toolbar_accessibility"))
+            .accessibilityValue(isDailyRewardPending ? Text("pending") : Text("none"))
             .accessibilityIdentifier("daily_reward_button")
             .tutorialHighlightAnchor(dailyRewardTutorialTarget)
 

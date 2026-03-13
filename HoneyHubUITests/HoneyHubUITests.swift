@@ -285,4 +285,17 @@ final class HoneyHubUITests: XCTestCase {
 
         XCTAssertFalse(claimButton.isEnabled)
     }
+
+    @MainActor
+    func testDailyRewardToolbarPendingStateChangesWithMockClaimStatus() throws {
+        let pendingApp = launchApp()
+        let pendingButton = pendingApp.buttons["daily_reward_button"]
+        XCTAssertTrue(pendingButton.waitForExistence(timeout: 10))
+        XCTAssertEqual(pendingButton.value as? String, "pending")
+
+        let claimedApp = launchApp(extraArguments: ["--mock-daily-reward-claimed"])
+        let claimedButton = claimedApp.buttons["daily_reward_button"]
+        XCTAssertTrue(claimedButton.waitForExistence(timeout: 10))
+        XCTAssertEqual(claimedButton.value as? String, "none")
+    }
 }
