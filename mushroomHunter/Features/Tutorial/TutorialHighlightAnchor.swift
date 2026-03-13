@@ -16,6 +16,10 @@ enum TutorialHighlightTarget: Hashable {
     case mushroomBrowseSearchButton
     /// Create button in Mushroom browse top action bar.
     case mushroomBrowseCreateButton
+    /// Daily reward calendar button in Mushroom browse navigation toolbar.
+    case mushroomBrowseDailyRewardButton
+    /// Event inbox bell button in Mushroom browse navigation toolbar.
+    case mushroomBrowseEventInboxButton
     /// Pinned room rows area in Mushroom browse list.
     case mushroomBrowsePinnedRoomsArea
     /// Joinable room rows area in Mushroom browse list.
@@ -86,6 +90,8 @@ extension TutorialHighlightTarget {
              .roomHostEditRoomButton,
              .roomAttendeeConfirmationButton,
              .roomAttendeeEditDepositButton,
+             .mushroomBrowseDailyRewardButton,
+             .mushroomBrowseEventInboxButton,
              .postcardSellerShareButton,
              .postcardSellerShippingButton,
              .postcardSellerEditButton:

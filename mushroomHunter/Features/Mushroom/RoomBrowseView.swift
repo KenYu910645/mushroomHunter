@@ -41,6 +41,7 @@ struct RoomBrowseView: View {
     @State private var isNotificationInboxPresented: Bool = false // Controls notification inbox sheet presentation.
     @State private var isDailyRewardPresented: Bool = false // Controls DailyReward sheet presentation.
     @StateObject private var mushroomBrowseTutorial = TutorialStepController() // Shared tutorial step controller for Mushroom browse coach marks.
+    @State private var mushroomBrowseFloatingHighlightFrame: CGRect? = nil // Floating highlight frame used for top-right toolbar tutorial targets.
     @FocusState private var isSearchFieldFocused: Bool // Controls keyboard focus for inline search field.
     @Environment(\.colorScheme) private var scheme // Used for themed background.
     @State private var activePushRoute: RoomBrowsePushRoute? = nil // Active push route currently being pushed in navigation stack.
@@ -98,6 +99,7 @@ struct RoomBrowseView: View {
                         mushroomBrowseTutorial.end()
                         session.endFeatureTutorialPresentation()
                     }
+                    mushroomBrowseFloatingHighlightFrame = nil
                 }
                 .onChange(of: pendingPushRoute) { _, route in
                     guard let route else { return }
@@ -120,7 +122,9 @@ struct RoomBrowseView: View {
                             },
                             unreadCount: notificationInbox.unreadCount,
                             bellAccessibilityLabel: "browse_notification_accessibility",
-                            bellAccessibilityIdentifier: "browse_notification_button"
+                            bellAccessibilityIdentifier: "browse_notification_button",
+                            dailyRewardTutorialTarget: mushroomBrowseTutorial.isActive ? .mushroomBrowseDailyRewardButton : nil,
+                            eventInboxTutorialTarget: mushroomBrowseTutorial.isActive ? .mushroomBrowseEventInboxButton : nil
                         )
                     }
                 }
@@ -251,6 +255,12 @@ struct RoomBrowseView: View {
                 mushroomBrowseTutorialOverlay(anchors: anchors)
             }
         }
+        .background(
+            TutorialHightlighAnchorUI(
+                frame: mushroomBrowseFloatingHighlightFrame,
+                isVisible: mushroomBrowseTutorial.isActive
+            )
+        )
     }
     
     /// Main content body with two states:
@@ -437,6 +447,7 @@ struct RoomBrowseView: View {
                 isFirstStep: mushroomBrowseTutorial.isFirstStep,
                 isLastStep: mushroomBrowseTutorial.isLastStep,
                 anchors: anchors,
+                floatingToolbarHighlightFrame: $mushroomBrowseFloatingHighlightFrame,
                 onBack: showPreviousMushroomBrowseTutorialStep,
                 onNext: advanceMushroomBrowseTutorialStep
             )

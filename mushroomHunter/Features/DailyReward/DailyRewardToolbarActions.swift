@@ -22,6 +22,10 @@ struct DailyRewardToolbarActions: View {
     let bellAccessibilityLabel: LocalizedStringKey
     /// Accessibility identifier applied to the bell button.
     let bellAccessibilityIdentifier: String
+    /// Optional tutorial highlight target attached to the calendar button.
+    let dailyRewardTutorialTarget: TutorialHighlightTarget?
+    /// Optional tutorial highlight target attached to the bell button.
+    let eventInboxTutorialTarget: TutorialHighlightTarget?
 
     /// Main toolbar row containing the calendar and bell actions.
     var body: some View {
@@ -31,6 +35,7 @@ struct DailyRewardToolbarActions: View {
             }
             .accessibilityLabel(LocalizedStringKey("daily_reward_toolbar_accessibility"))
             .accessibilityIdentifier("daily_reward_button")
+            .tutorialHighlightAnchor(dailyRewardTutorialTarget)
 
             Button(action: onOpenNotificationInbox) {
                 ZStack(alignment: .topTrailing) {
@@ -45,6 +50,7 @@ struct DailyRewardToolbarActions: View {
             }
             .accessibilityLabel(bellAccessibilityLabel)
             .accessibilityIdentifier(bellAccessibilityIdentifier)
+            .tutorialHighlightAnchor(eventInboxTutorialTarget)
         }
     }
 }

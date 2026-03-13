@@ -46,7 +46,7 @@ enum RoomBrowse {
             ),
             message: BilingualText(
                 en: "You can search and join mushroom rooms from this list to hunt mushrooms with other players.",
-                cn: "* 玩家可以在列表中搜尋蘑菇房\n* 加入蘑菇房後可以與其他玩家狩獵蘑菇。"
+                cn: "* 玩家可以在列表中搜尋蘑菇房\n* 加入蘑菇房後可以與其他玩家狩獵蘑菇"
             )
         ),
         Step(
@@ -57,7 +57,7 @@ enum RoomBrowse {
             ),
             message: BilingualText(
                 en: "* You need to pay honey to join a room and join mushroom battles.\n* Hosting a room and inviting other players can earn honey.",
-                cn: "* 打蘑菇需要消耗蜂蜜"
+                cn: "* 每次打蘑菇需要消耗10點蜂蜜\n* 被邀請但蘑菇滿位需要消耗2點蜂蜜"
             )
         ),
         Step(
@@ -68,7 +68,7 @@ enum RoomBrowse {
             ),
             message: BilingualText(
                 en: "You can search by room title.",
-                cn: "在列表中搜尋房間標題。"
+                cn: "在列表中搜尋房間標題"
             )
         ),
         Step(
@@ -79,7 +79,7 @@ enum RoomBrowse {
             ),
             message: BilingualText(
                 en: "* After creating a room, you can invite other players.\n* You need Pikmin megaphones to invite room members to help fight mushrooms.",
-                cn: "* 創造房間後可以邀請其他玩家打蘑菇\n* 需消耗Pikmin大聲公來邀請\n* 完成蘑菇邀請後會獲得蜂蜜"
+                cn: "* 創造房間後可以邀請其他玩家打蘑菇\n* 每次需消耗Pikmin大聲公來邀請\n* 完成蘑菇邀請後會獲得蜂蜜"
             )
         ),
         Step(
@@ -90,7 +90,7 @@ enum RoomBrowse {
             ),
             message: BilingualText(
                 en: "Rooms you host and rooms you have joined will be pinned to the top.",
-                cn: "已加入或主持的房間會於列表上置頂以方便查看。"
+                cn: "* 已加入或主持的房間會於列表上置頂以方便查看"
             )
         ),
         Step(
@@ -101,7 +101,29 @@ enum RoomBrowse {
             ),
             message: BilingualText(
                 en: "Tap a room to view detailed room information.",
-                cn: "* 房間標題\n* 主持人所在區域\n* 當前參加人數\n"
+                cn: "* 房間標題\n* 主持人所在區域\n* 當前參加人數"
+            )
+        ),
+        Step(
+            highlightTarget: .mushroomBrowseDailyRewardButton,
+            title: BilingualText(
+                en: "Daily Login Reward",
+                cn: "每日登入獎勵"
+            ),
+            message: BilingualText(
+                en: "* Claim 10 honey once per day when you log in.\n* Use the calendar button to open the reward sheet.",
+                cn: "* 每日登入可領取10蜂蜜"
+            )
+        ),
+        Step(
+            highlightTarget: .mushroomBrowseEventInboxButton,
+            title: BilingualText(
+                en: "Event Inbox",
+                cn: "收件匣"
+            ),
+            message: BilingualText(
+                en: "* Check notifications and pending actions here.",
+                cn: "* 通知與待處理的事項"
             )
         )
     ]

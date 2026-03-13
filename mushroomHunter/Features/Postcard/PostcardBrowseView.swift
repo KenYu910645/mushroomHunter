@@ -202,7 +202,9 @@ struct PostcardBrowseView: View {
                         },
                         unreadCount: notificationInbox.unreadCount,
                         bellAccessibilityLabel: "postcard_notification_accessibility",
-                        bellAccessibilityIdentifier: "postcard_notification_button"
+                        bellAccessibilityIdentifier: "postcard_notification_button",
+                        dailyRewardTutorialTarget: nil,
+                        eventInboxTutorialTarget: nil
                     )
                 }
             }

@@ -106,7 +106,9 @@ struct ProfileView: View {
                         },
                         unreadCount: notificationInbox.unreadCount,
                         bellAccessibilityLabel: "browse_notification_accessibility",
-                        bellAccessibilityIdentifier: "profile_notification_button"
+                        bellAccessibilityIdentifier: "profile_notification_button",
+                        dailyRewardTutorialTarget: nil,
+                        eventInboxTutorialTarget: nil
                     )
                 }
             }

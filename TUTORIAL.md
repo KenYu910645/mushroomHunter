@@ -61,6 +61,7 @@ For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buy
   - `mushroomHunter/Features/Tutorial/TutorialScene/PostcardSeller.swift`
 - Tunable content:
   - `steps`: controls page count, step card title/message copy, and highlight target id.
+  - Mushroom browse tutorial now includes top-right toolbar steps for the shared calendar (`mushroomBrowseDailyRewardButton`) and bell (`mushroomBrowseEventInboxButton`) actions.
   - `highlightTarget`: stable UI anchor id used for automatic highlight detection across devices/Dynamic Type.
   - Room detail attendee steps now target semantic attendee cards:
     - `roomAttendeeTopThreeArea`: aggregate highlight over attendee cards 0~2 (used by "Attendee list/成員列表" step).
