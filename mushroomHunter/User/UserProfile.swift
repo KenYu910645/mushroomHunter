@@ -90,6 +90,15 @@ extension UserSessionStore {
         let digits = FriendCode.digitsOnly(friendCode)
         guard !trimmedName.isEmpty, FriendCode.validationError(digits) == nil else { return false }
         let isNameChanged = displayName != trimmedName
+        let isOnboardingTutorialPending = (
+            source == .onboarding &&
+            AppTesting.isUITesting == false &&
+            !isTutorialScenarioCompleted(.mushroomBrowseFirstVisit)
+        )
+
+        if isOnboardingTutorialPending {
+            prepareFeatureTutorialPresentation()
+        }
         let isFriendCodeChanged = self.friendCode != digits
         let isProfileCompletionChanged = !isProfileComplete
 

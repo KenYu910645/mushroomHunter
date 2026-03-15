@@ -21,6 +21,7 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
 - Disable room/postcard top-right action buttons during tutorial to prevent opening operational sheets.
 - Render scripted fake data directly in the page so the user learns from a realistic UI.
 - Hide bottom tab bar during tutorial so users focus on guided flow only.
+- When onboarding hands off from profile creation into the first Mushroom browse tutorial, hide the tab bar one transition earlier at the app-shell level so the tutorial bottom controls never render under tab chrome.
 - Resolve highlight boxes from live UI anchors only (target-id based). Room attendee semantic steps do not section-fallback; if a row-level anchor is missing, no cutout is rendered so wrong-area highlighting cannot occur.
 - For navigation-bar toolbar targets (top-right action buttons), keep original toolbar UI and render highlight stroke in a floating top-level overlay window so the rectangle always appears above nav-bar chrome.
 - Toolbar-target classification is centralized in `TutorialHighlightTarget.isNavigationToolbarActionTarget` to avoid per-screen duplicate target lists.

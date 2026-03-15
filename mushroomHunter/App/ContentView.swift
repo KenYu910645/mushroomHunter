@@ -60,7 +60,7 @@ struct MainTabView: View {
         Binding(
             get: { selectedTab },
             set: { nextTab in
-                guard !session.isFeatureTutorialActive else { return }
+                guard !session.isFeatureTutorialChromeLocked else { return }
                 selectedTab = nextTab
             }
         )
@@ -99,10 +99,10 @@ struct MainTabView: View {
                 .environmentObject(session)
                 .environmentObject(notificationInbox)
         }
-        .toolbar(session.isFeatureTutorialActive ? .hidden : .visible, for: .tabBar)
+        .toolbar(session.isFeatureTutorialChromeLocked ? .hidden : .visible, for: .tabBar)
         .background(
             TabBarInteractionLockBridge(
-                isTabBarInteractionEnabled: !session.isFeatureTutorialActive
+                isTabBarInteractionEnabled: !session.isFeatureTutorialChromeLocked
             )
             .frame(width: 0, height: 0)
         )
@@ -223,6 +223,13 @@ struct MainTabView: View {
         let badgeCount = notificationInbox.unresolvedActionBadgeCountExcludingDailyReward
             + (session.isDailyRewardPending ? 1 : 0)
         UIApplication.shared.applicationIconBadgeNumber = max(0, badgeCount)
+    }
+}
+
+private extension UserSessionStore {
+    /// Returns whether tutorial presentation should hide and lock the root tab bar right now.
+    var isFeatureTutorialChromeLocked: Bool {
+        isFeatureTutorialActive || isFeatureTutorialTransitionPending
     }
 }
 

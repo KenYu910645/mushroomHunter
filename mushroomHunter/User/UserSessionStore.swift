@@ -30,6 +30,7 @@ final class UserSessionStore: ObservableObject {
     @Published var isProfileComplete: Bool = false // State or dependency property.
     @Published var isShowingOnboardingTutorial: Bool = false // Tracks whether the first-time tutorial sheet is currently presented.
     @Published var isFeatureTutorialActive: Bool = false // Indicates any interactive feature tutorial is currently active and should lock tab switching.
+    @Published var isFeatureTutorialTransitionPending: Bool = false // Keeps tutorial chrome hidden while onboarding hands off into the first feature tutorial.
     @Published var isDailyRewardPending: Bool = false // Indicates whether today's Taipei DailyReward has not been claimed yet.
     @Published var isLoading: Bool = false // State or dependency property.
     @Published var errorMessage: String? = nil // State or dependency property.
@@ -177,6 +178,7 @@ final class UserSessionStore: ObservableObject {
         isProfileComplete = false
         isShowingOnboardingTutorial = false
         isFeatureTutorialActive = false
+        isFeatureTutorialTransitionPending = false
         activeFeatureTutorialCount = 0
         isDailyRewardPending = false
     }
@@ -244,8 +246,19 @@ final class UserSessionStore: ObservableObject {
     /// Marks that one interactive feature tutorial presentation started.
     /// Uses a reference count so multiple begin/end pairs remain balanced.
     func beginFeatureTutorialPresentation() {
+        isFeatureTutorialTransitionPending = false
         activeFeatureTutorialCount += 1
         isFeatureTutorialActive = activeFeatureTutorialCount > 0
+    }
+
+    /// Arms tutorial chrome hiding before the destination screen appears.
+    func prepareFeatureTutorialPresentation() {
+        isFeatureTutorialTransitionPending = true
+    }
+
+    /// Clears a pending tutorial handoff when normal feature loading should continue instead.
+    func cancelPreparedFeatureTutorialPresentation() {
+        isFeatureTutorialTransitionPending = false
     }
 
     /// Marks that one interactive feature tutorial presentation finished.

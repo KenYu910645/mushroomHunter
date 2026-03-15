@@ -35,6 +35,7 @@
   - Sets `isProfileComplete = true`
   - Does not auto-open a static swipe tutorial anymore.
   - Interactive tutorials are now scenario-based and triggered contextually when users first enter relevant feature pages.
+  - During first-login handoff into the initial Mushroom browse tutorial, the root tab bar is hidden before the tab shell appears so the tutorial `Back`/`Next` controls stay unobstructed.
 
 ## Related Implementation
 - `mushroomHunter/Features/Profile/LoginView.swift`
