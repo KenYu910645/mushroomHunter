@@ -449,8 +449,8 @@
 /***************************************/
 
 "profile_title" = "個人資料";
-"create_profile_title" = "建立個人資料";
-"create_profile_button" = "建立個人資料";
+"create_profile_title" = "建立帳號";
+"create_profile_button" = "建立帳號";
 "edit_profile_title" = "編輯個人資料";
 "edit_profile_button" = "儲存";
 "create_profile_error_title" = "資料未完成";
@@ -494,12 +494,12 @@
 /**** Profile Section: Account Identity ****/
 /***************************************/
 
-"profile_name" = "名稱";
+"profile_name" = "角色名稱";
 "profile_name_placeholder" = "Pikmin 遊戲名稱";
-"profile_name_hint" = "建議使用 Pikmin Bloom 遊戲名稱";
+"profile_name_hint" = "請使用 Pikmin Bloom 遊戲名稱";
 "profile_friend_code" = "好友碼";
 "profile_friend_code_placeholder" = "12 位數字";
-"profile_friend_code_hint" = "請輸入Pikmin Bloom中的好友碼";
+"profile_friend_code_hint" = "請輸入Pikmin Bloom中的好友碼\nPikmin Bloom -> 好友 -> 新增好友 -> 複製好友代碼";
 
 /***************************************/
 /**** Profile Section: Community ****/

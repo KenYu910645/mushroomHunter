@@ -31,7 +31,8 @@
   - Requires display name and 12-digit friend code
   - Focused form inputs auto-scroll above keyboard overlap; single-line input keyboard dismisses on `Enter`.
   - Create-profile form dismisses keyboard on outside taps (without collapsing during scroll) and includes keyboard toolbar `Done`.
-  - Saves into Firestore `users/{uid}` and local state
+  - Saves into Firestore `users/{uid}` and local state.
+  - The onboarding save path repairs partial auth/bootstrap user docs so required wallet/profile defaults always exist, including `honey`, `stars`, room-limit fields, premium fields, locale, and timestamps.
   - Sets `isProfileComplete = true`
   - Does not auto-open a static swipe tutorial anymore.
   - Interactive tutorials are now scenario-based and triggered contextually when users first enter relevant feature pages.

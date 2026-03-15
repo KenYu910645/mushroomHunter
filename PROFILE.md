@@ -55,7 +55,7 @@
   - `users/{uid}.premiumLastVerifiedAt`
   - effective `maxHostRoom` / `maxJoinRoom`
 - Signed-in session state now keeps a live Firestore listener on `users/{uid}` so honey/stars/profile fields update in-app when backend transactions change them.
-- Profile bootstrap no longer overwrites authoritative backend counters like `stars` or `honey` from stale local cache; first-session ensure writes only create missing fields.
+- Profile bootstrap no longer overwrites authoritative backend counters like `stars` or `honey` from stale local cache; first-session ensure writes only create missing fields and now also repairs partial user docs created earlier in the auth/bootstrap flow so wallet-required fields such as `honey` are never left absent.
 - Premium benefits currently include:
   - DailyReward increases from `10` honey to `30` honey while premium is active.
   - Mushroom host room limit increases from `1` to `5`.

@@ -13,6 +13,25 @@ import FirebaseAuth
 import FirebaseFirestore
 
 extension UserSessionStore {
+    /// Builds the default field set required for a complete `users/{uid}` document.
+    /// - Parameter now: Shared timestamp for one ensure transaction pass.
+    /// - Returns: Default user-profile fields written on first creation or missing-field repair.
+    private func defaultUserProfileFields(now: Timestamp) -> [String: Any] {
+        [
+            "displayName": displayName,
+            "friendCode": friendCode,
+            "stars": stars,
+            "honey": honey,
+            "maxHostRoom": maxHostRoom,
+            "maxJoinRoom": maxJoinRoom,
+            "isPremium": false,
+            "premiumProductId": "",
+            "localeIdentifier": currentLocaleIdentifier,
+            "isProfileComplete": isProfileComplete,
+            "createdAt": now
+        ]
+    }
+
     /// Current device locale identifier used for server-side event snapshot localization.
     private var currentLocaleIdentifier: String {
         Locale.current.identifier
@@ -90,6 +109,8 @@ extension UserSessionStore {
         let digits = FriendCode.digitsOnly(friendCode)
         guard !trimmedName.isEmpty, FriendCode.validationError(digits) == nil else { return false }
         let isNameChanged = displayName != trimmedName
+        let isFriendCodeChanged = self.friendCode != digits
+        let isProfileCompletionChanged = !isProfileComplete
         let isOnboardingTutorialPending = (
             source == .onboarding &&
             AppTesting.isUITesting == false &&
@@ -99,8 +120,6 @@ extension UserSessionStore {
         if isOnboardingTutorialPending {
             prepareFeatureTutorialPresentation()
         }
-        let isFriendCodeChanged = self.friendCode != digits
-        let isProfileCompletionChanged = !isProfileComplete
 
         displayName = trimmedName
         self.friendCode = digits
@@ -286,47 +305,19 @@ extension UserSessionStore {
                 }
 
                 if userSnapshot.exists == false {
+                    var newUserData = self.defaultUserProfileFields(now: now)
+                    newUserData["updatedAt"] = now
                     print("🔎 [UserProfile] ensureUserProfile create uid=\(uid) stars=\(self.stars) honey=\(self.honey)")
-                    transaction.setData([
-                        "displayName": self.displayName,
-                        "friendCode": self.friendCode,
-                        "stars": self.stars,
-                        "honey": self.honey,
-                        "maxHostRoom": self.maxHostRoom,
-                        "maxJoinRoom": self.maxJoinRoom,
-                        "isPremium": false,
-                        "premiumProductId": "",
-                        "localeIdentifier": self.currentLocaleIdentifier,
-                        "isProfileComplete": self.isProfileComplete,
-                        "createdAt": now,
-                        "updatedAt": now
-                    ], forDocument: userRef)
+                    transaction.setData(newUserData, forDocument: userRef)
                     return nil
                 }
 
                 let existingData = userSnapshot.data() ?? [:]
                 var missingFields: [String: Any] = [:]
+                let defaultFields = self.defaultUserProfileFields(now: now)
 
-                if existingData["displayName"] == nil {
-                    missingFields["displayName"] = self.displayName
-                }
-                if existingData["friendCode"] == nil {
-                    missingFields["friendCode"] = self.friendCode
-                }
-                if existingData["maxHostRoom"] == nil {
-                    missingFields["maxHostRoom"] = self.maxHostRoom
-                }
-                if existingData["maxJoinRoom"] == nil {
-                    missingFields["maxJoinRoom"] = self.maxJoinRoom
-                }
-                if existingData["localeIdentifier"] == nil {
-                    missingFields["localeIdentifier"] = self.currentLocaleIdentifier
-                }
-                if existingData["isProfileComplete"] == nil {
-                    missingFields["isProfileComplete"] = self.isProfileComplete
-                }
-                if existingData["createdAt"] == nil {
-                    missingFields["createdAt"] = now
+                for (field, defaultValue) in defaultFields where existingData[field] == nil {
+                    missingFields[field] = defaultValue
                 }
 
                 guard missingFields.isEmpty == false else { return nil }

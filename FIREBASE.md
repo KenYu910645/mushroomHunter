@@ -66,7 +66,8 @@ service firebase.storage {
   - Firestore write: `users/{uid}.fcmToken` (guarded; skip write if unchanged in-session).
   - Firestore writes: hosted room snapshots (`rooms.hostFcmToken`, host attendee `fcmToken`) to reduce later function reads.
 - Sign in (Apple/Google):
-  - Auth operation only, then profile sync may fill missing `users/{uid}` defaults without overwriting existing `stars`/`honey` counters.
+  - Auth operation only, then profile sync fills any missing `users/{uid}` defaults without overwriting existing `stars`/`honey` counters.
+  - This missing-field repair also covers partial docs created earlier by token/bootstrap writes, so new users still receive a complete wallet/profile document with `honey`, `stars`, limits, premium flags, locale, and timestamps.
 
 ### Profile Tab
 - Open profile tab:
