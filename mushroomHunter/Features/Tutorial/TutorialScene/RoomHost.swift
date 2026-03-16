@@ -15,7 +15,7 @@ enum RoomHost {
     /// Active scenario selected for current language.
     static var scenario: RoomDetailTutorial.Scenario {
         return RoomDetailTutorial.makeScenario(
-            steps: stepTemplates,
+            steps: TutorialScene.prependPlainIntroStepIfNeeded(to: stepTemplates),
             fakeRoom: fakeRoom
         )
     }

@@ -234,6 +234,13 @@ enum AppConfig {
         static let resetTimeZoneIdentifier: String = "Asia/Taipei"
     }
 
+    enum Tutorial {
+        // `isPlainIntroStepEnabled`
+        // Purpose: prepends one plain first step to every tutorial scenario.
+        // When enabled, the added step shows the page with tutorial navigation controls only.
+        static let isPlainIntroStepEnabled: Bool = false
+    }
+
     enum Premium {
         // `isPremiumEntryEnabled`
         // Purpose: temporary feature flag that controls whether the Profile tab exposes the premium upgrade entry.

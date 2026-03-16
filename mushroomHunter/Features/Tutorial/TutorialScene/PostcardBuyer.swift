@@ -15,7 +15,7 @@ enum PostcardBuyer {
     /// Active scenario selected for current language.
     static var scenario: PostcardDetailTutorial.Scenario {
         return PostcardDetailTutorial.Scenario(
-            steps: stepTemplates,
+            steps: TutorialScene.prependPlainIntroStepIfNeeded(to: stepTemplates),
             fakeListing: TutorialScene.makeTutorialPostcardDetailListing(
                 id: replayPostcardId,
                 sellerId: "tutorial-postcard-buyer-seller",

@@ -31,6 +31,7 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
   - Show 1-2 short explanatory sentences.
   - Provide fixed-position `Next`, `Back`, and `Done` controls near bottom corners.
   - Intro step rule: first step should use `highlightTarget: nil`; this renders as full-screen dim style without a cutout focus box.
+  - Optional plain intro rule: when `AppConfig.Tutorial.isPlainIntroStepEnabled` is `true`, every tutorial prepends one extra first step that hides dimming, highlight, and message box, while keeping the bottom tutorial navigation controls visible.
   - Navigation controls behavior:
     - `Back` is pinned at bottom-left.
     - `Next`/`Done` is pinned at bottom-right.
@@ -53,6 +54,7 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
 ## TutorialScene File Layout and Tuning
 For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buyer + Postcard seller tutorials, tune values in the dedicated `TutorialScene*` files:
 - Shared primitives/helpers: `mushroomHunter/Features/Tutorial/TutorialScene/Core.swift`
+- Owner-managed tutorial flags: `mushroomHunter/Utilities/AppConfig.swift`
 - Scenario scene data:
   - `mushroomHunter/Features/Tutorial/TutorialScene/RoomBrowse.swift`
   - `mushroomHunter/Features/Tutorial/TutorialScene/RoomJoiner.swift`
@@ -61,6 +63,7 @@ For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buy
   - `mushroomHunter/Features/Tutorial/TutorialScene/PostcardBuyer.swift`
   - `mushroomHunter/Features/Tutorial/TutorialScene/PostcardSeller.swift`
 - Tunable content:
+  - `AppConfig.Tutorial.isPlainIntroStepEnabled`: prepends one plain first step to all six scenarios without changing the authored step templates.
   - `steps`: controls page count, step card title/message copy, and highlight target id.
   - Mushroom browse tutorial now includes top-right toolbar steps for the shared calendar (`mushroomBrowseDailyRewardButton`) and bell (`mushroomBrowseEventInboxButton`) actions.
   - `highlightTarget`: stable UI anchor id used for automatic highlight detection across devices/Dynamic Type.

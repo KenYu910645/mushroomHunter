@@ -58,7 +58,7 @@ enum PostcardBrowse {
         let language = TutorialScene.currentLanguage
         let now = Date()
         return Scenario(
-            steps: stepTemplates,
+            steps: TutorialScene.prependPlainIntroStepIfNeeded(to: stepTemplates),
             fakeListings: listingTemplates.map { listing in
                 makeFakePostcardListing(
                     from: listing,

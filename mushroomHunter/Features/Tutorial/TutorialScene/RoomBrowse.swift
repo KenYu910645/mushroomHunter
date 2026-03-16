@@ -29,7 +29,7 @@ enum RoomBrowse {
     /// Active scenario selected for current language.
     static var scenario: Scenario {
         return Scenario(
-            steps: stepTemplates,
+            steps: TutorialScene.prependPlainIntroStepIfNeeded(to: stepTemplates),
             fakeRooms: fakeRoomTemplates,
             hostRoomIds: hostRoomIds,
             joinedRoomIds: joinedRoomIds

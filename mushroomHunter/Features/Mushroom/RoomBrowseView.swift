@@ -430,6 +430,7 @@ struct RoomBrowseView: View {
         mushroomBrowseTutorialScenario.steps.map { step in
             TutorialOverlayStep(
                 highlightTarget: step.highlightTarget,
+                isPlainIntroStep: step.isPlainIntroStep,
                 title: step.title,
                 message: step.message
             )

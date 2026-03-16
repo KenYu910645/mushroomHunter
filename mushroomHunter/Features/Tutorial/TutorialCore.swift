@@ -84,6 +84,8 @@ extension UserSessionStore {
 struct TutorialOverlayStep {
     /// Optional highlight target resolved from registered live anchors.
     let highlightTarget: TutorialHighlightTarget?
+    /// Indicates this step should render the page without dimming or coach text.
+    let isPlainIntroStep: Bool
     /// Step title shown in the message card.
     let title: String
     /// Step body shown in the message card.
@@ -209,6 +211,7 @@ struct TutorialCoachOverlay: View {
                 highlightFrame: highlightFrame,
                 proxy: proxy
             )
+            let isPlainIntroStep = step.isPlainIntroStep
             let isToolbarTarget = step.highlightTarget?.isNavigationToolbarActionTarget == true
             let floatingFrame = isToolbarTarget ? highlightFrame : nil
 
@@ -221,36 +224,40 @@ struct TutorialCoachOverlay: View {
                         floatingToolbarHighlightFrame?.wrappedValue = newValue
                     }
 
-                Color.black.opacity(0.6)
-                    .overlay {
-                        if let highlightFrame {
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .frame(width: highlightFrame.width, height: highlightFrame.height)
-                                .position(x: highlightFrame.midX, y: highlightFrame.midY)
-                                .blendMode(.destinationOut)
+                if !isPlainIntroStep {
+                    Color.black.opacity(0.6)
+                        .overlay {
+                            if let highlightFrame {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .frame(width: highlightFrame.width, height: highlightFrame.height)
+                                    .position(x: highlightFrame.midX, y: highlightFrame.midY)
+                                    .blendMode(.destinationOut)
+                            }
                         }
-                    }
-                    .compositingGroup()
-                    .ignoresSafeArea()
+                        .compositingGroup()
+                        .ignoresSafeArea()
+                }
 
-                if let highlightFrame, !isToolbarTarget {
+                if let highlightFrame, !isToolbarTarget, !isPlainIntroStep {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(Color.yellow, lineWidth: 2)
                         .frame(width: highlightFrame.width, height: highlightFrame.height)
                         .position(x: highlightFrame.midX, y: highlightFrame.midY)
                 }
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(step.title)
-                        .font(.headline)
-                    TutorialMessageBox(message: step.message)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                if !isPlainIntroStep {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(step.title)
+                            .font(.headline)
+                        TutorialMessageBox(message: step.message)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(16)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .frame(width: max(0, proxy.size.width - 32), alignment: .leading)
+                    .position(x: proxy.size.width * 0.5, y: messageBoxY)
                 }
-                .padding(16)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .frame(width: max(0, proxy.size.width - 32), alignment: .leading)
-                .position(x: proxy.size.width * 0.5, y: messageBoxY)
 
                 VStack {
                     Spacer()

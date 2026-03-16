@@ -41,6 +41,8 @@ enum TutorialScene {
     struct Step {
         /// Optional live highlight target resolved from anchored UI elements.
         let highlightTarget: TutorialHighlightTarget?
+        /// Indicates this step should render the page without dimming or a message box.
+        let isPlainIntroStep: Bool
         /// Bilingual step title.
         private let titleText: BilingualText
         /// Bilingual step description.
@@ -49,14 +51,17 @@ enum TutorialScene {
         /// Creates one step from bilingual content plus optional live highlight target.
         /// - Parameters:
         ///   - highlightTarget: Optional live highlight target.
+        ///   - isPlainIntroStep: Indicates this step should keep the page unobscured.
         ///   - title: Bilingual step title.
         ///   - message: Bilingual step description.
         init(
             highlightTarget: TutorialHighlightTarget?,
+            isPlainIntroStep: Bool = false,
             title: BilingualText,
             message: BilingualText
         ) {
             self.highlightTarget = highlightTarget
+            self.isPlainIntroStep = isPlainIntroStep
             self.titleText = title
             self.messageText = message
         }
@@ -79,6 +84,24 @@ enum TutorialScene {
             || preferredLanguage.contains("zh-tw")
             || preferredLanguage.contains("zh-hk")
         return isTraditionalChinese ? .cn : .en
+    }
+
+    /// Prepends the owner-managed plain intro step when the feature flag is enabled.
+    /// - Parameter steps: Scenario-specific tutorial steps.
+    /// - Returns: Ordered steps with the optional plain intro inserted first.
+    static func prependPlainIntroStepIfNeeded(to steps: [Step]) -> [Step] {
+        guard AppConfig.Tutorial.isPlainIntroStepEnabled else { return steps }
+        return [plainIntroStep] + steps
+    }
+
+    /// Shared plain intro step shown before message-driven tutorial guidance.
+    private static var plainIntroStep: Step {
+        Step(
+            highlightTarget: nil,
+            isPlainIntroStep: true,
+            title: BilingualText(en: "", cn: ""),
+            message: BilingualText(en: "", cn: "")
+        )
     }
 
     /// Resolves bundled tutorial postcard snapshot asset name for a listing id.

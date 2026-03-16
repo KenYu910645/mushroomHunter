@@ -990,6 +990,7 @@ struct PostcardView: View {
         let overlaySteps = tutorialConfig.steps.map { tutorialStep in
             TutorialOverlayStep(
                 highlightTarget: tutorialStep.highlightTarget,
+                isPlainIntroStep: tutorialStep.isPlainIntroStep,
                 title: tutorialStep.title,
                 message: tutorialStep.message
             )
