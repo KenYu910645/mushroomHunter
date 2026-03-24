@@ -241,21 +241,15 @@ enum AppConfig {
         static let isPlainIntroStepEnabled: Bool = false
     }
 
-    enum DemoReview {
-        // `demoAccessKeyInfoKey`
-        // Purpose: Info.plist key that carries the demo-review access key for Demo builds only.
-        static let demoAccessKeyInfoKey: String = "HONEYHUB_DEMO_ACCESS_KEY"
+    enum ReviewAccount {
+        // `googleEmail`
+        // Purpose: dedicated Google account used by App Review on the normal production sign-in flow.
+        // Update this if the review mailbox changes.
+        static let googleEmail: String = "honeyhubdemo@gmail.com"
 
-        // `signInFunctionName`
-        // Purpose: callable Cloud Function used by Demo builds to exchange the build key for a Firebase custom token.
-        static let signInFunctionName: String = "signInDemoReviewer"
-
-        // `configuredAccessKey`
-        // Purpose: resolves the build-configured demo-review access key from the generated Info.plist.
-        static var configuredAccessKey: String {
-            let rawValue = Bundle.main.object(forInfoDictionaryKey: demoAccessKeyInfoKey) as? String ?? ""
-            return rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
+        // `legacyDemoProfileUid`
+        // Purpose: source uid whose profile snapshot is copied into the Google review account on first login.
+        static let legacyDemoProfileUid: String = "90dyrQAT7XM4fpppGXYTdfmrKem1"
     }
 
     enum Premium {

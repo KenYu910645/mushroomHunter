@@ -29,7 +29,7 @@ service firebase.storage {
 ```
 
 ## Stack Overview
-- Authentication: Firebase Auth (Apple/Google, plus Demo-build-only custom-token review login)
+- Authentication: Firebase Auth (Apple/Google; App Review uses one dedicated Google account on the standard production flow)
 - Database: Cloud Firestore
 - File Storage: Firebase Storage (postcard images)
 - Event-history and push routing details: `EVENTS.md`
@@ -68,13 +68,11 @@ service firebase.storage {
 - Sign in (Apple/Google):
   - Auth operation only, then profile sync fills any missing `users/{uid}` defaults without overwriting existing `stars`/`honey` counters.
   - This missing-field repair also covers partial docs created earlier by token/bootstrap writes, so new users still receive a complete wallet/profile document with `honey`, `stars`, limits, premium flags, locale, and timestamps.
-- Sign in (Demo review build only):
-  - Callable Function: `signInDemoReviewer`
-  - Request payload: `{ accessKey }`
-  - Response payload: `{ token, uid }`
-  - Auth operation: client signs in with `Auth.auth().signIn(withCustomToken:)`
-  - Firestore reads/writes afterward follow the same `users/{uid}` refresh/ensure path as other providers.
-  - Backend callable requires environment variables `DEMO_REVIEW_ACCESS_KEY` and `DEMO_REVIEW_UID`; it does not change Firestore rules or require new composite indexes.
+- Sign in (dedicated Google review account):
+  - Uses the normal Google auth flow.
+  - Client matches the signed-in email against `AppConfig.ReviewAccount.googleEmail`.
+  - On first login only, the client reads `users/{AppConfig.ReviewAccount.legacyDemoProfileUid}` and copies that snapshot into the Google-backed `users/{uid}` doc, excluding the legacy `fcmToken`.
+  - After the seed write, the same `users/{uid}` refresh/ensure path runs as other providers.
 
 ### Profile Tab
 - Open profile tab:

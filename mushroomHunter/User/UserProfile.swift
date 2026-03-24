@@ -13,6 +13,67 @@ import FirebaseAuth
 import FirebaseFirestore
 
 extension UserSessionStore {
+    /// Copies the legacy demo profile into the dedicated Google review account on first login.
+    /// - Parameter user: Firebase-authenticated Google review user.
+    func seedReviewGoogleProfileIfNeeded(from user: FirebaseAuth.User) async throws {
+        guard isReviewGoogleAccount(email: user.email) else { return }
+
+        let reviewUid = user.uid
+        let userRef = Firestore.firestore().collection("users").document(reviewUid)
+        let currentSnapshot = try await userRef.getDocument()
+        let currentData = currentSnapshot.data() ?? [:]
+        let hasCompleteCurrentProfile = (
+            (currentData["displayName"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
+            (currentData["friendCode"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false &&
+            (currentData["isProfileComplete"] as? Bool) == true
+        )
+        guard hasCompleteCurrentProfile == false else { return }
+
+        let legacyRef = Firestore.firestore()
+            .collection("users")
+            .document(AppConfig.ReviewAccount.legacyDemoProfileUid)
+        let legacySnapshot = try await legacyRef.getDocument()
+        let legacyData = legacySnapshot.data() ?? [:]
+        guard legacyData.isEmpty == false else { return }
+
+        let now = Timestamp(date: Date())
+        var seededData = legacyData
+        seededData["displayName"] = legacyData["displayName"] as? String ?? "Demo"
+        seededData["friendCode"] = FriendCode.digitsOnly(legacyData["friendCode"] as? String ?? "")
+        seededData["isProfileComplete"] = true
+        seededData["localeIdentifier"] = currentLocaleIdentifier
+        seededData["updatedAt"] = now
+
+        if currentData["createdAt"] == nil {
+            seededData["createdAt"] = now
+        } else {
+            seededData["createdAt"] = currentData["createdAt"]
+        }
+
+        seededData.removeValue(forKey: "fcmToken")
+        try await userRef.setData(seededData, merge: true)
+
+        displayName = seededData["displayName"] as? String ?? displayName
+        friendCode = FriendCode.digitsOnly(seededData["friendCode"] as? String ?? friendCode)
+        stars = max(0, seededData["stars"] as? Int ?? stars)
+        honey = max(0, seededData["honey"] as? Int ?? honey)
+        maxHostRoom = max(
+            AppConfig.Mushroom.defaultHostRoomLimit,
+            seededData["maxHostRoom"] as? Int ?? maxHostRoom
+        )
+        maxJoinRoom = max(
+            AppConfig.Mushroom.defaultJoinRoomLimit,
+            seededData["maxJoinRoom"] as? Int ?? maxJoinRoom
+        )
+        persistScopedString(kDisplayName, value: displayName)
+        persistScopedString(kFriendCode, value: friendCode)
+        persistScopedInt(kStars, value: stars)
+        persistScopedInt(kHoney, value: honey)
+        persistScopedInt(kMaxHostRoom, value: maxHostRoom)
+        persistScopedInt(kMaxJoinRoom, value: maxJoinRoom)
+        isProfileComplete = true
+    }
+
     /// Builds the default field set required for a complete `users/{uid}` document.
     /// - Parameter now: Shared timestamp for one ensure transaction pass.
     /// - Returns: Default user-profile fields written on first creation or missing-field repair.

@@ -32,7 +32,7 @@ final class UserSessionStore: ObservableObject {
     @Published var isFeatureTutorialActive: Bool = false // Indicates any interactive feature tutorial is currently active and should lock tab switching.
     @Published var isFeatureTutorialTransitionPending: Bool = false // Keeps tutorial chrome hidden while onboarding hands off into the first feature tutorial.
     @Published var isDailyRewardPending: Bool = false // Indicates whether today's Taipei DailyReward has not been claimed yet.
-    @Published var isDemoReviewSession: Bool = false // Indicates the current in-memory session came from the Demo review bypass flow.
+    @Published var isDemoReviewSession: Bool = false // Indicates the current signed-in user is the dedicated Google review account.
     @Published var isLoading: Bool = false // State or dependency property.
     @Published var errorMessage: String? = nil // State or dependency property.
 
@@ -72,9 +72,11 @@ final class UserSessionStore: ObservableObject {
 
             self.authUid = user?.uid
             self.isLoggedIn = (user != nil)
+            self.isDemoReviewSession = self.isReviewGoogleAccount(email: user?.email)
 
             if let user {
                 self.loadLocalProfile(for: user.uid)
+                self.applyReviewSessionBypassIfNeeded()
                 self.bindUserProfileListener(for: user.uid)
                 Task { await self.refreshProfileFromBackend() }
             } else {
@@ -164,6 +166,28 @@ final class UserSessionStore: ObservableObject {
         guard let uid = authUid else { return }
         UserDefaults.standard.set(true, forKey: scopedKey(kHasShownOnboardingTutorial, uid: uid))
         isShowingOnboardingTutorial = false
+    }
+
+    /// Returns whether the provided email belongs to the dedicated App Review Google account.
+    /// - Parameter email: Firebase-authenticated email address when available.
+    /// - Returns: `true` when the normalized email matches the owner-managed review account address.
+    func isReviewGoogleAccount(email: String?) -> Bool {
+        let normalizedEmail = (email ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        let normalizedReviewEmail = AppConfig.ReviewAccount.googleEmail
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard normalizedReviewEmail.isEmpty == false else { return false }
+        return normalizedEmail == normalizedReviewEmail
+    }
+
+    /// Applies the persisted tutorial/profile bypass flags required by the dedicated review Google account.
+    func applyReviewSessionBypassIfNeeded() {
+        guard isDemoReviewSession else { return }
+        isProfileComplete = true
+        markOnboardingTutorialShown()
+        markAllTutorialScenariosCompleted()
     }
 
     func resetToDefaults() { // Resets in-memory user state to defaults.

@@ -1,37 +1,34 @@
 # Signin
 
 ## Related Files
-- `mushroomHunter/Features/Profile/LoginView.swift`: sign-in UI for Apple, Google, and Demo-build-only review login entry points.
+- `mushroomHunter/Features/Profile/LoginView.swift`: sign-in UI for Apple and Google entry points.
 - `mushroomHunter/Features/Profile/ProfileCreateEditView.swift`: shared profile form; signin flow uses create mode for first-time profile completion (name + 12-digit friend code).
 - `mushroomHunter/Features/Tutorial/TutorialCatalogView.swift`: tutorial scenario list opened from Profile -> Settings -> Help.
 - `mushroomHunter/Features/Mushroom/RoomBrowseView.swift`: first implemented interactive tutorial scene (Mushroom browse) rendered on the real browse UI.
 - `mushroomHunter/Features/Shared/SmartTextField.swift`: shared auto-select text field wrapper used by the create-profile form fields.
 - `mushroomHunter/Features/Shared/KeyboardDismissBridge.swift`: shared UIKit bridge used by profile create form to dismiss keyboard on outside taps without collapsing during scroll.
 - `mushroomHunter/User/UserSessionStore.swift`: shared user session state container.
-- `mushroomHunter/User/UserAuth.swift`: authentication and auth state handling, including demo-review custom-token sign-in.
-- `mushroomHunter/User/UserProfile.swift`: profile-complete persistence/sync.
-- `mushroomHunter/Utilities/AppConfig.swift`: owner-managed demo-review function name and generated Info.plist access-key lookup.
+- `mushroomHunter/User/UserAuth.swift`: authentication and auth state handling, including Google review-account detection.
+- `mushroomHunter/User/UserProfile.swift`: profile-complete persistence/sync plus first-login seeding for the Google review account.
+- `mushroomHunter/Utilities/AppConfig.swift`: owner-managed review Google email and legacy demo profile source uid.
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used by profile create flow.
 - `mushroomHunter/App/ContentView.swift`: app root routing between login, profile-form create mode, and main tabs.
 - `mushroomHunter/App/HoneyHubApp.swift`: app bootstrap and URL/open handling for auth and deep links.
-- `functions/index.js`: callable `signInDemoReviewer` endpoint that exchanges a Demo-build access key for a Firebase custom token.
 
 ## Feature Coverage
 - Supported providers:
   - Apple Sign-In
   - Google Sign-In
-  - Demo-build-only review login via Firebase custom token
 - Sign-in page presentation:
   - Uses the app honey icon (`HoneyIcon` asset) as the branded hero icon.
   - Uses a rounded auth card layout on top of the shared honey-toned background gradient.
   - Displays a localized subtitle under the `HoneyHub` title for clearer onboarding context.
   - Styles the Google sign-in button with a solid Google-brand blue fill for stronger entry visibility.
-  - Shows a third orange `Demo` button only when the app is built with the dedicated `Demo` configuration.
 - Auth state routing:
   - Signed out -> `LoginView`
   - Signed in but profile incomplete -> `ProfileCreateEditView(mode: .create)`
   - Signed in and profile complete -> main tab flow
-  - Signed in through the Demo build -> main tab flow immediately, even before the live profile refresh completes
+  - Signed in through the dedicated Google review account -> main tab flow immediately, even before the live profile refresh completes
 - First-time user profile completion:
   - Requires display name and 12-digit friend code
   - Focused form inputs auto-scroll above keyboard overlap; single-line input keyboard dismisses on `Enter`.
@@ -42,12 +39,11 @@
   - Does not auto-open a static swipe tutorial anymore.
   - Interactive tutorials are now scenario-based and triggered contextually when users first enter relevant feature pages.
   - During first-login handoff into the initial Mushroom browse tutorial, the root tab bar is hidden before the tab shell appears so the tutorial `Back`/`Next` controls stay unobstructed.
-- Demo review login:
-  - Uses a build-generated Info.plist key `HONEYHUB_DEMO_ACCESS_KEY`.
-  - Calls callable Cloud Function `signInDemoReviewer` with payload `{ accessKey }`.
-  - Receives `{ token, uid }` and signs in through `Auth.auth().signIn(withCustomToken:)`.
-  - Marks profile/tutorial onboarding flags locally so the fixed demo account bypasses profile creation and all first-visit tutorials.
-  - Must only be reachable in the dedicated `Demo` build; normal `Release` keeps Apple/Google only.
+- Google review account:
+  - Uses the normal Google sign-in button on the production build.
+  - Detects the dedicated review account by matching the signed-in email against `AppConfig.ReviewAccount.googleEmail`.
+  - On first login, copies the legacy demo profile snapshot from `users/{AppConfig.ReviewAccount.legacyDemoProfileUid}` into the new Google-backed uid.
+  - Marks profile/tutorial onboarding flags locally so the review account bypasses profile creation and all first-visit tutorials.
 
 ## Related Implementation
 - `mushroomHunter/Features/Profile/LoginView.swift`
@@ -61,4 +57,4 @@
 
 ## Notes
 - Tutorial replay entry remains at Profile -> Settings -> Help, now opening a scenario list instead of one static swipe pager.
-- Sign-in flow now owns one dedicated callable Cloud Function: `signInDemoReviewer`.
+- App Review submission should provide the dedicated Google review email/password and instruct reviewers to tap `Continue with Google`.

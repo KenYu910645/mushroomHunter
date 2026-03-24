@@ -534,9 +534,6 @@
 "login_title" = "HoneyHub";
 "login_subtitle" = "連結來自世界各地的玩家";
 "login_continue_google" = "使用 Google 繼續";
-"login_continue_demo" = "進入 Demo 模式";
-"login_demo_missing_key_error" = "此 Demo 版本缺少審查登入金鑰。";
-"login_demo_invalid_response_error" = "Demo 登入服務回傳的資料無效。";
 "login_google_error" = "無法找到用來顯示 Google 登入的畫面。";
 "session_error_apple_credential" = "Apple 憑證無效。";
 "session_error_apple_nonce" = "Apple 登入狀態遺失（nonce）。";
