@@ -25,6 +25,8 @@ const DEFAULT_JOIN_ROOM_LIMIT = 3;
 const PREMIUM_HOST_ROOM_LIMIT = 5;
 const PREMIUM_JOIN_ROOM_LIMIT = 10;
 const PREMIUM_SOURCE_APP_STORE = "app_store";
+const DEMO_REVIEW_ACCESS_KEY = stringifyValue(process.env.DEMO_REVIEW_ACCESS_KEY, "");
+const DEMO_REVIEW_UID = stringifyValue(process.env.DEMO_REVIEW_UID, "");
 // SMTP transport is lazily initialized and then reused across invocations.
 let cachedMailer = null;
 const userLocaleCache = new Map();
@@ -884,6 +886,36 @@ exports.processPostcardOrderTimeouts = onSchedule(
       await processSellerShippingTimeouts(nowTimestamp);
       await processBuyerAutoCompletion(nowTimestamp);
       logger.info("Postcard order timeout sweep completed");
+    },
+);
+
+// Callable premium entitlement sync endpoint.
+// Mirrors locally verified StoreKit state into users/{uid} for server-authoritative feature checks.
+exports.signInDemoReviewer = onCall(
+    {
+      region: "us-central1",
+    },
+    async (request) => {
+      const accessKey = stringifyValue(request.data?.accessKey, "");
+      if (!DEMO_REVIEW_ACCESS_KEY || !DEMO_REVIEW_UID) {
+        logger.error("Demo review auth is not configured", {
+          hasAccessKey: DEMO_REVIEW_ACCESS_KEY.length > 0,
+          hasUid: DEMO_REVIEW_UID.length > 0,
+        });
+        throw new HttpsError("failed-precondition", "Demo review auth is not configured.");
+      }
+      if (!accessKey) {
+        throw new HttpsError("invalid-argument", "Demo review access key is required.");
+      }
+      if (accessKey !== DEMO_REVIEW_ACCESS_KEY) {
+        throw new HttpsError("permission-denied", "Demo review access key is invalid.");
+      }
+
+      const customToken = await admin.auth().createCustomToken(DEMO_REVIEW_UID);
+      return {
+        token: customToken,
+        uid: DEMO_REVIEW_UID,
+      };
     },
 );
 

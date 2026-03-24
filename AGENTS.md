@@ -14,6 +14,7 @@ Main app flow after sign-in:
 3. Profile tab
 
 If signed out, users see the sign-in flow. First-time users complete profile creation, then interactive feature tutorials are triggered contextually (first-entry per scenario) with in-app highlight overlays and local tutorial scene data.
+A dedicated `Demo` build configuration also exists for App Store review distribution; it exposes a demo-login button on the sign-in page and bypasses tutorial/profile creation for one fixed Firebase demo account. Normal `Release` builds must not expose that button.
 
 ## Documentation Map (Must Keep In Sync)
 Use and maintain these files when related code changes:
@@ -168,7 +169,10 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/User/UserProfile.swift` (profile completion persistence/sync)
 - `mushroomHunter/App/ContentView.swift` (auth/profile-complete routing)
 - `mushroomHunter/App/HoneyHubApp.swift` (URL routing bootstrap)
+- `mushroomHunter/Utilities/AppConfig.swift` (demo-review build flag metadata and demo access-key Info.plist lookup)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile create flow)
+- Cloud Functions in `functions/index.js`:
+  - `signInDemoReviewer`
 
 ### TUTORIAL (`TUTORIAL.md`)
 - `mushroomHunter/Features/Tutorial/TutorialScene/Core.swift` (shared tutorial-scene primitives and helpers: language resolution, bilingual text model, generic step model, snapshot asset mapping, room/postcard detail shared scene builders)
@@ -189,7 +193,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/Features/Profile/ProfileView.swift` (settings help route to tutorial scenario list)
 
 ## Backend
-- Auth: Firebase Authentication (Apple + Google)
+- Auth: Firebase Authentication (Apple + Google, plus a Demo-build-only custom-token login for App Store review)
 - Data: Firestore
 - Media: Firebase Storage (postcard images)
 - Server-side notifications/email: Firebase Cloud Functions (`functions/index.js`)
@@ -224,6 +228,11 @@ APP_PATH=$(ls -dt /Users/ken/Library/Developer/Xcode/DerivedData/mushroomHunter-
 ) &
 wait
 ```
+
+### Demo review build
+- `Demo` is a dedicated build configuration cloned from `Release`.
+- It is the only build that enables `DEMO_REVIEW_BUILD` and the `HONEYHUB_DEMO_ACCESS_KEY` generated Info.plist key.
+- Use `xcodebuild ... -configuration Demo ...` when validating the review-only login path. Keep `Release` free of the demo button.
 
 ## Push To GitHub Workflow
 When user says "push to github", do:

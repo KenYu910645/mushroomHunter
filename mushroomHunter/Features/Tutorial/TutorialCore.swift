@@ -78,6 +78,13 @@ extension UserSessionStore {
         let key = scopedKey(tutorialCompletionKey(for: scenario), uid: uid)
         UserDefaults.standard.set(true, forKey: key)
     }
+
+    /// Marks every first-visit tutorial as completed for the current signed-in user.
+    func markAllTutorialScenariosCompleted() {
+        for scenario in TutorialScenario.allCases {
+            markTutorialScenarioCompleted(scenario)
+        }
+    }
 }
 
 /// One normalized tutorial step payload used by shared tutorial overlay components.

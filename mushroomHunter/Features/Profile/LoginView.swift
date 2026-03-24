@@ -104,6 +104,30 @@ struct LoginView: View {
                         )
                         .disabled(session.isLoading)
 
+#if DEMO_REVIEW_BUILD
+                        // Demo-only review entry for the dedicated App Store review build.
+                        Button {
+                            Task { await session.signInWithDemoReviewAccount() }
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "play.rectangle.fill")
+                                    .font(.title3)
+                                Text(LocalizedStringKey("login_continue_demo"))
+                                    .font(.headline)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                        }
+                        .foregroundStyle(.white)
+                        .background(Color.orange)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(.white.opacity(isDarkMode ? 0.22 : 0.3), lineWidth: 1)
+                        )
+                        .disabled(session.isLoading)
+#endif
+
                         if let err = session.errorMessage {
                             Text(err)
                                 .foregroundStyle(.red)

@@ -440,7 +440,7 @@ struct PostcardBrowseView: View {
             return
         }
 
-        if AppTesting.isUITesting || session.isTutorialScenarioCompleted(.postcardBrowseFirstVisit) {
+        if AppTesting.isUITesting || session.isDemoReviewSession || session.isTutorialScenarioCompleted(.postcardBrowseFirstVisit) {
             Task { await vm.loadOnAppear(session: session) }
             return
         }

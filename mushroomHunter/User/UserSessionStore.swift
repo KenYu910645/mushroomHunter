@@ -32,6 +32,7 @@ final class UserSessionStore: ObservableObject {
     @Published var isFeatureTutorialActive: Bool = false // Indicates any interactive feature tutorial is currently active and should lock tab switching.
     @Published var isFeatureTutorialTransitionPending: Bool = false // Keeps tutorial chrome hidden while onboarding hands off into the first feature tutorial.
     @Published var isDailyRewardPending: Bool = false // Indicates whether today's Taipei DailyReward has not been claimed yet.
+    @Published var isDemoReviewSession: Bool = false // Indicates the current in-memory session came from the Demo review bypass flow.
     @Published var isLoading: Bool = false // State or dependency property.
     @Published var errorMessage: String? = nil // State or dependency property.
 
@@ -181,6 +182,7 @@ final class UserSessionStore: ObservableObject {
         isFeatureTutorialTransitionPending = false
         activeFeatureTutorialCount = 0
         isDailyRewardPending = false
+        isDemoReviewSession = false
     }
 
     /// Starts a live Firestore listener for the current signed-in user's profile document.

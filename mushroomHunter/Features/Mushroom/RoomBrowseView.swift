@@ -559,7 +559,7 @@ struct RoomBrowseView: View {
             return
         }
 
-        if AppTesting.isUITesting || session.isTutorialScenarioCompleted(.mushroomBrowseFirstVisit) {
+        if AppTesting.isUITesting || session.isDemoReviewSession || session.isTutorialScenarioCompleted(.mushroomBrowseFirstVisit) {
             session.cancelPreparedFeatureTutorialPresentation()
             Task { await vm.loadListingsOnAppear() }
             return

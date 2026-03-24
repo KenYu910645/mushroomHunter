@@ -11,12 +11,18 @@
 import Foundation
 import FirebaseAuth
 import FirebaseCore
+import FirebaseFunctions
 import GoogleSignIn
 import UIKit
 import AuthenticationServices
 import CryptoKit
 
 extension UserSessionStore {
+    /// Callable Functions client used by premium, DailyReward, and demo-review auth flows.
+    private var functions: Functions {
+        Functions.functions(region: "us-central1")
+    }
+
     func signOut() { // Handles sign-out flow.
         isLoading = true
         defer { isLoading = false }
@@ -35,6 +41,7 @@ extension UserSessionStore {
     func signInWithGoogle(presenting viewController: UIViewController) async { // Handles Google sign-in flow.
         isLoading = true
         errorMessage = nil
+        isDemoReviewSession = false
         defer { isLoading = false }
 
         guard let clientID = FirebaseApp.app()?.options.clientID else {
@@ -77,6 +84,8 @@ extension UserSessionStore {
     /// Completes Apple Sign-In and exchanges the credential with Firebase Auth.
     func handleAppleCompletion(_ result: Result<ASAuthorization, Error>) async { // Handles Apple completion flow.
         isLoading = true
+        errorMessage = nil
+        isDemoReviewSession = false
         defer { isLoading = false }
 
         switch result {
@@ -117,6 +126,51 @@ extension UserSessionStore {
             }
 
             await ensureUserProfile()
+        }
+    }
+
+    /// Signs the app into the review demo account using a callable custom-token exchange.
+    func signInWithDemoReviewAccount() async {
+        isLoading = true
+        errorMessage = nil
+        isDemoReviewSession = true
+        defer { isLoading = false }
+
+        let demoAccessKey = AppConfig.DemoReview.configuredAccessKey
+        guard demoAccessKey.isEmpty == false else {
+            errorMessage = NSLocalizedString("login_demo_missing_key_error", comment: "")
+            isDemoReviewSession = false
+            return
+        }
+
+        do {
+            let result = try await functions
+                .httpsCallable(AppConfig.DemoReview.signInFunctionName)
+                .call(["accessKey": demoAccessKey])
+            guard let payload = result.data as? [String: Any] else {
+                errorMessage = NSLocalizedString("login_demo_invalid_response_error", comment: "")
+                isDemoReviewSession = false
+                return
+            }
+
+            let customToken = (payload["token"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard customToken.isEmpty == false else {
+                errorMessage = NSLocalizedString("login_demo_invalid_response_error", comment: "")
+                isDemoReviewSession = false
+                return
+            }
+
+            let authResult = try await Auth.auth().signIn(withCustomToken: customToken)
+            authUid = authResult.user.uid
+            isLoggedIn = true
+            isProfileComplete = true
+            markOnboardingTutorialShown()
+            markAllTutorialScenariosCompleted()
+            await ensureUserProfile()
+            await refreshProfileFromBackend()
+        } catch {
+            errorMessage = error.localizedDescription
+            isDemoReviewSession = false
         }
     }
 }

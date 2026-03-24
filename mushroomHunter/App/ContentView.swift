@@ -21,7 +21,7 @@ struct ContentView: View {
             ThemedBackground()
             Group {
                 if session.isLoggedIn || AppTesting.isUITesting {
-                    if session.isProfileComplete || AppTesting.isUITesting {
+                    if session.isProfileComplete || AppTesting.isUITesting || session.isDemoReviewSession {
                         MainTabView()
                     } else {
                         ProfileCreateEditView(mode: .create)

@@ -241,6 +241,23 @@ enum AppConfig {
         static let isPlainIntroStepEnabled: Bool = false
     }
 
+    enum DemoReview {
+        // `demoAccessKeyInfoKey`
+        // Purpose: Info.plist key that carries the demo-review access key for Demo builds only.
+        static let demoAccessKeyInfoKey: String = "HONEYHUB_DEMO_ACCESS_KEY"
+
+        // `signInFunctionName`
+        // Purpose: callable Cloud Function used by Demo builds to exchange the build key for a Firebase custom token.
+        static let signInFunctionName: String = "signInDemoReviewer"
+
+        // `configuredAccessKey`
+        // Purpose: resolves the build-configured demo-review access key from the generated Info.plist.
+        static var configuredAccessKey: String {
+            let rawValue = Bundle.main.object(forInfoDictionaryKey: demoAccessKeyInfoKey) as? String ?? ""
+            return rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+
     enum Premium {
         // `isPremiumEntryEnabled`
         // Purpose: temporary feature flag that controls whether the Profile tab exposes the premium upgrade entry.

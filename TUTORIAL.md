@@ -15,6 +15,9 @@ Tutorial runs once per signed-in user (uid-scoped flags) for each scenario:
 5. First time opening Postcard page in buyer view.
 6. First time opening Postcard page in seller view.
 
+Exception:
+- Demo-build review login marks onboarding and all tutorial scenarios as completed immediately after sign-in, so the fixed review account never auto-enters tutorial flows.
+
 ## Core Tutorial Pattern
 - Load a predefined tutorial scene model for the target page.
 - Freeze interactive mutations during tutorial (no real create/join/order/close actions).
@@ -132,6 +135,7 @@ For Mushroom browse + Room personal + Room host + Postcard browse + Postcard buy
   - `mh.tutorial.postcardBuyer.completed`
   - `mh.tutorial.postcardSeller.completed`
 - All keys should be read/written through one tutorial state manager.
+- Demo review login also marks all scenario keys plus the onboarding-shown flag for the demo uid, so relaunches stay tutorial-free even after the in-memory demo-session flag is gone.
 
 ## UX Rules
 - One step explains one concept only.
