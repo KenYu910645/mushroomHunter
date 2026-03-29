@@ -20,8 +20,8 @@ struct ContentView: View {
         ZStack {
             ThemedBackground()
             Group {
-                if session.isLoggedIn || AppTesting.isUITesting {
-                    if session.isProfileComplete || AppTesting.isUITesting || session.isDemoReviewSession {
+                if session.isLoggedIn || AppTesting.shouldForceSignedInSession {
+                    if session.isProfileComplete || AppTesting.shouldForceSignedInSession || session.isDemoReviewSession {
                         MainTabView()
                     } else {
                         ProfileCreateEditView(mode: .create)
@@ -170,7 +170,7 @@ struct MainTabView: View {
             applyAppIconBadge()
         }
         .onAppear {
-            if AppTesting.isUITesting {
+            if AppTesting.shouldForceSignedInSession {
                 session.isLoggedIn = true
                 session.authUid = AppTesting.userId
                 session.displayName = "UI Tester"

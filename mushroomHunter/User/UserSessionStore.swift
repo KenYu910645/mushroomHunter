@@ -209,6 +209,57 @@ final class UserSessionStore: ObservableObject {
         isDemoReviewSession = false
     }
 
+    /// Removes user-scoped persisted profile/tutorial values for one uid after permanent account deletion.
+    /// - Parameter uid: Deleted user id whose local cache should be cleared.
+    func clearPersistedAccountData(for uid: String) {
+        let scopedKeys: [String] = [
+            scopedKey(kDisplayName, uid: uid),
+            scopedKey(kFriendCode, uid: uid),
+            scopedKey(kStars, uid: uid),
+            scopedKey(kHoney, uid: uid),
+            scopedKey(kMaxHostRoom, uid: uid),
+            scopedKey(kMaxJoinRoom, uid: uid),
+            scopedKey(kIsPremium, uid: uid),
+            scopedKey(kPremiumProductId, uid: uid),
+            scopedKey(kPremiumExpirationDate, uid: uid),
+            scopedKey(kHasShownOnboardingTutorial, uid: uid)
+        ]
+
+        for scopedStorageKey in scopedKeys {
+            UserDefaults.standard.removeObject(forKey: scopedStorageKey)
+        }
+
+        for scenario in TutorialScenario.allCases {
+            let tutorialStorageKey = scopedKey("mh.tutorial.\(scenario.rawValue).completed", uid: uid)
+            UserDefaults.standard.removeObject(forKey: tutorialStorageKey)
+        }
+
+        lastSyncedFcmTokenByUid.removeValue(forKey: uid)
+    }
+
+    /// Applies local sign-out/reset work after backend account deletion succeeds.
+    /// - Parameter deletedUserId: Deleted user id whose session and cached values should be cleared.
+    func handleDeletedAccountLocally(deletedUserId: String) {
+        unbindUserProfileListener()
+        clearPersistedAccountData(for: deletedUserId)
+        UserDefaults.standard.removeObject(forKey: kFcmToken)
+        fcmToken = nil
+        authUid = nil
+        isLoggedIn = false
+        isUserProfileEnsuredInCurrentSession = false
+        lastObservedAuthUid = nil
+        errorMessage = nil
+        isLoading = false
+        resetToDefaults()
+        AppTesting.markMockAccountDeleted()
+
+        do {
+            try Auth.auth().signOut()
+        } catch {
+            // Local reset already moved the app back to signed-out UI even if Firebase sign-out fails.
+        }
+    }
+
     /// Starts a live Firestore listener for the current signed-in user's profile document.
     /// - Parameter uid: Authenticated user id whose profile should drive in-memory session fields.
     private func bindUserProfileListener(for uid: String) {

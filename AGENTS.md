@@ -137,6 +137,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/User/UserSessionStore.swift` (shared user session state container + local persistence helpers)
 - `mushroomHunter/User/UserAuth.swift` (auth lifecycle and sign-in/sign-out flows)
 - `mushroomHunter/User/UserProfile.swift` (profile fields, user sync, token sync)
+- `mushroomHunter/User/AccountDeletionStore.swift` (Profile Settings account-deletion callable bridge, progress state, and local signed-out teardown)
 - `mushroomHunter/Utilities/AppConfig.swift` (owner-managed profile validation and shared limits)
 - `mushroomHunter/Features/Mushroom/RoomCache.swift` (shared Mushroom Codable payload cache utility)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile form and display)
@@ -144,6 +145,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
   - `sendFeedbackNotificationEmail`
   - `recordUserProfileAndWalletEvents` (records user-level event history for honey balance deltas and profile name/friend-code updates)
   - `syncPremiumSubscription` (mirrors locally verified StoreKit premium entitlement into `users/{uid}` and effective room limits)
+  - `deleteUserAccount` (deletes Firebase Auth access plus user-owned/live room/postcard/profile data during Profile Settings account deletion)
 
 ### DAILYREWARD (`PROFILE.md`, `EVENTS.md`, `FIREBASE.md`, `TESTCASE.md`)
 - `mushroomHunter/Features/DailyReward/DailyRewardModels.swift`

@@ -36,6 +36,8 @@ struct ProfileView: View {
     @EnvironmentObject private var notificationInbox: EventInboxStore
     /// Shared premium manager used by the upgrade flow.
     @EnvironmentObject private var premiumStore: PremiumStore
+    /// Shared account-deletion manager used by the settings destructive flow.
+    @EnvironmentObject private var accountDeletionStore: AccountDeletionStore
 
     /// Current color scheme used to keep background styling consistent with app theme.
     @Environment(\.colorScheme) private var colorScheme
@@ -59,6 +61,10 @@ struct ProfileView: View {
 
     /// Controls whether the sign-out confirmation message box is visible.
     @State private var isSignOutConfirmationPresented: Bool = false
+    /// Controls whether the first account-deletion warning is visible.
+    @State private var isAccountDeletionWarningPresented: Bool = false
+    /// Controls whether the final account-deletion confirmation is visible.
+    @State private var isAccountDeletionFinalConfirmationPresented: Bool = false
 
     /// Repository that submits feedback payloads.
     private let feedbackRepo = FbFeedbackRepo()
@@ -317,19 +323,117 @@ struct ProfileView: View {
                         Label(LocalizedStringKey("settings_about_button"), systemImage: "info.circle")
                     }
                     .accessibilityIdentifier("settings_about_button")
+
+                    Button(role: .destructive) {
+                        isAccountDeletionWarningPresented = true
+                    } label: {
+                        Label(LocalizedStringKey("settings_delete_account_button"), systemImage: "trash")
+                    }
+                    .accessibilityIdentifier("settings_delete_account_button")
+                    .disabled(accountDeletionStore.isDeletingAccount)
                 }
             }
             .navigationTitle(LocalizedStringKey("settings_title"))
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button {
-                            activeSheet = nil
-                        } label: {
-                            Image(systemName: "chevron.left")
-                        }
-                        .accessibilityIdentifier("settings_close_button")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        activeSheet = nil
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                    .accessibilityIdentifier("settings_close_button")
+                    .disabled(accountDeletionStore.isDeletingAccount)
                 }
             }
+            .interactiveDismissDisabled(accountDeletionStore.isDeletingAccount)
+            .overlay {
+                if isAccountDeletionWarningPresented {
+                    MessageBox(
+                        title: NSLocalizedString("account_delete_warning_title", comment: ""),
+                        message: NSLocalizedString("account_delete_warning_message", comment: ""),
+                        buttons: [
+                            MessageBoxButton(
+                                id: "account_delete_warning_continue",
+                                title: NSLocalizedString("account_delete_continue_button", comment: "")
+                            ) {
+                                isAccountDeletionWarningPresented = false
+                                isAccountDeletionFinalConfirmationPresented = true
+                            },
+                            MessageBoxButton(
+                                id: "account_delete_warning_cancel",
+                                title: NSLocalizedString("common_cancel", comment: ""),
+                                role: .cancel
+                            ) {
+                                isAccountDeletionWarningPresented = false
+                            }
+                        ]
+                    )
+                } else if isAccountDeletionFinalConfirmationPresented {
+                    MessageBox(
+                        title: NSLocalizedString("account_delete_confirm_title", comment: ""),
+                        message: NSLocalizedString("account_delete_confirm_message", comment: ""),
+                        buttons: [
+                            MessageBoxButton(
+                                id: "account_delete_confirm_delete",
+                                title: NSLocalizedString("settings_delete_account_button", comment: ""),
+                                role: .destructive
+                            ) {
+                                isAccountDeletionFinalConfirmationPresented = false
+                                Task {
+                                    let isDeleted = await accountDeletionStore.deleteCurrentAccount(session: session)
+                                    if isDeleted {
+                                        activeSheet = nil
+                                    }
+                                }
+                            },
+                            MessageBoxButton(
+                                id: "account_delete_confirm_cancel",
+                                title: NSLocalizedString("common_cancel", comment: ""),
+                                role: .cancel
+                            ) {
+                                isAccountDeletionFinalConfirmationPresented = false
+                            }
+                        ]
+                    )
+                } else if let accountDeletionErrorMessage = accountDeletionStore.errorMessage,
+                          accountDeletionErrorMessage.isEmpty == false {
+                    MessageBox(
+                        title: NSLocalizedString("common_error", comment: ""),
+                        message: accountDeletionErrorMessage,
+                        buttons: [
+                            MessageBoxButton(
+                                id: "account_delete_error_ok",
+                                title: NSLocalizedString("common_ok", comment: "")
+                            ) {
+                                accountDeletionStore.errorMessage = nil
+                            }
+                        ]
+                    )
+                }
+            }
+            .overlay {
+                if accountDeletionStore.isDeletingAccount {
+                    accountDeletionProgressOverlay
+                }
+            }
+        }
+    }
+
+    /// Blocking progress overlay shown while account deletion is running.
+    private var accountDeletionProgressOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+
+            VStack(spacing: 12) {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                Text(LocalizedStringKey("account_delete_loading"))
+                    .font(.headline)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 20)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
 

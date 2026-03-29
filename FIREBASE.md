@@ -94,6 +94,21 @@ service firebase.storage {
   - Firestore write: `users/{uid}` (guarded by changed fields).
   - Firestore batch writes: host attendee snapshot fields across active hosted rooms.
   - Event history write behavior is documented in `EVENTS.md`.
+- Delete account from Profile Settings:
+  - Callable Function: `deleteUserAccount`
+  - Firestore cleanup:
+    - close/delete `rooms where hostUid == uid` and refund remaining attendees
+    - delete joined attendee docs from `collectionGroup(attendees) where uid == current uid`
+    - close pending `roomRatingTasks` where deleted uid is still the `raterUid` or `rateeUid`
+    - delete seller-owned `postcards where sellerId == uid`
+    - cancel unresolved `postcardOrders` tied to deleted seller listings and refund counterpart buyers
+    - cancel unresolved `postcardOrders where buyerId == uid`, restore listing stock when the listing still exists, and refund held honey before final user-doc deletion
+    - anonymize remaining postcard order buyer/seller snapshot fields so no live profile path depends on the deleted uid
+    - delete `feedbackSubmissions where userId == uid`
+    - delete `users/{uid}/events/*`
+    - delete `users/{uid}`
+  - Firebase Auth:
+    - backend deletes the Firebase Auth user after data cleanup finishes successfully
 - Sync premium subscription:
   - Callable Function: `syncPremiumSubscription`
   - Firestore write on `users/{uid}`:

@@ -523,6 +523,16 @@
 "profile_sign_out" = "登出";
 "profile_sign_out_confirm_title" = "登出";
 "profile_sign_out_confirm_message" = "確定要登出嗎？";
+"settings_delete_account_button" = "刪除帳號";
+"account_delete_warning_title" = "刪除帳號";
+"account_delete_warning_message" = "這會永久刪除您的 HoneyHub 帳號、關閉您主持的房間、移除您加入的房間紀錄、取消進行中的明信片交易，並刪除您的個人資料。";
+"account_delete_continue_button" = "繼續";
+"account_delete_confirm_title" = "永久刪除帳號";
+"account_delete_confirm_message" = "這個動作無法復原。現在要刪除帳號嗎？";
+"account_delete_loading" = "正在刪除帳號…";
+"account_delete_error_generic" = "目前無法刪除您的帳號。";
+"account_delete_error_signed_out" = "您的登入狀態已過期。請重新登入後，再嘗試刪除帳號。";
+"account_delete_error_recent_login_required" = "請重新登入後，再嘗試刪除帳號。";
 "profile_friend_code_error_required" = "好友碼為必填。";
 "profile_friend_code_error_length" = "好友碼必須是 12 位數。";
 "profile_friend_code_error_digits" = "好友碼只能包含數字。";

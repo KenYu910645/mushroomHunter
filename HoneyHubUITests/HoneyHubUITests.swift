@@ -298,4 +298,29 @@ final class HoneyHubUITests: XCTestCase {
         XCTAssertTrue(claimedButton.waitForExistence(timeout: 10))
         XCTAssertEqual(claimedButton.value as? String, "none")
     }
+
+    @MainActor
+    func testDeleteAccountFlowReturnsToLogin() throws {
+        let app = launchApp()
+
+        tapTab(app, index: 2)
+        let settingsButton = app.buttons["profile_settings_row_button"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 10))
+        settingsButton.tap()
+
+        let deleteButton = app.buttons["settings_delete_account_button"]
+        XCTAssertTrue(deleteButton.waitForExistence(timeout: 10))
+        deleteButton.tap()
+
+        let warningContinueButton = app.buttons["account_delete_warning_continue"]
+        XCTAssertTrue(warningContinueButton.waitForExistence(timeout: 10))
+        warningContinueButton.tap()
+
+        let confirmDeleteButton = app.buttons["account_delete_confirm_delete"]
+        XCTAssertTrue(confirmDeleteButton.waitForExistence(timeout: 10))
+        confirmDeleteButton.tap()
+
+        XCTAssertTrue(app.staticTexts["HoneyHub"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Continue with Google"].waitForExistence(timeout: 10))
+    }
 }

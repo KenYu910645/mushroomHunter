@@ -536,6 +536,16 @@
 "profile_sign_out" = "Sign Out";
 "profile_sign_out_confirm_title" = "Sign Out";
 "profile_sign_out_confirm_message" = "Are you sure you want to sign out?";
+"settings_delete_account_button" = "Delete Account";
+"account_delete_warning_title" = "Delete Account";
+"account_delete_warning_message" = "WARNING! This will permanently deletes your HoneyHub account. All you data, honey, stars, created roooms, on-self postcards will not be recoverable after deletion.\n Are you sure you want to delete your account?";
+"account_delete_continue_button" = "Continue";
+"account_delete_confirm_title" = "Are you sure?";
+"account_delete_confirm_message" = "This action cannot be undone. Delete your account now?";
+"account_delete_loading" = "Deleting account…";
+"account_delete_error_generic" = "Unable to delete your account right now.";
+"account_delete_error_signed_out" = "Your session has expired. Sign in again, then retry deleting your account.";
+"account_delete_error_recent_login_required" = "Please sign in again, then retry deleting your account.";
 "profile_friend_code_error_required" = "Friend code is required.";
 "profile_friend_code_error_length" = "Friend code must be exactly 12 digits.";
 "profile_friend_code_error_digits" = "Friend code must contain digits only.";

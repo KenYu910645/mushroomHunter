@@ -58,6 +58,9 @@ Need to check both English and Chinese
    - All six tutorial flow need to work just fine.
    
 8. Changing the profile acutally will work
+   - Open `Profile -> Settings -> Delete Account`, verify the two-step confirmation flow appears, and verify success returns to the login page.
+   - Validate with accounts that are only profile-complete, hosting a room, joined in a room, selling a postcard, and buying a postcard.
+   - Confirm hosted-room attendees are refunded, joined-room attendee docs are removed, active postcard trades are cancelled, and the deleted account no longer auto-restores signed-in state.
 9. Feedback feature
 10. DailyReward feature
    - Verify the calendar icon appears on Mushroom, Postcard, and Profile, always to the left of bell
@@ -178,6 +181,14 @@ TODO: invite code?
   - No dedicated UI test currently asserts app icon badge counters.
 - Manual verification focus:
   - Profile tab shows no legacy badge count or red-dot badge.
+
+### 13. Account deletion flow
+- Test: `testDeleteAccountFlowReturnsToLogin`
+- Coverage:
+  - Open `Profile -> Settings`.
+  - Start the destructive `Delete Account` flow.
+  - Complete both confirmation steps.
+  - Verify the app returns to the login screen in UI-testing mode.
   - App icon badge shows unresolved non-DailyReward Action Events plus `1` when today's DailyReward is still pending.
   - Postcard detail seller shipping icon shows a tiny red dot when pending shipping count is greater than `0`.
   - Room detail attendee confirmation-queue icon shows a tiny red dot when attendee has pending `WaitingConfirmation` in that room.

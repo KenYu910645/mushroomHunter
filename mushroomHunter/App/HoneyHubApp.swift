@@ -24,6 +24,8 @@ struct HoneyHubApp: App {
     @StateObject private var notificationInbox = EventInboxStore.shared
     /// Stores premium StoreKit product state and entitlement syncing.
     @StateObject private var premiumStore = PremiumStore.shared
+    /// Stores account-deletion progress and error state shared with Profile settings.
+    @StateObject private var accountDeletionStore = AccountDeletionStore()
 
     /// Configures Firebase before any app view is rendered.
     init() {
@@ -36,6 +38,7 @@ struct HoneyHubApp: App {
                 .environmentObject(session)
                 .environmentObject(notificationInbox)
                 .environmentObject(premiumStore)
+                .environmentObject(accountDeletionStore)
                 .task(id: session.authUid) {
                     await premiumStore.handleSessionChange(session: session)
                 }

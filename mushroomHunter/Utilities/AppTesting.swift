@@ -29,11 +29,18 @@ enum AppTesting {
     static let userId = "ui-test-user"
     /// In-memory claimed-day storage used by the DailyReward mock implementation.
     private static var mockDailyRewardClaimStorage: [String: Set<Int>] = [:]
+    /// Tracks whether a UI-test account-deletion flow already forced the app back to login.
+    private static var isMockSignedOutOverride: Bool = false
 
     /// True when the app is running inside UI automation mode.
     static var isUITesting: Bool {
         let args = ProcessInfo.processInfo.arguments
         return args.contains(uiTestingArgument)
+    }
+
+    /// True when UI testing should still bypass the signed-out gate and force a mock session.
+    static var shouldForceSignedInSession: Bool {
+        isUITesting && isMockSignedOutOverride == false
     }
 
     /// True when Mushroom screens should use local fixtures instead of Firebase.
@@ -218,6 +225,16 @@ enum AppTesting {
         var claimedDays = mockDailyRewardClaimStorage[monthKey] ?? []
         claimedDays.insert(day)
         mockDailyRewardClaimStorage[monthKey] = claimedDays
+    }
+
+    /// Marks that the current UI-test run should stop bypassing the signed-out login state.
+    static func markMockAccountDeleted() {
+        isMockSignedOutOverride = true
+    }
+
+    /// Clears UI-test signed-out override so the next process launch starts in mock signed-in state.
+    static func resetMockSessionOverride() {
+        isMockSignedOutOverride = false
     }
 
     /// True when today's mock DailyReward should still show as pending.

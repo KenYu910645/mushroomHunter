@@ -179,6 +179,331 @@ function isDailyRewardPendingForUser(userData, nowDate = new Date()) {
   return lastClaimedDayKey !== currentRewardDateParts(nowDate).dayKey;
 }
 
+// Postcard order states that still represent an active unsettled trade.
+const unresolvedPostcardOrderStatuses = new Set([
+  "SellerConfirmPending",
+  "AwaitingShipping",
+  "Shipped",
+  "AwaitingSellerSend",
+  "InTransit",
+  "AwaitingBuyerDecision",
+]);
+
+// Derive whether one postcard order should be cancelled during account deletion cleanup.
+function isUnresolvedPostcardOrderStatus(status) {
+  return unresolvedPostcardOrderStatuses.has(stringifyValue(status, ""));
+}
+
+// Best-effort deletion of one Firebase Storage object referenced by a download URL.
+async function deleteStorageObjectByUrl(urlString) {
+  const normalizedUrl = stringifyValue(urlString, "");
+  if (!normalizedUrl) return;
+
+  try {
+    const parsedUrl = new URL(normalizedUrl);
+    let storagePath = "";
+
+    if (parsedUrl.protocol === "gs:") {
+      storagePath = parsedUrl.pathname.replace(/^\/+/, "");
+    } else {
+      const objectPathMatch = parsedUrl.pathname.match(/\/o\/(.+)$/);
+      if (objectPathMatch && objectPathMatch[1]) {
+        storagePath = decodeURIComponent(objectPathMatch[1]);
+      }
+    }
+
+    if (!storagePath) return;
+    await admin.storage().bucket().file(storagePath).delete({ignoreNotFound: true});
+  } catch (error) {
+    logger.warn("Failed to delete storage object during account deletion cleanup", {
+      urlString: normalizedUrl,
+      error: error?.message || String(error),
+    });
+  }
+}
+
+// Deletes documents from one query in small batches until exhausted.
+async function deleteQueryDocuments(query, batchSize = 200) {
+  let hasMoreDocuments = true;
+
+  while (hasMoreDocuments) {
+    const snapshot = await query.limit(batchSize).get();
+    if (snapshot.empty) {
+      hasMoreDocuments = false;
+      continue;
+    }
+
+    const batch = db.batch();
+    snapshot.docs.forEach((document) => {
+      batch.delete(document.ref);
+    });
+    await batch.commit();
+    hasMoreDocuments = snapshot.size === batchSize;
+  }
+}
+
+// Closes all hosted rooms for a deleted user and refunds remaining attendees.
+async function cleanupHostedRoomsForDeletedUser(uid, nowTimestamp) {
+  const hostedRoomsSnapshot = await db.collection("rooms")
+      .where("hostUid", "==", uid)
+      .get();
+
+  for (const roomDocument of hostedRoomsSnapshot.docs) {
+    const roomId = roomDocument.id;
+    const attendeesSnapshot = await roomDocument.ref.collection("attendees").get();
+    const kickEventsSnapshot = await roomDocument.ref.collection("kickEvents").get();
+    const pendingRoomRatingSnapshot = await db.collection("roomRatingTasks")
+        .where("roomId", "==", roomId)
+        .where("status", "==", "Pending")
+        .get();
+    const batch = db.batch();
+
+    attendeesSnapshot.docs.forEach((attendeeDocument) => {
+      const attendeeUid = attendeeDocument.id;
+      const depositHoney = normalizeHoneyValue(attendeeDocument.data()?.depositHoney);
+      batch.delete(attendeeDocument.ref);
+
+      if (attendeeUid !== uid) {
+        batch.set(db.collection("users").doc(attendeeUid), {
+          honey: admin.firestore.FieldValue.increment(Math.max(0, depositHoney)),
+          updatedAt: nowTimestamp,
+        }, {merge: true});
+      }
+    });
+
+    kickEventsSnapshot.docs.forEach((kickEventDocument) => {
+      batch.delete(kickEventDocument.ref);
+    });
+
+    pendingRoomRatingSnapshot.docs.forEach((taskDocument) => {
+      batch.set(taskDocument.ref, {
+        status: "Closed",
+        resolvedAt: nowTimestamp,
+        updatedAt: nowTimestamp,
+      }, {merge: true});
+    });
+
+    batch.delete(roomDocument.ref);
+    await batch.commit();
+  }
+}
+
+// Removes a deleted user from joined rooms and refunds their room deposit before user-doc deletion.
+async function cleanupJoinedRoomsForDeletedUser(uid, nowTimestamp) {
+  const joinedAttendeeSnapshot = await db.collectionGroup("attendees")
+      .where("uid", "==", uid)
+      .get();
+
+  for (const attendeeDocument of joinedAttendeeSnapshot.docs) {
+    const attendeeData = attendeeDocument.data() || {};
+    if (stringifyValue(attendeeData.status, "") === "Host") {
+      continue;
+    }
+
+    const roomRef = attendeeDocument.ref.parent.parent;
+    if (!roomRef) continue;
+    const userRef = db.collection("users").doc(uid);
+
+    await db.runTransaction(async (transaction) => {
+      const attendeeSnapshot = await transaction.get(attendeeDocument.ref);
+      if (!attendeeSnapshot.exists) return;
+
+      const roomSnapshot = await transaction.get(roomRef);
+      const userSnapshot = await transaction.get(userRef);
+      const currentHoney = normalizeHoneyValue(userSnapshot.data()?.honey);
+      const depositHoney = normalizeHoneyValue(attendeeSnapshot.data()?.depositHoney);
+
+      transaction.delete(attendeeDocument.ref);
+      if (roomSnapshot.exists) {
+        transaction.set(roomRef, {
+          joinedCount: admin.firestore.FieldValue.increment(-1),
+          updatedAt: nowTimestamp,
+        }, {merge: true});
+      }
+      if (userSnapshot.exists) {
+        transaction.set(userRef, {
+          honey: currentHoney + Math.max(0, depositHoney),
+          updatedAt: nowTimestamp,
+        }, {merge: true});
+      }
+    });
+  }
+}
+
+// Closes any remaining pending room-rating tasks that still reference the deleted user.
+async function cleanupRoomRatingTasksForDeletedUser(uid, nowTimestamp) {
+  const taskRefsToClose = new Map();
+  const raterSnapshot = await db.collection("roomRatingTasks")
+      .where("raterUid", "==", uid)
+      .get();
+  const rateeSnapshot = await db.collection("roomRatingTasks")
+      .where("rateeUid", "==", uid)
+      .get();
+
+  [...raterSnapshot.docs, ...rateeSnapshot.docs].forEach((taskDocument) => {
+    if (stringifyValue(taskDocument.data()?.status, "") === "Pending") {
+      taskRefsToClose.set(taskDocument.ref.path, taskDocument.ref);
+    }
+  });
+
+  if (taskRefsToClose.size === 0) return;
+
+  const batch = db.batch();
+  Array.from(taskRefsToClose.values()).forEach((taskRef) => {
+    batch.set(taskRef, {
+      status: "Closed",
+      resolvedAt: nowTimestamp,
+      updatedAt: nowTimestamp,
+    }, {merge: true});
+  });
+  await batch.commit();
+}
+
+// Cancels unresolved postcard orders for seller-owned listings, refunds buyers, and deletes the listings.
+async function cleanupSellerListingsForDeletedUser(uid, nowTimestamp) {
+  const listingsSnapshot = await db.collection("postcards")
+      .where("sellerId", "==", uid)
+      .get();
+
+  for (const listingDocument of listingsSnapshot.docs) {
+    const listingData = listingDocument.data() || {};
+    const listingId = listingDocument.id;
+    const orderSnapshot = await db.collection("postcardOrders")
+        .where("postcardId", "==", listingId)
+        .get();
+    const batch = db.batch();
+
+    orderSnapshot.docs.forEach((orderDocument) => {
+      const orderData = orderDocument.data() || {};
+      if (!isUnresolvedPostcardOrderStatus(orderData.status)) {
+        return;
+      }
+
+      const buyerId = stringifyValue(orderData.buyerId, "");
+      const holdHoney = normalizeHoneyValue(orderData.holdHoney);
+      if (buyerId) {
+        batch.set(db.collection("users").doc(buyerId), {
+          honey: admin.firestore.FieldValue.increment(Math.max(0, holdHoney)),
+          updatedAt: nowTimestamp,
+        }, {merge: true});
+      }
+
+      batch.set(orderDocument.ref, {
+        status: "Cancelled",
+        cancelledAt: nowTimestamp,
+        cancellationReason: "sellerAccountDeleted",
+        isBuyerRatingRequired: false,
+        isSellerRatingRequired: false,
+        updatedAt: nowTimestamp,
+      }, {merge: true});
+    });
+
+    batch.delete(listingDocument.ref);
+    await batch.commit();
+    await deleteStorageObjectByUrl(listingData.imageUrl);
+    await deleteStorageObjectByUrl(listingData.thumbnailUrl);
+  }
+}
+
+// Cancels unresolved buyer-owned postcard orders, restores listing stock, and refunds the deleting buyer.
+async function cleanupBuyerOrdersForDeletedUser(uid, nowTimestamp) {
+  const buyerOrderSnapshot = await db.collection("postcardOrders")
+      .where("buyerId", "==", uid)
+      .get();
+
+  for (const orderDocument of buyerOrderSnapshot.docs) {
+    const orderData = orderDocument.data() || {};
+    if (!isUnresolvedPostcardOrderStatus(orderData.status)) {
+      continue;
+    }
+
+    const postcardId = stringifyValue(orderData.postcardId, "");
+    const userRef = db.collection("users").doc(uid);
+    const postcardRef = postcardId ? db.collection("postcards").doc(postcardId) : null;
+
+    await db.runTransaction(async (transaction) => {
+      const orderSnapshot = await transaction.get(orderDocument.ref);
+      if (!orderSnapshot.exists) return;
+
+      const refreshedOrderData = orderSnapshot.data() || {};
+      if (!isUnresolvedPostcardOrderStatus(refreshedOrderData.status)) {
+        return;
+      }
+
+      const refreshedHoldHoney = normalizeHoneyValue(refreshedOrderData.holdHoney);
+      const userSnapshot = await transaction.get(userRef);
+      const postcardSnapshot = postcardRef ?
+        await transaction.get(postcardRef) :
+        null;
+
+      if (userSnapshot.exists) {
+        const currentHoney = normalizeHoneyValue(userSnapshot.data()?.honey);
+        transaction.set(userRef, {
+          honey: currentHoney + Math.max(0, refreshedHoldHoney),
+          updatedAt: nowTimestamp,
+        }, {merge: true});
+      }
+
+      if (postcardRef && postcardSnapshot?.exists) {
+        const currentStock = normalizeHoneyValue(postcardSnapshot.data()?.stock);
+        transaction.set(postcardRef, {
+          stock: currentStock + 1,
+          updatedAt: nowTimestamp,
+        }, {merge: true});
+      }
+
+      transaction.set(orderDocument.ref, {
+        status: "Cancelled",
+        cancelledAt: nowTimestamp,
+        cancellationReason: "buyerAccountDeleted",
+        isBuyerRatingRequired: false,
+        isSellerRatingRequired: false,
+        updatedAt: nowTimestamp,
+      }, {merge: true});
+    });
+  }
+}
+
+// Scrubs deleted-user identity snapshots from postcard orders that should remain for counterparties.
+async function anonymizePostcardOrdersForDeletedUser(uid, nowTimestamp) {
+  const sellerOrderSnapshot = await db.collection("postcardOrders")
+      .where("sellerId", "==", uid)
+      .get();
+  const buyerOrderSnapshot = await db.collection("postcardOrders")
+      .where("buyerId", "==", uid)
+      .get();
+
+  for (const orderDocument of sellerOrderSnapshot.docs) {
+    await orderDocument.ref.set({
+      sellerId: "",
+      sellerName: "",
+      sellerFcmToken: "",
+      isBuyerRatingRequired: false,
+      isSellerRatingRequired: false,
+      updatedAt: nowTimestamp,
+    }, {merge: true});
+  }
+
+  for (const orderDocument of buyerOrderSnapshot.docs) {
+    await orderDocument.ref.set({
+      buyerId: "",
+      buyerName: "",
+      buyerFriendCode: "",
+      buyerFcmToken: "",
+      isBuyerRatingRequired: false,
+      isSellerRatingRequired: false,
+      updatedAt: nowTimestamp,
+    }, {merge: true});
+  }
+}
+
+// Deletes profile-linked feedback submissions created by the deleting user.
+async function cleanupFeedbackSubmissionsForDeletedUser(uid) {
+  await deleteQueryDocuments(
+      db.collection("feedbackSubmissions").where("userId", "==", uid),
+  );
+}
+
 // Send push notification with snapshot token first, then user profile fallback token.
 async function sendPushToUser(uid, message, context, snapshotToken = "", userData = null) {
   let token = normalizeToken(snapshotToken);
@@ -884,6 +1209,49 @@ exports.processPostcardOrderTimeouts = onSchedule(
       await processSellerShippingTimeouts(nowTimestamp);
       await processBuyerAutoCompletion(nowTimestamp);
       logger.info("Postcard order timeout sweep completed");
+    },
+);
+
+// Callable account-deletion endpoint.
+// Cleans up user-owned/live data, deletes user-scoped documents, and removes Firebase Auth access.
+exports.deleteUserAccount = onCall(
+    {
+      region: "us-central1",
+    },
+    async (request) => {
+      const uid = stringifyValue(request.auth?.uid, "");
+      logger.info("deleteUserAccount invoked", {
+        hasAuth: !!request.auth,
+        uid,
+      });
+      if (!uid) {
+        throw new HttpsError("unauthenticated", "Sign in is required.");
+      }
+
+      const nowTimestamp = admin.firestore.Timestamp.now();
+
+      try {
+        await cleanupHostedRoomsForDeletedUser(uid, nowTimestamp);
+        await cleanupJoinedRoomsForDeletedUser(uid, nowTimestamp);
+        await cleanupRoomRatingTasksForDeletedUser(uid, nowTimestamp);
+        await cleanupSellerListingsForDeletedUser(uid, nowTimestamp);
+        await cleanupBuyerOrdersForDeletedUser(uid, nowTimestamp);
+        await anonymizePostcardOrdersForDeletedUser(uid, nowTimestamp);
+        await cleanupFeedbackSubmissionsForDeletedUser(uid);
+        await deleteQueryDocuments(
+            db.collection("users").doc(uid).collection("events"),
+        );
+        await db.collection("users").doc(uid).delete();
+        await admin.auth().deleteUser(uid);
+
+        return {deleted: true};
+      } catch (error) {
+        logger.error("Account deletion cleanup failed", {
+          uid,
+          error: error?.message || String(error),
+        });
+        throw new HttpsError("internal", "Unable to delete account right now.");
+      }
     },
 );
 

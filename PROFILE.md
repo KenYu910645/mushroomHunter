@@ -18,6 +18,7 @@
 - `mushroomHunter/Services/Firebase/FeedbackRepo.swift`: writes feedback payloads to Firestore `feedbackSubmissions`.
 - `mushroomHunter/App/ContentView.swift`: app icon badge sync, global DailyReward sheet routing, and tab routing.
 - `mushroomHunter/User/UserSessionStore.swift`: shared session state and DailyReward pending-state store.
+- `mushroomHunter/User/AccountDeletionStore.swift`: Profile Settings account-deletion callable bridge, blocking progress state, and local sign-out teardown.
 - `mushroomHunter/Utilities/AppConfig.swift`: premium product id, premium DailyReward amount, and premium room-limit constants.
 
 ## Feature Coverage
@@ -37,10 +38,18 @@
   - Top-right settings icon was removed.
   - `Settings` button now appears in the form section above `Sign Out`, opens the same settings sheet as before, and uses localized text (`settings_title`).
   - Settings sheet top-left dismiss control now uses back chevron icon (`chevron.left`) instead of close `X`.
-  - Settings routes now include `Edit Profile`, `Feedback`, `Help`, and `About`.
+  - Settings routes now include `Edit Profile`, `Feedback`, `Help`, `About`, and destructive `Delete Account`.
   - `Help` now dismisses settings and pushes tutorial scenario list inside the Profile tab navigation stack so replay pages stay in the root `TabView` context.
   - During feature tutorials, bottom tab bar stays visible but tab switching is locked until tutorial completes.
   - Sign-out action now shows a confirmation dialog (`Are you sure you want to sign out?`) before session sign-out executes.
+  - `Delete Account` now runs entirely in-app from `Profile -> Settings`:
+    - first warning explains the permanent cleanup scope,
+    - second warning confirms irreversible deletion,
+    - a blocking progress overlay prevents duplicate taps,
+    - success returns the app to the login page,
+    - failure keeps the user signed in and shows an error message,
+    - expired Firebase auth sessions prompt the user to sign in again before retrying deletion.
+  - Account deletion cleanup closes hosted rooms, removes joined-room attendance, cancels active postcard trades, deletes feedback submissions and event history, removes the Firebase Auth user, and clears local profile/tutorial cache for the deleted uid.
   - About page now removes the phone row and the old `聯絡資訊` header, adds a multiline app-introduction section, and keeps Gmail plus website as the remaining support links.
 - Mushroom and postcard owned activity lists were removed from profile and moved into browse tabs:
   - Mushroom browse pins user `Joined` and `Host` rooms at the top with ownership tags.
