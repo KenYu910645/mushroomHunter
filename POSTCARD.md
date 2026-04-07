@@ -105,11 +105,12 @@
   - Buyer cannot place another order for the same postcard while an active order exists (`AwaitingShipping`, `Shipped`).
   - In postcard detail buyer action area:
     - Shows explicit status (`Waiting, seller to ship`, `Shipped, on-the-way`).
+    - Buyer CTA is rendered in a fixed bottom safe-area dock above the tab bar, matching mushroom detail behavior instead of living in scroll content.
     - Shows `Buy` only when no active order exists.
-    - When listing stock is `0` and buyer has no active order, shows sold-out helper text and a disabled `Buy` button instead of removing the listing.
+    - When listing stock is `0` and buyer has no active order, shows sold-out helper text and a disabled `Buy` button inside the bottom dock instead of removing the listing.
     - Tapping `Buy` opens the shared custom `MessageBox` dialog with tokenized text parsing (`{honey_icon}`) rendered as inline text icon content, so text wrapping keeps icon position within sentence flow.
     - Inline HoneyIcon size used in tokenized message text is owner-tunable via `AppConfig.SharedUI.honeyMessageIconSize`.
-    - Shows `Confirm received, complete transaction` when order is `Shipped` (replaces buy action).
+    - Shows `Confirm received, complete transaction` in the bottom dock when order is `Shipped` (replaces buy action).
 - Postcard create/edit/delete confirmations, shipping confirmations, buyer receive confirmations, success notices, and error notices all use shared `MessageBox` (no system alerts/confirmation dialogs).
 - Shared `MessageBox` centers its message text content.
 - Register/edit forms use left-label and right-input rows.
@@ -163,9 +164,9 @@ Notes:
 - Postcard detail view behavior:
   - Seller (`auth.uid == sellerId`) sees three toolbar icons in this order: share, `list.clipboard` (shipping queue), edit.
   - Seller can share invite QR/link, update listing fields, or delete listing.
-  - Non-seller sees buy action button and buyer-order status hints.
+  - Non-seller sees buyer-order status hints plus a fixed bottom action dock above the tab bar.
   - Buy button is disabled while the buyer has an active order for that postcard.
-  - When order status is `Shipped`, buyer sees explicit `Confirm received, complete transaction` action.
+  - When order status is `Shipped`, buyer sees explicit `Confirm received, complete transaction` action in that dock.
   - On buy, client runs Firestore transaction: decrements `stock` and deducts buyer `users/{uid}.honey` atomically.
   - Seller friend code is shown from `postcards.sellerFriendCode` snapshot only (no detail-screen fallback user read).
   - Postcard create/edit form clamps numeric input to avoid integer overflow (`priceHoney` max `1,000,000,000`; `stock` max `1,000,000`).

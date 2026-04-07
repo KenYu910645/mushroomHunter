@@ -283,60 +283,12 @@ struct PostcardView: View {
                     }
                 }
                 .tutorialHighlightAnchor(isPostcardTutorialActive ? .postcardDetailInfoSection : nil)
-
-                if !isSeller {
-                    Divider()
-                        .padding(.top, 4)
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        if let buyerStatusText = buyerStatusText {
-                            Text(buyerStatusText)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        } else if isSoldOut {
-                            Text(LocalizedStringKey("postcard_status_sold_out"))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .accessibilityIdentifier("postcard_sold_out_status")
-                        }
-
-                        if isReceiveConfirmationAvailable {
-                            Button {
-                                isReceiveConfirmAlertPresented = true
-                            } label: {
-                                Text(LocalizedStringKey("postcard_receive_complete_button"))
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .accessibilityIdentifier("postcard_receive_complete_button")
-                        } else if !isBuyerOrderPending {
-                            Button {
-                                if AppTesting.useMockPostcards {
-                                    Task { await buyPostcard() }
-                                } else {
-                                    isBuyConfirmDialogPresented = true
-                                }
-                            } label: {
-                                if isBuying {
-                                    ProgressView()
-                                        .frame(maxWidth: .infinity)
-                                } else {
-                                    Text(LocalizedStringKey("postcard_buy_button"))
-                                        .frame(maxWidth: .infinity)
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(isBuying || isSoldOut)
-                            .tutorialHighlightAnchor(isPostcardTutorialActive ? .postcardBuyerBuyButton : nil)
-                            .accessibilityIdentifier("postcard_buy_button")
-                        }
-                    }
-                }
             }
             .padding()
         }
         .background(Theme.backgroundGradient(for: scheme))
         .allowsHitTesting(!isPostcardTutorialActive)
+        .safeAreaInset(edge: .bottom) { actionDock }
         .background(
             TutorialHightlighAnchorUI(
                 frame: postcardTutorialFloatingHighlightFrame,
@@ -702,6 +654,65 @@ struct PostcardView: View {
             return LocalizedStringKey("postcard_status_shipped_on_way")
         default:
             return buyerOrderPendingMessage
+        }
+    }
+
+    /// Fixed buyer action dock pinned above the tab bar safe area.
+    @ViewBuilder
+    private var actionDock: some View {
+        if !isSeller {
+            VStack(spacing: 10) {
+                Divider()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    if let buyerStatusText {
+                        Text(buyerStatusText)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    } else if isSoldOut {
+                        Text(LocalizedStringKey("postcard_status_sold_out"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("postcard_sold_out_status")
+                    }
+
+                    if isReceiveConfirmationAvailable {
+                        Button {
+                            isReceiveConfirmAlertPresented = true
+                        } label: {
+                            Text(LocalizedStringKey("postcard_receive_complete_button"))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("postcard_receive_complete_button")
+                    } else if !isBuyerOrderPending {
+                        Button {
+                            if AppTesting.useMockPostcards {
+                                Task { await buyPostcard() }
+                            } else {
+                                isBuyConfirmDialogPresented = true
+                            }
+                        } label: {
+                            if isBuying {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                Text(LocalizedStringKey("postcard_buy_button"))
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(isBuying || isSoldOut)
+                        .tutorialHighlightAnchor(isPostcardTutorialActive ? .postcardBuyerBuyButton : nil)
+                        .accessibilityIdentifier("postcard_buy_button")
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 10)
+            }
+            .background(.ultraThinMaterial)
+        } else {
+            EmptyView()
         }
     }
 
