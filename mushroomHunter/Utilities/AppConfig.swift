@@ -243,13 +243,30 @@ enum AppConfig {
 
     enum ReviewAccount {
         // `googleEmail`
-        // Purpose: dedicated Google account used by App Review on the normal production sign-in flow.
-        // Update this if the review mailbox changes.
+        // Purpose: legacy Google mailbox that previously powered App Review access.
+        // Kept as a fallback identifier so existing review sessions still receive the same bypass behavior.
         static let googleEmail: String = "honeyhubdemo@gmail.com"
 
+        // `authUid`
+        // Purpose: canonical Firebase Auth uid used by the private review-access deep link custom-token flow.
+        // Keep aligned with Cloud Functions `REVIEW_ACCESS_UID`.
+        static let authUid: String = "demo-account-for-app-review-only"
+
         // `legacyDemoProfileUid`
-        // Purpose: source uid whose profile snapshot is copied into the Google review account on first login.
+        // Purpose: source uid whose profile snapshot is copied into the dedicated review account on first login.
         static let legacyDemoProfileUid: String = "90dyrQAT7XM4fpppGXYTdfmrKem1"
+
+        // `accessHost`
+        // Purpose: custom-scheme host that identifies private review-access deep links.
+        static let accessHost: String = "review-access"
+
+        // `accessWebPath`
+        // Purpose: hosted web path that redirects into the app for private review-access links.
+        static let accessWebPath: String = "/review-access"
+
+        // `accessSecretQueryItem`
+        // Purpose: query-item key that carries the private review-access secret in the deep link.
+        static let accessSecretQueryItem: String = "token"
     }
 
     enum Premium {

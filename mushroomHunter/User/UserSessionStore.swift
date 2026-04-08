@@ -32,7 +32,7 @@ final class UserSessionStore: ObservableObject {
     @Published var isFeatureTutorialActive: Bool = false // Indicates any interactive feature tutorial is currently active and should lock tab switching.
     @Published var isFeatureTutorialTransitionPending: Bool = false // Keeps tutorial chrome hidden while onboarding hands off into the first feature tutorial.
     @Published var isDailyRewardPending: Bool = false // Indicates whether today's Taipei DailyReward has not been claimed yet.
-    @Published var isDemoReviewSession: Bool = false // Indicates the current signed-in user is the dedicated Google review account.
+    @Published var isDemoReviewSession: Bool = false // Indicates the current signed-in user is the dedicated review account.
     @Published var isLoading: Bool = false // State or dependency property.
     @Published var errorMessage: String? = nil // State or dependency property.
 
@@ -72,7 +72,7 @@ final class UserSessionStore: ObservableObject {
 
             self.authUid = user?.uid
             self.isLoggedIn = (user != nil)
-            self.isDemoReviewSession = self.isReviewGoogleAccount(email: user?.email)
+            self.isDemoReviewSession = self.isReviewAccount(user)
 
             if let user {
                 self.loadLocalProfile(for: user.uid)
@@ -168,9 +168,20 @@ final class UserSessionStore: ObservableObject {
         isShowingOnboardingTutorial = false
     }
 
-    /// Returns whether the provided email belongs to the dedicated App Review Google account.
+    /// Returns whether the provided user belongs to the dedicated App Review account.
+    /// - Parameter user: Firebase-authenticated user when available.
+    /// - Returns: `true` when the uid matches the private review-access account or the email matches the legacy Google review mailbox.
+    func isReviewAccount(_ user: FirebaseAuth.User?) -> Bool {
+        guard let user else { return false }
+        if user.uid == AppConfig.ReviewAccount.authUid {
+            return true
+        }
+        return isReviewGoogleAccount(email: user.email)
+    }
+
+    /// Returns whether the provided email belongs to the legacy App Review Google account.
     /// - Parameter email: Firebase-authenticated email address when available.
-    /// - Returns: `true` when the normalized email matches the owner-managed review account address.
+    /// - Returns: `true` when the normalized email matches the owner-managed legacy review account address.
     func isReviewGoogleAccount(email: String?) -> Bool {
         let normalizedEmail = (email ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)

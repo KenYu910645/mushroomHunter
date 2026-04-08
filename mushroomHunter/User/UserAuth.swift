@@ -11,21 +11,24 @@
 import Foundation
 import FirebaseAuth
 import FirebaseCore
+import FirebaseFunctions
 import GoogleSignIn
 import UIKit
 import AuthenticationServices
 import CryptoKit
 
 extension UserSessionStore {
+    /// Firebase callable handle used by the private review-access deep-link login flow.
+    private var reviewAccessFunctions: Functions {
+        Functions.functions(region: "us-central1")
+    }
+
     func signOut() { // Handles sign-out flow.
         isLoading = true
         defer { isLoading = false }
 
         do {
-            try Auth.auth().signOut()
-            isLoggedIn = false
-            authUid = nil
-            resetToDefaults()
+            try signOutFromAllProviders()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -56,19 +59,72 @@ extension UserSessionStore {
             let accessToken = result.user.accessToken.tokenString
             let credential = GoogleAuthProvider.credential(withIDToken: idToken, accessToken: accessToken)
             let authResult = try await Auth.auth().signIn(with: credential)
-            let isReviewAccount = isReviewGoogleAccount(email: authResult.user.email)
+            let isReviewSessionUser = isReviewAccount(authResult.user)
 
             authUid = authResult.user.uid
             isLoggedIn = true
-            isDemoReviewSession = isReviewAccount
+            isDemoReviewSession = isReviewSessionUser
             UserDefaults.standard.set(displayName, forKey: scopedKey(kDisplayName, uid: authResult.user.uid))
-            if isReviewAccount {
-                try await seedReviewGoogleProfileIfNeeded(from: authResult.user)
+            if isReviewSessionUser {
+                try await seedReviewProfileIfNeeded(from: authResult.user)
                 applyReviewSessionBypassIfNeeded()
             }
             await ensureUserProfile()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Signs in through the private App Review deep link by exchanging its secret for a Firebase custom token.
+    /// - Parameter payload: Parsed review-access payload extracted from the incoming URL.
+    func signInWithReviewAccess(_ payload: ReviewAccessPayload) async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        let trimmedSecret = payload.secret.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedSecret.isEmpty == false else {
+            errorMessage = NSLocalizedString("login_review_link_invalid", comment: "")
+            return
+        }
+
+        do {
+            if let currentUser = Auth.auth().currentUser,
+               currentUser.uid != AppConfig.ReviewAccount.authUid {
+                try signOutFromAllProviders()
+            }
+
+            if let currentUser = Auth.auth().currentUser,
+               currentUser.uid == AppConfig.ReviewAccount.authUid,
+               isDemoReviewSession {
+                applyReviewSessionBypassIfNeeded()
+                await refreshProfileFromBackend()
+                return
+            }
+
+            let callableResult = try await reviewAccessFunctions
+                .httpsCallable("createReviewAccessToken")
+                .call([
+                    "secret": trimmedSecret
+                ])
+            let resultData = callableResult.data as? [String: Any] ?? [:]
+            let customToken = (resultData["customToken"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard customToken.isEmpty == false else {
+                errorMessage = NSLocalizedString("login_review_link_invalid", comment: "")
+                return
+            }
+
+            let authResult = try await Auth.auth().signIn(withCustomToken: customToken)
+            authUid = authResult.user.uid
+            isLoggedIn = true
+            isDemoReviewSession = isReviewAccount(authResult.user)
+            UserDefaults.standard.set(displayName, forKey: scopedKey(kDisplayName, uid: authResult.user.uid))
+            try await seedReviewProfileIfNeeded(from: authResult.user)
+            applyReviewSessionBypassIfNeeded()
+            await ensureUserProfile()
+        } catch {
+            errorMessage = normalizedReviewAccessErrorMessage(from: error)
         }
     }
 
@@ -120,14 +176,43 @@ extension UserSessionStore {
                 let authResult = try await Auth.auth().signIn(with: credential)
                 authUid = authResult.user.uid
                 isLoggedIn = true
-                isDemoReviewSession = false
+                isDemoReviewSession = isReviewAccount(authResult.user)
                 UserDefaults.standard.set(displayName, forKey: scopedKey(kDisplayName, uid: authResult.user.uid))
+                if isDemoReviewSession {
+                    try await seedReviewProfileIfNeeded(from: authResult.user)
+                    applyReviewSessionBypassIfNeeded()
+                }
             } catch {
                 errorMessage = error.localizedDescription
             }
 
             await ensureUserProfile()
         }
+    }
+
+    /// Signs out Firebase Auth plus any cached Google provider session before auth switching.
+    private func signOutFromAllProviders() throws {
+        GIDSignIn.sharedInstance.signOut()
+        try Auth.auth().signOut()
+        isLoggedIn = false
+        authUid = nil
+        resetToDefaults()
+    }
+
+    /// Maps review-link auth failures into user-facing login copy.
+    /// - Parameter error: Raw callable/auth error thrown during review-link sign-in.
+    /// - Returns: Localized message safe for the login screen.
+    private func normalizedReviewAccessErrorMessage(from error: Error) -> String {
+        let nsError = error as NSError
+        let normalizedMessage = nsError.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalizedMessage.uppercased().contains("PERMISSION_DENIED") ||
+            normalizedMessage.uppercased().contains("INVALID REVIEW ACCESS LINK") {
+            return NSLocalizedString("login_review_link_invalid", comment: "")
+        }
+        guard normalizedMessage.isEmpty == false else {
+            return NSLocalizedString("login_review_link_invalid", comment: "")
+        }
+        return normalizedMessage
     }
 }
 

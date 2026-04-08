@@ -13,10 +13,10 @@ import FirebaseAuth
 import FirebaseFirestore
 
 extension UserSessionStore {
-    /// Copies the legacy demo profile into the dedicated Google review account on first login.
-    /// - Parameter user: Firebase-authenticated Google review user.
-    func seedReviewGoogleProfileIfNeeded(from user: FirebaseAuth.User) async throws {
-        guard isReviewGoogleAccount(email: user.email) else { return }
+    /// Copies the legacy demo profile into the dedicated review account on first login.
+    /// - Parameter user: Firebase-authenticated review user.
+    func seedReviewProfileIfNeeded(from user: FirebaseAuth.User) async throws {
+        guard isReviewAccount(user) else { return }
 
         let reviewUid = user.uid
         let userRef = Firestore.firestore().collection("users").document(reviewUid)

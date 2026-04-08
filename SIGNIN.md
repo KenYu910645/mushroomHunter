@@ -9,8 +9,9 @@
 - `mushroomHunter/Features/Shared/KeyboardDismissBridge.swift`: shared UIKit bridge used by profile create form to dismiss keyboard on outside taps without collapsing during scroll.
 - `mushroomHunter/User/UserSessionStore.swift`: shared user session state container.
 - `mushroomHunter/User/UserAuth.swift`: authentication and auth state handling, including Google review-account detection.
-- `mushroomHunter/User/UserProfile.swift`: profile-complete persistence/sync plus first-login seeding for the Google review account.
-- `mushroomHunter/Utilities/AppConfig.swift`: owner-managed review Google email and legacy demo profile source uid.
+- `mushroomHunter/User/UserProfile.swift`: profile-complete persistence/sync plus first-login seeding for the dedicated review account.
+- `mushroomHunter/Utilities/AppConfig.swift`: owner-managed review-account uid, private review-access link route, legacy Google fallback email, and legacy demo profile source uid.
+- `mushroomHunter/Utilities/RoomInviteLink.swift`: shared room/postcard invite parsing plus private review-access link parsing.
 - `mushroomHunter/Utilities/FriendCode.swift`: shared friend-code sanitizing/formatting/validation utility used by profile create flow.
 - `mushroomHunter/App/ContentView.swift`: app root routing between login, profile-form create mode, and main tabs.
 - `mushroomHunter/App/HoneyHubApp.swift`: app bootstrap and URL/open handling for auth and deep links.
@@ -28,7 +29,7 @@
   - Signed out -> `LoginView`
   - Signed in but profile incomplete -> `ProfileCreateEditView(mode: .create)`
   - Signed in and profile complete -> main tab flow
-  - Signed in through the dedicated Google review account -> main tab flow immediately, even before the live profile refresh completes
+  - Signed in through the private review-access link or the legacy dedicated Google review account -> main tab flow immediately, even before the live profile refresh completes
 - First-time user profile completion:
   - Requires display name and 12-digit friend code
   - Focused form inputs auto-scroll above keyboard overlap; single-line input keyboard dismisses on `Enter`.
@@ -39,11 +40,14 @@
   - Does not auto-open a static swipe tutorial anymore.
   - Interactive tutorials are now scenario-based and triggered contextually when users first enter relevant feature pages.
   - During first-login handoff into the initial Mushroom browse tutorial, the root tab bar is hidden before the tab shell appears so the tutorial `Back`/`Next` controls stay unobstructed.
-- Google review account:
-  - Uses the normal Google sign-in button on the production build.
-  - Detects the dedicated review account by matching the signed-in email against `AppConfig.ReviewAccount.googleEmail`.
-  - On first login, copies the legacy demo profile snapshot from `users/{AppConfig.ReviewAccount.legacyDemoProfileUid}` into the new Google-backed uid.
+- Review access link:
+  - App Review uses a private deep link instead of the normal Google sign-in button.
+  - The link opens `honeyhub://review-access` (or the matching hosted web redirect path) with a static secret query item.
+  - The client exchanges that secret with the `createReviewAccessToken` callable, receives a Firebase custom token, and signs in as `AppConfig.ReviewAccount.authUid`.
+  - If another user is currently signed in, the app signs out locally before completing review-link sign-in.
+  - On first login, the client copies the legacy demo profile snapshot from `users/{AppConfig.ReviewAccount.legacyDemoProfileUid}` into the dedicated review uid.
   - Marks profile/tutorial onboarding flags locally so the review account bypasses profile creation and all first-visit tutorials.
+  - Legacy Google review email matching remains as a compatibility fallback, but App Review should use the private review-access link.
 
 ## Related Implementation
 - `mushroomHunter/Features/Profile/LoginView.swift`
@@ -57,4 +61,4 @@
 
 ## Notes
 - Tutorial replay entry remains at Profile -> Settings -> Help, now opening a scenario list instead of one static swipe pager.
-- App Review submission should provide the dedicated Google review email/password and instruct reviewers to tap `Continue with Google`.
+- App Review submission should provide the private review-access link and state that opening the link signs the reviewer into the demo account automatically.

@@ -14,7 +14,7 @@ Main app flow after sign-in:
 3. Profile tab
 
 If signed out, users see the sign-in flow. First-time users complete profile creation, then interactive feature tutorials are triggered contextually (first-entry per scenario) with in-app highlight overlays and local tutorial scene data.
-App Store review now uses one dedicated Google review account on the normal production sign-in flow; that account bypasses profile creation/tutorials and seeds its profile from a legacy demo user snapshot on first login.
+App Store review now uses one dedicated private review-access deep link that signs into a dedicated review account; that account bypasses profile creation/tutorials and seeds its profile from a legacy demo user snapshot on first login.
 
 ## Documentation Map (Must Keep In Sync)
 Use and maintain these files when related code changes:
@@ -171,7 +171,7 @@ This is the source-of-truth feature map. Keep it updated whenever files are adde
 - `mushroomHunter/User/UserProfile.swift` (profile completion persistence/sync)
 - `mushroomHunter/App/ContentView.swift` (auth/profile-complete routing)
 - `mushroomHunter/App/HoneyHubApp.swift` (URL routing bootstrap)
-- `mushroomHunter/Utilities/AppConfig.swift` (owner-managed review Google email + legacy demo profile source uid)
+- `mushroomHunter/Utilities/AppConfig.swift` (owner-managed review-account uid, private review-link route, legacy review email fallback, and legacy demo profile source uid)
 - `mushroomHunter/Utilities/FriendCode.swift` (shared friend-code sanitize/validate/format utility used by profile create flow)
 
 ### TUTORIAL (`TUTORIAL.md`)
@@ -229,10 +229,13 @@ APP_PATH=$(ls -dt /Users/ken/Library/Developer/Xcode/DerivedData/mushroomHunter-
 wait
 ```
 
-### App Review Google Account
-- App Review uses the standard Google sign-in button on the production build.
-- The owner-managed review Google email is defined in `AppConfig.ReviewAccount.googleEmail`.
-- First login for that review account clones the legacy profile snapshot from `AppConfig.ReviewAccount.legacyDemoProfileUid` into the Google-backed uid and then bypasses profile creation/tutorial triggers.
+### App Review Access Link
+- App Review uses a private review-access deep link on the production build.
+- The dedicated review uid is defined in `AppConfig.ReviewAccount.authUid`.
+- The private deep-link route is defined by `AppConfig.ReviewAccount.accessHost`, `accessWebPath`, and `accessSecretQueryItem`.
+- Cloud Functions validates the link secret against environment variable `REVIEW_ACCESS_SECRET` and mints a Firebase custom token for the review uid.
+- First login for that review account clones the legacy profile snapshot from `AppConfig.ReviewAccount.legacyDemoProfileUid` into the dedicated review uid and then bypasses profile creation/tutorial triggers.
+- `AppConfig.ReviewAccount.googleEmail` remains only as a legacy fallback identifier for existing Google-based review sessions.
 
 ## Push To GitHub Workflow
 When user says "push to github", do:

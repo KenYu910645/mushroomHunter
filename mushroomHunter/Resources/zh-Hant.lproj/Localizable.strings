@@ -545,6 +545,7 @@
 "login_subtitle" = "連結來自世界各地的玩家";
 "login_continue_google" = "使用 Google 繼續";
 "login_google_error" = "無法找到用來顯示 Google 登入的畫面。";
+"login_review_link_invalid" = "此審核存取連結無效。";
 "session_error_apple_credential" = "Apple 憑證無效。";
 "session_error_apple_nonce" = "Apple 登入狀態遺失（nonce）。";
 "session_error_apple_token" = "缺少 Apple ID 權杖。";

@@ -25,6 +25,8 @@ const DEFAULT_JOIN_ROOM_LIMIT = 3;
 const PREMIUM_HOST_ROOM_LIMIT = 5;
 const PREMIUM_JOIN_ROOM_LIMIT = 10;
 const PREMIUM_SOURCE_APP_STORE = "app_store";
+// Keep this review uid aligned with `AppConfig.ReviewAccount.authUid` in the iOS app.
+const REVIEW_ACCESS_UID = stringifyValue(process.env.REVIEW_ACCESS_UID, "review-demo-account");
 // SMTP transport is lazily initialized and then reused across invocations.
 let cachedMailer = null;
 const userLocaleCache = new Map();
@@ -116,6 +118,11 @@ function normalizeMillisTimestamp(value) {
   if (!Number.isFinite(numericValue)) return null;
   const roundedValue = Math.trunc(numericValue);
   return roundedValue > 0 ? roundedValue : null;
+}
+
+// Resolves the configured static secret that unlocks the private review-access link flow.
+function configuredReviewAccessSecret() {
+  return stringifyValue(process.env.REVIEW_ACCESS_SECRET, "");
 }
 
 // Resolve whether one premium entitlement should be treated as active at the current moment.
@@ -1252,6 +1259,33 @@ exports.deleteUserAccount = onCall(
         });
         throw new HttpsError("internal", "Unable to delete account right now.");
       }
+    },
+);
+
+// Callable review-access token issuer used by the private App Review deep link.
+exports.createReviewAccessToken = onCall(
+    {
+      region: "us-central1",
+    },
+    async (request) => {
+      const configuredSecret = configuredReviewAccessSecret();
+      const providedSecret = stringifyValue(request.data?.secret, "");
+      if (!configuredSecret) {
+        logger.error("Review access callable invoked without REVIEW_ACCESS_SECRET configured");
+        throw new HttpsError("failed-precondition", "Review access is not configured.");
+      }
+      if (!providedSecret || providedSecret !== configuredSecret) {
+        logger.warn("Review access denied due to invalid secret");
+        throw new HttpsError("permission-denied", "Invalid review access link.");
+      }
+
+      const customToken = await admin.auth().createCustomToken(REVIEW_ACCESS_UID, {
+        isReviewAccess: true,
+      });
+      return {
+        customToken,
+        uid: REVIEW_ACCESS_UID,
+      };
     },
 );
 

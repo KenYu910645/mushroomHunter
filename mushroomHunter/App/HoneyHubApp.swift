@@ -48,6 +48,13 @@ struct HoneyHubApp: App {
                         return
                     }
 
+                    if let reviewAccessPayload = ReviewAccessLink.parsePayload(from: url) {
+                        Task {
+                            await session.signInWithReviewAccess(reviewAccessPayload)
+                        }
+                        return
+                    }
+
                     if let roomId = RoomInviteLink.parseRoomId(from: url) {
                         NotificationCenter.default.post(name: .didOpenRoomFromPush, object: roomId)
                         return

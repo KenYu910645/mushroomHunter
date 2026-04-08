@@ -29,7 +29,7 @@ service firebase.storage {
 ```
 
 ## Stack Overview
-- Authentication: Firebase Auth (Apple/Google; App Review uses one dedicated Google account on the standard production flow)
+- Authentication: Firebase Auth (Apple/Google; App Review uses one private review-access deep link that exchanges for a Firebase custom token)
 - Database: Cloud Firestore
 - File Storage: Firebase Storage (postcard images)
 - Event-history and push routing details: `EVENTS.md`
@@ -68,11 +68,14 @@ service firebase.storage {
 - Sign in (Apple/Google):
   - Auth operation only, then profile sync fills any missing `users/{uid}` defaults without overwriting existing `stars`/`honey` counters.
   - This missing-field repair also covers partial docs created earlier by token/bootstrap writes, so new users still receive a complete wallet/profile document with `honey`, `stars`, limits, premium flags, locale, and timestamps.
-- Sign in (dedicated Google review account):
-  - Uses the normal Google auth flow.
-  - Client matches the signed-in email against `AppConfig.ReviewAccount.googleEmail`.
-  - On first login only, the client reads `users/{AppConfig.ReviewAccount.legacyDemoProfileUid}` and copies that snapshot into the Google-backed `users/{uid}` doc, excluding the legacy `fcmToken`.
+- Sign in (private review-access link):
+  - App opens a private `review-access` deep link that carries a static secret query item.
+  - Client calls callable `createReviewAccessToken` with that secret.
+  - Cloud Functions validates the secret against `REVIEW_ACCESS_SECRET` and returns a Firebase custom token for `REVIEW_ACCESS_UID` (defaults to `review-demo-account`, which must stay aligned with `AppConfig.ReviewAccount.authUid`).
+  - Client signs in with `Auth.signIn(withCustomToken:)`.
+  - On first login only, the client reads `users/{AppConfig.ReviewAccount.legacyDemoProfileUid}` and copies that snapshot into the dedicated review `users/{uid}` doc, excluding the legacy `fcmToken`.
   - After the seed write, the same `users/{uid}` refresh/ensure path runs as other providers.
+  - Legacy Google review email matching remains supported as a compatibility fallback, but App Review should use the private review-access link.
 
 ### Profile Tab
 - Open profile tab:
@@ -120,6 +123,10 @@ service firebase.storage {
     - update effective `maxHostRoom`
     - update effective `maxJoinRoom`
     - update `updatedAt`
+
+## Operational Notes
+- Private review-access login requires Cloud Functions environment variable `REVIEW_ACCESS_SECRET`.
+- Optional Cloud Functions environment variable `REVIEW_ACCESS_UID` can override the default dedicated review uid; when changed, keep it aligned with `AppConfig.ReviewAccount.authUid`.
 
 ### Notification Inbox (Bell)
 - Open inbox from Mushroom/Postcard top-right bell:

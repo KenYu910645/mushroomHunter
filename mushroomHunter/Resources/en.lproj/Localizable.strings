@@ -558,6 +558,7 @@
 "login_subtitle" = "Connect players all around the world";
 "login_continue_google" = "Continue with Google";
 "login_google_error" = "Unable to find a view controller to present Google Sign-In.";
+"login_review_link_invalid" = "This review access link is invalid.";
 "session_error_apple_credential" = "Invalid Apple credential.";
 "session_error_apple_nonce" = "Missing Apple sign-in state (nonce).";
 "session_error_apple_token" = "Missing Apple ID token.";

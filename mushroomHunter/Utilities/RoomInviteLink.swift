@@ -49,6 +49,51 @@ enum RoomInviteLink {
     }
 }
 
+/// Parsed payload for a private App Review access deep link.
+struct ReviewAccessPayload: Equatable {
+    /// Static secret extracted from the review-access URL query string.
+    let secret: String
+}
+
+/// Builds and parses private review-access URLs used by App Review.
+enum ReviewAccessLink {
+    /// Custom URL scheme shared with the rest of the app deep-link routes.
+    private static let customScheme = "honeyhub"
+    /// Hosted Firebase web domain used by invite and review links.
+    private static let webHost = "mushroomhunter-3a937.web.app"
+
+    /// Parses a review-access payload when the incoming URL matches the private review route.
+    /// - Parameter url: Incoming app-open URL.
+    /// - Returns: Parsed review-access payload, or `nil` when the URL is unrelated.
+    static func parsePayload(from url: URL) -> ReviewAccessPayload? {
+        let isCustomReviewRoute = (
+            url.scheme?.lowercased() == customScheme &&
+            url.host?.lowercased() == AppConfig.ReviewAccount.accessHost.lowercased()
+        )
+        let isHostedReviewRoute = (
+            url.host?.lowercased() == webHost &&
+            normalizeHostedPath(url.path) == AppConfig.ReviewAccount.accessWebPath.lowercased()
+        )
+        guard isCustomReviewRoute || isHostedReviewRoute else { return nil }
+
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let secret = components?.queryItems?
+            .first(where: { $0.name == AppConfig.ReviewAccount.accessSecretQueryItem })?
+            .value?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return ReviewAccessPayload(secret: secret)
+    }
+
+    /// Normalizes a hosted URL path for case-insensitive review-route matching.
+    /// - Parameter path: Raw URL path.
+    /// - Returns: Lowercased path with one leading slash and no trailing slash.
+    private static func normalizeHostedPath(_ path: String) -> String {
+        let trimmedPath = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard trimmedPath.isEmpty == false else { return "/" }
+        return "/" + trimmedPath.lowercased()
+    }
+}
+
 enum PostcardInviteLink {
     private static let customScheme = "honeyhub"
     private static let postcardHost = "postcard"
